@@ -1,12 +1,11 @@
-import UserForm from "./components/UserForm";
-import UserList from "./components/UserList";
+import React from "react";
+import "./App.css";
+import FloorPlanPage from "./pages/FloorPlanPage"; // Import the new page
 
 function App() {
   return (
-    <div>
-      <h1>House Plan Generator</h1>
-      <UserForm />
-      <UserList />
+    <div className="App">
+      <FloorPlanPage />
     </div>
   );
 }
