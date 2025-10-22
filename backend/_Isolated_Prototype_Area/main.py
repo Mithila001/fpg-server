@@ -67,6 +67,9 @@ def translate_and_reorder_polygon(polygon_coordinates, TA):
 
 
 def rotate_polygon_to_x_axis(translated_polygon, TA): # Step 2  
+
+
+
     
     # We must first re-run the translation logic to find the translated coordinates
     # of the TA line endpoints, which we need to calculate the angle.
@@ -134,6 +137,60 @@ def split_polygon_chains(coordinates):
         A tuple: (left_chain, right_chain, y_min, y_max)
     """
     
+
+    # 1) Pick bottom-most (min y); on tie pick left-most (min x)
+    bottom_coord = min(coordinates, key=lambda c: (c[1], c[0]))
+
+    # 2) Rotate original list so bottom_coord is first (preserve cyclic order)
+    idx = coordinates.index(bottom_coord)
+    rotated = coordinates[idx:] + coordinates[:idx]
+
+    # 3) Ensure clockwise order. Compute signed area; if positive (CCW), reverse
+    def signed_area(poly):
+        a = 0.0
+        n = len(poly)
+        for i in range(n):
+            x1,y1 = poly[i]
+            x2,y2 = poly[(i+1) % n]
+            a += x1*y2 - x2*y1
+        return a / 2.0
+
+    area = signed_area(rotated)
+    if area > 0:  # polygon currently CCW -> make clockwise
+        rev = rotated[::-1]
+        # rotate reversed list to start at bottom_coord
+        ridx = rev.index(bottom_coord)
+        rotated_clockwise = rev[ridx:] + rev[:ridx]
+    else:
+        rotated_clockwise = rotated
+
+    # 4) compute min_y and max_y from rotated_clockwise
+    y_vals = [y for _, y in rotated_clockwise]
+    min_y = min(y_vals)
+    max_y = max(y_vals)
+
+    # 5) split so the first coordinate with y >= max_y
+    #    is included in BOTH left_chain (as the last) and right_chain (as the first)
+    # find index of first coord with y >= max_y
+    first_max_idx = next((i for i, (_, y) in enumerate(rotated_clockwise) if y >= max_y), None)
+
+    if first_max_idx is None:
+        # defensive fallback (shouldn't happen): everything to left_chain, right_chain empty
+        left_chain = rotated_clockwise[:] 
+        right_chain = []
+    else:
+        left_chain = rotated_clockwise[:first_max_idx] + [rotated_clockwise[first_max_idx]]
+        right_chain = rotated_clockwise[first_max_idx:]
+
+    # results (original 'coordinates' unchanged)
+    new_coordinates = rotated_clockwise
+    ################################################################################################
+
+    print("Rotated Clockwise Coordinates:", rotated_clockwise)
+    print("Left Chain:", left_chain)
+    print("Right Chain:", right_chain)
+    plot_polygons([left_chain,right_chain])
+
     # ----------------------------------------------------
     # PHASE 1: FIND STANDARD START POINT (Bottom-Left)
     # ----------------------------------------------------
@@ -437,31 +494,30 @@ originalPolygon = [(1, 7), (-4, 5), (-5, -1), (-2, -6), (3, -4), (6, 2)]
 TA_line = (originalPolygon[0], originalPolygon[1])
 #TA_line = (originalPolygon[0], originalPolygon[1])
 zeroed_polygon = translate_and_reorder_polygon(originalPolygon, TA_line)
-#plot_polygons([originalPolygon, zeroed_polygon])
 rotated_polygon, angle = rotate_polygon_to_x_axis(zeroed_polygon, TA_line)
-
-
-print("Original Polygon:", originalPolygon)
-print("Zeroed Polygon:", zeroed_polygon)
-print("Rotated Polygon:", rotated_polygon)
-print("Rotation Angle (radians):", angle)
-
 left_chain_result, right_chain_result, y_min, y_max = split_polygon_chains(rotated_polygon)
-print("Left Chain:", left_chain_result)
-print("Right Chain:", right_chain_result)
-print("Y Min:", y_min)
-print("Y Max:", y_max)
-cross_section_data = sweep_line_width_profile(left_chain_result, right_chain_result, min_y=y_min, max_y=y_max, y_resolution=0.5)
-best_rectangle = find_max_area_rectangle(cross_section_data, min_height=MIN_HEIGHT, min_width=MIN_WIDTH)
-largest_rectangle_coords = get_rectangle_coordinates(best_rectangle, cross_section_data)
+#plot_polygons([rotated_polygon])
+#cross_section_data = sweep_line_width_profile(left_chain_result, right_chain_result, min_y=y_min, max_y=y_max, y_resolution=0.5)
+#best_rectangle = find_max_area_rectangle(cross_section_data, min_height=MIN_HEIGHT, min_width=MIN_WIDTH)
+#largest_rectangle_coords = get_rectangle_coordinates(best_rectangle, cross_section_data)
 
-print("Left Chain:", left_chain_result)
-print("Right Chain:", right_chain_result)
-print("Cross Section Data:", cross_section_data)
-print("Best Rectangle:", best_rectangle)
-print("Largest Rectangle Coordinates:", largest_rectangle_coords)
+
+wants_to_print_all = True
+if(wants_to_print_all):
+    print("Original Polygon:", originalPolygon)
+    print("Zeroed Polygon:", zeroed_polygon)
+    print("Rotated Polygon:", rotated_polygon)
+    print("Rotation Angle (radians):", angle)
+    # print("Left Chain:", left_chain_result)
+    # print("Right Chain:", right_chain_result)
+    # print("Y Min:", y_min)
+    # print("Y Max:", y_max)
+    # print("Left Chain:", left_chain_result)
+    # print("Right Chain:", right_chain_result)
+    # print("Cross Section Data:", cross_section_data)
+    # print("Best Rectangle:", best_rectangle)
+    # print("Largest Rectangle Coordinates:", largest_rectangle_coords)
 
 #plot_polygons([ originalPolygon, rotated_polygon, largest_rectangle_coords])
-plot_polygons([rotated_polygon,largest_rectangle_coords])
 #plot_polygons([originalPolygon, zeroed_polygon])
 print("Plot displayed.")
