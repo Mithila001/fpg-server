@@ -122,64 +122,108 @@ def rotate_polygon_to_x_axis(translated_polygon, TA): # Step 2
 
 
 def split_polygon_chains(coordinates):
-      
-    # Initialize the chains
-    left_chain = []
-    right_chain = []
+    """
+    Splits a polygon's ordered coordinates into a left chain (bottom-to-top) 
+    and a right chain (top-to-bottom), ensuring the traversal starts at the 
+    bottom-most and left-most point for robustness.
+
+    Args:
+        coordinates: A list of (x, y) tuples representing the polygon vertices in order.
+
+    Returns:
+        A tuple: (left_chain, right_chain, y_min, y_max)
+    """
     
-    # 1. Find the maximum Y-coordinate (y_max)
-    # This uses a simple loop, avoiding the max() function with a lambda for simplicity.
-    y_max = coordinates[0][1]
-    y_min = coordinates[0][1] # Also track y_min, although not strictly needed for splitting logic
+    # ----------------------------------------------------
+    # PHASE 1: FIND STANDARD START POINT (Bottom-Left)
+    # ----------------------------------------------------
     
-    for x, y in coordinates:
+    min_point = coordinates[0]
+    start_index = 0
+    
+    for i, (x, y) in enumerate(coordinates):
+        if y < min_point[1]:
+            min_point = (x, y)
+            start_index = i
+        elif math.isclose(y, min_point[1]) and x < min_point[0]:
+            min_point = (x, y)
+            start_index = i
+
+    y_min = min_point[1]
+    
+    N = len(coordinates)
+    ordered_coordinates = []
+    
+    for i in range(N):
+        idx = (start_index + i) % N
+        ordered_coordinates.append(coordinates[idx])
+        
+    # Find Y_max and its index (first occurrence)
+    y_max = ordered_coordinates[0][1]
+    y_max_index = 0
+    
+    for i, (x, y) in enumerate(ordered_coordinates):
         if y > y_max:
             y_max = y
-        if y < y_min:
-            y_min = y
-            
-    # 2. Split the chain at the first occurrence of y_max
+            y_max_index = i
+        elif math.isclose(y, y_max) and i < y_max_index:
+             # If y is the same, keep the first one encountered (smaller index)
+             pass
+    # The new list 'ordered_coordinates' now starts at the lowest Y-value.
     
-    # 'splitting_point_found' is used as a flag to switch from filling left_chain to right_chain.
-    splitting_point_found = False
-    
-    # Variable to help with the duplicate Y-value check
-    previous_y = None 
-    
-    # Go through all coordinates from start to finish
-    for x, y in coordinates:
-        
-        # --- Handle Duplicate Y-values ---
-        # If the current Y is the same as the previous point stored, skip the current point.
-        # This prevents redundant horizontal segments from breaking the vertical chain.
-        if y == previous_y:
-            #right_chain.append((x, y))
-            continue
-            
-        # --- Chain Splitting Logic ---
-        if not splitting_point_found:
-            # Store point in the left chain
-            left_chain.append((x, y))
-            
-            # Check if this point is the y_max point
-            if y == y_max:
-                splitting_point_found = True
-        else:
-            # Store the rest of the points in the right chain
-            right_chain.append((x, y))
+    # ----------------------------------------------------
+    # PHASE 2: SLICE THE CHAINS (Most Robust Method)
+    # ----------------------------------------------------
 
-        # Update the previous Y-value for the next iteration's check
-        previous_y = y
+    # Left chain runs from y_min up to and including the FIRST y_max point.
+    # The left chain is ordered from bottom to top.
+    left_chain_raw = ordered_coordinates[:y_max_index + 1]
+    
+    # Right chain runs from the y_max point back to the y_min point.
+    # The right chain starts with the point AFTER the y_max point, and goes until the end.
+    right_chain_raw = ordered_coordinates[y_max_index:]
+    
+    # The right chain currently includes the y_max point (first element) 
+    # and the y_min point (last element). We need to remove both duplicates.
+    
+    # Right chain: Remove the y_max point (which is duplicated by left_chain)
+    right_chain_result = right_chain_raw[1:]
+    
+    # Right chain: Remove the y_min point (which is the last element of the ordered list)
+    # The y_min point is the start point, which is the last point in the full circular traversal.
+    # If the right chain is longer than 1, we exclude the last point (which is the start point).
+    if len(right_chain_result) > 1 and math.isclose(right_chain_result[-1][1], y_min):
+        right_chain_result.pop()
+
+    # The left chain contains y_min and y_max. It needs no modification except removing vertical redundancy.
+    left_chain_result = left_chain_raw
+    
+    # ----------------------------------------------------
+    # PHASE 3: REMOVE REDUNDANT VERTICAL POINTS (Horizontal Edges)
+    # ----------------------------------------------------
+
+    def remove_vertical_redundancy(chain):
+        if not chain:
+            return []
         
-    # 3. Final steps to ensure the right chain is complete
+        cleaned_chain = [chain[0]]
+        for i in range(1, len(chain)):
+            # Only append if the Y value is different from the previous point's Y value
+            if not math.isclose(chain[i][1], cleaned_chain[-1][1]):
+                cleaned_chain.append(chain[i])
+                
+        return cleaned_chain
+
+    left_chain = remove_vertical_redundancy(left_chain_result)
+    right_chain = remove_vertical_redundancy(right_chain_result)
     
-    # The left chain already contains the y_max point. 
-    # The right chain is currently missing the starting point (the first vertex) 
-    # to close its loop and act as a sequential chain.
-    
-    # We add the starting point (the first vertex) to the end of the right chain.
-    # We use the first point of the ORIGINAL coordinates to ensure closure.
-    right_chain.append(coordinates[0]) 
+    # FINAL SAFETY CHECK: Ensure the chains are not too short for your find_active_segment
+    if len(left_chain) < 2 or len(right_chain) < 2:
+        print("Warning: One or both chains are too short (length < 2).")
+        # In a polygon with > 3 vertices, this implies an issue with the y_max/y_min identification or redundancy removal.
+        # However, for a simple convex shape, this should be fine.
+        # If the polygon has a horizontal top or bottom, the redundancy removal is correct.
+        pass
 
     return left_chain, right_chain, y_min, y_max
 
@@ -243,23 +287,8 @@ def sweep_line_width_profile(left_chain, right_chain, min_y, max_y, y_resolution
 def find_max_area_rectangle(cross_sections_data, min_height=0.5, min_width=0.5):
     """
     Finds the dimensions of the largest valid rectangle that can be inscribed 
-    in the polygon based on the given width profile.
-
-    Args:
-        cross_sections_data: A list of dictionaries containing 'y', 'x_left', 'x_right', and 'width'.
-        min_height: The minimum acceptable height for a rectangle.
-        min_width: The minimum acceptable width for a rectangle.
-
-    Returns:
-        A dictionary containing the dimensions and profile indices of the maximum area rectangle:
-        {
-            'max_area': float, 
-            'width': float, 
-            'height': float,
-            'y_bottom_index': int,
-            'y_top_index': int
-        }
-    
+    in the polygon based on the given width profile, ensuring full containment 
+    across the entire height of the rectangle.
     """
     
     max_area = 0.0
@@ -276,43 +305,58 @@ def find_max_area_rectangle(cross_sections_data, min_height=0.5, min_width=0.5):
     # Outer loop: Sets the bottom edge of the potential rectangle (index i)
     for i in range(N):
         y_bottom = cross_sections_data[i]['y']
-
-        # Keep track of the minimum width found between i and the current j
-        # Initialize with the width at the bottom edge.
-        smallest_width = cross_sections_data[i]['width']
-
+        
+        # 1. Initialize the Bounding Box for the current range [i, j]
+        # X-left boundary must be the MAX of all x_lefts from i to j
+        max_x_left = cross_sections_data[i]['x_left']
+        
+        # X-right boundary must be the MIN of all x_rights from i to j
+        min_x_right = cross_sections_data[i]['x_right']
+        
         # Inner loop: Sets the top edge of the potential rectangle (index j)
-        # We only look at points *above* the bottom edge (j > i)
         for j in range(i + 1, N):
             y_top = cross_sections_data[j]['y']
+            current_data = cross_sections_data[j]
 
-            # 1. Update the smallest width for the current range [i, j]
-            current_width = cross_sections_data[j]['width']
-            if current_width < smallest_width:
-                smallest_width = current_width
+            # 2. Update the Bounding Box for the new slice 'j'
             
-            # 2. Check local height constraint
+            # The left edge of the rectangle must be contained by the tightest left boundary so far
+            if current_data['x_left'] > max_x_left:
+                max_x_left = current_data['x_left']
+            
+            # The right edge of the rectangle must be contained by the tightest right boundary so far
+            if current_data['x_right'] < min_x_right:
+                min_x_right = current_data['x_right']
+            
+            # 3. Calculate the actual contained width
+            local_width = min_x_right - max_x_left
+            
+            
+            # --- Safety Check: Your Custom Implementation ---
+            # This check now *inherently* handles your containment concern.
+            # If the min_x_right becomes less than max_x_left, the width is negative/zero, 
+            # meaning the bounding boxes no longer overlap, and the rectangle is impossible.
+            if local_width < min_width:
+                # If the width is too small, no rectangle starting at 'i' can be valid above 'j'.
+                # We can safely break the inner loop entirely.
+                break 
+
+            
+            # 4. Check local height constraint
             local_height = y_top - y_bottom
             if local_height < min_height:
-                # If the height is too small, skip to the next top edge (j)
-                # Since the heights are increasing, if it fails here, it will fail for all subsequent j's too,
-                # but we continue to the next j to ensure we find the smallest_width correctly 
-                # (although the logic relies on strictly increasing height_profile, which it should be).
+                # Height is guaranteed to increase, so we continue to the next 'j'
                 continue 
                 
-            # 3. Check smallest width constraint
-            if smallest_width < min_width:
-                # If the current smallest width is too small, skip to the next top edge (j)
-                continue
-                
-            # 4. Calculate the area
-            area = smallest_width * local_height
+            # 5. Calculate the area (using the guaranteed contained width)
+            area = local_width * local_height
             
-            # 5. Check if this is the new maximum area
+            # 6. Check if this is the new maximum area
             if area > max_area:
                 max_area = area
+                # Store the result using the calculated local_width
                 best_result['max_area'] = area
-                best_result['width'] = smallest_width
+                best_result['width'] = local_width
                 best_result['height'] = local_height
                 best_result['y_bottom_index'] = i
                 best_result['y_top_index'] = j
@@ -323,71 +367,55 @@ def find_max_area_rectangle(cross_sections_data, min_height=0.5, min_width=0.5):
 def get_rectangle_coordinates(best_result, sweep_marks):
     """
     Calculates the four corner coordinates of the maximum area rectangle 
-    in the current (translated and rotated) coordinate system.
+    by determining the tightest X-boundaries within the identified height range.
 
     Args:
-        best_result: The dictionary containing the results of the max area search, 
-                     including 'width', 'y_bottom_index', and 'y_top_index'.
-        sweep_marks: The list of profile dictionaries (the result of sweep_line_marks_calculator).
+        best_result: The dictionary containing the results of the max area search.
+        sweep_marks: The list of profile dictionaries.
                      
     Returns:
-        A list of (x, y) tuples representing the four corners of the rectangle:
-        [(x_BL, y_BL), (x_BR, y_BR), (x_TR, y_TR), (x_TL, y_TL)]
+        A list of (x, y) tuples representing the four corners of the rectangle.
     """
     
-    # 1. Extract the key data points defining the rectangle's extent
     y_bottom_index = best_result['y_bottom_index']
     y_top_index = best_result['y_top_index']
-    constraining_width = best_result['width']
     
-    # Get the exact Y-levels from the sweep marks list
+    # 1. Determine the exact Y-levels
     y_bottom = sweep_marks[y_bottom_index]['y']
     y_top = sweep_marks[y_top_index]['y']
     
+    # 2. Re-sweep the range [y_bottom_index, y_top_index] to find the tightest X-boundaries
     
-    # 2. Find the constraining slice (the bottleneck)
+    # Initialize boundaries with the starting slice data
+    max_x_left = sweep_marks[y_bottom_index]['x_left']
+    min_x_right = sweep_marks[y_bottom_index]['x_right']
     
-    constraining_x_left = 0.0
-    constraining_x_right = 0.0
-    found_constraint = False
-    
-    # Iterate through the range of profile slices that define the rectangle
-    # We check from the bottom index up to the top index (inclusive)
+    # Iterate through the range of profile slices (from bottom index to top index, inclusive)
     for k in range(y_bottom_index, y_top_index + 1):
         slice_data = sweep_marks[k]
         
-        # Check if the width of this slice matches the maximum allowed width for the rectangle
-        # Using math.isclose for reliable float comparison
-        if math.isclose(slice_data['width'], constraining_width):
-            # This slice is the bottleneck. We use its x_left and x_right to define the rectangle's x-extent.
-            constraining_x_left = slice_data['x_left']
-            constraining_x_right = slice_data['x_right']
-            found_constraint = True
-            # We can break early since the first one found with the min width defines the X-extent.
-            break 
-            
-    # Safety Check
-    if not found_constraint:
-        # This should not happen with correct inputs, but ensures safe code execution.
-        print("Error: Could not find the slice that defines the constraining width.")
-        return []
+        # Max of all x_lefts defines the final rectangle's left edge
+        if slice_data['x_left'] > max_x_left:
+            max_x_left = slice_data['x_left']
         
-    # 3. Define the four corners of the rectangle (in the current rotated/translated system)
+        # Min of all x_rights defines the final rectangle's right edge
+        if slice_data['x_right'] < min_x_right:
+            min_x_right = slice_data['x_right']
+
+    # We skip the problematic Step 2 from your original code entirely!
     
-    # Bottom-Left (BL)
-    x_BL = constraining_x_left
+    # 3. Define the four corners using the guaranteed tight X-boundaries
+    
+    x_BL = max_x_left
     y_BL = y_bottom
     
-    # Bottom-Right (BR)
-    x_BR = constraining_x_right
+    x_BR = min_x_right
     y_BR = y_bottom
     
-    # Top-Right (TR)
-    x_TR = constraining_x_right
+    x_TR = min_x_right
     y_TR = y_top
     
-    # Top-Left (TL)
-    x_TL = constraining_x_left
+    x_TL = max_x_left
     y_TL = y_top
     
     rectangle_coordinates_rotated = [
@@ -405,12 +433,13 @@ MIN_WIDTH = 1.0
 MIN_HEIGHT = 0.5
 # --- Example Usage ---
 # Define the coordinates for a simple polygon
-originalPolygon = [(-6, 0), (-3, 5), (4, 6), (7, 2), (3, -4), (-2, -3)]
-TA_line = (originalPolygon[1], originalPolygon[0])
+originalPolygon = [(1, 7), (-4, 5), (-5, -1), (-2, -6), (3, -4), (6, 2)]
+TA_line = (originalPolygon[0], originalPolygon[1])
 #TA_line = (originalPolygon[0], originalPolygon[1])
 zeroed_polygon = translate_and_reorder_polygon(originalPolygon, TA_line)
 #plot_polygons([originalPolygon, zeroed_polygon])
 rotated_polygon, angle = rotate_polygon_to_x_axis(zeroed_polygon, TA_line)
+
 
 print("Original Polygon:", originalPolygon)
 print("Zeroed Polygon:", zeroed_polygon)
@@ -428,11 +457,11 @@ largest_rectangle_coords = get_rectangle_coordinates(best_rectangle, cross_secti
 
 print("Left Chain:", left_chain_result)
 print("Right Chain:", right_chain_result)
-#print("Cross Section Data:", cross_section_data)
-#print("Best Rectangle:", best_rectangle)
-#print("Largest Rectangle Coordinates:", largest_rectangle_coords)
+print("Cross Section Data:", cross_section_data)
+print("Best Rectangle:", best_rectangle)
+print("Largest Rectangle Coordinates:", largest_rectangle_coords)
 
 #plot_polygons([ originalPolygon, rotated_polygon, largest_rectangle_coords])
-plot_polygons([left_chain_result,right_chain_result])
+plot_polygons([rotated_polygon,largest_rectangle_coords])
 #plot_polygons([originalPolygon, zeroed_polygon])
 print("Plot displayed.")
