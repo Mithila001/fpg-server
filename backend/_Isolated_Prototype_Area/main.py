@@ -204,6 +204,86 @@ def sweep_line_width_profile(left_chain, right_chain, min_y, max_y, y_resolution
         
     return height_profile, width_profile
 
+
+def find_max_area_rectangle(height_profile, width_profile, min_height=0.5, min_width=0.5):
+    """
+    Finds the dimensions of the largest valid rectangle that can be inscribed 
+    in the polygon based on the given width profile.
+
+    Args:
+        height_profile: A list of Y-coordinates (heights) where widths were calculated.
+        width_profile: A list of corresponding widths at those Y-coordinates.
+        min_height: The minimum acceptable height for a rectangle.
+        min_width: The minimum acceptable width for a rectangle.
+
+    Returns:
+        A dictionary containing the dimensions and profile indices of the maximum area rectangle:
+        {
+            'max_area': float, 
+            'width': float, 
+            'height': float,
+            'y_bottom_index': int,
+            'y_top_index': int
+        }
+    """
+    
+    max_area = 0.0
+    best_result = {
+        'max_area': 0.0,
+        'width': 0.0,
+        'height': 0.0,
+        'y_bottom_index': -1,
+        'y_top_index': -1
+    }
+    
+    N = len(height_profile)
+    
+    # Outer loop: Sets the bottom edge of the potential rectangle (index i)
+    for i in range(N):
+        y_bottom = height_profile[i]
+        
+        # Keep track of the minimum width found between i and the current j
+        # Initialize with the width at the bottom edge.
+        smallest_width = width_profile[i] 
+        
+        # Inner loop: Sets the top edge of the potential rectangle (index j)
+        # We only look at points *above* the bottom edge (j > i)
+        for j in range(i + 1, N):
+            y_top = height_profile[j]
+            
+            # 1. Update the smallest width for the current range [i, j]
+            current_width = width_profile[j]
+            if current_width < smallest_width:
+                smallest_width = current_width
+            
+            # 2. Check local height constraint
+            local_height = y_top - y_bottom
+            if local_height < min_height:
+                # If the height is too small, skip to the next top edge (j)
+                # Since the heights are increasing, if it fails here, it will fail for all subsequent j's too,
+                # but we continue to the next j to ensure we find the smallest_width correctly 
+                # (although the logic relies on strictly increasing height_profile, which it should be).
+                continue 
+                
+            # 3. Check smallest width constraint
+            if smallest_width < min_width:
+                # If the current smallest width is too small, skip to the next top edge (j)
+                continue
+                
+            # 4. Calculate the area
+            area = smallest_width * local_height
+            
+            # 5. Check if this is the new maximum area
+            if area > max_area:
+                max_area = area
+                best_result['max_area'] = area
+                best_result['width'] = smallest_width
+                best_result['height'] = local_height
+                best_result['y_bottom_index'] = i
+                best_result['y_top_index'] = j
+                
+    return best_result
+
 # --- Hardcoded Constraints (as requested) ---
 # These would be parameters in a final algorithm, but are hardcoded for this step.
 MIN_WIDTH = 1.0
