@@ -2,37 +2,69 @@ import math
 from plotter import plot_polygons
 from myUtilities import calculate_distance, find_active_segment, get_x_intersection
 
-def translate_to_origin(polygon_coordinates, TA): # Step 1  
-    # 1. Unpack the coordinates of the TA line
+def translate_and_reorder_polygon(polygon_coordinates, TA):
+    """
+    Translates the polygon so the TA point closest to (0,0) is moved to (0,0),
+    and reorders the resulting coordinate list to start at (0,0).
+
+    Args:
+        polygon_coordinates: A list of (x, y) tuples for the polygon.
+        TA: A tuple containing the two endpoints of the line segment, ((xA, yA), (xT, yT)).
+
+    Returns:
+        A list of (x, y) tuples representing the translated and reordered polygon.
+    """
+    
+    # 1. Determine the Pivot Point (P) and Translation Vector
     point_A = TA[0]
     point_T = TA[1]
     
-    # 2. Find the vertice that is closer to (0,0)
     dist_A = calculate_distance(point_A)
     dist_T = calculate_distance(point_T)
 
     if dist_A <= dist_T:
-        # A is the closest point to (0,0), so A is the pivot (Px, Py)
-        (Px, Py) = point_A
+        pivot_point = point_A
     else:
-        # T is the closest point to (0,0), so T is the pivot (Px, Py)
-        (Px, Py) = point_T
+        pivot_point = point_T
     
-    # 3. Calculate the translation vector (the movement needed)
-    # To move Px to 0, we need to subtract Px.
+    # Calculate the translation vector
+    (Px, Py) = pivot_point
     dx = -Px 
     dy = -Py
 
-    # 4. Apply the translation to all polygon coordinates
+    # 2. Find the index of the Pivot Point in the original coordinate list
+    # This point will become the new starting point (index 0)
+    
+    pivot_index = -1
+    try:
+        pivot_index = polygon_coordinates.index(pivot_point)
+    except ValueError:
+        # This handles a case where the TA point might not be exactly in the polygon_coordinates,
+        # which shouldn't happen for a polygon defined by its vertices.
+        print("Warning: Pivot point not found in polygon coordinates. Using default start.")
+        pivot_index = 0
+
+    # 3. Apply the translation to all polygon coordinates and store the result
     translated_coordinates = []
     for (x, y) in polygon_coordinates:
-        # Basic vector addition (or subtraction)
         new_x = x + dx
         new_y = y + dy
         translated_coordinates.append((new_x, new_y))
-
+    
+    # 4. Reorder the list to start at the translated pivot point (0, 0)
+    
+    # Slice the list from the pivot index to the end
+    first_part = translated_coordinates[pivot_index:]
+    
+    # Slice the list from the start up to (but not including) the pivot index
+    second_part = translated_coordinates[:pivot_index]
+    
+    # Combine the parts: [Pivot_Point, ..., Last_Point, First_Point, ..., Point_Before_Pivot]
+    reordered_coordinates = first_part + second_part
  
-    return translated_coordinates
+    return reordered_coordinates
+
+
 
 def rotate_polygon_to_x_axis(translated_polygon, TA): # Step 2  
     
@@ -76,17 +108,17 @@ def rotate_polygon_to_x_axis(translated_polygon, TA): # Step 2
     sin_theta = math.sin(rotation_angle)
     
     # 6. Apply the rotation to the translated polygon
-    relative_coordinates = []
+    rotated_polygon = []
     for (x, y) in translated_polygon:
         
         # Apply the rotation formula around the origin (0, 0):      
         new_x = x * cos_theta - y * sin_theta
         new_y = x * sin_theta + y * cos_theta
         
-        relative_coordinates.append((new_x, new_y))
+        rotated_polygon.append((new_x, new_y))
         
     # 7. Return the result and the angle
-    return relative_coordinates, rotation_angle
+    return rotated_polygon, rotation_angle
 
 
 def split_polygon_chains(coordinates):
@@ -121,7 +153,7 @@ def split_polygon_chains(coordinates):
         # If the current Y is the same as the previous point stored, skip the current point.
         # This prevents redundant horizontal segments from breaking the vertical chain.
         if y == previous_y:
-            right_chain.append((x, y))
+            #right_chain.append((x, y))
             continue
             
         # --- Chain Splitting Logic ---
@@ -147,7 +179,7 @@ def split_polygon_chains(coordinates):
     
     # We add the starting point (the first vertex) to the end of the right chain.
     # We use the first point of the ORIGINAL coordinates to ensure closure.
-    #right_chain.append(coordinates[0]) # U dont think I need this for the current logic.
+    right_chain.append(coordinates[0]) 
 
     return left_chain, right_chain, y_min, y_max
 
@@ -169,17 +201,15 @@ def sweep_line_width_profile(left_chain, right_chain, min_y, max_y, y_resolution
         - height_profile: The list of Y-coordinates (heights) where the width was calculated.
         - width_profile: The matching list of calculated widths.
     """
-    
-    height_profile = []
-    width_profile = []
-    
+    cross_sections_data = []
+   
     # Start the sweep line just above min_y and stop at max_y
     i = min_y + y_resolution # This part could be a issue. We need full sweep from min_y to max_y to get largest area.
 
     while i <= max_y:
         
         # 1. Find active segments
-       
+        
         left_segment = find_active_segment(left_chain, i)
         right_segment = find_active_segment(right_chain, i)
         
@@ -196,23 +226,27 @@ def sweep_line_width_profile(left_chain, right_chain, min_y, max_y, y_resolution
             # Use the hardcoded MIN_WIDTH check
             if w >= MIN_WIDTH:
                 # 4. Store the results for this height step
-                height_profile.append(i)
-                width_profile.append(w)
+                profile_data = {
+                    'y': i,
+                    'x_left': x_left,
+                    'x_right': x_right,
+                    'width': w
+                }
+                cross_sections_data.append(profile_data)
         
         # Move the sweep line up by the resolution step
         i += y_resolution
-        
-    return height_profile, width_profile
+
+    return cross_sections_data
 
 
-def find_max_area_rectangle(height_profile, width_profile, min_height=0.5, min_width=0.5):
+def find_max_area_rectangle(cross_sections_data, min_height=0.5, min_width=0.5):
     """
     Finds the dimensions of the largest valid rectangle that can be inscribed 
     in the polygon based on the given width profile.
 
     Args:
-        height_profile: A list of Y-coordinates (heights) where widths were calculated.
-        width_profile: A list of corresponding widths at those Y-coordinates.
+        cross_sections_data: A list of dictionaries containing 'y', 'x_left', 'x_right', and 'width'.
         min_height: The minimum acceptable height for a rectangle.
         min_width: The minimum acceptable width for a rectangle.
 
@@ -225,6 +259,7 @@ def find_max_area_rectangle(height_profile, width_profile, min_height=0.5, min_w
             'y_bottom_index': int,
             'y_top_index': int
         }
+    
     """
     
     max_area = 0.0
@@ -236,23 +271,23 @@ def find_max_area_rectangle(height_profile, width_profile, min_height=0.5, min_w
         'y_top_index': -1
     }
     
-    N = len(height_profile)
+    N = len(cross_sections_data)
     
     # Outer loop: Sets the bottom edge of the potential rectangle (index i)
     for i in range(N):
-        y_bottom = height_profile[i]
-        
+        y_bottom = cross_sections_data[i]['y']
+
         # Keep track of the minimum width found between i and the current j
         # Initialize with the width at the bottom edge.
-        smallest_width = width_profile[i] 
-        
+        smallest_width = cross_sections_data[i]['width']
+
         # Inner loop: Sets the top edge of the potential rectangle (index j)
         # We only look at points *above* the bottom edge (j > i)
         for j in range(i + 1, N):
-            y_top = height_profile[j]
-            
+            y_top = cross_sections_data[j]['y']
+
             # 1. Update the smallest width for the current range [i, j]
-            current_width = width_profile[j]
+            current_width = cross_sections_data[j]['width']
             if current_width < smallest_width:
                 smallest_width = current_width
             
@@ -284,34 +319,120 @@ def find_max_area_rectangle(height_profile, width_profile, min_height=0.5, min_w
                 
     return best_result
 
+
+def get_rectangle_coordinates(best_result, sweep_marks):
+    """
+    Calculates the four corner coordinates of the maximum area rectangle 
+    in the current (translated and rotated) coordinate system.
+
+    Args:
+        best_result: The dictionary containing the results of the max area search, 
+                     including 'width', 'y_bottom_index', and 'y_top_index'.
+        sweep_marks: The list of profile dictionaries (the result of sweep_line_marks_calculator).
+                     
+    Returns:
+        A list of (x, y) tuples representing the four corners of the rectangle:
+        [(x_BL, y_BL), (x_BR, y_BR), (x_TR, y_TR), (x_TL, y_TL)]
+    """
+    
+    # 1. Extract the key data points defining the rectangle's extent
+    y_bottom_index = best_result['y_bottom_index']
+    y_top_index = best_result['y_top_index']
+    constraining_width = best_result['width']
+    
+    # Get the exact Y-levels from the sweep marks list
+    y_bottom = sweep_marks[y_bottom_index]['y']
+    y_top = sweep_marks[y_top_index]['y']
+    
+    
+    # 2. Find the constraining slice (the bottleneck)
+    
+    constraining_x_left = 0.0
+    constraining_x_right = 0.0
+    found_constraint = False
+    
+    # Iterate through the range of profile slices that define the rectangle
+    # We check from the bottom index up to the top index (inclusive)
+    for k in range(y_bottom_index, y_top_index + 1):
+        slice_data = sweep_marks[k]
+        
+        # Check if the width of this slice matches the maximum allowed width for the rectangle
+        # Using math.isclose for reliable float comparison
+        if math.isclose(slice_data['width'], constraining_width):
+            # This slice is the bottleneck. We use its x_left and x_right to define the rectangle's x-extent.
+            constraining_x_left = slice_data['x_left']
+            constraining_x_right = slice_data['x_right']
+            found_constraint = True
+            # We can break early since the first one found with the min width defines the X-extent.
+            break 
+            
+    # Safety Check
+    if not found_constraint:
+        # This should not happen with correct inputs, but ensures safe code execution.
+        print("Error: Could not find the slice that defines the constraining width.")
+        return []
+        
+    # 3. Define the four corners of the rectangle (in the current rotated/translated system)
+    
+    # Bottom-Left (BL)
+    x_BL = constraining_x_left
+    y_BL = y_bottom
+    
+    # Bottom-Right (BR)
+    x_BR = constraining_x_right
+    y_BR = y_bottom
+    
+    # Top-Right (TR)
+    x_TR = constraining_x_right
+    y_TR = y_top
+    
+    # Top-Left (TL)
+    x_TL = constraining_x_left
+    y_TL = y_top
+    
+    rectangle_coordinates_rotated = [
+        (x_BL, y_BL), 
+        (x_BR, y_BR), 
+        (x_TR, y_TR), 
+        (x_TL, y_TL)
+    ]
+    
+    return rectangle_coordinates_rotated
+
 # --- Hardcoded Constraints (as requested) ---
 # These would be parameters in a final algorithm, but are hardcoded for this step.
 MIN_WIDTH = 1.0
 MIN_HEIGHT = 0.5
 # --- Example Usage ---
 # Define the coordinates for a simple polygon
-originalPolygon = [(-6, -4),(-3, 4), (3, 4), (6, -4), ]
-TA_line = (originalPolygon[0], originalPolygon[1])
+originalPolygon = [(-6, 0), (-3, 5), (4, 6), (7, 2), (3, -4), (-2, -3)]
+TA_line = (originalPolygon[1], originalPolygon[0])
 #TA_line = (originalPolygon[0], originalPolygon[1])
-zeroed_polygon = translate_to_origin(originalPolygon, TA_line)
+zeroed_polygon = translate_and_reorder_polygon(originalPolygon, TA_line)
 #plot_polygons([originalPolygon, zeroed_polygon])
-relative_coordinates, angle = rotate_polygon_to_x_axis(zeroed_polygon, TA_line)
+rotated_polygon, angle = rotate_polygon_to_x_axis(zeroed_polygon, TA_line)
 
 print("Original Polygon:", originalPolygon)
-print("Rotated Polygon:", relative_coordinates)
+print("Zeroed Polygon:", zeroed_polygon)
+print("Rotated Polygon:", rotated_polygon)
 print("Rotation Angle (radians):", angle)
 
-left_chain_result, right_chain_result, y_min, y_max = split_polygon_chains(originalPolygon)
+left_chain_result, right_chain_result, y_min, y_max = split_polygon_chains(rotated_polygon)
 print("Left Chain:", left_chain_result)
 print("Right Chain:", right_chain_result)
-heightProfile, widthProfile = sweep_line_width_profile(left_chain_result, right_chain_result, min_y=y_min, max_y=y_max, y_resolution=0.5)
+print("Y Min:", y_min)
+print("Y Max:", y_max)
+cross_section_data = sweep_line_width_profile(left_chain_result, right_chain_result, min_y=y_min, max_y=y_max, y_resolution=0.5)
+best_rectangle = find_max_area_rectangle(cross_section_data, min_height=MIN_HEIGHT, min_width=MIN_WIDTH)
+largest_rectangle_coords = get_rectangle_coordinates(best_rectangle, cross_section_data)
 
 print("Left Chain:", left_chain_result)
 print("Right Chain:", right_chain_result)
-print("Height Profile:", heightProfile)
-print("Width Profile:", widthProfile)
+#print("Cross Section Data:", cross_section_data)
+#print("Best Rectangle:", best_rectangle)
+#print("Largest Rectangle Coordinates:", largest_rectangle_coords)
 
-
-#plot_polygons([originalPolygon, relative_coordinates])
+#plot_polygons([ originalPolygon, rotated_polygon, largest_rectangle_coords])
+plot_polygons([left_chain_result,right_chain_result])
 #plot_polygons([originalPolygon, zeroed_polygon])
 print("Plot displayed.")
