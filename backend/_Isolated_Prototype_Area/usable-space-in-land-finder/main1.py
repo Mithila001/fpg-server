@@ -1,6 +1,6 @@
 import math
-from plotter import plot_polygons
-from myUtilities import calculate_distance, find_active_segment, get_x_intersection
+from plotter1 import plot_polygons
+from myUtilities1 import calculate_distance, find_active_segment, get_x_intersection
 
 
 def translate_and_reorder_polygon(polygon_coordinates, TA):
