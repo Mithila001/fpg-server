@@ -1,6 +1,6 @@
 import math
 from plotter1 import plot_polygons
-from myUtilities1 import calculate_distance, find_active_segment, get_x_intersection
+from myUtilities1 import calculate_distance, find_active_segment, get_x_intersection,flip_xy_coordinates
 
 
 def translate_and_reorder_polygon(polygon_coordinates, TA):
@@ -383,7 +383,7 @@ def get_rectangle_coordinates(best_result, sweep_marks):
     
     return rectangle_coordinates_rotated
 
-# --- Hardcoded Constraints (as requested) ---
+# --- Hardcoded Constraints (For Dev Testing) ---
 # These would be parameters in a final algorithm, but are hardcoded for this step.
 MIN_WIDTH = 1.0
 MIN_HEIGHT = 0.5
@@ -397,15 +397,42 @@ TA_line = (originalPolygon[point_A], originalPolygon[point_B])
 #TA_line = (originalPolygon[0], originalPolygon[1])
 zeroed_polygon = translate_and_reorder_polygon(originalPolygon, TA_line)
 rotated_polygon, angle = rotate_polygon_to_x_axis(zeroed_polygon, TA_line)
-left_chain_result, right_chain_result, y_min, y_max = split_polygon_chains(rotated_polygon)
-#plot_polygons([left_chain_result,right_chain_result])
-cross_section_data = sweep_line_width_profile(left_chain_result, right_chain_result, min_y=y_min, max_y=y_max, y_resolution=0.5)
-#perimeter_coords = get_cross_section_coordinates(cross_section_data) # --Dev Helper Function--
-best_rectangle = find_max_area_rectangle(cross_section_data, min_height=MIN_HEIGHT, min_width=MIN_WIDTH)
-#print("Best Rectangle:", best_rectangle)
-largest_rectangle_coords = get_rectangle_coordinates(best_rectangle, cross_section_data)
-#print("largest_rectangle_coords Rectangle:", largest_rectangle_coords)
-plot_polygons([rotated_polygon,largest_rectangle_coords])
+
+# ------ 
+# left_chain_result, right_chain_result, y_min, y_max = split_polygon_chains(rotated_polygon)
+# cross_section_data = sweep_line_width_profile(left_chain_result, right_chain_result, min_y=y_min, max_y=y_max, y_resolution=0.5)
+# #perimeter_coords = get_cross_section_coordinates(cross_section_data) # --Dev Helper Function--
+# best_rectangle = find_max_area_rectangle(cross_section_data, min_height=MIN_HEIGHT, min_width=MIN_WIDTH)
+# largest_rectangle_coords = get_rectangle_coordinates(best_rectangle, cross_section_data)
+# #print("largest_rectangle_coords Rectangle:", largest_rectangle_coords)
+# plot_polygons([rotated_polygon,largest_rectangle_coords])
+# ------
+
+
+# Major Step 2: Find Largest Rectangle in Cross-Section
+def major_step2(_rotated_polygon):
+    left_chain_result, right_chain_result, y_min, y_max = split_polygon_chains(_rotated_polygon)
+    cross_section_data = sweep_line_width_profile(left_chain_result, right_chain_result, min_y=y_min, max_y=y_max, y_resolution=0.5)
+    best_rectangle = find_max_area_rectangle(cross_section_data, min_height=MIN_HEIGHT, min_width=MIN_WIDTH)
+    largest_rectangle_coords = get_rectangle_coordinates(best_rectangle, cross_section_data)
+    return largest_rectangle_coords
+
+
+# First Round: Aligned with TA line
+largest_rectangle_coords_parallel = major_step2(rotated_polygon)
+# Second Round: Perpendicular to TA line
+flipped_coordinates = flip_xy_coordinates(rotated_polygon)
+largest_rectangle_coords_perpendicular = major_step2(flipped_coordinates)
+# Un-flip the perpendicular rectangle coordinates
+largest_rectangle_coords_perpendicular = flip_xy_coordinates(largest_rectangle_coords_perpendicular)
+
+plot_polygons([rotated_polygon,largest_rectangle_coords_parallel, largest_rectangle_coords_perpendicular])
+
+print("Original Polygon:", originalPolygon)
+print("Zeroed Polygon:", zeroed_polygon)
+print("Largest Rectangle Coordinates (Parallel):", largest_rectangle_coords_parallel)
+print("Largest Rectangle Coordinates (Perpendicular):", largest_rectangle_coords_perpendicular)
+
 
 
 wants_to_print_all = False

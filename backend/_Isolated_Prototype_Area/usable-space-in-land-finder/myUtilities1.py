@@ -96,3 +96,15 @@ def get_x_intersection(p1, p2, y_sweep):
     x_intersect = x1 + ratio * dx
     
     return x_intersect
+
+def flip_xy_coordinates(coordinates):
+    """
+    Swaps the X and Y coordinates for every point in the list: (x, y) -> (y, x).
+    
+    Args:
+        coordinates: A list of (x, y) tuples.
+        
+    Returns:
+        A list of (y, x) tuples.
+    """
+    return [(y, x) for x, y in coordinates]
