@@ -1,6 +1,6 @@
 import json
 import os
-from buildable_space_finder.main1 import run_buildableSpaceFinder_algorithm
+from buildable_space_finder.main1 import run_buildableSpaceFinder_algorithm, DEV__run_buildableSpaceFinder_algorithm_TEST__LeftAndRightChainTest
 from _main_utility_files.plotter_image_gen import plot_polygon_images_save
 
 # python -m main
@@ -49,6 +49,14 @@ def process_land_coordinates():
         print(f"Final Rect Perpendicular: {final_rect_perpendicular}")
         coordinateList = [final_polygon, final_rect_parallel, final_rect_perpendicular]
         plot_polygon_images_save(coordinateList, plot_number=i + 1)
+
+    # =========================== Bug FIX TESTING ===========================
+    # for i, coordinate_list in enumerate(all_coordinates):
+    #     # The 'i + 1' gives us the plot number starting from 1
+    #     print(f"\n**Coordinates for Land Plot {i + 1}**:")
+    #     leftChain, rightChain = DEV__run_buildableSpaceFinder_algorithm_TEST__LeftAndRightChainTest(coordinate_list)
+    #     coordinateList = [leftChain, rightChain]
+    #     plot_polygon_images_save(coordinateList, plot_number=i + 1)
 
 if __name__ == "__main__":
     process_land_coordinates()

@@ -31,7 +31,7 @@ def plot_polygon_images_save(coordinates_list: Sequence[Sequence[Coordinate]], p
     now = datetime.now()
     
     # Format the time part: <millisecond>-<second>-<minutes>-<hours>-<day>-<month>-<year>
-    time_str = now.strftime("%f-%S-%M-%H-%d-%m-%Y")
+    time_str = now.strftime("%f-%S-%M-%H--%d-%m-%Y")
     
     # Create the full filename
     filename = f"plot_{plot_number}__{time_str}.png"
@@ -45,7 +45,8 @@ def plot_polygon_images_save(coordinates_list: Sequence[Sequence[Coordinate]], p
     
     # 2. Setup Figure
     # We explicitly create the figure and axes
-    fig, ax = plt.subplots(figsize=(8, 8))
+    # Keep figsize as (8, 8) or similar, the space efficiency is handled by legend placement
+    fig, ax = plt.subplots(figsize=(8, 8)) 
     ax.set_title(f"Polygon Plot: Plot {plot_number}")
     ax.set_xlabel("X Coordinate")
     ax.set_ylabel("Y Coordinate")
@@ -86,7 +87,8 @@ def plot_polygon_images_save(coordinates_list: Sequence[Sequence[Coordinate]], p
             linestyle='-', 
             color=color, 
             linewidth=2,
-            label=f'Polygon {i+1} ({color.split(":")[-1].title() if i < 3 else "Default"})'
+            # This label is used in the legend
+            label=f'Polygon {i+1} ({color.split(":")[-1].title() if i < 3 else "Default"})' 
         )
         
         # Plot points
@@ -147,16 +149,27 @@ def plot_polygon_images_save(coordinates_list: Sequence[Sequence[Coordinate]], p
         ax.set_xlim(np.floor(x_min) - padding, np.ceil(x_max) + padding)
         ax.set_ylim(np.floor(y_min) - padding, np.ceil(y_max) + padding)
         
-    # Move the legend outside the plotting area
+    # --- MODIFICATION START ---
+    # Move the legend INSIDE the plotting area to maximize the axes space
+    # 'upper right' is a standard corner for least interference.
     ax.legend(
-        loc='center left',      
-        bbox_to_anchor=(1.05, 0.5), 
-        borderaxespad=0.          
+        loc='upper right',       # Place the legend inside the axes in the upper right
+        fontsize=8,              # Use a smaller font size to minimize legend footprint
+        frameon=True,            # Keep the frame for readability over the plot
+        fancybox=True,
+        shadow=True,
+        edgecolor='black',
+        borderpad=0.5,
+        labelspacing=0.5
     )
     
     # 5. Save the figure instead of showing it
-    # Tight layout helps fit the legend within the saved image boundaries
-    plt.tight_layout(rect=(0, 0, 0.9, 1)) 
+    # We use plt.tight_layout() without the rect parameter.
+    # Because the legend is inside the axes, standard tight_layout is sufficient
+    # to fit the title, labels, and ticks without shrinking the axes for the legend.
+    plt.tight_layout() 
+    # --- MODIFICATION END ---
+    
     plt.savefig(filepath)
     plt.close(fig) # Important: Close the figure to free up memory when running in a loop
 

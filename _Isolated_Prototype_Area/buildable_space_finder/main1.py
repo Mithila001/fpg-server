@@ -3,6 +3,8 @@ import math
 from buildable_space_finder.myUtilities1 import calculate_distance, find_active_segment, get_x_intersection,flip_xy_coordinates, inverse_rotate_polygon,inverse_translate_polygon
 from buildable_space_finder.plotter1 import plot_polygons
 
+# python -m buildable_space_finder.main1
+
 def translate_and_reorder_polygon(polygon_coordinates, TA):
     """
     Translates the polygon so the TA point closest to (0,0) is moved to (0,0),
@@ -64,7 +66,6 @@ def translate_and_reorder_polygon(polygon_coordinates, TA):
     reordered_coordinates = first_part + second_part
  
     return reordered_coordinates
-
 
 
 def rotate_polygon_to_x_axis(translated_polygon, TA): # Step 2  
@@ -189,7 +190,7 @@ def split_polygon_chains(coordinates):
 
 
 
-def sweep_line_width_profile(left_chain, right_chain, min_y, max_y, y_resolution=0.5):
+def sweep_line_width_profile(left_chain, right_chain, min_y, max_y, y_resolution=0.1):
     """
     Calculates the width of the polygon at fixed y-intervals using a sweep line.
 
@@ -268,35 +269,34 @@ def find_max_area_rectangle(cross_sections_data, min_height=0.5, min_width=0.5):
     for i in range(N):
         y_bottom = cross_sections_data[i]['y']
         
-        # 1. Initialize the Bounding Box for the current range [i, j]
-        # X-left boundary must be the MAX of all x_lefts from i to j
+        # Initial X_Left
         max_x_left = cross_sections_data[i]['x_left']
         
-        # X-right boundary must be the MIN of all x_rights from i to j
+        # Initial X_Right
         min_x_right = cross_sections_data[i]['x_right']
         
         # Inner loop: Sets the top edge of the potential rectangle (index j)
-        for j in range(N):
+        for j in range(i, N):
             
             y_top = cross_sections_data[j]['y']
-            current_data = cross_sections_data[j]
+            top_line_data = cross_sections_data[j] # for easier access
 
             # 2. Update the Bounding Box for the new slice 'j'
 
             # If this line left x is within the current max_x_left, update max_x_left
-            if current_data['x_left'] > max_x_left:
-                max_x_left = current_data['x_left']
+            if top_line_data['x_left'] > max_x_left:
+                max_x_left = top_line_data['x_left']
 
             # If this line right x is within the current min_x_right, update min_x_right
-            if current_data['x_right'] < min_x_right:
-                min_x_right = current_data['x_right']
+            if top_line_data['x_right'] < min_x_right:
+                min_x_right = top_line_data['x_right']
             
             # 3. Calculate the actual contained width
             local_width = min_x_right - max_x_left
             
             
             # 4. Check local height constraint
-            local_height = y_top             - y_bottom
+            local_height = y_top - y_bottom
             if local_height < min_height:
                 # Height is guaranteed to increase, so we continue to the next 'j'
                 continue 
@@ -382,7 +382,7 @@ def get_rectangle_coordinates(best_result, sweep_marks):
 
 # --- Hardcoded Constraints (For Dev Testing) ---
 # These would be parameters in a final algorithm, but are hardcoded for this step.
-MIN_WIDTH = 1.0
+MIN_WIDTH = 5.0
 MIN_HEIGHT = 0.5
 # --- Example Usage ---
 # Define the coordinates for a simple polygon
@@ -415,6 +415,8 @@ def major_step2(_rotated_polygon):
     return largest_rectangle_coords
 
 
+
+
 # First Round: Aligned with TA line
 largest_rectangle_coords_parallel = major_step2(rotated_polygon)
 # Second Round: Perpendicular to TA line
@@ -433,11 +435,12 @@ final_polygon = inverse_translate_polygon(original_oriented_polygon, TA_line)
 final_rect_parallel = inverse_translate_polygon(rect_parallel_oriented, TA_line)
 final_rect_perpendicular = inverse_translate_polygon(rect_perpendicular_oriented, TA_line)
 
-plot_polygons([final_polygon,final_rect_parallel, final_rect_perpendicular])
+#plot_polygons([final_polygon,final_rect_parallel, final_rect_perpendicular])
+plot_polygons([rotated_polygon,largest_rectangle_coords_parallel, largest_rectangle_coords_perpendicular])
 
 
 
-
+# Original Main Function
 def run_buildableSpaceFinder_algorithm(polygon_coordinates):
 
     zeroed_polygon = translate_and_reorder_polygon(polygon_coordinates, TA_line)
@@ -462,3 +465,31 @@ def run_buildableSpaceFinder_algorithm(polygon_coordinates):
     final_rect_perpendicular = inverse_translate_polygon(rect_perpendicular_oriented, TA_line)
 
     return final_polygon, final_rect_parallel, final_rect_perpendicular
+
+# -----------------------------------------------------------------------------
+# ---------------------------- DEV ERROR TEST AREA ---------------------------- #
+# -----------------------------------------------------------------------------
+
+
+def major_step2___DEV_TEST_1(_rotated_polygon):
+    left_chain_result, right_chain_result, y_min, y_max = split_polygon_chains(_rotated_polygon)
+    cross_section_data = sweep_line_width_profile(left_chain_result, right_chain_result, min_y=y_min, max_y=y_max, y_resolution=0.5)
+    best_rectangle = find_max_area_rectangle(cross_section_data, min_height=MIN_HEIGHT, min_width=MIN_WIDTH)
+    largest_rectangle_coords = get_rectangle_coordinates(best_rectangle, cross_section_data)
+    return left_chain_result, right_chain_result
+
+
+# Development Test Function with Debugging Steps
+def DEV__run_buildableSpaceFinder_algorithm_TEST__LeftAndRightChainTest(polygon_coordinates):
+
+    zeroed_polygon = translate_and_reorder_polygon(polygon_coordinates, TA_line)
+    rotated_polygon, angle = rotate_polygon_to_x_axis(zeroed_polygon, TA_line)
+
+        # First Round: Aligned with TA line
+    left_chain_result, right_chain_result = major_step2___DEV_TEST_1(rotated_polygon)
+    # Second Round: Perpendicular to TA line
+    flipped_coordinates = flip_xy_coordinates(rotated_polygon)
+    left_chain_result, right_chain_result = major_step2___DEV_TEST_1(flipped_coordinates)
+
+
+    return left_chain_result, right_chain_result
