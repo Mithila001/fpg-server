@@ -1,7 +1,7 @@
 import math
+#from plotter1 import plot_polygons
+from myUtilities1 import calculate_distance, find_active_segment, get_x_intersection,flip_xy_coordinates, inverse_rotate_polygon,inverse_translate_polygon
 from plotter1 import plot_polygons
-from myUtilities1 import calculate_distance, find_active_segment, get_x_intersection,flip_xy_coordinates
-
 
 def translate_and_reorder_polygon(polygon_coordinates, TA):
     """
@@ -426,12 +426,18 @@ largest_rectangle_coords_perpendicular = major_step2(flipped_coordinates)
 # Un-flip the perpendicular rectangle coordinates
 largest_rectangle_coords_perpendicular = flip_xy_coordinates(largest_rectangle_coords_perpendicular)
 
-plot_polygons([rotated_polygon,largest_rectangle_coords_parallel, largest_rectangle_coords_perpendicular])
+# Inverse Rotation (back to original orientation)
+original_oriented_polygon = inverse_rotate_polygon(rotated_polygon, angle)
+rect_parallel_oriented = inverse_rotate_polygon(largest_rectangle_coords_parallel, angle)
+rect_perpendicular_oriented = inverse_rotate_polygon(largest_rectangle_coords_perpendicular, angle)
 
-print("Original Polygon:", originalPolygon)
-print("Zeroed Polygon:", zeroed_polygon)
-print("Largest Rectangle Coordinates (Parallel):", largest_rectangle_coords_parallel)
-print("Largest Rectangle Coordinates (Perpendicular):", largest_rectangle_coords_perpendicular)
+# Inverse Translation (back to original position)
+final_polygon = inverse_translate_polygon(original_oriented_polygon, TA_line)
+final_rect_parallel = inverse_translate_polygon(rect_parallel_oriented, TA_line)
+final_rect_perpendicular = inverse_translate_polygon(rect_perpendicular_oriented, TA_line)
+
+plot_polygons([final_polygon,final_rect_parallel, final_rect_perpendicular])
+
 
 
 

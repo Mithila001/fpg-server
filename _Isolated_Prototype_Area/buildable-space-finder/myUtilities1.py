@@ -108,3 +108,65 @@ def flip_xy_coordinates(coordinates):
         A list of (y, x) tuples.
     """
     return [(y, x) for x, y in coordinates]
+
+
+def inverse_rotate_polygon(coordinates, rotation_angle):
+    """
+    Rotates the coordinates by -rotation_angle (the inverse rotation).
+    
+    Args:
+        coordinates: A list of (x, y) tuples.
+        rotation_angle: The original angle used to align the TA line to the X-axis.
+        
+    Returns:
+        A list of (x, y) tuples representing the inversely rotated shape.
+    """
+    inverse_angle = -rotation_angle # This is the angle theta
+    cos_theta = math.cos(inverse_angle)
+    sin_theta = math.sin(inverse_angle)
+    
+    rotated_back_coordinates = []
+    for x, y in coordinates:
+        # Standard rotation formula
+        new_x = x * cos_theta - y * sin_theta
+        new_y = x * sin_theta + y * cos_theta
+        rotated_back_coordinates.append((new_x, new_y))
+        
+    return rotated_back_coordinates
+
+
+
+def inverse_translate_polygon(coordinates, TA):
+    """
+    Translates the coordinates back by the pivot point's original coordinates.
+    
+    Args:
+        coordinates: A list of (x, y) tuples.
+        TA: The original TA line segment to determine the pivot point.
+        
+    Returns:
+        A list of (x, y) tuples representing the fully transformed shape.
+    """
+    # Recalculate the Pivot Point (P)
+    point_A = TA[0]
+    point_T = TA[1]
+    
+    # Assuming calculate_distance is defined as in the original code
+    dist_A = calculate_distance(point_A)
+    dist_T = calculate_distance(point_T)
+
+    if dist_A <= dist_T:
+        pivot_point = point_A # (Px, Py)
+    else:
+        pivot_point = point_T # (Px, Py)
+        
+    # The inverse translation vector is the pivot point itself (Px, Py)
+    (Px, Py) = pivot_point
+    
+    translated_back_coordinates = []
+    for x, y in coordinates:
+        new_x = x + Px
+        new_y = y + Py
+        translated_back_coordinates.append((new_x, new_y))
+        
+    return translated_back_coordinates
