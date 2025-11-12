@@ -21,8 +21,8 @@ def plot_polygon_images_save(coordinates_list: Sequence[Sequence[Coordinate]], p
     """
     
     # --- File Path and Name Generation ---
-    OUTPUT_FOLDER = './output_images'
-    
+    OUTPUT_FOLDER = './_main_utility_files/output_images'
+
     # Ensure the output directory exists
     if not os.path.exists(OUTPUT_FOLDER):
         os.makedirs(OUTPUT_FOLDER)

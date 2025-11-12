@@ -1,7 +1,7 @@
 import math
 #from plotter1 import plot_polygons
-from myUtilities1 import calculate_distance, find_active_segment, get_x_intersection,flip_xy_coordinates, inverse_rotate_polygon,inverse_translate_polygon
-from plotter1 import plot_polygons
+from buildable_space_finder.myUtilities1 import calculate_distance, find_active_segment, get_x_intersection,flip_xy_coordinates, inverse_rotate_polygon,inverse_translate_polygon
+from buildable_space_finder.plotter1 import plot_polygons
 
 def translate_and_reorder_polygon(polygon_coordinates, TA):
     """
@@ -69,9 +69,6 @@ def translate_and_reorder_polygon(polygon_coordinates, TA):
 
 def rotate_polygon_to_x_axis(translated_polygon, TA): # Step 2  
 
-
-
-    
     # We must first re-run the translation logic to find the translated coordinates
     # of the TA line endpoints, which we need to calculate the angle.
     
@@ -441,22 +438,27 @@ plot_polygons([final_polygon,final_rect_parallel, final_rect_perpendicular])
 
 
 
-wants_to_print_all = False
-if(wants_to_print_all):
-    print("Original Polygon:", originalPolygon)
-    print("Zeroed Polygon:", zeroed_polygon)
-    print("Rotated Polygon:", rotated_polygon)
-    print("Rotation Angle (radians):", angle)
-    # print("Left Chain:", left_chain_result)
-    # print("Right Chain:", right_chain_result)
-    # print("Y Min:", y_min)
-    # print("Y Max:", y_max)
-    # print("Left Chain:", left_chain_result)
-    # print("Right Chain:", right_chain_result)
-    # print("Cross Section Data:", cross_section_data)
-    # print("Best Rectangle:", best_rectangle)
-    # print("Largest Rectangle Coordinates:", largest_rectangle_coords)
+def run_buildableSpaceFinder_algorithm(polygon_coordinates):
 
-#plot_polygons([ originalPolygon, rotated_polygon, largest_rectangle_coords])
-#plot_polygons([originalPolygon, zeroed_polygon])
+    zeroed_polygon = translate_and_reorder_polygon(polygon_coordinates, TA_line)
+    rotated_polygon, angle = rotate_polygon_to_x_axis(zeroed_polygon, TA_line)
 
+        # First Round: Aligned with TA line
+    largest_rectangle_coords_parallel = major_step2(rotated_polygon)
+    # Second Round: Perpendicular to TA line
+    flipped_coordinates = flip_xy_coordinates(rotated_polygon)
+    largest_rectangle_coords_perpendicular = major_step2(flipped_coordinates)
+    # Un-flip the perpendicular rectangle coordinates
+    largest_rectangle_coords_perpendicular = flip_xy_coordinates(largest_rectangle_coords_perpendicular)
+
+    # Inverse Rotation (back to original orientation)
+    original_oriented_polygon = inverse_rotate_polygon(rotated_polygon, angle)
+    rect_parallel_oriented = inverse_rotate_polygon(largest_rectangle_coords_parallel, angle)
+    rect_perpendicular_oriented = inverse_rotate_polygon(largest_rectangle_coords_perpendicular, angle)
+
+    # Inverse Translation (back to original position)
+    final_polygon = inverse_translate_polygon(original_oriented_polygon, TA_line)
+    final_rect_parallel = inverse_translate_polygon(rect_parallel_oriented, TA_line)
+    final_rect_perpendicular = inverse_translate_polygon(rect_perpendicular_oriented, TA_line)
+
+    return final_polygon, final_rect_parallel, final_rect_perpendicular
