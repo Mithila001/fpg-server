@@ -1,6 +1,6 @@
 import json
 import os
-from buildable_space_finder.main1 import run_buildableSpaceFinder_algorithm, DEV__run_buildableSpaceFinder_algorithm_TEST__LeftAndRightChainTest
+from buildable_space_finder.main1 import run_buildableSpaceFinder_algorithm, DEV__run_buildableSpaceFinder_algorithm_TEST__LeftAndRightChainTest,run_buildableSpaceFinder_algorithm_SINGLE_RUN
 from _main_utility_files.plotter_image_gen import plot_polygon_images_save
 
 # python -m main
@@ -60,3 +60,4 @@ def process_land_coordinates():
 
 if __name__ == "__main__":
     process_land_coordinates()
+    #run_buildableSpaceFinder_algorithm_SINGLE_RUN()

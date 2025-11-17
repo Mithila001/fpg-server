@@ -415,38 +415,9 @@ def major_step2(_rotated_polygon):
     return largest_rectangle_coords
 
 
+def run_buildableSpaceFinder_algorithm_SINGLE_RUN():
 
-
-# First Round: Aligned with TA line
-largest_rectangle_coords_parallel = major_step2(rotated_polygon)
-# Second Round: Perpendicular to TA line
-flipped_coordinates = flip_xy_coordinates(rotated_polygon)
-largest_rectangle_coords_perpendicular = major_step2(flipped_coordinates)
-# Un-flip the perpendicular rectangle coordinates
-largest_rectangle_coords_perpendicular = flip_xy_coordinates(largest_rectangle_coords_perpendicular)
-
-# Inverse Rotation (back to original orientation)
-original_oriented_polygon = inverse_rotate_polygon(rotated_polygon, angle)
-rect_parallel_oriented = inverse_rotate_polygon(largest_rectangle_coords_parallel, angle)
-rect_perpendicular_oriented = inverse_rotate_polygon(largest_rectangle_coords_perpendicular, angle)
-
-# Inverse Translation (back to original position)
-final_polygon = inverse_translate_polygon(original_oriented_polygon, TA_line)
-final_rect_parallel = inverse_translate_polygon(rect_parallel_oriented, TA_line)
-final_rect_perpendicular = inverse_translate_polygon(rect_perpendicular_oriented, TA_line)
-
-#plot_polygons([final_polygon,final_rect_parallel, final_rect_perpendicular])
-plot_polygons([rotated_polygon,largest_rectangle_coords_parallel, largest_rectangle_coords_perpendicular])
-
-
-
-# Original Main Function
-def run_buildableSpaceFinder_algorithm(polygon_coordinates):
-
-    zeroed_polygon = translate_and_reorder_polygon(polygon_coordinates, TA_line)
-    rotated_polygon, angle = rotate_polygon_to_x_axis(zeroed_polygon, TA_line)
-
-        # First Round: Aligned with TA line
+    # First Round: Aligned with TA line
     largest_rectangle_coords_parallel = major_step2(rotated_polygon)
     # Second Round: Perpendicular to TA line
     flipped_coordinates = flip_xy_coordinates(rotated_polygon)
@@ -464,7 +435,36 @@ def run_buildableSpaceFinder_algorithm(polygon_coordinates):
     final_rect_parallel = inverse_translate_polygon(rect_parallel_oriented, TA_line)
     final_rect_perpendicular = inverse_translate_polygon(rect_perpendicular_oriented, TA_line)
 
-    return final_polygon, final_rect_parallel, final_rect_perpendicular
+    #plot_polygons([final_polygon,final_rect_parallel, final_rect_perpendicular])
+    plot_polygons([originalPolygon, zeroed_polygon,rotated_polygon])
+
+
+
+# Original Main Function
+def run_buildableSpaceFinder_algorithm(polygon_coordinates):
+
+    zeroed_polygon = translate_and_reorder_polygon(polygon_coordinates, TA_line)
+    rotated_polygon, angle = rotate_polygon_to_x_axis(zeroed_polygon, TA_line)
+
+    # First Round: Aligned with TA line
+    largest_rectangle_coords_parallel = major_step2(rotated_polygon)
+    # Second Round: Perpendicular to TA line
+    flipped_coordinates = flip_xy_coordinates(rotated_polygon)
+    largest_rectangle_coords_perpendicular = major_step2(flipped_coordinates)
+    # Un-flip the perpendicular rectangle coordinates
+    largest_rectangle_coords_perpendicular = flip_xy_coordinates(largest_rectangle_coords_perpendicular)
+
+    # Inverse Rotation (back to original orientation)
+    original_oriented_polygon = inverse_rotate_polygon(rotated_polygon, angle)
+    rect_parallel_oriented = inverse_rotate_polygon(largest_rectangle_coords_parallel, angle)
+    rect_perpendicular_oriented = inverse_rotate_polygon(largest_rectangle_coords_perpendicular, angle)
+
+    # Inverse Translation (back to original position)
+    final_polygon = inverse_translate_polygon(original_oriented_polygon, TA_line)
+    final_rect_parallel = inverse_translate_polygon(rect_parallel_oriented, TA_line)
+    final_rect_perpendicular = inverse_translate_polygon(rect_perpendicular_oriented, TA_line)
+
+    return polygon_coordinates, zeroed_polygon, rotated_polygon
 
 # -----------------------------------------------------------------------------
 # ---------------------------- DEV ERROR TEST AREA ---------------------------- #
