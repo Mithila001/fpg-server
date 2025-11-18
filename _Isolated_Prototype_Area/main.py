@@ -1,6 +1,6 @@
 import json
 import os
-from buildable_space_finder.main1 import run_buildableSpaceFinder_algorithm, DEV__run_buildableSpaceFinder_algorithm_TEST__LeftAndRightChainTest,run_buildableSpaceFinder_algorithm_SINGLE_RUN
+from buildable_space_finder.main1 import run_buildableSpaceFinder_algorithm,run_buildableSpaceFinder_algorithm_SINGLE_RUN
 from _main_utility_files.plotter_image_gen import plot_polygon_images_save
 
 # python -m main
@@ -44,9 +44,7 @@ def process_land_coordinates():
         # The 'i + 1' gives us the plot number starting from 1
         print(f"\n**Coordinates for Land Plot {i + 1}**:")
         final_polygon, final_rect_parallel, final_rect_perpendicular = run_buildableSpaceFinder_algorithm(coordinate_list)
-        print(f"Final Polygon: {final_polygon}")
-        print(f"Final Rect Parallel: {final_rect_parallel}")
-        print(f"Final Rect Perpendicular: {final_rect_perpendicular}")
+    
         coordinateList = [final_polygon, final_rect_parallel, final_rect_perpendicular]
         plot_polygon_images_save(coordinateList, plot_number=i + 1)
 

@@ -170,3 +170,87 @@ def inverse_translate_polygon(coordinates, TA):
         translated_back_coordinates.append((new_x, new_y))
         
     return translated_back_coordinates
+
+
+def move_polygon_to_positive_axis(polygon_coordinates):
+    """
+    Moves the polygon to the positive X and Y axes (first quadrant).
+
+    It calculates the minimum X and Y values and determines the necessary 
+    translation (dx, dy) to ensure min_x >= 0 and min_y >= 0.
+
+    Args:
+        polygon_coordinates: A list of (x, y) tuples for the polygon.
+
+    Returns:
+        A tuple:
+        1. moved_polygon (list): The translated polygon coordinates.
+        2. move_points (tuple): The (dx, dy) translation vector used for the move.
+    """
+    if not polygon_coordinates:
+        return [], (0.0, 0.0)
+    
+    # 1. Find the current minimum X and Y coordinates
+    min_x = min(x for x, y in polygon_coordinates)
+    min_y = min(y for x, y in polygon_coordinates)
+    
+    # 2. Determine the move vector (dx, dy)
+    # We shift by the negative of the minimum coordinate if it's negative.
+    # This calculation ensures a coordinate like -5 moves to 0 (+5 shift).
+    
+    # Handle slight negative floating point values (e.g., -1e-15) by shifting them to 0.
+    dx = 0.0
+    if min_x < -1e-9:
+        dx = -min_x
+    elif 0 > min_x >= -1e-9:
+        dx = -min_x # Shift small negative numbers to 0
+        
+    dy = 0.0
+    if min_y < -1e-9:
+        dy = -min_y
+    elif 0 > min_y >= -1e-9:
+        dy = -min_y # Shift small negative numbers to 0
+        
+    move_points = (dx, dy)
+
+    # 3. Apply the move (translation)
+    moved_polygon = []
+    for x, y in polygon_coordinates:
+        new_x = x + dx
+        new_y = y + dy
+        moved_polygon.append((new_x, new_y))
+    
+    return moved_polygon, move_points
+
+
+
+
+def reset_polygon_position(polygon_coordinates, move_points):
+    """
+    Resets a polygon's position by subtracting the move_points vector from
+    all coordinates, effectively reverting a previous translation.
+
+    Args:
+        polygon_coordinates: A list of (x, y) tuples (the moved polygon).
+        move_points (tuple): The original positive translation vector (dx, dy) 
+                             used to move the polygon (returned by 
+                             move_polygon_to_positive_axis).
+
+    Returns:
+        A list of (x, y) tuples representing the polygon in its reset position.
+    """
+    if not polygon_coordinates:
+        return []
+        
+    # The 'move_points' is the positive shift (dx, dy).
+    # To reset, we must subtract it (apply -dx, -dy).
+    dx, dy = move_points
+    reset_polygon = []
+    
+    for x, y in polygon_coordinates:
+        # Subtract the move points to reset the position
+        new_x = x - dx
+        new_y = y - dy
+        reset_polygon.append((new_x, new_y))
+        
+    return reset_polygon

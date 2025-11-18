@@ -1,6 +1,11 @@
 import math
 #from plotter1 import plot_polygons
-from buildable_space_finder.myUtilities1 import calculate_distance, find_active_segment, get_x_intersection,flip_xy_coordinates, inverse_rotate_polygon,inverse_translate_polygon
+from buildable_space_finder.myUtilities1 import (
+    calculate_distance, find_active_segment,
+      get_x_intersection,flip_xy_coordinates,
+        inverse_rotate_polygon,inverse_translate_polygon,
+        move_polygon_to_positive_axis,
+        reset_polygon_position)
 from buildable_space_finder.plotter1 import plot_polygons
 
 # python -m buildable_space_finder.main1
@@ -20,24 +25,32 @@ def translate_and_reorder_polygon(polygon_coordinates, TA):
     
     # 1. Determine the Pivot Point (P) and Translation Vector
     point_A = TA[0]
-    point_T = TA[1]
+    point_B = TA[1]
     
     dist_A = calculate_distance(point_A)
-    dist_T = calculate_distance(point_T)
+    dist_B = calculate_distance(point_B)
 
-    if dist_A <= dist_T:
+    # Determine which point is closer to (0,0)  
+    if dist_A <= dist_B:
         pivot_point = point_A
+        non_pivot_point = point_B
     else:
-        pivot_point = point_T
+        pivot_point = point_B
+        non_pivot_point = point_A
     
     # Calculate the translation vector
     (Px, Py) = pivot_point
     dx = -Px 
     dy = -Py
 
+    # Calculate the translated coordinates of the Non-Pivot point (T')
+    (Tx, Ty) = non_pivot_point
+    dx_T = Tx + dx 
+    dy_T = Ty + dy
+    TA_Zeroed = (dx_T, dy_T) 
+
     # 2. Find the index of the Pivot Point in the original coordinate list
     # This point will become the new starting point (index 0)
-    
     pivot_index = -1
     try:
         pivot_index = polygon_coordinates.index(pivot_point)
@@ -64,40 +77,16 @@ def translate_and_reorder_polygon(polygon_coordinates, TA):
     
     # Combine the parts: [Pivot_Point, ..., Last_Point, First_Point, ..., Point_Before_Pivot]
     reordered_coordinates = first_part + second_part
- 
-    return reordered_coordinates
+
+    print("Zeroed TA Line:", TA_Zeroed)
+    return reordered_coordinates, TA_Zeroed
 
 
 def rotate_polygon_to_x_axis(translated_polygon, TA): # Step 2  
 
-    # We must first re-run the translation logic to find the translated coordinates
-    # of the TA line endpoints, which we need to calculate the angle.
-    
-    # 1. Unpack the original TA line points
-    point_A_orig = TA[0]
-    point_T_orig = TA[1]
-    
-    # 2. Find the vertice that was closer to (0,0) (the pivot point)
-    dist_A = calculate_distance(point_A_orig) 
-    dist_T = calculate_distance(point_T_orig)
-    
-    if dist_A <= dist_T:
-        (Px, Py) = point_A_orig
-    else:
-        (Px, Py) = point_T_orig
-        
-    # 3. Calculate the translated coordinates of the T point (T_prime)
-    # The pivot point P is now at (0, 0).
-    # The other point T is at (xT - Px, yT - Py).
-    
-    if (Px, Py) == point_A_orig:
-        (xT_orig, yT_orig) = point_T_orig
-    else:
-        (xT_orig, yT_orig) = point_A_orig
-        
-    dx_T = xT_orig - Px
-    dy_T = yT_orig - Py
-    
+    dx_T = TA[0]
+    dy_T = TA[1]
+
     # 4. Find the current angle of the translated line TA relative to the X-axis
     current_angle = math.atan2(dy_T, dx_T)
     
@@ -108,6 +97,9 @@ def rotate_polygon_to_x_axis(translated_polygon, TA): # Step 2
     # Pre-calculate sine and cosine of the rotation angle
     cos_theta = math.cos(rotation_angle)
     sin_theta = math.sin(rotation_angle)
+
+    print(f"Rotation Angle (radians): {rotation_angle}")
+    print(f"Sine: {sin_theta}, Cosine: {cos_theta}")
     
     # 6. Apply the rotation to the translated polygon
     rotated_polygon = []
@@ -386,14 +378,14 @@ MIN_WIDTH = 5.0
 MIN_HEIGHT = 0.5
 # --- Example Usage ---
 # Define the coordinates for a simple polygon
-originalPolygon = [(0, 0), (10, 0), (15, 5), (10, 15), (3, 12), (-5, 5)]
+originalPolygon = [(1, 0), (10, 0), (15, 5), (10, 15), (3, 12), (-5, 5)]
 
 point_A = 4
 point_B = point_A + 1
 TA_line = (originalPolygon[point_A], originalPolygon[point_B])
 #TA_line = (originalPolygon[0], originalPolygon[1])
-zeroed_polygon = translate_and_reorder_polygon(originalPolygon, TA_line)
-rotated_polygon, angle = rotate_polygon_to_x_axis(zeroed_polygon, TA_line)
+zeroed_polygon, TA_Zeroed = translate_and_reorder_polygon(originalPolygon, TA_line)
+rotated_polygon, angle = rotate_polygon_to_x_axis(zeroed_polygon, TA_Zeroed)
 
 # ------ 
 # left_chain_result, right_chain_result, y_min, y_max = split_polygon_chains(rotated_polygon)
@@ -414,7 +406,7 @@ def major_step2(_rotated_polygon):
     largest_rectangle_coords = get_rectangle_coordinates(best_rectangle, cross_section_data)
     return largest_rectangle_coords
 
-
+# Single Run Function for Debugging (lack some updates)
 def run_buildableSpaceFinder_algorithm_SINGLE_RUN():
 
     # First Round: Aligned with TA line
@@ -436,60 +428,81 @@ def run_buildableSpaceFinder_algorithm_SINGLE_RUN():
     final_rect_perpendicular = inverse_translate_polygon(rect_perpendicular_oriented, TA_line)
 
     #plot_polygons([final_polygon,final_rect_parallel, final_rect_perpendicular])
-    plot_polygons([originalPolygon, zeroed_polygon,rotated_polygon])
+    plot_polygons([final_polygon,final_rect_parallel, final_rect_perpendicular])
 
 
 
 # Original Main Function
 def run_buildableSpaceFinder_algorithm(polygon_coordinates):
 
-    zeroed_polygon = translate_and_reorder_polygon(polygon_coordinates, TA_line)
-    rotated_polygon, angle = rotate_polygon_to_x_axis(zeroed_polygon, TA_line)
+    point_A = 0
+    point_B = point_A + 1
+    TA_line = (polygon_coordinates[point_A], polygon_coordinates[point_B])
 
-    # First Round: Aligned with TA line
-    largest_rectangle_coords_parallel = major_step2(rotated_polygon)
-    # Second Round: Perpendicular to TA line
-    flipped_coordinates = flip_xy_coordinates(rotated_polygon)
+    # Normalization Steps (Translation, Rotation, Positive Axis Move)
+    zeroed_polygon, TA_zeroed = translate_and_reorder_polygon(polygon_coordinates, TA_line)
+    rotated_polygon, angle = rotate_polygon_to_x_axis(zeroed_polygon, TA_zeroed)
+    positivePolygon, moved_axisValues = move_polygon_to_positive_axis(rotated_polygon) # <--- Polygon is now in Canonical Positive Space
+
+    # Core Calculation: Find Largest Rectangles (using positivePolygon)
+    largest_rectangle_coords_parallel = major_step2(positivePolygon)
+    
+    flipped_coordinates = flip_xy_coordinates(positivePolygon)
     largest_rectangle_coords_perpendicular = major_step2(flipped_coordinates)
-    # Un-flip the perpendicular rectangle coordinates
     largest_rectangle_coords_perpendicular = flip_xy_coordinates(largest_rectangle_coords_perpendicular)
 
-    # Inverse Rotation (back to original orientation)
-    original_oriented_polygon = inverse_rotate_polygon(rotated_polygon, angle)
-    rect_parallel_oriented = inverse_rotate_polygon(largest_rectangle_coords_parallel, angle)
-    rect_perpendicular_oriented = inverse_rotate_polygon(largest_rectangle_coords_perpendicular, angle)
+    # Inverse Move: Step 1 - Reset from Positive Axis (Applies to all three geometries)
+    # The calculation was done in 'positivePolygon' space, but all subsequent inverse 
+    # operations must start from 'rotated_polygon' (zeroed/rotated) space.
+    
+    repositioned_polygon = reset_polygon_position(positivePolygon, moved_axisValues)
+    rect_parallel_repositioned = reset_polygon_position(largest_rectangle_coords_parallel, moved_axisValues)
+    rect_perpendicular_repositioned = reset_polygon_position(largest_rectangle_coords_perpendicular, moved_axisValues)
+    
+    # Inverse Rotation: Step 2 - Rotate back to Zeroed/Original Orientation
+    
+    original_oriented_polygon = inverse_rotate_polygon(repositioned_polygon, angle)
+    rect_parallel_oriented = inverse_rotate_polygon(rect_parallel_repositioned, angle)
+    rect_perpendicular_oriented = inverse_rotate_polygon(rect_perpendicular_repositioned, angle)
 
-    # Inverse Translation (back to original position)
+    # Inverse Translation: Step 3 - Translate back to Original World Coordinates
+    
     final_polygon = inverse_translate_polygon(original_oriented_polygon, TA_line)
     final_rect_parallel = inverse_translate_polygon(rect_parallel_oriented, TA_line)
     final_rect_perpendicular = inverse_translate_polygon(rect_perpendicular_oriented, TA_line)
 
-    return polygon_coordinates, zeroed_polygon, rotated_polygon
+    # Print statements remain the same
+    print("Original Polygon:", polygon_coordinates)
+    print("TA Line:", TA_line)
+    print("Zeroed Polygon:", zeroed_polygon)
+    print("Rotated Polygon:", rotated_polygon)
+    
+    return final_polygon, final_rect_parallel, final_rect_perpendicular
 
-# -----------------------------------------------------------------------------
-# ---------------------------- DEV ERROR TEST AREA ---------------------------- #
-# -----------------------------------------------------------------------------
-
-
-def major_step2___DEV_TEST_1(_rotated_polygon):
-    left_chain_result, right_chain_result, y_min, y_max = split_polygon_chains(_rotated_polygon)
-    cross_section_data = sweep_line_width_profile(left_chain_result, right_chain_result, min_y=y_min, max_y=y_max, y_resolution=0.5)
-    best_rectangle = find_max_area_rectangle(cross_section_data, min_height=MIN_HEIGHT, min_width=MIN_WIDTH)
-    largest_rectangle_coords = get_rectangle_coordinates(best_rectangle, cross_section_data)
-    return left_chain_result, right_chain_result
+# # -----------------------------------------------------------------------------
+# # ---------------------------- DEV ERROR TEST AREA ---------------------------- #
+# # -----------------------------------------------------------------------------
 
 
-# Development Test Function with Debugging Steps
-def DEV__run_buildableSpaceFinder_algorithm_TEST__LeftAndRightChainTest(polygon_coordinates):
-
-    zeroed_polygon = translate_and_reorder_polygon(polygon_coordinates, TA_line)
-    rotated_polygon, angle = rotate_polygon_to_x_axis(zeroed_polygon, TA_line)
-
-        # First Round: Aligned with TA line
-    left_chain_result, right_chain_result = major_step2___DEV_TEST_1(rotated_polygon)
-    # Second Round: Perpendicular to TA line
-    flipped_coordinates = flip_xy_coordinates(rotated_polygon)
-    left_chain_result, right_chain_result = major_step2___DEV_TEST_1(flipped_coordinates)
+# def major_step2___DEV_TEST_1(_rotated_polygon):
+#     left_chain_result, right_chain_result, y_min, y_max = split_polygon_chains(_rotated_polygon)
+#     cross_section_data = sweep_line_width_profile(left_chain_result, right_chain_result, min_y=y_min, max_y=y_max, y_resolution=0.5)
+#     best_rectangle = find_max_area_rectangle(cross_section_data, min_height=MIN_HEIGHT, min_width=MIN_WIDTH)
+#     largest_rectangle_coords = get_rectangle_coordinates(best_rectangle, cross_section_data)
+#     return left_chain_result, right_chain_result
 
 
-    return left_chain_result, right_chain_result
+# # Development Test Function with Debugging Steps
+# def DEV__run_buildableSpaceFinder_algorithm_TEST__LeftAndRightChainTest(polygon_coordinates):
+
+#     zeroed_polygon = translate_and_reorder_polygon(polygon_coordinates, TA_line)
+#     rotated_polygon, angle = rotate_polygon_to_x_axis(zeroed_polygon, TA_line)
+
+#         # First Round: Aligned with TA line
+#     left_chain_result, right_chain_result = major_step2___DEV_TEST_1(rotated_polygon)
+#     # Second Round: Perpendicular to TA line
+#     flipped_coordinates = flip_xy_coordinates(rotated_polygon)
+#     left_chain_result, right_chain_result = major_step2___DEV_TEST_1(flipped_coordinates)
+
+
+#     return left_chain_result, right_chain_result
