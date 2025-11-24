@@ -1,45 +1,113 @@
-from fpg import generate_floor_plan
+"""
+Main entry point for floor plan generation.
+"""
+
+from ortools.sat.python import cp_model
+import random
+
+# Import configuration
+from config import LAND_WIDTH, LAND_HEIGHT, ROOMS_DATA
+
+# Import variable creation
+from variables.room_variables import create_room_variables
+
+# Import constraints
+from constraints.basic_constraints import add_basic_constraints
+from constraints.adjacency_constraints import add_kitchen_living_adjacency
+
+# Import plotter
 from plotter import show_plotter, save_plotter
 
 
+def generate_floor_plan():
+    """
+    Generate a regulation-compliant floor plan.
+    
+    Returns:
+        Dictionary with solution status and data
+    """
+    # 1. SETUP
+    model = cp_model.CpModel()
+    
+    # 2. CREATE VARIABLES
+    all_vars, x_intervals, y_intervals = create_room_variables(
+        model, ROOMS_DATA, LAND_WIDTH, LAND_HEIGHT
+    )
+    
+    # 3. ADD CONSTRAINTS
+    # Basic constraints (non-overlap, boundaries)
+    add_basic_constraints(model, all_vars, x_intervals, y_intervals)
+    
+    # Adjacency constraints
+    touch_vars = add_kitchen_living_adjacency(model, all_vars)
+    
+    # Future: Add more constraints here
+    # add_regulation_constraints(model, all_vars)
+    # add_bathroom_constraints(model, all_vars)
+    
+    # 4. SOLVE
+    solver = cp_model.CpSolver()
+    solver.parameters.random_seed = random.randint(0, 1000)
+    status = solver.Solve(model)
+    
+    # 5. RETURN RESULTS
+    if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
+        print("Solution Found!")
+        
+        # Print adjacency info
+        print(f"Kitchen-Living adjacency:")
+        for direction, bool_var in touch_vars.items():
+            print(f"  {direction}: {solver.Value(bool_var)}")
+        
+        return {
+            'success': True,
+            'all_vars': all_vars,
+            'solver': solver,
+            'LAND_WIDTH': LAND_WIDTH,
+            'LAND_HEIGHT': LAND_HEIGHT
+        }
+    else:
+        print("No solution found. Constraints might be too tight!")
+        return {
+            'success': False,
+            'all_vars': None,
+            'solver': None,
+            'LAND_WIDTH': LAND_WIDTH,
+            'LAND_HEIGHT': LAND_HEIGHT
+        }
 
 
 def main():
-    result = generate_floor_plan()
-
-    if result['success']:
-        show_plotter(result['all_vars'], result['solver'], 
-                     result['LAND_WIDTH'], result['LAND_HEIGHT'])
-
-
-def batchRun():
+    """Main execution function."""
     NUM_GENERATIONS = 10
+    
     print(f"Starting batch generation of {NUM_GENERATIONS} floor plans...")
     print("-" * 60)
     
     successful_count = 0
-    failed_count = 0
-
+    
     for batch in range(NUM_GENERATIONS):
-        print(f"\nGenerating floor plan {batch + 1}/{NUM_GENERATIONS} (Batch #{batch})...")
+        print(f"\nGenerating floor plan {batch + 1}/{NUM_GENERATIONS}...")
+        
         result = generate_floor_plan()
         
         if result['success']:
-            save_plotter(result['all_vars'], result['solver'], 
-                        result['LAND_WIDTH'], result['LAND_HEIGHT'], 
-                        batchNo=batch)
+            save_plotter(
+                result['all_vars'],
+                result['solver'],
+                result['LAND_WIDTH'],
+                result['LAND_HEIGHT'],
+                batchNo=batch
+            )
             successful_count += 1
             print(f"✓ Batch {batch} saved successfully!")
         else:
-            failed_count += 1
-            print(f" Batch {batch} failed to generate a valid solution.")
+            print(f"✗ Batch {batch} failed.")
     
     print("\n" + "=" * 60)
-    print(f"Generation Complete!")
-    print(f"  Successful: {successful_count}/{NUM_GENERATIONS}")
-    print(f"  Failed: {failed_count}/{NUM_GENERATIONS}")
+    print(f"Generation Complete! {successful_count}/{NUM_GENERATIONS} successful")
     print("=" * 60)
 
 
 if __name__ == "__main__":
-    batchRun()
+    main()
