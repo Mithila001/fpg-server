@@ -14,6 +14,8 @@ from variables.room_variables import create_room_variables
 # Import constraints
 from constraints.basic_constraints import add_basic_constraints
 from constraints.adjacency_constraints import add_kitchen_living_adjacency
+from constraints.land_area_coverage import add_minimum_area_coverage
+from constraints.room_size_hierarchy_constraints import add_room_size_hierarchy
 
 # Import plotter
 from plotter import show_plotter, save_plotter
@@ -41,10 +43,12 @@ def generate_floor_plan():
     # Adjacency constraints
     touch_vars = add_kitchen_living_adjacency(model, all_vars)
     
-    # Future: Add more constraints here
-    # add_regulation_constraints(model, all_vars)
-    # add_bathroom_constraints(model, all_vars)
-    
+    # Minimum area coverage constraint
+    add_minimum_area_coverage(model, all_vars, LAND_WIDTH, LAND_HEIGHT, min_coverage=0.8)
+
+    # Room size hierarchy constraints
+    add_room_size_hierarchy(model, all_vars)
+
     # 4. SOLVE
     solver = cp_model.CpSolver()
     solver.parameters.random_seed = random.randint(0, 1000)
@@ -85,6 +89,7 @@ def main():
     print("-" * 60)
     
     successful_count = 0
+    PLOT_NOTE = "Max Area Coverage 80% test 1"
     
     for batch in range(NUM_GENERATIONS):
         print(f"\nGenerating floor plan {batch + 1}/{NUM_GENERATIONS}...")
@@ -97,7 +102,8 @@ def main():
                 result['solver'],
                 result['LAND_WIDTH'],
                 result['LAND_HEIGHT'],
-                batchNo=batch
+                batchNo=batch,
+                plot_title=f"({batch + 1}) - {PLOT_NOTE}"
             )
             successful_count += 1
             print(f"✓ Batch {batch} saved successfully!")

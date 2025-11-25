@@ -45,7 +45,7 @@ def show_plotter(all_vars, solver, LAND_WIDTH, LAND_HEIGHT):
 
 
 
-def save_plotter(all_vars, solver, LAND_WIDTH, LAND_HEIGHT, batchNo):
+def save_plotter(all_vars, solver, LAND_WIDTH, LAND_HEIGHT, batchNo, plot_title):
     """
     Save the floor plan to an image file with timestamp.
     
@@ -63,7 +63,8 @@ def save_plotter(all_vars, solver, LAND_WIDTH, LAND_HEIGHT, batchNo):
     
     # Generate timestamp with zero-padded numbers for consistency
     now = datetime.now()
-    timestamp = f"{now.microsecond // 1000:03d}.{now.second:02d}.{now.minute:02d}.{now.hour:02d}_{now.day:02d}.{now.month:02d}.{now.year:04d}"
+    # timestamp = f"{now.microsecond // 1000:03d}.{now.second:02d}.{now.minute:02d}.{now.hour:02d}_{now.day:02d}.{now.month:02d}.{now.year:04d}"
+    timestamp = f"{now.year:04d}.{now.month:02d}.{now.day:02d}_{now.hour:02d}.{now.minute:02d}.{now.second:02d}.{now.microsecond // 1000:03d}"
     
     # Create filename with zero-padded batch number
     filename = f"{batchNo:02d}_{timestamp}.png"
@@ -96,8 +97,8 @@ def save_plotter(all_vars, solver, LAND_WIDTH, LAND_HEIGHT, batchNo):
                color='black', weight='bold')
 
 
-    plt.title("Generated Floor Plan (Geometric CSP)")
-    
+    plt.title(plot_title)
+
     # Save the figure instead of showing it
     plt.savefig(filepath, dpi=300, bbox_inches='tight')
     plt.close(fig)  # Close the figure to free memory

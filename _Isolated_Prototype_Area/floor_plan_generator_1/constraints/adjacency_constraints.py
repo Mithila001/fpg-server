@@ -41,19 +41,22 @@ def add_adjacency_constraint(model, room1_vars, room2_vars, room1_name, room2_na
     # At least ONE must be true
     model.AddBoolOr([touch_right, touch_left, touch_top, touch_bottom])
     
+
     # Perpendicular overlap constraints
+
+    PASSAGEWAY_MIN_SIZE = 10 # Passageway space between rooms
     # Horizontal touching (left/right) needs vertical overlap
-    model.Add(room1_vars['y'] < room2_vars['y_end']).OnlyEnforceIf(touch_right)
-    model.Add(room2_vars['y'] < room1_vars['y_end']).OnlyEnforceIf(touch_right)
-    model.Add(room1_vars['y'] < room2_vars['y_end']).OnlyEnforceIf(touch_left)
-    model.Add(room2_vars['y'] < room1_vars['y_end']).OnlyEnforceIf(touch_left)
-    
+    model.Add(room1_vars['y'] + PASSAGEWAY_MIN_SIZE < room2_vars['y_end']).OnlyEnforceIf(touch_right)
+    model.Add(room2_vars['y'] + PASSAGEWAY_MIN_SIZE < room1_vars['y_end']).OnlyEnforceIf(touch_right)
+    model.Add(room1_vars['y'] + PASSAGEWAY_MIN_SIZE < room2_vars['y_end']).OnlyEnforceIf(touch_left)
+    model.Add(room2_vars['y'] + PASSAGEWAY_MIN_SIZE < room1_vars['y_end']).OnlyEnforceIf(touch_left)
+
     # Vertical touching (top/bottom) needs horizontal overlap
-    model.Add(room1_vars['x'] < room2_vars['x_end']).OnlyEnforceIf(touch_top)
-    model.Add(room2_vars['x'] < room1_vars['x_end']).OnlyEnforceIf(touch_top)
-    model.Add(room1_vars['x'] < room2_vars['x_end']).OnlyEnforceIf(touch_bottom)
-    model.Add(room2_vars['x'] < room1_vars['x_end']).OnlyEnforceIf(touch_bottom)
-    
+    model.Add(room1_vars['x'] + PASSAGEWAY_MIN_SIZE < room2_vars['x_end']).OnlyEnforceIf(touch_top)
+    model.Add(room2_vars['x'] + PASSAGEWAY_MIN_SIZE < room1_vars['x_end']).OnlyEnforceIf(touch_top)
+    model.Add(room1_vars['x'] + PASSAGEWAY_MIN_SIZE < room2_vars['x_end']).OnlyEnforceIf(touch_bottom)
+    model.Add(room2_vars['x'] + PASSAGEWAY_MIN_SIZE < room1_vars['x_end']).OnlyEnforceIf(touch_bottom)
+
     return {
         'right': touch_right,
         'left': touch_left,
