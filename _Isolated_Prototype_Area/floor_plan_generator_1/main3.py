@@ -1,24 +1,24 @@
 """
 Main entry point for floor plan generation.
 """
-
+# python -m floor_plan_generator_1.main3
 from ortools.sat.python import cp_model
 import random
 
 # Import configuration
-from config import LAND_WIDTH, LAND_HEIGHT, ROOMS_DATA
+from .config import LAND_WIDTH, LAND_HEIGHT, ROOMS_DATA
 
 # Import variable creation
-from variables.room_variables import create_room_variables
+from .variables.room_variables import create_room_variables
 
 # Import constraints
-from constraints.basic_constraints import add_basic_constraints
-from constraints.adjacency_constraints import add_kitchen_living_adjacency
-from constraints.land_area_coverage import add_minimum_area_coverage
-from constraints.room_size_hierarchy_constraints import add_room_size_hierarchy
+from .constraints.basic_constraints import add_basic_constraints
+from .constraints.adjacency_constraints import add_kitchen_living_adjacency
+from .constraints.land_area_coverage import add_minimum_area_coverage
+from .constraints.room_size_hierarchy_constraints import add_room_size_hierarchy
 
 # Import plotter
-from plotter import show_plotter, save_plotter
+from .plotter import show_plotter, save_plotter
 
 
 def generate_floor_plan():
