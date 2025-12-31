@@ -45,30 +45,21 @@ def show_plotter(all_vars, solver, LAND_WIDTH, LAND_HEIGHT):
 
 
 
-def save_plotter(all_vars, solver, LAND_WIDTH, LAND_HEIGHT, batchNo, plot_title):
+def save_plotter(all_vars, solver, LAND_WIDTH, LAND_HEIGHT, batchNo, plot_title, output_subfolder):
     """
-    Save the floor plan to an image file with timestamp.
-    
-    Parameters:
-    - all_vars: Dictionary containing room variables
-    - solver: The CP-SAT solver with solution
-    - LAND_WIDTH: Width of the land
-    - LAND_HEIGHT: Height of the land
-    - batchNo: Batch number for the filename
+    Save the floor plan to a specific subfolder.
     """
-    # Create output directory if it doesn't exist
-    output_dir = "plotted images"
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    # Ensure the specific batch folder exists
+    if not os.path.exists(output_subfolder):
+        os.makedirs(output_subfolder)
     
-    # Generate timestamp with zero-padded numbers for consistency
+    # Generate unique timestamp for the filename to avoid overwriting
     now = datetime.now()
-    # timestamp = f"{now.microsecond // 1000:03d}.{now.second:02d}.{now.minute:02d}.{now.hour:02d}_{now.day:02d}.{now.month:02d}.{now.year:04d}"
-    timestamp = f"{now.year:04d}.{now.month:02d}.{now.day:02d}_{now.hour:02d}.{now.minute:02d}.{now.second:02d}.{now.microsecond // 1000:03d}"
+    timestamp = f"{now.hour:02d}.{now.minute:02d}.{now.second:02d}.{now.microsecond // 1000:03d}"
     
-    # Create filename with zero-padded batch number
-    filename = f"{batchNo:02d}_{timestamp}.png"
-    filepath = os.path.join(output_dir, filename)
+    # Create filename
+    filename = f"Batch_{batchNo:02d}_{timestamp}.png"
+    filepath = os.path.join(output_subfolder, filename)
     
     # Create the plot
     fig, ax = plt.subplots()
@@ -79,28 +70,21 @@ def save_plotter(all_vars, solver, LAND_WIDTH, LAND_HEIGHT, batchNo, plot_title)
     colors = ['#ff9999', '#66b3ff', '#99ff99', '#ffcc99']
     
     for i, (name, v) in enumerate(all_vars.items()):
-        # Extract numerical values from the solver
         x_val = solver.Value(v['x'])
         y_val = solver.Value(v['y'])
         w_val = solver.Value(v['w'])
         h_val = solver.Value(v['h'])
         
-        print(f"{name}: x={x_val}, y={y_val}, w={w_val}, h={h_val}")
-        
-        # Draw Rectangle
         rect = patches.Rectangle((x_val, y_val), w_val, h_val, 
                                linewidth=2, edgecolor='black', 
                                facecolor=colors[i % len(colors)])
         ax.add_patch(rect)
         ax.text(x_val + w_val/2, y_val + h_val/2, name, 
-               ha='center', va='center', fontsize=9, 
-               color='black', weight='bold')
-
+                ha='center', va='center', fontsize=9, 
+                color='black', weight='bold')
 
     plt.title(plot_title)
-
-    # Save the figure instead of showing it
     plt.savefig(filepath, dpi=300, bbox_inches='tight')
-    plt.close(fig)  # Close the figure to free memory
+    plt.close(fig)
     
     print(f"Floor plan saved to: {filepath}")
