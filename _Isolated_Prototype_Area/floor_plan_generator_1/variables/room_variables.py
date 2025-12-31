@@ -33,6 +33,10 @@ def create_room_variables(model, rooms_data, land_width, land_height):
         w = model.NewIntVar(room["min_w"], room["min_w"] + VALUE_INCREMENT, f'{name}_w')
         h = model.NewIntVar(room["min_h"], room["min_h"] + VALUE_INCREMENT, f'{name}_h')
 
+        # Area
+        area = model.NewIntVar(0, land_width * land_height, f'{name}_area')
+        model.AddMultiplicationEquality(area, [w, h])
+
         # End Variables
         x_end = model.NewIntVar(0, land_width, f'{name}_x_end')
         y_end = model.NewIntVar(0, land_height, f'{name}_y_end')
@@ -47,7 +51,8 @@ def create_room_variables(model, rooms_data, land_width, land_height):
         # Store all variables
         all_vars[name] = {
             'x': x, 'y': y, 'w': w, 'h': h,
-            'x_end': x_end, 'y_end': y_end
+            'x_end': x_end, 'y_end': y_end,
+            'area': area
         }
     
     return all_vars, x_intervals, y_intervals

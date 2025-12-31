@@ -91,7 +91,7 @@ def main():
     print("-" * 60)
     
     successful_count = 0
-    PLOT_NOTE = "Max Area Coverage 80% test 1"
+    PLOT_NOTE = "Room Proportional Scalability Test"
     
     session_timestamp = datetime.now().strftime("%Y%m%d_%H_%M_%S")
     current_run_folder = os.path.join("plotted images", session_timestamp)
@@ -110,15 +110,15 @@ def main():
                 result['solver'],
                 result['FLOOR_WIDTH'],
                 result['FLOOR_HEIGHT'],
-                batchNo=batch,
+                batchNo=batch + 1,
                 plot_title=f"({batch + 1}) - {PLOT_NOTE}",
                 output_subfolder=current_run_folder
             )
             successful_count += 1
-            print(f"✓ Batch {batch} saved successfully!")
+            print(f"✓ Batch {batch + 1} saved successfully!")
         else:
-            print(f"✗ Batch {batch} failed.")
-    
+            print(f"✗ Batch {batch + 1} failed.")
+
     print("\n" + "=" * 60)
     print(f"Generation Complete! {successful_count}/{NUM_GENERATIONS} successful")
     print("=" * 60)

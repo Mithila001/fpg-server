@@ -55,7 +55,7 @@ def save_plotter(all_vars, solver, LAND_WIDTH, LAND_HEIGHT, batchNo, plot_title,
     
     # Generate unique timestamp for the filename to avoid overwriting
     now = datetime.now()
-    timestamp = f"{now.hour:02d}.{now.minute:02d}.{now.second:02d}.{now.microsecond // 1000:03d}"
+    timestamp = now.strftime("%Y.%m.%d_%H.%M.%S") + f".{now.microsecond // 1000:03d}"
     
     # Create filename
     filename = f"Batch_{batchNo:02d}_{timestamp}.png"
