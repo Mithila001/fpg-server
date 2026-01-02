@@ -38,9 +38,19 @@ def add_adjacency_constraint(model: cp_model.CpModel, room1: Room, room2: Room) 
     return {'right': touch_right, 'left': touch_left, 'top': touch_top, 'bottom': touch_bottom}
 
 def add_kitchen_living_adjacency(model: cp_model.CpModel, rooms_list: List[Room]) -> Optional[Dict[str, Any]]:
-    kitchen_room = next((r for r in rooms_list if r.name == "Kitchen"), None)
-    living_room = next((r for r in rooms_list if r.name == "Living Room"), None)
+    kitchen_room = None
+    living_room = None
 
+    # Look for the specific rooms manually
+    for room in rooms_list:
+        if room.name == "Kitchen":
+            kitchen_room = room
+        elif room.name == "Living Room":
+            living_room = room
+
+    # Only apply the constraint if both were found
     if kitchen_room and living_room:
         return add_adjacency_constraint(model, kitchen_room, living_room)
     return None
+
+## Problem: What happen if there are multiple rooms with the same name? Like multiple "Bedroom"s?

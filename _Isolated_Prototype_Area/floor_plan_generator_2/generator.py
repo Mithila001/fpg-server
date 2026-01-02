@@ -16,7 +16,7 @@ class FloorPlanGenerator:
         # Convert raw dictionaries from config into Room Objects
         self.rooms = []
         for data in rooms_data:
-            new_room = Room(data["name"], data["min_w"], data["min_h"])
+            new_room = Room(data["name"], data["min_w"], data["min_h"]) # Goal here is not to populate all attributes yet, just what we already knows (tip: from config file).
             self.rooms.append(new_room)
 
     def generate(self):
