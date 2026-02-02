@@ -29,8 +29,8 @@ class Room:
         self.y = model.NewIntVar(0, land_height - self.min_h, f"{self.name}_y")
 
         # Dimensions
-        self.w = model.NewIntVar(self.min_w, land_width - self.max_w, f"{self.name}_w")
-        self.h = model.NewIntVar(self.min_h, land_height - self.max_h, f"{self.name}_h")
+        self.w = model.NewIntVar(self.min_w, self.max_w, f"{self.name}_w")
+        self.h = model.NewIntVar(self.min_h, self.max_h, f"{self.name}_h")
 
         # Area
         self.area = model.NewIntVar(0, land_width * land_height, f"{self.name}_area")

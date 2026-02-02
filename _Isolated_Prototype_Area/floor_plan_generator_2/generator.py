@@ -5,6 +5,7 @@ from .constraints.basic_constraints import add_basic_constraints
 from .constraints.adjacency_constraints import add_kitchen_living_adjacency
 from .constraints.floor_area_coverage import add_minimum_area_coverage
 from .constraints.room_size_hierarchy_constraints import add_room_size_hierarchy
+from .config import MIN_COVERAGE
 
 
 class FloorPlanGenerator:
@@ -36,7 +37,9 @@ class FloorPlanGenerator:
         # 2. Add Constraints (Passing the list of room objects)
         add_basic_constraints(self.model, self.rooms)
         add_kitchen_living_adjacency(self.model, self.rooms)
-        add_minimum_area_coverage(self.model, self.rooms, self.width, self.height)
+        add_minimum_area_coverage(
+            self.model, self.rooms, self.width, self.height, MIN_COVERAGE
+        )
         add_room_size_hierarchy(self.model, self.rooms)
 
         # 3. Solve

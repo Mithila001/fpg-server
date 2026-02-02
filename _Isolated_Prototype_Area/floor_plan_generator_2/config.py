@@ -14,6 +14,9 @@ PLOT_NOTE = "Complex Room Size Constraints Test"
 MAX_ASPECT_RATIO_HEIGHT = 10
 MAX_ASPECT_RATIO_WIDTH = 16
 
+# Minimum floor area coverage
+MIN_COVERAGE = 0.5
+
 # This allows you to easily scale all rooms if you want to test
 # larger minimum requirements later.
 ADD_VALUE = 0
