@@ -1,5 +1,6 @@
 from typing import List
 from ..models.room import Room
+from ..config import MAX_ASPECT_RATIO_HEIGHT, MAX_ASPECT_RATIO_WIDTH
 
 def add_basic_constraints(model, rooms: List[Room]):
     """
@@ -7,6 +8,10 @@ def add_basic_constraints(model, rooms: List[Room]):
         model: CpModel instance
         rooms: List of Room objects
     """
+    h_ratio = int(MAX_ASPECT_RATIO_HEIGHT)
+    w_ratio = int(MAX_ASPECT_RATIO_WIDTH)
+
+
     # Extract intervals from the room objects for NoOverlap
     x_intervals = [r.x_interval for r in rooms]
     y_intervals = [r.y_interval for r in rooms]
@@ -18,7 +23,7 @@ def add_basic_constraints(model, rooms: List[Room]):
         model.Add(r.y + r.h == r.y_end) # type: ignore
         
         # Aspect ratio constraints
-        model.Add(r.w <= 2 * r.h) # type: ignore
-        model.Add(r.h <= 2 * r.w) # type: ignore
+        model.Add(r.w * h_ratio <= r.h * w_ratio) # type: ignore
+        model.Add(r.h * h_ratio <= r.w * w_ratio) # type: ignore
     
     print("Added basic constraints using Room objects")
