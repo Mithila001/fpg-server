@@ -1,21 +1,23 @@
 #!/usr/bin/env python3
 
 import math
-from plotter2 import plot_polygons
+import os
+from plotters.polygon_plotter import PolygonPlotter
+
 
 def initializeLandSpaceCalculations(polygon_edges):
     """
-    Calculates the line-equation parameters (ax + by = C) for each 
+    Calculates the line-equation parameters (ax + by = C) for each
     polygon edge, offset by its specified 'OffsetDistance'.
     """
     offset_line_parameters = []
 
     for edge in polygon_edges:
-        sx = edge['StartVertex_x']
-        sy = edge['StartVertex_y']
-        ex = edge['EndVertex_x']
-        ey = edge['EndVertex_y']
-        offset = edge['OffsetDistance']
+        sx = edge["StartVertex_x"]
+        sy = edge["StartVertex_y"]
+        ex = edge["EndVertex_x"]
+        ey = edge["EndVertex_y"]
+        offset = edge["OffsetDistance"]
 
         # 1. Derive Edge Vector
         vec_x = ex - sx
@@ -29,7 +31,7 @@ def initializeLandSpaceCalculations(polygon_edges):
         magnitude = math.sqrt(normal_x**2 + normal_y**2)
         norm_nx = 0.0
         norm_ny = 0.0
-        
+
         if magnitude > 0:
             norm_nx = normal_x / magnitude
             norm_ny = normal_y / magnitude
@@ -37,12 +39,8 @@ def initializeLandSpaceCalculations(polygon_edges):
         # 4. Calculate 'C' for the new offset line
         c_offset = (norm_nx * sx) + (norm_ny * sy) + offset
 
-        line_params = {
-            'a': norm_nx,
-            'b': norm_ny,
-            'C': c_offset
-        }
-        
+        line_params = {"a": norm_nx, "b": norm_ny, "C": c_offset}
+
         offset_line_parameters.append(line_params)
 
     return offset_line_parameters
@@ -52,9 +50,10 @@ def initializeLandSpaceCalculations(polygon_edges):
 # ---               End of the algorithm          ---
 # --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 
+
 def create_land_edges(vertices, offset_distances):
     """
-    Creates the 'land_edges' list from a list of vertices and a 
+    Creates the 'land_edges' list from a list of vertices and a
     corresponding list of offset distances for each edge.
 
     Args:
@@ -93,11 +92,12 @@ def create_land_edges(vertices, offset_distances):
             "StartVertex_y": start_vertex_y,
             "EndVertex_x": end_vertex_x,
             "EndVertex_y": end_vertex_y,
-            "OffsetDistance": offset
+            "OffsetDistance": offset,
         }
         land_edges.append(edge)
-    
+
     return land_edges
+
 
 def find_intersection(line1, line2):
     """
@@ -106,13 +106,13 @@ def find_intersection(line1, line2):
     a1*x + b1*y = C1
     a2*x + b2*y = C2
     """
-    a1 = line1['a']
-    b1 = line1['b']
-    C1 = line1['C']
-    
-    a2 = line2['a']
-    b2 = line2['b']
-    C2 = line2['C']
+    a1 = line1["a"]
+    b1 = line1["b"]
+    C1 = line1["C"]
+
+    a2 = line2["a"]
+    b2 = line2["b"]
+    C2 = line2["C"]
 
     # Calculate the determinant
     D = (a1 * b2) - (a2 * b1)
@@ -129,8 +129,9 @@ def find_intersection(line1, line2):
     # Calculate the intersection point
     x = Dx / D
     y = Dy / D
-    
+
     return (x, y)
+
 
 def find_intersection_vertices(offset_lines):
     """
@@ -147,7 +148,7 @@ def find_intersection_vertices(offset_lines):
     """
     new_vertices = []
     num_lines = len(offset_lines)
-    
+
     if num_lines < 2:
         print("Error: Need at least 2 lines to find intersections.")
         return []
@@ -155,41 +156,73 @@ def find_intersection_vertices(offset_lines):
     for i in range(num_lines):
         # Get the first line
         line1 = offset_lines[i]
-        
+
         # Get the second line, looping back to the start for the last vertex
         line2_index = (i + 1) % num_lines
         line2 = offset_lines[line2_index]
 
         # Find the intersection of line_i and line_i+1
         intersection_point = find_intersection(line1, line2)
-        
+
         if intersection_point:
             new_vertices.append(intersection_point)
-            
+
     return new_vertices
 
 
 # --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 # ---               EXAMPLE USAGE & NEXT STEPS          ---
 # --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
+class LandBuildableFinder:
+    """Small OOP wrapper that reuses the procedural helpers in this module
+
+    Keeps the original functions intact but provides a simple API and
+    uses the shared PolygonPlotter for visualization.
+    """
+
+    def __init__(self, vertices, offsets, output_base_dir=None):
+        if len(vertices) != len(offsets):
+            raise ValueError("vertices and offsets must have the same length")
+        self.vertices = list(vertices)
+        self.offsets = list(offsets)
+        self.output_base_dir = output_base_dir or os.path.join(
+            os.path.dirname(__file__), "..", "plotted images"
+        )
+
+    def compute(self):
+        edges = create_land_edges(self.vertices, self.offsets)
+        offset_lines = initializeLandSpaceCalculations(edges)
+        return find_intersection_vertices(offset_lines)
+
+    def plot(self, show=True, save=False, batch_no=1, title=None):
+        polygons = [self.vertices, self.compute()]
+        plotter = PolygonPlotter(output_base_dir=self.output_base_dir)
+        if save:
+            return plotter.polygon_line_plotter_batch(
+                polygons_batch=[polygons],
+                batch_no=batch_no,
+                show=show,
+                titles=[title or "buildable-space"],
+            )
+        else:
+            plotter.polygon_line_plotter_single(
+                coordinates_list=polygons, show=show, title=title or "buildable-space"
+            )
+            return None
+
+
 if __name__ == "__main__":
-    
     # --- --- --- --- --- --- --- --- --- ---
     # --- STEP 1: Define Your Land Plot   ---
     # --- --- --- --- --- --- --- --- --- ---
-    
+
     # A simple 100x100 square
-    land_plot_vertices = [
-        (4,4),
-        (2,0),
-        (10, 0),
-        (10, 5)
-    ]
-    
+    land_plot_vertices = [(4, 4), (2, 0), (10, 0), (10, 5)]
+
     # Define the *inward* setback for each edge.
     # We use negative numbers for an *inward* offset.
     # -10 for the bottom, -20 for the right, -10 for the top, -20 for the left.
-    setbacks = [.5, .8, .5, 10]
+    setbacks = [0.5, 0.8, 0.5, 10]
 
     print("--- STEP 1: Initial Data ---")
     print(f"Land Vertices: {land_plot_vertices}")
@@ -198,23 +231,25 @@ if __name__ == "__main__":
     # --- --- --- --- --- --- --- --- --- ---
     # --- STEP 2: Create Edge Objects     ---
     # --- --- --- --- --- --- --- --- --- ---
-    
+
     land_edges = create_land_edges(land_plot_vertices, setbacks)
-    
+
     print("\n--- STEP 2: Generated Land Edges (for algorithm) ---")
     for i, edge in enumerate(land_edges):
         print(f"Edge {i}: {edge}")
-        
+
     # --- --- --- --- --- --- --- --- --- ---
     # --- STEP 3: Calculate Offset Lines  ---
     # --- --- --- --- --- --- --- --- --- ---
-    
+
     offset_lines = initializeLandSpaceCalculations(land_edges)
-    
+
     print("\n--- STEP 3: Calculated Offset Lines (ax + by = C) ---")
     for i, line in enumerate(offset_lines):
         # Print with formatting to make it easier to read
-        print(f"Line {i}: a={line['a']:>6.2f}, b={line['b']:>6.2f}, C={line['C']:>7.2f}")
+        print(
+            f"Line {i}: a={line['a']:>6.2f}, b={line['b']:>6.2f}, C={line['C']:>7.2f}"
+        )
 
     # --- --- --- --- --- --- --- --- --- ---
     # --- STEP 4: Find New Vertices     ---
@@ -223,8 +258,14 @@ if __name__ == "__main__":
     buildable_vertices = find_intersection_vertices(offset_lines)
     print("buildable_vertices: ", buildable_vertices)
 
-    plot_polygons([land_plot_vertices, buildable_vertices])
-    
+    # Use the unified PolygonPlotter via the OOP wrapper
+    finder = LandBuildableFinder(
+        land_plot_vertices,
+        setbacks,
+        output_base_dir=os.path.join(os.path.dirname(__file__), "..", "plotted images"),
+    )
+    finder.plot(show=True, save=False, title="Land + Buildable")
+
     # print("\n--- STEP 4: Final Buildable Space Vertices ---")
     # for i, vertex in enumerate(buildable_vertices):
     #     # Format (x, y) to 2 decimal places

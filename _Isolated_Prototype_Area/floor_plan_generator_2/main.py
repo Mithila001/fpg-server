@@ -39,9 +39,9 @@ def main():
                 output_subfolder=current_run_folder,
             )
             successful_count += 1
-            print(f"✓ Plan {i + 1} saved successfully.")
+            print(f"Plan {i + 1} saved successfully.")
         else:
-            print(f"✗ Plan {i + 1} failed.")
+            print(f"Plan {i + 1} failed.")
 
     print(
         f"\nBatch Generation Complete! {successful_count}/{NUM_GENERATIONS} successful."
