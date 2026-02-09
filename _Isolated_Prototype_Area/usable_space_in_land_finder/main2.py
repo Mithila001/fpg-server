@@ -170,6 +170,21 @@ def find_intersection_vertices(offset_lines):
     return new_vertices
 
 
+# Main Function for the Algorithm
+def find_buildable_space(vertices, offsets):
+    """Main function to find the buildable space vertices given the land vertices and offsets."""
+    print("\n=== Start Algorithm: Find Buildable Space ===")
+    print("Given Vertices: ", vertices)
+    print("Given Offsets:  ", offsets)
+
+    land_edges = create_land_edges(vertices, offsets)
+
+    offset_lines = initializeLandSpaceCalculations(land_edges)
+    buildable_vertices = find_intersection_vertices(offset_lines)
+    print("Returning Buildable Vertices: ", buildable_vertices)
+    return buildable_vertices
+
+
 # --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 # ---               EXAMPLE USAGE & NEXT STEPS          ---
 # --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---

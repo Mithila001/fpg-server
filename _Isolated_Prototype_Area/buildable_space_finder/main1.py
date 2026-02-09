@@ -11,7 +11,6 @@ from buildable_space_finder.myUtilities1 import (
     move_polygon_to_positive_axis,
     reset_polygon_position,
 )
-from buildable_space_finder.plotter1 import plot_polygons
 from plotters.polygon_plotter import PolygonPlotter
 import os
 
@@ -426,37 +425,6 @@ def major_step2(_rotated_polygon):
     return largest_rectangle_coords
 
 
-# Single Run Function for Debugging (lack some updates)
-def run_buildableSpaceFinder_algorithm_SINGLE_RUN():
-    # First Round: Aligned with TA line
-    largest_rectangle_coords_parallel = major_step2(rotated_polygon)
-    # Second Round: Perpendicular to TA line
-    flipped_coordinates = flip_xy_coordinates(rotated_polygon)
-    largest_rectangle_coords_perpendicular = major_step2(flipped_coordinates)
-    # Un-flip the perpendicular rectangle coordinates
-    largest_rectangle_coords_perpendicular = flip_xy_coordinates(
-        largest_rectangle_coords_perpendicular
-    )
-
-    # Inverse Rotation (back to original orientation)
-    original_oriented_polygon = inverse_rotate_polygon(rotated_polygon, angle)
-    rect_parallel_oriented = inverse_rotate_polygon(
-        largest_rectangle_coords_parallel, angle
-    )
-    rect_perpendicular_oriented = inverse_rotate_polygon(
-        largest_rectangle_coords_perpendicular, angle
-    )
-
-    # Inverse Translation (back to original position)
-    final_polygon = inverse_translate_polygon(original_oriented_polygon, TA_line)
-    final_rect_parallel = inverse_translate_polygon(rect_parallel_oriented, TA_line)
-    final_rect_perpendicular = inverse_translate_polygon(
-        rect_perpendicular_oriented, TA_line
-    )
-
-    # plot_polygons([final_polygon,final_rect_parallel, final_rect_perpendicular])
-
-
 # Original Main Function
 def run_buildableSpaceFinder_algorithm(polygon_coordinates):
     point_A = 0
@@ -515,17 +483,17 @@ def run_buildableSpaceFinder_algorithm(polygon_coordinates):
     print("Zeroed Polygon:", zeroed_polygon)
     print("Rotated Polygon:", rotated_polygon)
 
-    plotter = PolygonPlotter(
-        output_base_dir=os.path.join(os.path.dirname(__file__), "..", "plotted images")
-    )
+    # plotter = PolygonPlotter(
+    #     output_base_dir=os.path.join(os.path.dirname(__file__), "..", "plotted images")
+    # )
 
-    saved = plotter.polygon_line_plotter_batch(
-        polygons_batch=[[final_polygon, final_rect_parallel, final_rect_perpendicular]],
-        batch_no=3,
-        show=False,
-        titles=["Final result"],
-    )
-    print("Saved images:", saved)  # list of full file paths
+    # saved = plotter.polygon_line_plotter_batch(
+    #     polygons_batch=[[final_polygon, final_rect_parallel, final_rect_perpendicular]],
+    #     batch_no=3,
+    #     show=False,
+    #     titles=["Final result"],
+    # )
+    # print("Saved images:", saved)  # list of full file paths
 
     return final_polygon, final_rect_parallel, final_rect_perpendicular
 
@@ -542,26 +510,39 @@ if __name__ == "__main__":
         f"Returned polygon vertex counts: final={len(final_poly)} par={len(rect_par)} perp={len(rect_perp)}"
     )
 
-    # Locate the most-recent batch folder created by PolygonPlotter (if any)
-    out_base = os.path.join(os.path.dirname(__file__), "..", "plotted images")
-    if os.path.isdir(out_base):
-        subdirs = [
-            os.path.join(out_base, d)
-            for d in os.listdir(out_base)
-            if os.path.isdir(os.path.join(out_base, d))
-        ]
-        if subdirs:
-            latest = max(subdirs, key=os.path.getmtime)
-            print("Latest batch folder:", latest)
-            files = sorted(os.listdir(latest))
-            if files:
-                for f in files:
-                    p = os.path.join(latest, f)
-                    size = os.path.getsize(p) if os.path.exists(p) else 0
-                    print(f" - {f}  ({size} bytes)")
-            else:
-                print("No files found in latest batch folder.")
-        else:
-            print("No batch folders found in", out_base)
-    else:
-        print("Output base folder not present:", out_base)
+
+# if __name__ == "__main__":
+#     # Execute the algorithm on the example polygon and show diagnostics
+#     print(
+#         "\n== Running example: run_buildableSpaceFinder_algorithm(originalPolygon) =="
+#     )
+#     final_poly, rect_par, rect_perp = run_buildableSpaceFinder_algorithm(
+#         originalPolygon
+#     )
+#     print(
+#         f"Returned polygon vertex counts: final={len(final_poly)} par={len(rect_par)} perp={len(rect_perp)}"
+#     )
+
+#     # Locate the most-recent batch folder created by PolygonPlotter (if any)
+#     out_base = os.path.join(os.path.dirname(__file__), "..", "plotted images")
+#     if os.path.isdir(out_base):
+#         subdirs = [
+#             os.path.join(out_base, d)
+#             for d in os.listdir(out_base)
+#             if os.path.isdir(os.path.join(out_base, d))
+#         ]
+#         if subdirs:
+#             latest = max(subdirs, key=os.path.getmtime)
+#             print("Latest batch folder:", latest)
+#             files = sorted(os.listdir(latest))
+#             if files:
+#                 for f in files:
+#                     p = os.path.join(latest, f)
+#                     size = os.path.getsize(p) if os.path.exists(p) else 0
+#                     print(f" - {f}  ({size} bytes)")
+#             else:
+#                 print("No files found in latest batch folder.")
+#         else:
+#             print("No batch folders found in", out_base)
+#     else:
+#         print("Output base folder not present:", out_base)
