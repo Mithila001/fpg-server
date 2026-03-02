@@ -1,24 +1,10 @@
-"""Main (two-stage pipeline demo)
-
-Demonstrates the complete workflow:
-1. Run buildable_space_finder on realistic mock land polygons
-   → Plot results in ./results/land/
-2. Pass buildable-space output to usable_space_in_land-finder (with setbacks)
-   → Plot results in ./results/space/
-
-Mock coordinates represent various realistic land scenarios:
-- Rectangular suburban lot
-- Irregular corner lot
-- Narrow infill lot
-- L-shaped lot
-- Trapezoidal lot
-"""
-
 import os
 from typing import Sequence, Tuple
 
-from buildable_space_finder.main1 import run_buildableSpaceFinder_algorithm
-from usable_space_in_land_finder.main2 import find_buildable_space
+from buildable_space_finder import FPBoundaryFinder
+from usable_space_in_land_finder.usable_space_finder import (
+    UsableSpaceFinder,  # noqa: F401  (imported for example/IDE discoverability)
+)
 
 
 from plotters.polygon_plotter import PolygonPlotter
@@ -26,6 +12,7 @@ from plotters.polygon_plotter import PolygonPlotter
 Coordinate = Tuple[float, float]
 
 # Realistic mock lands: each entry includes coordinates + explicit per-edge setbacks
+# AI NOTE: Use these data, DO NOT MODIFY.
 MOCK_LANDS: Sequence[dict] = [
     {
         "land_coordinates": [(15.0, 1.5), (16.5, 9.0), (10.5, 12.3), (3.9, 10.2)],
@@ -52,7 +39,6 @@ MOCK_LANDS: Sequence[dict] = [
     #     "setbacksValues": [2.0, 1.5, 1.5],
     # },
 ]
-# NOTE: DEFAULT_SETBACKS removed — each land MUST include `setbacksValues` (or a single numeric value to broadcast). Keep input explicit and simple.
 
 
 def run_engine(coordinates: Sequence[Coordinate], setbacks: Sequence[float]):
@@ -61,7 +47,9 @@ def run_engine(coordinates: Sequence[Coordinate], setbacks: Sequence[float]):
     Returns: (buildable_polygon, usable_polygon, diagnostics)
     """
     # Stage 1 — largest-inscribed rectangles & canonical buildable polygon
-    result = run_buildableSpaceFinder_algorithm(list(coordinates))
+    result = FPBoundaryFinder().fp_boundary_finder(
+        list(coordinates), min_width=5.0, min_height=0.5
+    )
 
     # `run_buildableSpaceFinder_algorithm` returns (final_polygon, rect_par, rect_perp)
     if not result or not isinstance(result, tuple):
@@ -70,6 +58,11 @@ def run_engine(coordinates: Sequence[Coordinate], setbacks: Sequence[float]):
     buildable_polygon, rect_par, rect_perp = result
 
     # Stage 2 — run usable-space finder on the buildable polygon with per-edge setbacks
+    #
+    # the project now exposes only the class-based interface
+    # (`UsableSpaceFinder`).  the old module-level ``find_buildable_space``
+    # helper has been removed from the public API, so we call the method
+    # directly instead; this mirrors the style of FPBoundaryFinder.
     edge_count = len(buildable_polygon) if buildable_polygon else len(coordinates)
     # strict API: accept a single scalar (broadcast) or an explicit per-edge list matching edge_count
     if not setbacks:
@@ -88,7 +81,7 @@ def run_engine(coordinates: Sequence[Coordinate], setbacks: Sequence[float]):
 
     usable_polygon = []
     try:
-        usable_polygon = find_buildable_space(
+        usable_polygon = UsableSpaceFinder().find_buildable_space(
             buildable_polygon or list(coordinates), per_edge_setbacks
         )
     except Exception as exc:
@@ -102,23 +95,6 @@ def run_engine(coordinates: Sequence[Coordinate], setbacks: Sequence[float]):
     }
 
     return buildable_polygon, usable_polygon, diagnostics
-
-
-def quick_demo_usable():
-    # Setup data
-    land = [(15.0, 1.5), (16.5, 9.0), (10.5, 12.3), (3.9, 10.2)]
-    setbacks = [0, 0.5, 2, 0.5]  # Example values
-
-    # Run Stage 2
-    usable_polygon = find_buildable_space(land, setbacks)
-
-    # Plot and display (Red = Input, Green = Result)
-    plotter = PolygonPlotter()
-    plotter.polygon_line_plotter_single(
-        coordinates_list=[land, usable_polygon],
-        show=True,
-        title="Input Land (Red) vs Usable Space (Green)",
-    )
 
 
 # if __name__ == "__main__":
@@ -157,23 +133,5 @@ if __name__ == "__main__":
             show=True,
             title="Input Land (Red) vs Usable Space (Green)",
         )
-
-        # # Combined plot: original land, buildable-space (A), usable-space (B)
-        # combined_plotter = PolygonPlotter(output_base_dir=out_space_dir)
-        # polys = [list(land), buildable or [], usable or []]
-        # title = f"Land #{idx} — buildable + usable"
-        # fig_ax = combined_plotter.polygon_line_plotter_single(
-        #     coordinates_list=polys, show=False, title=title
-        # )
-        # print(f"Combined image saved: {combined_plotter.last_saved_file}")
-
-        # # Also save stage-1 (land + buildable) into results/land for traceability
-        # stage1_plotter = PolygonPlotter(output_base_dir=out_land_dir)
-        # stage1_plotter.polygon_line_plotter_single(
-        #     coordinates_list=[list(land), buildable or []],
-        #     show=False,
-        #     title=f"Land #{idx} — buildable",
-        # )
-        # print(f"Stage-1 image saved: {stage1_plotter.last_saved_file}")
 
     print("\nBatch complete.")
