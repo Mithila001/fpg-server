@@ -1,8 +1,8 @@
 import os
-from typing import Sequence, Tuple
+from typing import Sequence, Tuple, List, Optional, Union
 
-from buildable_space_finder import FPBoundaryFinder
-from usable_space_in_land_finder.usable_space_finder import (
+from fp_boundary_finder import FPBoundaryFinder
+from usable_land_space_finder.usable_land_space_finder import (
     UsableSpaceFinder,  # noqa: F401  (imported for example/IDE discoverability)
 )
 
@@ -18,83 +18,78 @@ MOCK_LANDS: Sequence[dict] = [
         "land_coordinates": [(15.0, 1.5), (16.5, 9.0), (10.5, 12.3), (3.9, 10.2)],
         "setbacksValues": [1, 0.5, 0.5, 2],
     },
-    # {
-    #     "land_coordinates": [(15.0, 1.5), (16.5, 9.0), (10.5, 12.3), (3.9, 10.2)],
-    #     "setbacksValues": [10, 1.5, 2.0, 1.5],
-    # },
-    # {
-    #     "land_coordinates": [(16.8, 0.9), (26.1, 12.0), (7.2, 12.0), (1.5, 9.0)],
-    #     "setbacksValues": [1.8, 1.2, 1.8, 1.2],
-    # },
-    # {
-    #     "land_coordinates": [(22.5, 11.1), (13.5, 18.0), (4.8, 18.0), (4.5, 0.9)],
-    #     "setbacksValues": [2.0, 1.5, 2.0, 1.5],
-    # },
-    # {
-    #     "land_coordinates": [(21.9, 12.0), (1.5, 12.0), (6.0, 0.9)],
-    #     "setbacksValues": [1.5, 1.5, 1.5],
-    # },
-    # {
-    #     "land_coordinates": [(21.0, 18.0), (9.0, 18.0), (6.0, 0.9)],
-    #     "setbacksValues": [2.0, 1.5, 1.5],
-    # },
+    {
+        "land_coordinates": [(15.0, 1.5), (16.5, 9.0), (10.5, 12.3), (3.9, 10.2)],
+        "setbacksValues": [10, 1.5, 2.0, 1.5],
+    },
+    {
+        "land_coordinates": [(16.8, 0.9), (26.1, 12.0), (7.2, 12.0), (1.5, 9.0)],
+        "setbacksValues": [1.8, 1.2, 1.8, 1.2],
+    },
+    {
+        "land_coordinates": [(22.5, 11.1), (13.5, 18.0), (4.8, 18.0), (4.5, 0.9)],
+        "setbacksValues": [2.0, 1.5, 2.0, 1.5],
+    },
+    {
+        "land_coordinates": [(21.9, 12.0), (1.5, 12.0), (6.0, 0.9)],
+        "setbacksValues": [1.5, 1.5, 1.5],
+    },
+    {
+        "land_coordinates": [(21.0, 18.0), (9.0, 18.0), (6.0, 0.9)],
+        "setbacksValues": [2.0, 1.5, 1.5],
+    },
 ]
 
 
-def run_engine(coordinates: Sequence[Coordinate], setbacks: Sequence[float]):
-    """Run stage-1 (buildable) then stage-2 (usable) and return both results.
+def run_engine(
+    coordinates: Sequence[Coordinate], setbacks: Sequence[float]
+) -> Tuple[
+    List[Coordinate],  # usable/buildable boundary from stage‑1
+    List[Coordinate],  # fp_boundary (final_rect_parallel) from stage‑2
+    Optional[Union[str, dict]],  # diagnostics info or error message
+]:
+    """Run stage-1 (buildable) then stage-2 (usable) and return three values.
 
-    Returns: (buildable_polygon, usable_polygon, diagnostics)
+    * First element: polygon returned by the usable-space engine (a.k.a. buildable
+      polygon).
+    * Second element: the ``final_rect_parallel`` result from
+      :class:`FPBoundaryFinder.fp_boundary_finder` (i.e. the chosen fp boundary).
+    * Third element: optional diagnostics—either an error string when the first
+      stage failed or a dictionary containing intermediate results.
     """
-    # Stage 1 — largest-inscribed rectangles & canonical buildable polygon
-    result = FPBoundaryFinder().fp_boundary_finder(
-        list(coordinates), min_width=5.0, min_height=0.5
-    )
 
-    # `run_buildableSpaceFinder_algorithm` returns (final_polygon, rect_par, rect_perp)
-    if not result or not isinstance(result, tuple):
-        raise RuntimeError("buildable-space engine returned unexpected result")
-
-    buildable_polygon, rect_par, rect_perp = result
-
-    # Stage 2 — run usable-space finder on the buildable polygon with per-edge setbacks
-    #
-    # the project now exposes only the class-based interface
-    # (`UsableSpaceFinder`).  the old module-level ``find_buildable_space``
-    # helper has been removed from the public API, so we call the method
-    # directly instead; this mirrors the style of FPBoundaryFinder.
-    edge_count = len(buildable_polygon) if buildable_polygon else len(coordinates)
-    # strict API: accept a single scalar (broadcast) or an explicit per-edge list matching edge_count
-    if not setbacks:
-        raise ValueError(
-            "setbacks must be provided (single value or list matching polygon edges)"
-        )
-    if len(setbacks) == 1:
-        per_edge_setbacks = [setbacks[0]] * edge_count
-    elif len(setbacks) == edge_count:
-        per_edge_setbacks = list(setbacks)
-    else:
-        raise ValueError(
-            f"setbacks length ({len(setbacks)}) does not match polygon edge count ({edge_count}).\n"
-            "Provide a single value or a list with one value per edge."
-        )
-
-    usable_polygon = []
+    # make local copies with concrete list types to satisfy the typed APIs
+    diagnostics: Optional[Union[str, dict]] = None
+    usable_land_boundary: List[Coordinate] = []
     try:
-        usable_polygon = UsableSpaceFinder().find_buildable_space(
-            buildable_polygon or list(coordinates), per_edge_setbacks
+        usable_land_boundary = UsableSpaceFinder().find_buildable_space(
+            list(coordinates), list(setbacks)
         )
     except Exception as exc:
-        # don't crash the whole batch — return what we have plus the error message
+        diagnostics = str(exc)
+        # don't crash the whole batch — report the problem and continue
         print(f"Warning: usable-space engine failed: {exc}")
 
+    # Stage 2: FP boundary finder already expects a list
+    final_polygon, final_rect_parallel, final_rect_perpendicular = (
+        FPBoundaryFinder().fp_boundary_finder(
+            list(coordinates), min_width=5.0, min_height=0.5
+        )
+    )
+
+    # select the element the user requested
+    fp_boundary = final_rect_parallel
+
     diagnostics = {
-        "rect_parallel": rect_par,
-        "rect_perpendicular": rect_perp,
-        "used_setbacks": per_edge_setbacks,
+        "usable_land_boundary": usable_land_boundary,
+        "full_fp_boundary": (
+            final_polygon,
+            final_rect_parallel,
+            final_rect_perpendicular,
+        ),
     }
 
-    return buildable_polygon, usable_polygon, diagnostics
+    return usable_land_boundary, fp_boundary, diagnostics
 
 
 # if __name__ == "__main__":
@@ -109,6 +104,10 @@ if __name__ == "__main__":
     os.makedirs(out_land_dir, exist_ok=True)
     os.makedirs(out_space_dir, exist_ok=True)
 
+    # gather all polygon sets for a single batch operation
+    batch_polygons: List[Sequence[Sequence[Coordinate]]] = []
+    batch_titles: List[str] = []
+
     for idx, land_entry in enumerate(MOCK_LANDS, start=1):
         land = land_entry.get("land_coordinates")
         if land is None:
@@ -122,16 +121,21 @@ if __name__ == "__main__":
         if setbacks is None:
             raise ValueError(f"MOCK_LANDS entry #{idx} must include 'setbacksValues'")
 
-        buildable, usable, diag = run_engine(land, setbacks)
+        buildable, fp_boundary, diag = run_engine(land, setbacks)
         print("Buildable polygon:", buildable)
-        print("Usable polygon:", usable)
+        print("FP boundary polygon:", fp_boundary)
         print("Diagnostics:", diag)
 
-        plotter = PolygonPlotter()
-        plotter.polygon_line_plotter_single(
-            coordinates_list=[buildable, usable],
-            show=True,
-            title="Input Land (Red) vs Usable Space (Green)",
-        )
+        # add to batch lists
+        batch_polygons.append([land, buildable, fp_boundary])
+        batch_titles.append(f"Entry {idx}: Land vs Usable")
+
+    # perform one batch plot after processing all entries
+    plotter = PolygonPlotter()
+    plotter.polygon_line_plotter_batch(
+        polygons_batch=batch_polygons,
+        batch_no=1,
+        titles=batch_titles,
+    )
 
     print("\nBatch complete.")

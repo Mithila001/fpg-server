@@ -1,6 +1,6 @@
 import math
 
-from buildable_space_finder.util_fp_bf import PolygonGeomUtils
+from fp_boundary_finder.util_fp_bf import PolygonGeomUtils
 
 
 class FPBoundaryFinder:

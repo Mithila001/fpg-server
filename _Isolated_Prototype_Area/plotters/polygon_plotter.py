@@ -113,7 +113,7 @@ class PolygonPlotter:
             # create default single-file directory and a timestamped filename
             single_dir = os.path.join(self.output_base_dir, self.single_output_dir_name)
             os.makedirs(single_dir, exist_ok=True)
-            filename = self.file_name_generator(0, 1)
+            filename = self._file_name_generator(0, 1)
             output_path = os.path.join(single_dir, filename)
 
         if output_path:
@@ -171,7 +171,7 @@ class PolygonPlotter:
 
         for image_no, coordinates_list in enumerate(polygons_batch, start=1):
             # Generate filename
-            filename = self.file_name_generator(batch_no, image_no)
+            filename = self._file_name_generator(batch_no, image_no)
             output_path = os.path.join(batch_folder, filename)
 
             # Generate title
@@ -193,7 +193,7 @@ class PolygonPlotter:
         print(f"Batch complete: {len(saved_files)} images saved to {batch_folder}")
         return saved_files
 
-    def file_name_generator(self, batch_no: int, image_no: int) -> str:
+    def _file_name_generator(self, batch_no: int, image_no: int) -> str:
         """
         Generate a standardized filename for batch operations.
 
@@ -405,43 +405,3 @@ class PolygonPlotter:
 
             ax.set_xlim(np.floor(x_min) - padding, np.ceil(x_max) + padding)
             ax.set_ylim(np.floor(y_min) - padding, np.ceil(y_max) + padding)
-
-
-# Convenience functions for backward compatibility
-def plot_polygons(coordinates_list: Sequence[Sequence[Coordinate]], show: bool = True):
-    """
-    Quick plot function for interactive use (backward compatible).
-
-    Args:
-        coordinates_list: List of polygons to plot.
-        show: If True, display the plot.
-    """
-    plotter = PolygonPlotter()
-    plotter.polygon_line_plotter_single(
-        coordinates_list=coordinates_list, show=show, title="Polygon Plotting: R,G,B"
-    )
-
-
-# Example usage and testing
-if __name__ == "__main__":
-    # Sample polygon data
-    poly1 = [(1, 1), (2, 6), (6, 6), (10, 1)]
-    poly2 = [(-10, 10), (-4, 10), (-4, 2), (-10, 2)]
-    poly3 = [(6, -2), (10, -5), (8, -10), (4, -8), (5, -4)]
-
-    # Example 1: Single plot (display only)
-    print("Example 1: Single plot display")
-    plotter = PolygonPlotter()
-    plotter.polygon_line_plotter_single(
-        coordinates_list=[poly1, poly2, poly3],
-        show=True,
-        title="Example: Three Polygons",
-    )
-
-    # Example 2: Batch processing
-    print("\nExample 2: Batch processing")
-    batch_data = [[poly1], [poly1, poly2], [poly1, poly2, poly3]]
-
-    plotter.polygon_line_plotter_batch(
-        polygons_batch=batch_data, batch_no=1, show=False
-    )
