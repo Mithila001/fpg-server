@@ -51,6 +51,19 @@ class FloorPlanGenerator:
         """Extract room placements from the solver after a successful solve."""
         results = []
         for room in self.rooms:
+            # the variables are created during `generate`; make sure they exist so
+            # the type checker can narrow Optional[IntVar] -> IntVar and avoid
+            # passing None into solver.Value.
+            assert (
+                room.x is not None
+                and room.y is not None
+                and room.w is not None
+                and room.h is not None
+                and room.x_end is not None
+                and room.y_end is not None
+                and room.area is not None
+            ), f"Room variables not initialized for {room.name}"
+
             results.append(
                 {
                     "name": room.name,
@@ -64,4 +77,7 @@ class FloorPlanGenerator:
                     "area": self.solver.Value(room.area),
                 }
             )
+            print("Raw Solver Results for room", room.name)
+            for key, val in results[-1].items():
+                print(f"    {key}: {val}")
         return results
