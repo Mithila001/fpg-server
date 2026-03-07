@@ -1,11 +1,8 @@
 import React from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 
-interface LayoutProps {
-  // placeholder for future props; children are rendered via <Outlet />
-}
-
-const Layout: React.FC<LayoutProps> = () => {
+// no props needed yet; children are rendered via <Outlet />
+const Layout: React.FC = () => {
   return (
     // min-h-screen ensures the page is at least the height of the viewport
     <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900">

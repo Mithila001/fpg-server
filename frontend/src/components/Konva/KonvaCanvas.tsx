@@ -1,20 +1,22 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Stage, Layer, Circle, Line, Text, Rect } from "react-konva";
-
-interface Coordinate {
-  x: number;
-  y: number;
-  label?: string;
-}
+import { Stage, Layer, Circle, Text, Rect } from "react-konva";
+import { Grid, Wall } from "./shapes";
+import type { Coordinate } from "./shapes";
 
 interface CoordinateCanvasProps {
   // optional points array; component will fall back to a hardcoded set if none provided
   points?: Coordinate[];
   // resolution multiplier; scales coordinates and grid spacing
   resolution?: number;
+  // wall thickness in pixels
+  wallThickness?: number;
 }
 
-const CoordinateCanvas: React.FC<CoordinateCanvasProps> = ({ points, resolution }) => {
+const CoordinateCanvas: React.FC<CoordinateCanvasProps> = ({
+  points,
+  resolution,
+  wallThickness,
+}) => {
   // default geometry in case caller doesn’t supply any coordinates
   const defaultPoints: Coordinate[] = [
     { x: 20, y: 20, label: "A" },
@@ -69,40 +71,12 @@ const CoordinateCanvas: React.FC<CoordinateCanvasProps> = ({ points, resolution 
     return () => resizeObserver.unobserve(observeTarget);
   }, []);
 
-  // build grid lines and labels when we know dimensions
-  const renderGrid = () => {
-    const elems: React.ReactNode[] = [];
-    for (let x = 0; x <= dimensions.width; x += gridSize) {
-      elems.push(
-        <Line
-          key={`v${x}`}
-          points={[x, 0, x, dimensions.height]}
-          stroke="#e0e0e0"
-          strokeWidth={1}
-        />,
-      );
-      elems.push(<Text key={`lx${x}`} x={x + 2} y={2} text={`${x}`} fontSize={10} fill="#999" />);
-    }
-    for (let y = 0; y <= dimensions.height; y += gridSize) {
-      elems.push(
-        <Line
-          key={`h${y}`}
-          points={[0, y, dimensions.width, y]}
-          stroke="#e0e0e0"
-          strokeWidth={1}
-        />,
-      );
-      elems.push(<Text key={`ly${y}`} x={2} y={y + 2} text={`${y}`} fontSize={10} fill="#999" />);
-    }
-    return elems;
-  };
-
   return (
     // minimal wrapper: this div is measured to provide dimensions
     // use full size so parent resizing triggers ResizeObserver
     <div ref={containerRef} style={{ width: "100%", height: "100%" }} className="bg-red-200">
       {dimensions.width > 0 && (
-        <Stage width={dimensions.width} height={dimensions.height}>
+        <Stage width={Math.floor(dimensions.width)} height={Math.floor(dimensions.height)}>
           <Layer>
             {/* draw border around the entire canvas */}
             <Rect
@@ -115,16 +89,12 @@ const CoordinateCanvas: React.FC<CoordinateCanvasProps> = ({ points, resolution 
             />
 
             {/* grid and labels */}
-            {renderGrid()}
+            <Grid dimensions={dimensions} gridSize={gridSize} />
 
-            <Line
-              points={scaledPoints.flatMap((p) => [p.x, p.y])}
-              stroke="#6366f1"
-              strokeWidth={3}
-              lineCap="round"
-              lineJoin="round"
-              tension={0.2}
-            />
+            {/* walls rendered using the new Wall shape */}
+            <Wall points={scaledPoints} thickness={wallThickness ?? 6} />
+
+            {/* point markers / labels (keep for debugging) */}
             {scaledPoints.map((point, index) => (
               <React.Fragment key={index}>
                 <Circle
