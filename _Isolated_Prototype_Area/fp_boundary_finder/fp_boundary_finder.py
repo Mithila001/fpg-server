@@ -56,48 +56,48 @@ class FPBoundaryFinder:
             zeroed_polygon, TA_zeroed
         )
         positive_polygon, moved_axis_values = (
-            PolygonGeomUtils._move_polygon_to_positive_axis(rotated_polygon)
+            PolygonGeomUtils.move_polygon_to_positive_axis(rotated_polygon)
         )
 
         largest_rect_parallel = self._sweep_for_best_rectangle(
             positive_polygon, min_width, min_height
         )
 
-        flipped = PolygonGeomUtils._flip_xy_coordinates(positive_polygon)
+        flipped = PolygonGeomUtils.flip_xy_coordinates(positive_polygon)
         largest_rect_perp_raw = self._sweep_for_best_rectangle(
             flipped, min_width, min_height
         )
-        largest_rect_perpendicular = PolygonGeomUtils._flip_xy_coordinates(
+        largest_rect_perpendicular = PolygonGeomUtils.flip_xy_coordinates(
             largest_rect_perp_raw
         )
 
-        repositioned_polygon = PolygonGeomUtils._reset_polygon_position(
+        repositioned_polygon = PolygonGeomUtils.reset_polygon_position(
             positive_polygon, moved_axis_values
         )
-        rect_parallel_repositioned = PolygonGeomUtils._reset_polygon_position(
+        rect_parallel_repositioned = PolygonGeomUtils.reset_polygon_position(
             largest_rect_parallel, moved_axis_values
         )
-        rect_perp_repositioned = PolygonGeomUtils._reset_polygon_position(
+        rect_perp_repositioned = PolygonGeomUtils.reset_polygon_position(
             largest_rect_perpendicular, moved_axis_values
         )
 
-        original_oriented_polygon = PolygonGeomUtils._inverse_rotate_polygon(
+        original_oriented_polygon = PolygonGeomUtils.inverse_rotate_polygon(
             repositioned_polygon, angle
         )
-        rect_parallel_oriented = PolygonGeomUtils._inverse_rotate_polygon(
+        rect_parallel_oriented = PolygonGeomUtils.inverse_rotate_polygon(
             rect_parallel_repositioned, angle
         )
-        rect_perp_oriented = PolygonGeomUtils._inverse_rotate_polygon(
+        rect_perp_oriented = PolygonGeomUtils.inverse_rotate_polygon(
             rect_perp_repositioned, angle
         )
 
-        final_polygon = PolygonGeomUtils._inverse_translate_polygon(
+        final_polygon = PolygonGeomUtils.inverse_translate_polygon(
             original_oriented_polygon, TA_line
         )
-        final_rect_parallel = PolygonGeomUtils._inverse_translate_polygon(
+        final_rect_parallel = PolygonGeomUtils.inverse_translate_polygon(
             rect_parallel_oriented, TA_line
         )
-        final_rect_perpendicular = PolygonGeomUtils._inverse_translate_polygon(
+        final_rect_perpendicular = PolygonGeomUtils.inverse_translate_polygon(
             rect_perp_oriented, TA_line
         )
 
@@ -107,8 +107,8 @@ class FPBoundaryFinder:
         point_A = TA[0]
         point_B = TA[1]
 
-        dist_A = PolygonGeomUtils._calculate_distance(point_A)
-        dist_B = PolygonGeomUtils._calculate_distance(point_B)
+        dist_A = PolygonGeomUtils.calculate_distance(point_A)
+        dist_B = PolygonGeomUtils.calculate_distance(point_B)
 
         if dist_A <= dist_B:
             pivot_point = point_A
@@ -199,14 +199,14 @@ class FPBoundaryFinder:
         i = min_y + self._y_resolution
 
         while i <= max_y:
-            left_segment = PolygonGeomUtils._find_active_segment(left_chain, i)
-            right_segment = PolygonGeomUtils._find_active_segment(right_chain, i)
+            left_segment = PolygonGeomUtils.find_active_segment(left_chain, i)
+            right_segment = PolygonGeomUtils.find_active_segment(right_chain, i)
 
             if left_segment and right_segment:
-                x_left = PolygonGeomUtils._get_x_intersection(
+                x_left = PolygonGeomUtils.get_x_intersection(
                     left_segment[0], left_segment[1], i
                 )
-                x_right = PolygonGeomUtils._get_x_intersection(
+                x_right = PolygonGeomUtils.get_x_intersection(
                     right_segment[0], right_segment[1], i
                 )
                 w = x_right - x_left

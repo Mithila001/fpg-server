@@ -15,32 +15,32 @@ MAX_ASPECT_RATIO_HEIGHT = 10
 MAX_ASPECT_RATIO_WIDTH = 16
 
 # Minimum floor area coverage
-MIN_COVERAGE = 0.5
+MIN_COVERAGE = 0.8
 
 # This allows you to easily scale all rooms if you want to test
 # larger minimum requirements later.
 ADD_VALUE = 0
 
 # Living Room
-livingRoomMinWidth = 30
-livingRoomMaxWidth = 50
-livingRoomMinHeight = 30
-livingRoomMaxHeight = 50
+livingRoomMinWidth = 0
+livingRoomMaxWidth = 100
+livingRoomMinHeight = 0
+livingRoomMaxHeight = 100
 # Bedroom
-bedroomMinWidth = 10
-bedroomMaxWidth = 40
-bedroomMinHeight = 10
-bedroomMaxHeight = 40
+bedroomMinWidth = 0
+bedroomMaxWidth = 100
+bedroomMinHeight = 0
+bedroomMaxHeight = 100
 # Kitchen
-kitchenMinWidth = 20
-kitchenMaxWidth = 40
-kitchenMinHeight = 20
-kitchenMaxHeight = 40
+kitchenMinWidth = 0
+kitchenMaxWidth = 100
+kitchenMinHeight = 0
+kitchenMaxHeight = 100
 # Bathroom
-bathroomMinWidth = 5
-bathroomMaxWidth = 15
-bathroomMinHeight = 5
-bathroomMaxHeight = 15
+bathroomMinWidth = 0
+bathroomMaxWidth = 100
+bathroomMinHeight = 0
+bathroomMaxHeight = 100
 
 # Room specifications
 # These are the "Blueprints" that the Generator will use

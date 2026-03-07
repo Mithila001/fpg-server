@@ -5,14 +5,14 @@ class PolygonGeomUtils:
     """Geometry utility methods for polygon transformations used by FPBoundaryFinder."""
 
     @staticmethod
-    def _calculate_distance(p1, p2=(0, 0)):
+    def calculate_distance(p1, p2=(0, 0)):
         """Calculates the Euclidean distance between two points."""
         x1, y1 = p1
         x2, y2 = p2
         return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
     @staticmethod
-    def _find_active_segment(chain, y_sweep):
+    def find_active_segment(chain, y_sweep):
         """
         Finds the segment (p1, p2) in a chain that the sweep line y_sweep crosses.
 
@@ -46,7 +46,7 @@ class PolygonGeomUtils:
         return None
 
     @staticmethod
-    def _get_x_intersection(p1, p2, y_sweep):
+    def get_x_intersection(p1, p2, y_sweep):
         """
         Calculates the X-coordinate where the horizontal sweep line (y_sweep)
         intersects the line segment defined by (p1, p2).
@@ -74,7 +74,7 @@ class PolygonGeomUtils:
         return x1 + ratio * dx
 
     @staticmethod
-    def _flip_xy_coordinates(coordinates):
+    def flip_xy_coordinates(coordinates):
         """
         Swaps the X and Y coordinates for every point in the list: (x, y) -> (y, x).
 
@@ -87,7 +87,7 @@ class PolygonGeomUtils:
         return [(y, x) for x, y in coordinates]
 
     @staticmethod
-    def _inverse_rotate_polygon(coordinates, rotation_angle):
+    def inverse_rotate_polygon(coordinates, rotation_angle):
         """
         Rotates the coordinates by -rotation_angle (the inverse rotation).
 
@@ -108,7 +108,7 @@ class PolygonGeomUtils:
         ]
 
     @staticmethod
-    def _inverse_translate_polygon(coordinates, TA):
+    def inverse_translate_polygon(coordinates, TA):
         """
         Translates the coordinates back to original world space using the TA pivot.
 
@@ -122,8 +122,8 @@ class PolygonGeomUtils:
         point_A = TA[0]
         point_T = TA[1]
 
-        dist_A = PolygonGeomUtils._calculate_distance(point_A)
-        dist_T = PolygonGeomUtils._calculate_distance(point_T)
+        dist_A = PolygonGeomUtils.calculate_distance(point_A)
+        dist_T = PolygonGeomUtils.calculate_distance(point_T)
 
         pivot_point = point_A if dist_A <= dist_T else point_T
         (Px, Py) = pivot_point
@@ -131,7 +131,7 @@ class PolygonGeomUtils:
         return [(x + Px, y + Py) for x, y in coordinates]
 
     @staticmethod
-    def _move_polygon_to_positive_axis(polygon_coordinates):
+    def move_polygon_to_positive_axis(polygon_coordinates):
         """
         Moves the polygon to the positive X and Y axes (first quadrant).
 
@@ -158,7 +158,7 @@ class PolygonGeomUtils:
         return moved_polygon, move_points
 
     @staticmethod
-    def _reset_polygon_position(polygon_coordinates, move_points):
+    def reset_polygon_position(polygon_coordinates, move_points):
         """
         Resets a polygon's position by subtracting the move_points vector,
         effectively reverting a previous positive-axis translation.

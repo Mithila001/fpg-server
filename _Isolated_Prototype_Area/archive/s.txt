@@ -1,0 +1,102 @@
+classDiagram
+    class FPBoundaryFinder {
+-y_resolution: float
++fp_boundary_finder()
+-_run()
+-_translate_and_reorder_polygon()
+-_rotate_polygon_to_x_axis()
+-_split_polygon_chains()
+-_sweep_line_width_profile()
+-_find_max_area_rectangle()
+-_get_rectangle_coordinates()
+-_sweep_for_best_rectangle()
+    }
+
+    class PolygonGeomUtils {
+<<Utility>>
++move_polygon_to_positive_axis()
++flip_xy_coordinates()
++reset_polygon_position()
++inverse_rotate_polygon()
++inverse_translate_polygon()
++calculate_distance()
++find_active_segment()
++get_x_intersection()
+    }
+
+    FPBoundaryFinder ..> PolygonGeomUtils : "calls static methods"
+
+
+
+
+classDiagram
+    class UsableSpaceFinder {
++find_buildable_space()
+-_compute_buildable_vertices()
+-_create_land_edges()
+-_initialize_land_space_calculations()
+-_find_intersection()
+-_find_intersection_vertices()
+    }
+
+
+
+FloorPlanGenerator
+-width:int
+ -height:int  
+ -model:CpModel 
+ -solver:CpSolver
+ -rooms: List[Room]
+ +generate() -> bool
+
+class Room {
++String name
++int min_w
++int min_h
++int max_w
++int max_h
++String type
++IntVar x
++IntVar y
++IntVar w
++IntVar h
++IntVar x_end
++IntVar y_end
++IntVar area
++IntervalVar x_interval
++IntervalVar y_interval
++__init__(name, min_w, min_h, max_w, max_h, type)
++create_variables(model, land_width, land_height)
+    }     
+
+
+
+class FloorPlanGenerator {
+-int width
+-int height
+-CpModel model
+-CpSolver solver
+-List<Room> rooms
++__init__(width, height, rooms_data)
++generate()
+}
+
+class UsableSpaceFinder {
++find_buildable_space()
+-_compute_buildable_vertices()
+-_create_land_edges()
+-_initialize_land_space_calculations()
+-_find_intersection()
+-_find_intersection_vertices()
+}
+
+
+class FloorPlanGenerator {
+    +int width
+    +int height
+    +CpModel model
+    +CpSolver solver
+    +List<Room> rooms
+    +__init__(width, height, rooms_data)
+    +generate()
+}
