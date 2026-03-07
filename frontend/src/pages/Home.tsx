@@ -1,26 +1,47 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
+import CoordinateCanvas from "../components/CoordinateCanvas";
 
 const Home: React.FC = () => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      // avoid useless state updates which trigger layout changes and
+      // cause the observer to fire again with slightly different values
+      setSize((prev) => {
+        const roundedW = Math.round(width);
+        const roundedH = Math.round(height);
+        if (Math.round(prev.w) === roundedW && Math.round(prev.h) === roundedH) {
+          return prev; // no change
+        }
+
+        return { w: width, h: height };
+      });
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  const data = [
+    { x: 50, y: 50, label: "Start" },
+    { x: 150, y: 200 },
+    { x: 300, y: 100, label: "Peak" },
+  ];
+
   return (
-    <div className="flex flex-col h-full">
-      {/* Header bar */}
-      <header className="bg-red-600 h-16 flex items-center px-6">
-        <h1 className="text-white text-xl font-semibold">Home Layout Header</h1>
-      </header>
+    // ensure this page fills the available space and never scrolls
+    <div className="flex flex-col flex-1 min-h-0 h-full">
+      <div className="flex flex-1 overflow-hidden min-h-0">
+        {/* Left */}
+        <div className="bg-amber-200 flex-1 min-w-0 p-2">
+          <CoordinateCanvas points={data} resolution={1} />
+        </div>
 
-      {/* Main content area with two columns */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left panel (blue) */}
-        <aside className="bg-blue-500 flex-1 p-8 text-white">
-          <h2 className="text-2xl font-bold mb-4">Primary Content</h2>
-          <p>Put main page components or placeholders here.</p>
-        </aside>
-
-        {/* Right panel (green) */}
-        <section className="bg-green-200 w-64 p-8">
-          <h2 className="text-xl font-semibold mb-2 text-gray-800">Sidebar</h2>
-          <p className="text-gray-700">Additional info or links</p>
-        </section>
+        {/* Right*/}
+        <div className="bg-green-200 w-64 flex-none p-8">Right Property Panel</div>
       </div>
     </div>
   );

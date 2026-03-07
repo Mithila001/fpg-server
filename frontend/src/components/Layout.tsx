@@ -31,8 +31,8 @@ const Layout: React.FC<LayoutProps> = () => {
         </nav>
       </header>
 
-      {/* MAIN CONTENT: flex-grow ensures this area expands to push the footer down */}
-      <main className="grow">
+      {/* MAIN CONTENT: flex-grow + flex-col lets children fill available height */}
+      <main className="grow flex flex-col min-h-0">
         <Outlet />
       </main>
 
