@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Stage, Layer, Circle, Text, Rect } from "react-konva";
-import { Grid, Wall } from "./shapes";
-import type { Coordinate } from "./shapes";
+import { Grid, Wall, Labels } from "./shapes";
+import type { Coordinate, Label } from "./shapes";
 
 interface CoordinateCanvasProps {
   // optional points array; component will fall back to a hardcoded set if none provided
   points?: Coordinate[];
+  // array of textual labels to place on the stage
+  labels?: Label[];
   // resolution multiplier; scales coordinates and grid spacing
   resolution?: number;
   // wall thickness in pixels
@@ -14,6 +16,7 @@ interface CoordinateCanvasProps {
 
 const CoordinateCanvas: React.FC<CoordinateCanvasProps> = ({
   points,
+  labels,
   resolution,
   wallThickness,
 }) => {
@@ -22,6 +25,7 @@ const CoordinateCanvas: React.FC<CoordinateCanvasProps> = ({
     { x: 20, y: 20, label: "A" },
     { x: 120, y: 80, label: "B" },
     { x: 200, y: 150, label: "C" },
+    { x: 20, y: 20, label: "D" },
   ];
   const effectivePoints = points && points.length > 0 ? points : defaultPoints;
 
@@ -31,6 +35,16 @@ const CoordinateCanvas: React.FC<CoordinateCanvasProps> = ({
     y: p.y * scale,
     label: p.label,
   }));
+
+  const scaledLabels: Label[] | undefined = labels
+    ? labels.map((l) => ({
+        x: l.x * scale,
+        y: l.y * scale,
+        text: l.text,
+        fontSize: l.fontSize,
+        color: l.color,
+      }))
+    : undefined;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -93,6 +107,9 @@ const CoordinateCanvas: React.FC<CoordinateCanvasProps> = ({
 
             {/* walls rendered using the new Wall shape */}
             <Wall points={scaledPoints} thickness={wallThickness ?? 6} />
+
+            {/* custom text labels */}
+            {scaledLabels && <Labels labels={scaledLabels} />}
 
             {/* point markers / labels (keep for debugging) */}
             {scaledPoints.map((point, index) => (
