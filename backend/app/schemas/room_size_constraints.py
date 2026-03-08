@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 
 class RoomSizeConstraintBase(BaseModel):
-    name: str
+    type: str
     min_w: Optional[float] = None
     max_w: Optional[float] = None
     min_h: Optional[float] = None

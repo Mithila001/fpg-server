@@ -9,9 +9,9 @@ from .config import MIN_COVERAGE
 
 
 class FloorPlanGenerator:
-    def __init__(self, width: int, height: int, rooms_data: list):
-        self.width = width
-        self.height = height
+    def __init__(self, boundary_width: int, boundary_height: int, rooms_data: list):
+        self.boundary_width = boundary_width
+        self.boundary_height = boundary_height
         self.model = cp_model.CpModel()
         self.solver = cp_model.CpSolver()
 
@@ -31,13 +31,17 @@ class FloorPlanGenerator:
         """Build and solve the floor plan. Returns True if a solution was found."""
         # 1. Initialize CP-SAT variables for every room
         for room in self.rooms:
-            room.create_variables(self.model, self.width, self.height)
+            room.create_variables(self.model, self.boundary_width, self.boundary_height)
 
         # 2. Add constraints
         add_basic_constraints(self.model, self.rooms)
         add_kitchen_living_adjacency(self.model, self.rooms)
         add_minimum_area_coverage(
-            self.model, self.rooms, self.width, self.height, MIN_COVERAGE
+            self.model,
+            self.rooms,
+            self.boundary_width,
+            self.boundary_height,
+            MIN_COVERAGE,
         )
         add_room_size_hierarchy(self.model, self.rooms)
 

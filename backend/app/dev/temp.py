@@ -2,21 +2,27 @@
 
 # python app/dev/temp.py
 
-# quick check to ensure the ORM mapping for RoomSizeConstraint works
+# Verify that all room_size_constraints rows are returned from the database.
 
 # make sure the project root is on PYTHONPATH so `import app` works when
 # running this script directly
 import os, sys
+
 root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if root not in sys.path:
     sys.path.insert(0, root)
 
 if __name__ == "__main__":
-    from app.models.room_size_constraint import RoomSizeConstraint
-    from app.core import database
-    from sqlalchemy import inspect
+    from sqlmodel import Session
+    from app.core.database import engine, create_db_and_tables
+    from app.crud.room_size_constraint import get_all
 
-    print("tablename attribute:", RoomSizeConstraint.__tablename__)
-    inspector = inspect(database.engine)
-    print("tables present in database:", inspector.get_table_names())
+    # ensure the table exists (idempotent — skipped if already present)
+    create_db_and_tables()
 
+    with Session(engine) as session:
+        records = get_all(session)
+
+    print(f"Total records: {len(records)}")
+    for row in records:
+        print(row)
