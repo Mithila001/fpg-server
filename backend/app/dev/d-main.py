@@ -3,7 +3,7 @@ from collections.abc import Sequence
 import os
 import sys
 
-# python backend/app/dev/d-main.py full
+# python app/dev/d-main.py full
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
@@ -98,7 +98,7 @@ def run_floor(
         polygons.append([(x, y), (x + w, y), (x + w, y + h), (x, y + h)])
 
     if show:
-        plotter = PolygonPlotter(output_base_dir="./backend/app/dev/plotters/output")
+        plotter = PolygonPlotter(output_base_dir="./app/dev/outputs")
         # use the new floor_plan_plot method which accepts solver/rooms
         plotter.floor_plan_plot(
             rooms_list=generator.rooms,
@@ -134,7 +134,7 @@ def run_usable(
     print("buildable polygon", result)
 
     if show:
-        plotter = PolygonPlotter(output_base_dir="./backend/app/dev/plotters/output")
+        plotter = PolygonPlotter(output_base_dir="./app/dev/outputs")
         plotter.plot_boundary([vertices, result], show=True, title="Usable polygon")
 
     return result
@@ -169,7 +169,7 @@ def run_boundary(
     print("rectangles", rect_par, rect_perp)
 
     if show:
-        plotter = PolygonPlotter(output_base_dir="./backend/app/dev/plotters/output")
+        plotter = PolygonPlotter(output_base_dir="./app/dev/outputs")
         plotter.plot_boundary(
             [polygon, rect_par, rect_perp],
             show=True,
@@ -188,7 +188,7 @@ def run_mocks():
     """
     print("running mock-land batch")
     # UsableSpaceFinder isn't needed here since run_usable handles it
-    plotter = PolygonPlotter(output_base_dir="./backend/app/dev/plotters/output")
+    plotter = PolygonPlotter(output_base_dir="./app/dev/outputs")
 
     for idx, info in enumerate(MOCK_LANDS, start=1):
         verts = info["land_coordinates"]
@@ -229,7 +229,7 @@ def full_algorithm():
     """
     print("executing full algorithm on all mock lands")
     all_results = []
-    plotter = PolygonPlotter(output_base_dir="./backend/app/dev/plotters/output")
+    plotter = PolygonPlotter(output_base_dir="./app/dev/outputs")
 
     for idx, info in enumerate(MOCK_LANDS, start=1):
         land = info["land_coordinates"]
