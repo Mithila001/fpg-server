@@ -47,6 +47,7 @@ build/
 
 # Additional virtual environments
 .venv/
+venv/
 frontend/dist/
 
 # OS generated files
