@@ -17,15 +17,15 @@ def add_room_size_hierarchy(model: cp_model.CpModel, rooms: List[Room]):
         tracker.log_skip("Room Size Hierarchy", f"No Type:{room_type} found")
         return None
 
-    living_room = get_room("LivingRoom")
+    living_room = get_room("livingRoom")
     if not living_room:
         tracker.log_skip("Room Size Hierarchy", "No LivingRoom found")
         return
 
     hierarchy = {
-        "Bedroom": (50, 70),
-        "Kitchen": (40, 50),
-        "Bathroom": (15, 30),
+        "bedroom": (50, 70),
+        "kitchen": (40, 50),
+        "bathroom": (15, 30),
     }
 
     for room_type, (min_p, max_p) in hierarchy.items():

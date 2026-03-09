@@ -13,15 +13,24 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 from app.algorithms.floor_plan_generator import FloorPlanGenerator
+from app.algorithms.floor_plan_generator.types.room import (
+    RoomData,
+    ConfigData,
+    FpgRequirements,
+)
 from app.algorithms.floor_plan_generator.config import (
-    DEFAULT_ROOMS_DATA,
     FLOOR_WIDTH,
     FLOOR_HEIGHT,
+    MIN_COVERAGE,
 )
 from app.algorithms.usable_land_space_finder.usable_land_space_finder import (
     UsableSpaceFinder,
 )
 from app.algorithms.fp_boundary_finder.fp_boundary_finder import FPBoundaryFinder
+from app.core.database import engine
+from app.crud import room_size_constraint as room_size_constraint_crud
+from app.crud import room_setup_template as room_setup_template_crud
+from sqlmodel import Session
 
 from app.dev.plotters import PolygonPlotter
 
@@ -56,55 +65,82 @@ MOCK_LANDS: Sequence[dict] = [
 
 
 def run_floor(
-    width: int = FLOOR_WIDTH,
-    height: int = FLOOR_HEIGHT,
-    rooms_data: list[dict] | None = None,
+    width: float = FLOOR_WIDTH,
+    height: float = FLOOR_HEIGHT,
+    rooms_data: list[RoomData] | None = None,
     show: bool = True,
 ) -> list[list[tuple[float, float]]]:
     """Create a floor plan and optionally plot it.
 
     Args:
-        width: grid width for the planner
-        height: grid height for the planner
-        rooms_data: room specs; if ``None`` the default configuration is used
+        width: floor plan width
+        height: floor plan height
+        rooms_data: room specs as RoomData objects; if ``None`` the hardcoded
+                    defaults below are used (sourced from RoomSizeConstraintBase)
         show: whether to display/save the resulting polygon (via ``PolygonPlotter``)
 
     Returns:
         A list of polygons (one per room) representing the solution.  If no
         solution was found the returned list will be empty.
     """
-
     print("running floor plan generator")
-    rooms = rooms_data if rooms_data is not None else DEFAULT_ROOMS_DATA
-    # ensure all room entries are RoomData instances
-    from app.algorithms.floor_plan_generator.types.room import (
-        RoomData,
-        ConfigData,
-        FpgRequirements,
-    )
 
-    room_objs: list[RoomData] = [
-        r if isinstance(r, RoomData) else RoomData(**r) for r in rooms
-    ]
+    # Fetch room size constraints from the database, keyed by room type.
+    with Session(engine) as session:
+        db_constraints = room_size_constraint_crud.get_all(session)
+        template = room_setup_template_crud.get_first(session)
+    db_by_type = {c.type: c for c in db_constraints}
+
+    def _room(name: str, room_type: str) -> RoomData:
+        """Build a RoomData, pulling dimensions from DB if a matching type exists."""
+        c = db_by_type.get(room_type)
+        if c:
+            return RoomData(
+                name,
+                room_type,
+                min_w=int(c.min_w) if c.min_w is not None else 0,
+                min_h=int(c.min_h) if c.min_h is not None else 0,
+                max_w=int(c.max_w) if c.max_w is not None else 100,
+                max_h=int(c.max_h) if c.max_h is not None else 100,
+            )
+        return RoomData(name, room_type, min_w=0, min_h=0, max_w=100, max_h=100)
+
+    # Build room list from first template record.
+    # Each entry in template.data has {"id": "...", "type": "..."};
+    # we use the id as the display name and type to look up size constraints.
+    if template is not None:
+        default_rooms: list[RoomData] = [
+            _room(entry["id"], entry["type"]) for entry in template.data
+        ]
+    else:
+        # Fallback when the table is empty: one generic room per common type.
+        default_rooms = [
+            _room("livingRoom1", "livingRoom"),
+            _room("bedroom1",    "bedroom"),
+            _room("bathroom1",   "bathroom"),
+            _room("kitchen1",    "kitchen"),
+        ]
+
     config_obj = ConfigData(
         min_coverage=MIN_COVERAGE,
-        max_aspect_ratio=0,  # placeholder; unused by generator
-        min_aspect_ratio=0,
+        max_aspect_ratio=16.0,
+        min_aspect_ratio=0.0,
         floor_plan_width=width,
         floor_plan_height=height,
     )
-    requirements = FpgRequirements(rooms=room_objs, config=config_obj)
+    print("--- Requirements:", config_obj )
+    requirements = FpgRequirements(
+        rooms=rooms_data if rooms_data is not None else default_rooms,
+        config=config_obj,
+    )
     generator = FloorPlanGenerator(requirements)
     solved = generator.generate()
-    print("solved?", solved)
     if not solved:
         return []
 
     solution = generator.get_solution()
 
-    # diagnostic output: report which rooms were generated
-    print(f"got {len(solution)} room entries from generator")
-    print("Raw Solution:", solution)
+
     for entry in solution:
         # room entries include name/type information
         print(f"  room: {entry.get('name')} size=({entry.get('w')}, {entry.get('h')})")
@@ -115,17 +151,15 @@ def run_floor(
         x, y, w, h = r["x"], r["y"], r["w"], r["h"]
         polygons.append([(x, y), (x + w, y), (x + w, y + h), (x, y + h)])
 
-    if show:
-        plotter = PolygonPlotter(output_base_dir="./app/dev/outputs")
-        # use the new floor_plan_plot method which accepts solver/rooms
-        plotter.floor_plan_plot(
-            rooms_list=generator.rooms,
-            solver=generator.solver,
-            LAND_WIDTH=width,
-            LAND_HEIGHT=height,
-            show=True,
-            title="Floor plan",
-        )
+    plotter = PolygonPlotter(output_base_dir="./app/dev/outputs")
+    plotter.floor_plan_plot(
+        rooms_list=generator.rooms,
+        solver=generator.solver,
+        LAND_WIDTH=width,
+        LAND_HEIGHT=height,
+        show=show,
+        title="Floor plan",
+    )
 
     return polygons
 

@@ -259,6 +259,7 @@ class PolygonPlotter:
         ax.set_xlim(0, LAND_WIDTH)
         ax.set_ylim(0, LAND_HEIGHT)
         ax.set_aspect("equal")
+        print("################### Plotting Dir", self.output_base_dir  )
 
         colors = [
             "#ff9999",

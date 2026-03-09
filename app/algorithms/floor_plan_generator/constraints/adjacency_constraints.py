@@ -7,10 +7,10 @@ def add_adjacency_constraint(
     model: cp_model.CpModel, room1: Room, room2: Room
 ) -> Dict[str, Any]:
     """Ensures room1 and room2 are touching on one side."""
-    touch_right = model.NewBoolVar(f"{room1.name}_is_right_of_{room2.name}")
-    touch_left = model.NewBoolVar(f"{room1.name}_is_left_of_{room2.name}")
-    touch_top = model.NewBoolVar(f"{room1.name}_is_above_{room2.name}")
-    touch_bottom = model.NewBoolVar(f"{room1.name}_is_below_{room2.name}")
+    touch_right = model.NewBoolVar(f"{room1.name}_is_right_of_{room2.name}") # type: ignore
+    touch_left = model.NewBoolVar(f"{room1.name}_is_left_of_{room2.name}") # type: ignore
+    touch_top = model.NewBoolVar(f"{room1.name}_is_above_{room2.name}") # type: ignore
+    touch_bottom = model.NewBoolVar(f"{room1.name}_is_below_{room2.name}") # type: ignore
 
     model.Add(room1.x == room2.x_end).OnlyEnforceIf(touch_right)  # type: ignore
     model.Add(room1.x != room2.x_end).OnlyEnforceIf(touch_right.Not())  # type: ignore
@@ -24,7 +24,7 @@ def add_adjacency_constraint(
     model.Add(room1.y_end == room2.y).OnlyEnforceIf(touch_bottom)  # type: ignore
     model.Add(room1.y_end != room2.y).OnlyEnforceIf(touch_bottom.Not())  # type: ignore
 
-    model.AddBoolOr([touch_right, touch_left, touch_top, touch_bottom])
+    model.AddBoolOr([touch_right, touch_left, touch_top, touch_bottom]) # type: ignore
 
     MIN_WALL = 10
     model.Add(room1.y + MIN_WALL < room2.y_end).OnlyEnforceIf(touch_right)  # type: ignore
@@ -48,9 +48,9 @@ def add_kitchen_living_adjacency(
     living_room = None
 
     for room in rooms_list:
-        if room.name == "Kitchen":
+        if room.type == "kitchen":
             kitchen_room = room
-        elif room.name == "Living Room":
+        elif room.type == "livingRoom":
             living_room = room
 
     if kitchen_room and living_room:
