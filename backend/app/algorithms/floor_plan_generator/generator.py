@@ -9,9 +9,9 @@ from .config import MIN_COVERAGE
 
 
 class FloorPlanGenerator:
-    def __init__(self, width: int, height: int, rooms_data: list):
-        self.width = width
-        self.height = height
+    def __init__(self, boundary_width: int, boundary_height: int, rooms_data: list):
+        self.boundary_width = boundary_width
+        self.boundary_height = boundary_height
         self.model = cp_model.CpModel()
         self.solver = cp_model.CpSolver()
 
@@ -31,13 +31,17 @@ class FloorPlanGenerator:
         """Build and solve the floor plan. Returns True if a solution was found."""
         # 1. Initialize CP-SAT variables for every room
         for room in self.rooms:
-            room.create_variables(self.model, self.width, self.height)
+            room.create_variables(self.model, self.boundary_width, self.boundary_height)
 
         # 2. Add constraints
         add_basic_constraints(self.model, self.rooms)
         add_kitchen_living_adjacency(self.model, self.rooms)
         add_minimum_area_coverage(
-            self.model, self.rooms, self.width, self.height, MIN_COVERAGE
+            self.model,
+            self.rooms,
+            self.boundary_width,
+            self.boundary_height,
+            MIN_COVERAGE,
         )
         add_room_size_hierarchy(self.model, self.rooms)
 
@@ -51,6 +55,19 @@ class FloorPlanGenerator:
         """Extract room placements from the solver after a successful solve."""
         results = []
         for room in self.rooms:
+            # the variables are created during `generate`; make sure they exist so
+            # the type checker can narrow Optional[IntVar] -> IntVar and avoid
+            # passing None into solver.Value.
+            assert (
+                room.x is not None
+                and room.y is not None
+                and room.w is not None
+                and room.h is not None
+                and room.x_end is not None
+                and room.y_end is not None
+                and room.area is not None
+            ), f"Room variables not initialized for {room.name}"
+
             results.append(
                 {
                     "name": room.name,
@@ -64,4 +81,7 @@ class FloorPlanGenerator:
                     "area": self.solver.Value(room.area),
                 }
             )
+            print("Raw Solver Results for room", room.name)
+            for key, val in results[-1].items():
+                print(f"    {key}: {val}")
         return results

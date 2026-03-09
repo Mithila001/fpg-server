@@ -1,0 +1,13 @@
+services:
+  db:
+    image: postgres:18.3
+    container_name: postgres_db_fpg
+    restart: always
+    environment:
+      POSTGRES_USER: fpg
+      POSTGRES_PASSWORD: fpg
+      POSTGRES_DB: fpg_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./postgres_data:/var/lib/data # Persists data in your project folder

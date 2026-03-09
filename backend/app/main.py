@@ -1,10 +1,21 @@
+# uvicorn app.main:app --reload
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import user, layout
-from app.routers import dimensions
+from app.routers import user
 from app.routers import fp_boundary, usable_land_space, floor_plan
+from app.routers import room_size_constraints
 
 app = FastAPI(title="House Plan Generator API")
+
+
+# create database tables before serving
+@app.on_event("startup")
+def on_startup():
+    from app.core import database
+
+    database.create_db_and_tables()
+
 
 # dev-safe CORS — restrict to your frontend origins
 app.add_middleware(
@@ -14,9 +25,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.include_router(layout.router)
+# app.include_router(layout.router)  # removed - layout router not implemented
 app.include_router(user.router, prefix="/users", tags=["users"])
-app.include_router(dimensions.router)
+# app.include_router(dimensions.router)  # removed - dimensions router not implemented
+
+# Data routers
+app.include_router(
+    room_size_constraints.router,
+    prefix="/room-size-constraints",
+    tags=["Room Size Constraints"],
+)
 
 # Algorithm routers
 app.include_router(fp_boundary.router)
