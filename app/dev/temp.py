@@ -23,6 +23,6 @@ if __name__ == "__main__":
     with Session(engine) as session:
         records = get_all(session)
 
-    print(f"Total records: {len(records)}")
+    print(f"\n\nTotal records: {len(records)}")
     for row in records:
         print(row)
