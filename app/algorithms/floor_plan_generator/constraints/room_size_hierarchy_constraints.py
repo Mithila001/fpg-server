@@ -1,6 +1,6 @@
 from ortools.sat.python import cp_model
 from typing import List
-from ..models.room import Room
+from ..solver_models.room import Room
 from ..utils.tracker import tracker
 
 

@@ -76,7 +76,25 @@ def run_floor(
 
     print("running floor plan generator")
     rooms = rooms_data if rooms_data is not None else DEFAULT_ROOMS_DATA
-    generator = FloorPlanGenerator(width=width, height=height, rooms_data=rooms)
+    # ensure all room entries are RoomData instances
+    from app.algorithms.floor_plan_generator.types.room import (
+        RoomData,
+        ConfigData,
+        FpgRequirements,
+    )
+
+    room_objs: list[RoomData] = [
+        r if isinstance(r, RoomData) else RoomData(**r) for r in rooms
+    ]
+    config_obj = ConfigData(
+        min_coverage=MIN_COVERAGE,
+        max_aspect_ratio=0,  # placeholder; unused by generator
+        min_aspect_ratio=0,
+        floor_plan_width=width,
+        floor_plan_height=height,
+    )
+    requirements = FpgRequirements(rooms=room_objs, config=config_obj)
+    generator = FloorPlanGenerator(requirements)
     solved = generator.generate()
     print("solved?", solved)
     if not solved:

@@ -1,10 +1,13 @@
+from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel
+from sqlmodel import SQLModel
 
 
-class RoomSizeConstraintBase(BaseModel):
+class RoomSizeConstraintBase(SQLModel):
+    """Shared properties of a room size constraint."""
+
     type: str
     min_w: Optional[float] = None
     max_w: Optional[float] = None
@@ -13,12 +16,15 @@ class RoomSizeConstraintBase(BaseModel):
     max_area: Optional[float] = None
     min_area: Optional[float] = None
     preset_id: Optional[int] = None
-    last_updated: Optional[datetime] = None
 
 
 class RoomSizeConstraintCreate(RoomSizeConstraintBase):
-    pass
+    """Properties required when creating a new constraint."""
+    ...
 
 
 class RoomSizeConstraintRead(RoomSizeConstraintBase):
+    """Properties returned in API responses."""
+
     id: int
+    last_updated: datetime

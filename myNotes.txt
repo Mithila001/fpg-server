@@ -11,3 +11,11 @@ source .venv/bin/activate
 
 
 pip install -r requirements.txt
+
+
+
+
+
+
+
+When you Rotating the TA, make sure to check if its already aling with X axis befor rotate. Or add some check 

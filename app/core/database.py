@@ -1,10 +1,6 @@
 from sqlmodel import SQLModel, create_engine, Session
 from app.core.config import settings
 
-# import models so they are registered with SQLModel.metadata
-# (any new model should be imported somewhere before create_all is called).
-from app.models import user  # noqa: F401  <-- import for side effects only
-from app.models import room_size_constraint  # noqa: F401  <- ensure table is created
 
 # create engine using the URL from settings
 engine = create_engine(settings.DB_URL, echo=True)
