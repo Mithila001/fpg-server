@@ -1,37 +1,43 @@
 from ortools.sat.python import cp_model
 import random
-from .models.room import Room
+from .solver_models.room import Room
+from .types.room import FpgRequirements
 from .constraints.basic_constraints import add_basic_constraints
 from .constraints.adjacency_constraints import add_kitchen_living_adjacency
 from .constraints.floor_area_coverage import add_minimum_area_coverage
 from .constraints.room_size_hierarchy_constraints import add_room_size_hierarchy
-from .config import MIN_COVERAGE
 
 
 class FloorPlanGenerator:
-    def __init__(self, boundary_width: int, boundary_height: int, rooms_data: list):
-        self.boundary_width = boundary_width
-        self.boundary_height = boundary_height
+    def __init__(self, requirements: FpgRequirements):
+        """Initialize generator from a full requirements object.
+
+        ``requirements`` bundles room specifications and configuration
+        parameters (coverage, aspect ratios, floor size, etc.).
+        """
+        cfg = requirements.config
+        # store basic properties for later use (floats now allowed)
+        self.boundary_width: float = cfg.floor_plan_width
+        self.boundary_height: float = cfg.floor_plan_height
+        self.min_coverage: float = cfg.min_coverage
+
         self.model = cp_model.CpModel()
         self.solver = cp_model.CpSolver()
 
-        self.rooms: list[Room] = []
-        for data in rooms_data:
-            new_room = Room(
-                data["name"],
-                data["min_w"],
-                data["min_h"],
-                data["max_w"],
-                data["max_h"],
-                data["type"],
-            )
-            self.rooms.append(new_room)
+        # convert room data objects directly to solver rooms
+        self.rooms: list[Room] = [
+            Room(r.name, r.min_w, r.min_h, r.max_w, r.max_h, r.type)
+            for r in requirements.rooms
+        ]
 
     def generate(self) -> bool:
         """Build and solve the floor plan. Returns True if a solution was found."""
         # 1. Initialize CP-SAT variables for every room
+        # OR-Tools only accepts integer bounds, so cast the float dimensions.
+        w_int = int(self.boundary_width)
+        h_int = int(self.boundary_height)
         for room in self.rooms:
-            room.create_variables(self.model, self.boundary_width, self.boundary_height)
+            room.create_variables(self.model, w_int, h_int)
 
         # 2. Add constraints
         add_basic_constraints(self.model, self.rooms)
@@ -41,7 +47,7 @@ class FloorPlanGenerator:
             self.rooms,
             self.boundary_width,
             self.boundary_height,
-            MIN_COVERAGE,
+            self.min_coverage,
         )
         add_room_size_hierarchy(self.model, self.rooms)
 

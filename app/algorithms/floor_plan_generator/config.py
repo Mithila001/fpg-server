@@ -3,6 +3,8 @@ Configuration defaults for floor plan generation.
 Values here are used as fallbacks when no custom config is provided via the API.
 """
 
+from .types.room import RoomData
+
 # Floor Dimensions (default)
 FLOOR_WIDTH = 100
 FLOOR_HEIGHT = 100
@@ -39,53 +41,11 @@ bathroomMinHeight = 5
 bathroomMaxHeight = 15
 
 # Default room specifications used when no rooms_data is provided
-DEFAULT_ROOMS_DATA = [
-    {
-        "name": "Living Room",
-        "type": "LivingRoom",
-        "min_w": livingRoomMinWidth + ADD_VALUE,
-        "min_h": livingRoomMinHeight + ADD_VALUE,
-        "max_w": livingRoomMaxWidth + ADD_VALUE,
-        "max_h": livingRoomMaxHeight + ADD_VALUE,
-    },
-    {
-        "name": "Bedroom",
-        "type": "Bedroom",
-        "min_w": bedroomMinWidth + ADD_VALUE,
-        "min_h": bedroomMinHeight + ADD_VALUE,
-        "max_w": bedroomMaxWidth + ADD_VALUE,
-        "max_h": bedroomMaxHeight + ADD_VALUE,
-    },
-    {
-        "name": "Bedroom 2",
-        "type": "Bedroom",
-        "min_w": bedroomMinWidth + ADD_VALUE,
-        "min_h": bedroomMinHeight + ADD_VALUE,
-        "max_w": bedroomMaxWidth + ADD_VALUE,
-        "max_h": bedroomMaxHeight + ADD_VALUE,
-    },
-    {
-        "name": "Bedroom 3",
-        "type": "Bedroom",
-        "min_w": bedroomMinWidth + ADD_VALUE,
-        "min_h": bedroomMinHeight + ADD_VALUE,
-        "max_w": bedroomMaxWidth + ADD_VALUE,
-        "max_h": bedroomMaxHeight + ADD_VALUE,
-    },
-    {
-        "name": "Kitchen",
-        "type": "Kitchen",
-        "min_w": kitchenMinWidth + ADD_VALUE,
-        "min_h": kitchenMinHeight + ADD_VALUE,
-        "max_w": kitchenMaxWidth + ADD_VALUE,
-        "max_h": kitchenMaxHeight + ADD_VALUE,
-    },
-    {
-        "name": "Bathroom",
-        "type": "Bathroom",
-        "min_w": bathroomMinWidth + ADD_VALUE,
-        "min_h": bathroomMinHeight + ADD_VALUE,
-        "max_w": bathroomMaxWidth + ADD_VALUE,
-        "max_h": bathroomMaxHeight + ADD_VALUE,
-    },
+DEFAULT_ROOMS_DATA: list[RoomData] = [
+    RoomData("Living Room", "LivingRoom", livingRoomMinWidth + ADD_VALUE, livingRoomMinHeight + ADD_VALUE, livingRoomMaxWidth + ADD_VALUE, livingRoomMaxHeight + ADD_VALUE),
+    RoomData("Bedroom", "Bedroom", bedroomMinWidth + ADD_VALUE, bedroomMinHeight + ADD_VALUE, bedroomMaxWidth + ADD_VALUE, bedroomMaxHeight + ADD_VALUE),
+    RoomData("Bedroom 2", "Bedroom", bedroomMinWidth + ADD_VALUE, bedroomMinHeight + ADD_VALUE, bedroomMaxWidth + ADD_VALUE, bedroomMaxHeight + ADD_VALUE),
+    RoomData("Bedroom 3", "Bedroom", bedroomMinWidth + ADD_VALUE, bedroomMinHeight + ADD_VALUE, bedroomMaxWidth + ADD_VALUE, bedroomMaxHeight + ADD_VALUE),
+    RoomData("Kitchen", "Kitchen", kitchenMinWidth + ADD_VALUE, kitchenMinHeight + ADD_VALUE, kitchenMaxWidth + ADD_VALUE, kitchenMaxHeight + ADD_VALUE),
+    RoomData("Bathroom", "Bathroom", bathroomMinWidth + ADD_VALUE, bathroomMinHeight + ADD_VALUE, bathroomMaxWidth + ADD_VALUE, bathroomMaxHeight + ADD_VALUE),
 ]

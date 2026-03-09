@@ -1,6 +1,6 @@
 from ortools.sat.python import cp_model
 from typing import List, Optional, Dict, Any
-from ..models.room import Room
+from ..solver_models.room import Room
 
 
 def add_adjacency_constraint(

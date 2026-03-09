@@ -1,5 +1,5 @@
 from typing import List
-from ..models.room import Room
+from ..solver_models.room import Room
 from ..config import MAX_ASPECT_RATIO_HEIGHT, MAX_ASPECT_RATIO_WIDTH
 
 
