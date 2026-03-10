@@ -1,5 +1,5 @@
--- Create the Room Requirement Template table
-CREATE TABLE IF NOT EXISTS public.room_requirement_template (
+-- Create the Room Setup Templates table
+CREATE TABLE IF NOT EXISTS public.room_setup_templates (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     data JSONB NOT NULL
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS public.room_size_constraints (
 
 
 -- Insert Template
-INSERT INTO public.room_requirement_template (name, "data") 
+INSERT INTO public.room_setup_templates (name, "data") 
 VALUES (
     'Standard 2BHK Layout',
     '[{"id": "livingRoom1", "type": "livingRoom"}, {"id": "bedroom1", "type": "bedroom"}, {"id": "bedroom2", "type": "bedroom"}, {"id": "bathroom1", "type": "bathroom"}, {"id": "kitchen1", "type": "kitchen"}]'

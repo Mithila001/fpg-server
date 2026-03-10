@@ -18,6 +18,7 @@ from app.crud import (
     room_size_constraint as room_size_constraint_crud,
     room_setup_template as room_setup_template_crud,
 )
+from typing import Optional
 
 
 def room_dimensions(rooms: List[RoomData], session: Session) -> List[RoomData]:
@@ -128,10 +129,9 @@ def run_fpg(
     return polygons, generator
 
 
-from typing import Optional
-
-
-def testRunWithDBData() -> tuple[List[List[Tuple[float, float]]], Optional["FloorPlanGenerator"]]:
+def testRunWithDBData() -> tuple[
+    List[List[Tuple[float, float]]], Optional["FloorPlanGenerator"]
+]:
     """Run the floor planner using the first template row from the database.
 
     The single record returned by :func:`app.crud.room_setup_template.get_first`
