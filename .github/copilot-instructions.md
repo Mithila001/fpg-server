@@ -20,3 +20,4 @@ After major implementations or editing Python files, run the following command t
 
 ```bash
 ruff check <filename>
+```

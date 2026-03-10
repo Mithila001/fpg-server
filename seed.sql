@@ -35,3 +35,19 @@ VALUES
 	 ('bathroom', 3.00, NULL, NULL, NULL, NULL, 22.00, NULL),
      ('livingRoom', 3.00, NULL, NULL, NULL, NULL, 60.00, NULL),
 	 ('toilet', 3.00, NULL, NULL, NULL, NULL, 16.00, NULL);
+
+
+
+CREATE TABLE room_relations_constraints (
+    id SERIAL PRIMARY KEY,
+    room_type VARCHAR(255) NOT NULL,
+    related_room JSONB,
+    last_updated DATE DEFAULT CURRENT_DATE
+);
+
+INSERT INTO room_relations_constraints (room_type, related_room, last_updated)
+VALUES 
+    ('bedroom', '["bathroom", "livingRoom"]', CURRENT_DATE),
+    ('livingRoom', '["kitchen", "bedroom", "bathroom"]', CURRENT_DATE),
+    ('kitchen', '["livingRoom"]', CURRENT_DATE),
+    ('bathroom', '["bedroom", "livingRoom"]', CURRENT_DATE);
