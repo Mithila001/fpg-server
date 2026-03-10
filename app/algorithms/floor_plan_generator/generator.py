@@ -2,10 +2,12 @@ from ortools.sat.python import cp_model
 import random
 from .solver_models.room import Room
 from .types.room import FpgRequirements
+from .rules import normalize_requirements
 from .constraints.basic_constraints import add_basic_constraints
 from .constraints.adjacency_constraints import add_kitchen_living_adjacency
 from .constraints.floor_area_coverage import add_minimum_area_coverage
 from .constraints.room_size_hierarchy_constraints import add_room_size_hierarchy
+from .constraints.compact_layout import add_center_proximity_objective
 
 
 class FloorPlanGenerator:
@@ -14,11 +16,17 @@ class FloorPlanGenerator:
 
         ``requirements`` bundles room specifications and configuration
         parameters (coverage, aspect ratios, floor size, etc.).
+
+        We first normalize the incoming data with ``rules.normalize_requirements``
+        so that downstream code can rely on sensible numeric values.
         """
+        # apply preprocessing rules before touching the config
+        requirements = normalize_requirements(requirements)
+
         cfg = requirements.config
         # store basic properties for later use (floats now allowed)
-        self.boundary_width: float = cfg.floor_plan_width
-        self.boundary_height: float = cfg.floor_plan_height
+        self.floor_plan_width: float = cfg.floor_plan_width
+        self.floor_plan_height: float = cfg.floor_plan_height
         self.min_coverage: float = cfg.min_coverage
 
         self.model = cp_model.CpModel()
@@ -34,8 +42,8 @@ class FloorPlanGenerator:
         """Build and solve the floor plan. Returns True if a solution was found."""
         # 1. Initialize CP-SAT variables for every room
         # OR-Tools only accepts integer bounds, so cast the float dimensions.
-        w_int = int(self.boundary_width)
-        h_int = int(self.boundary_height)
+        w_int = int(self.floor_plan_width)
+        h_int = int(self.floor_plan_height)
         for room in self.rooms:
             room.create_variables(self.model, w_int, h_int)
 
@@ -45,17 +53,30 @@ class FloorPlanGenerator:
         add_minimum_area_coverage(
             self.model,
             self.rooms,
-            self.boundary_width,
-            self.boundary_height,
+            self.floor_plan_width,
+            self.floor_plan_height,
             self.min_coverage,
         )
         add_room_size_hierarchy(self.model, self.rooms)
 
+        # Soft objective: minimise total Manhattan distance of every room
+        # centre from the floor centre so rooms cluster toward the middle.
+        cost = add_center_proximity_objective(
+            self.model,
+            self.rooms,
+            self.floor_plan_width,
+            self.floor_plan_height,
+        )
+        self.model.Minimize(cost)  # type: ignore[attr-defined]
+
         # 3. Solve
+        self.solver.parameters.max_time_in_seconds = 1.0
         self.solver.parameters.random_seed = random.randint(0, 1000)
+        self.solver.parameters.randomize_search = True
         status = self.solver.Solve(self.model)
 
         return status in (cp_model.OPTIMAL, cp_model.FEASIBLE)
+        
 
     def get_solution(self) -> list[dict]:
         """Extract room placements from the solver after a successful solve."""
@@ -87,7 +108,4 @@ class FloorPlanGenerator:
                     "area": self.solver.Value(room.area),
                 }
             )
-            print("Raw Solver Results for room", room.name)
-            for key, val in results[-1].items():
-                print(f"    {key}: {val}")
         return results

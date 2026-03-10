@@ -1,15 +1,22 @@
 # Backend Environment Integrity
 
-When working within the ./backend directory, always ensure the dedicated Python virtual environment is active. Verify the environment state before executing scripts or installing dependencies to prevent local package conflicts.
+Before running any commands, always ensure you are in the virtual environment by running the appropriate activation script for your OS:
+* **Windows:** `.venv\Scripts\activate`
+* **Ubuntu/Linux:** `source .venv/bin/activate`
+
+The `requirements.txt` file has already been processed; assume all listed packages are installed.
+
+---
 
 # Temporary Dev Files
 
-backend\app\dev folder is a temporary developer personal testing area. It will later be removed and should not be considered as a part of the project.
+The `\app\dev` folder is a temporary, personal testing area for developers. It is excluded from the core architecture and will be removed in future iterations.
+
+---
 
 # Code Quality Checks
 
-After major implementations or when editing Python files, run `ruff check <filename>` to ensure there are no syntax errors and to maintain code quality. Agents should execute this check before committing changes
+After major implementations or editing Python files, run the following command to ensure syntax integrity and style compliance:
 
-# Database Info
-Look at docker-compose.yml for database connection details.
-
+```bash
+ruff check <filename>
