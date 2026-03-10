@@ -14,13 +14,10 @@ from app.algorithms.floor_plan_generator.config import (
 
 from sqlmodel import Session
 from app.core.database import engine
-from app.crud import room_size_constraint as room_size_constraint_crud
-
-
-# This service wrapper executes the floor plan generator.  The
-# implementation is derived from the development script but lives here
-# to avoid pulling in the ``app.dev`` package.  Plotting has been removed;
-# callers receive raw generator output instead.
+from app.crud import (
+    room_size_constraint as room_size_constraint_crud,
+    room_setup_template as room_setup_template_crud,
+)
 
 
 def room_dimensions(rooms: List[RoomData], session: Session) -> List[RoomData]:
@@ -64,12 +61,14 @@ def run_fpg(
     width: float = FLOOR_WIDTH,
     height: float = FLOOR_HEIGHT,
     rooms_data: List[RoomData] | None = None,
-) -> List[List[Tuple[float, float]]]:
-    """Run the floor‑plan generator and return raw results.
+) -> tuple[List[List[Tuple[float, float]]], "FloorPlanGenerator"]:
+    """Run the floor‑plan generator and return raw results (plus generator).
 
     The plotting side‑effect has been removed; callers receive a list of
-    room polygons containing the final layout.  The ``show`` argument is
-    preserved for backwards compatibility but has no effect.
+    room polygons containing the final layout along with the underlying
+    :class:`FloorPlanGenerator` instance.  The additional return value is
+    useful for callers that need access to the solver and room objects
+    (for example when using :meth:`PolygonPlotter.floor_plan_plot`).
 
     Args:
         width: floor plan width
@@ -78,8 +77,10 @@ def run_fpg(
             hardcoded defaults (four generic rooms) are used.
 
     Returns:
-        A list of polygons (one per room) representing the solution.  If no
-        solution was found the returned list will be empty.
+        A tuple ``(polygons, generator)`` where ``polygons`` is a list of
+        polygons (one per room) representing the solution.  If no solution
+        was found the polygon list will be empty; the generator is returned
+        regardless so callers can examine its state.
     """
     print("running floor plan generator")
 
@@ -103,7 +104,6 @@ def run_fpg(
         floor_plan_width=width,
         floor_plan_height=height,
     )
-    print("--- Requirements:", config_obj)
     requirements = FpgRequirements(
         rooms=rooms_data if rooms_data is not None else default_rooms,
         config=config_obj,
@@ -112,13 +112,11 @@ def run_fpg(
     generator = FloorPlanGenerator(requirements)
     solved = generator.generate()
     if not solved:
-        return []
+        # still return generator so callers can inspect why it failed if
+        # they wish (e.g. examine solver status, rooms, etc.)
+        return [], generator
 
     solution = generator.get_solution()
-
-    for entry in solution:
-        # room entries include name/type information
-        print(f"  room: {entry.get('name')} size=({entry.get('w')}, {entry.get('h')})")
 
     polygons: List[List[Tuple[float, float]]] = []
     for r in solution:
@@ -126,5 +124,51 @@ def run_fpg(
         polygons.append([(x, y), (x + w, y), (x + w, y + h), (x, y + h)])
 
     # previous versions plotted results; we now simply return the
-    # computed polygons for further processing.
-    return polygons
+    # computed polygons for further processing along with the generator.
+    return polygons, generator
+
+
+from typing import Optional
+
+
+def testRunWithDBData() -> tuple[List[List[Tuple[float, float]]], Optional["FloorPlanGenerator"]]:
+    """Run the floor planner using the first template row from the database.
+
+    The single record returned by :func:`app.crud.room_setup_template.get_first`
+    contains a JSON ``data`` payload describing one or more rooms.  We map
+    that structure into a list of :class:`RoomData` objects with permissive
+    default bounds and hand the result to :func:`run_fpg`.  The generated
+    polygons plus the underlying :class:`FloorPlanGenerator` instance are
+    returned so that callers can either inspect the raw layout or use the
+    solver/room objects for plotting or further analysis.  When the database
+    contains no template the polygon list will be empty and the generator
+    value will be ``None``.
+    """
+
+    with Session(engine) as session:
+        template = room_setup_template_crud.get_first(session)
+        if not template or not template.data:
+            # nothing available in the database; short‑circuit to an empty result
+            # return ``None`` for the generator so callers can detect absence
+            return [], None
+
+        # convert stored room definitions into RoomData instances; the
+        # database entries generally only specify an ``id``/``name`` and a
+        # ``type`` so we supply sensible defaults for the dimensional bounds.
+        rooms: List[RoomData] = []
+        for entry in template.data:
+            name = entry.get("id") or entry.get("name") or ""
+            rooms.append(
+                RoomData(
+                    name=name,
+                    type=entry.get("type", ""),
+                    min_w=0,
+                    min_h=0,
+                    max_w=100,
+                    max_h=100,
+                )
+            )
+
+    # delegate to the existing generator helper
+    polygons, generator = run_fpg(rooms_data=rooms)
+    return polygons, generator

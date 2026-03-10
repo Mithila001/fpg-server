@@ -3,7 +3,7 @@ from collections.abc import Sequence
 import os
 import sys
 
-# python app/dev/d-main.py full
+# python app/dev/d-main.py floor
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
@@ -60,73 +60,46 @@ MOCK_LANDS: Sequence[dict] = [
 ]
 
 
-def run_floor(
-    width: float = FLOOR_WIDTH,
-    height: float = FLOOR_HEIGHT,
-    rooms_data: list[RoomData] | None = None,
-    show: bool = True,
-) -> list[list[tuple[float, float]]]:
-    """Create a floor plan and optionally plot it.
+def run_floor(show: bool = True) -> list[list[tuple[float, float]]]:
+    """Generate and plot a floor plan using the first DB template.
+
+    The function queries the database for a room setup template, runs the
+    floor‑plan generator, and returns the resulting room polygons.  When a
+    successful layout is obtained *and* ``show`` is ``True`` the result is
+    plotted using :meth:`PolygonPlotter.floor_plan_plot` which consumes the
+    underlying solver/room objects directly.
 
     Args:
-        width: floor plan width
-        height: floor plan height
-        rooms_data: room specs as RoomData objects; if ``None`` the hardcoded
-                    defaults below are used (sourced from RoomSizeConstraintBase)
-        show: whether to display/save the resulting polygon (via ``PolygonPlotter``)
+        show: whether to display the generated plot interactively.  Images
+            are always saved under ``./app/dev/outputs`` regardless of this
+            flag.
 
     Returns:
-        A list of polygons (one per room) representing the solution.  If no
-        solution was found the returned list will be empty.
+        List of room polygons produced by the solver (may be empty).
     """
-    print("running floor plan generator")
+    # import here to avoid a circular import at module load time
+    from app.services.algorithm_manager import testRunWithDBData
+    polygons, generator = testRunWithDBData()
 
-    # static defaults used when no explicit rooms_data is provided
-    default_rooms: list[RoomData] = [
-        RoomData("livingRoom1", "livingRoom", min_w=0, min_h=0, max_w=100, max_h=100),
-        RoomData("bedroom1", "bedroom", min_w=0, min_h=0, max_w=100, max_h=100),
-        RoomData("bathroom1", "bathroom", min_w=0, min_h=0, max_w=100, max_h=100),
-        RoomData("kitchen1", "kitchen", min_w=0, min_h=0, max_w=100, max_h=100),
-    ]
+    # log coordinates and sizes for each room/polygon if generator exists
+    if generator is not None:
+        for idx, r in enumerate(generator.get_solution(), start=1):
+            # r contains x, y, w, h along with name/type
+            print(
+                f"polygon {idx}: x={r.get('x')} y={r.get('y')} w={r.get('w')} h={r.get('h')}"
+            )
 
-    config_obj = ConfigData(
-        min_coverage=MIN_COVERAGE,
-        max_aspect_ratio=16.0,
-        min_aspect_ratio=0.0,
-        floor_plan_width=width,
-        floor_plan_height=height,
-    )
-    print("--- Requirements:", config_obj)
-    requirements = FpgRequirements(
-        rooms=rooms_data if rooms_data is not None else default_rooms,
-        config=config_obj,
-    )
-    generator = FloorPlanGenerator(requirements)
-    solved = generator.generate()
-    if not solved:
-        return []
-
-    solution = generator.get_solution()
-
-    for entry in solution:
-        # room entries include name/type information
-        print(f"  room: {entry.get('name')} size=({entry.get('w')}, {entry.get('h')})")
-
-    # convert each room dict into a polygon of its bounding rectangle
-    polygons: list[list[tuple[float, float]]] = []
-    for r in solution:
-        x, y, w, h = r["x"], r["y"], r["w"], r["h"]
-        polygons.append([(x, y), (x + w, y), (x + w, y + h), (x, y + h)])
-
-    plotter = PolygonPlotter(output_base_dir="./app/dev/outputs")
-    plotter.floor_plan_plot(
-        rooms_list=generator.rooms,
-        solver=generator.solver,
-        LAND_WIDTH=width,
-        LAND_HEIGHT=height,
-        show=show,
-        title="Floor plan",
-    )
+    if polygons and generator and show:
+        plotter = PolygonPlotter(output_base_dir="./app/dev/outputs")
+        # generator exposes floor dimensions already used during solve
+        plotter.floor_plan_plot(
+            rooms_list=generator.rooms,
+            solver=generator.solver,
+            LAND_WIDTH=generator.floor_plan_width,
+            LAND_HEIGHT=generator.floor_plan_height,
+            show=show,
+            title="Floor plan (DB template)",
+        )
 
     return polygons
 
@@ -142,7 +115,6 @@ def run_usable(
 
     Returns the computed usable polygon (empty if computation fails).
     """
-    print("running usable-land-space example")
     finder = UsableSpaceFinder()
 
     if vertices is None or offsets is None:
@@ -150,7 +122,6 @@ def run_usable(
         offsets = [1.0, 1.0, 1.0, 1.0]
 
     result = finder.find_buildable_space(vertices, offsets)
-    print("buildable polygon", result)
 
     if show:
         plotter = PolygonPlotter(output_base_dir="./app/dev/outputs")
@@ -177,7 +148,6 @@ def run_boundary(
         Tuple of (parallel_rect, perpendicular_rect), each may be ``None`` if no
         valid rectangle was found.
     """
-    print("running boundary finder example")
     bf = FPBoundaryFinder()
     if polygon is None:
         polygon = [(0, 0), (10, 0), (10, 5), (0, 5)]
@@ -185,7 +155,6 @@ def run_boundary(
     final_poly, rect_par, rect_perp = bf.fp_boundary_finder(
         polygon, min_width=min_width, min_height=min_height
     )
-    print("rectangles", rect_par, rect_perp)
 
     if show:
         plotter = PolygonPlotter(output_base_dir="./app/dev/outputs")
@@ -205,7 +174,6 @@ def run_mocks():
     land polygon is drawn alongside the computed buildable polygon.  Images
     are saved in the same output directory used by the other examples.
     """
-    print("running mock-land batch")
     # UsableSpaceFinder isn't needed here since run_usable handles it
     plotter = PolygonPlotter(output_base_dir="./app/dev/outputs")
 
@@ -215,9 +183,6 @@ def run_mocks():
         usable = run_usable(verts, offsets, show=False)
         rect_par, rect_perp = run_boundary(verts, show=False)
         floor_polys = run_floor(show=False)
-        print(
-            f"mock {idx}: land={verts}, usable={usable}, boundary={rect_par},{rect_perp}, floor_rooms={len(floor_polys)}"
-        )
         # plot everything in one set
         to_plot = [verts]
         if usable:
@@ -246,7 +211,6 @@ def full_algorithm():
     The function returns a list of result dictionaries for further processing
     if desired.
     """
-    print("executing full algorithm on all mock lands")
     all_results = []
 
     for idx, info in enumerate(MOCK_LANDS, start=1):
@@ -281,7 +245,6 @@ def full_algorithm():
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("usage: python d-main.py <floor|usable|boundary|mocks|full>")
         sys.exit(1)
     command = sys.argv[1].lower()
     if command == "floor":
@@ -295,4 +258,4 @@ if __name__ == "__main__":
     elif command == "full":
         full_algorithm()
     else:
-        print("unknown command", command)
+        pass
