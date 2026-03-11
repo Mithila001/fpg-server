@@ -59,7 +59,9 @@ class FloorPlanGenerator:
             relations = get_relation_constraints(session)
         # ``relations`` is a sequence of ORM models; convert to the base schema
         # so our generic helper can operate on it without depending on SQLModel.
-        relations_schema = [RoomRelationsConstraintBase.model_validate(r) for r in relations]  # type: ignore[assignment]
+        relations_schema = [
+            RoomRelationsConstraintBase.model_validate(r) for r in relations
+        ]  # type: ignore[assignment]
         adjacency_constraints(self.model, self.rooms, relations_schema)
 
         add_minimum_area_coverage(
@@ -88,7 +90,6 @@ class FloorPlanGenerator:
         status = self.solver.Solve(self.model)
 
         return status in (cp_model.OPTIMAL, cp_model.FEASIBLE)
-        
 
     def get_solution(self) -> list[dict]:
         """Extract room placements from the solver after a successful solve."""

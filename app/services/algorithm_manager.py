@@ -21,7 +21,7 @@ from app.crud import (
 from typing import Optional
 
 
-def room_dimensions(rooms: List[RoomData], session: Session) -> List[RoomData]:
+def _room_dimensions(rooms: List[RoomData], session: Session) -> List[RoomData]:
     """Normalise a list of :class:`RoomData` using database constraints.
 
     For each item in ``rooms`` we look up a matching
@@ -88,7 +88,7 @@ def run_fpg(
     # sanitise any user-supplied room data against DB constraints
     if rooms_data is not None:
         with Session(engine) as session:
-            rooms_data = room_dimensions(rooms_data, session)
+            rooms_data = _room_dimensions(rooms_data, session)
 
     # static defaults used when no explicit rooms_data is provided
     default_rooms: List[RoomData] = [
@@ -119,17 +119,16 @@ def run_fpg(
 
     solution = generator.get_solution()
 
+    # convert the raw solution into a list of polygons (one per room)
     polygons: List[List[Tuple[float, float]]] = []
     for r in solution:
         x, y, w, h = r["x"], r["y"], r["w"], r["h"]
         polygons.append([(x, y), (x + w, y), (x + w, y + h), (x, y + h)])
 
-    # previous versions plotted results; we now simply return the
-    # computed polygons for further processing along with the generator.
     return polygons, generator
 
 
-def testRunWithDBData() -> tuple[
+def quicklyRunWithDbData() -> tuple[
     List[List[Tuple[float, float]]], Optional["FloorPlanGenerator"]
 ]:
     """Run the floor planner using the first template row from the database.
@@ -152,9 +151,7 @@ def testRunWithDBData() -> tuple[
             # return ``None`` for the generator so callers can detect absence
             return [], None
 
-        # convert stored room definitions into RoomData instances; the
-        # database entries generally only specify an ``id``/``name`` and a
-        # ``type`` so we supply sensible defaults for the dimensional bounds.
+        # convert stored room definitions into RoomData instances.
         rooms: List[RoomData] = []
         for entry in template.data:
             name = entry.get("id") or entry.get("name") or ""
@@ -172,51 +169,3 @@ def testRunWithDBData() -> tuple[
     # delegate to the existing generator helper
     polygons, generator = run_fpg(rooms_data=rooms)
     return polygons, generator
-
-
-def apiFormatter():
-    """Development helper: run the floor planner and format via ``FpFormatter``.
-
-    This mirrors :func:`apiTest` but performs post‑processing using the new
-    ``FpFormatter`` algorithm instead of the legacy
-    ``layout_coordinates_clean_up.clean_layout`` helper.
-
-    Returns:
-        A tuple ``(walls, rooms)`` in the same shape as :func:`apiTest`.
-    """
-    from app.algorithms.fp_formatter_for_frontend.fp_wall_formatter import (
-        FpFormatter,
-    )
-
-    polygons, generator = run_fpg()
-    formatter = FpFormatter()
-
-    metadata: list[dict] = []
-    if generator is not None:
-        try:
-            metadata = generator.get_solution()
-        except Exception:
-            metadata = []
-
-    formatter.compute_walls(polygons, room_metadata=metadata)
-    return formatter.get_wall_segments(), formatter.get_room_labels()
-
-
-def apiTest():
-    """Development helper: run the floor planner and return cleaned layout data.
-
-    Calls :func:`run_fpg` with default parameters (DB template rooms) then
-    passes the raw polygons through :func:`~app.util.layout_coordinates_clean_up.clean_layout`
-    to collapse shared walls and compute room centre points.
-
-    Returns:
-        A tuple ``(walls, rooms)`` as produced by
-        :func:`~app.util.layout_coordinates_clean_up.clean_layout`, ready to
-        be serialised and sent to the front end.
-    """
-    from app.util.layout_coordinates_clean_up import clean_layout
-
-    polygons, generator = run_fpg()
-    walls, rooms = clean_layout(polygons, generator)
-    return walls, rooms
-

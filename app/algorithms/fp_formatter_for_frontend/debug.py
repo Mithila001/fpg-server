@@ -11,10 +11,17 @@ raw diagnostic output directly.
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Optional
+from datetime import datetime
 
-from app.services.algorithm_manager import run_fpg
+from app.services.algorithm_manager import run_fpg, quicklyRunWithDbData
 from app.util.layout_coordinates_clean_up import validate_layout
+
+# formatter class needed by debug helper
+from app.algorithms.fp_formatter_for_frontend.fp_wall_formatter import FpFormatter
+
+# we reference the solver type in type hints; import to satisfy mypy
+from app.algorithms.floor_plan_generator.generator import FloorPlanGenerator
 
 # reuse the dev plotting helper; import lazily in case matplotlib isn't
 # installed in a production environment (debug module is dev-only anyway)
@@ -27,11 +34,14 @@ Point = Tuple[float, float]
 
 # internal helpers --------------------------------------------------------
 
-def _plot_raw_polygons(polygons: List[List[Point]]) -> None:
+
+def _plot_raw_polygons(
+    polygons: List[List[Point]], out_dir: str, file_name: str = "raw_polygons"
+) -> None:
     """Scatter every vertex from *polygons*.
 
-    The image is always written to ``raw_polygons.png`` under the module's
-    ``images/`` directory.  Silent when the polygon list is empty.
+    The image is always written to ``raw_polygons.png`` within *out_dir*.
+    Silent when the polygon list is empty.
     """
     if not polygons:
         print("run_fpg returned no polygons")
@@ -42,17 +52,15 @@ def _plot_raw_polygons(polygons: List[List[Point]]) -> None:
         for p in poly:
             pts.append((float(p[0]), float(p[1])))
     # scatter plot for quick debugging
-    plot_points(sorted(set(pts)), filename="raw_polygons.png")
+    plot_points(sorted(set(pts)), filename=os.path.join(out_dir, file_name))
 
     # additionally use PolygonPlotter (same class used by d-main) to create a
     # cleaned polygon drawing.  This mirrors the usage in d-main but points at
-    # our local images directory so the output is easy to find.
+    # our chosen output directory so the output is easy to find.
     try:
         from app.dev.plotters import PolygonPlotter
 
-        pp = PolygonPlotter(output_base_dir=os.path.join(
-            os.path.dirname(__file__), "dev_test", "images"
-        ))
+        pp = PolygonPlotter(output_base_dir=out_dir)
         # polygon_line_plotter_single expects a list of polygon sets; we
         # supply the entire list as one set so each room polygon is drawn.
         pp.polygon_line_plotter_single(polygons, show=False, title="Raw polygons")
@@ -61,20 +69,18 @@ def _plot_raw_polygons(polygons: List[List[Point]]) -> None:
         print("PolygonPlotter unavailable; skipped additional floor-plan plot")
 
 
-def _plot_report_points(report: Any, filename: str) -> None:
+def _plot_report_points(report: Any, filename: str, out_dir: str) -> None:
     """Extract and plot coordinates appearing anywhere in *report*.
 
-    Writes the scatter to *filename* within the module's ``images/``
-    directory.  If no points are found a message is printed and nothing is
-    saved.
+    Writes the scatter to *filename* located inside *out_dir*.  If no points
+    are found a message is printed and nothing is saved.
     """
     pts: List[Point] = []
     _collect_points(report, pts)
     if not pts:
         print("no points extracted from report")
         return
-    plot_points(sorted(set(pts)), filename=filename)
-
+    plot_points(sorted(set(pts)), filename=os.path.join(out_dir, filename))
 
 
 def _collect_points(obj: Any, acc: List[Point]) -> None:
@@ -114,14 +120,63 @@ def debug_report_plot(filename: str = "debug_report_points.png") -> Dict[str, An
     """
     polygons, generator = run_fpg()
 
+    # create timestamped output directory inside dev_test/images
+    base_dir = os.path.join(os.path.dirname(__file__), "dev_test", "images")
+    ts = datetime.now().strftime("%Y%m%d-%H-%M-%S")
+    out_dir = os.path.join(base_dir, ts)
+    os.makedirs(out_dir, exist_ok=True)
+
     # plot raw polygon vertices and then report-derived coordinates
-    _plot_raw_polygons(polygons)
+    _plot_raw_polygons(polygons, out_dir, file_name="raw_polygons")
     report = validate_layout(polygons, generator)
-    _plot_report_points(report, filename)
+    _plot_report_points(report, filename, out_dir)
     return report
 
 
+def debug_fp_formatter() -> tuple[list[list[Point]], Optional["FloorPlanGenerator"]]:
+    """Run the database-backed generator and pass layout to :class:`FpFormatter`.
+
+    This helper mirrors the behaviour requested by the user: it invokes
+    :func:`app.services.algorithm_manager.quicklyRunWithDbData` to obtain the
+    resulting polygons and generator instance, then constructs an
+    :class:`FpFormatter` and calls its :meth:`main` method using the polygons
+    as the *room_layout* argument.  The return values from the generator are
+    returned to the caller for any further inspection.
+    """
+
+    polygons, generator = quicklyRunWithDbData()
+    fmt = FpFormatter()
+    formatted = fmt.fpFormatter(polygons)
+
+    # plot whatever the formatter returned so we can inspect it visually
+    base_dir = os.path.join(os.path.dirname(__file__), "dev_test", "images")
+    ts = datetime.now().strftime("%Y%m%d-%H-%M-%S")
+    out_dir = os.path.join(base_dir, f"{ts}-formatted")
+    os.makedirs(out_dir, exist_ok=True)
+    # reuse the raw polygon plot helper; formatted data will usually be a list
+    # of polygons but we treat it generically for now.
+    _plot_raw_polygons(polygons, out_dir, file_name="raw_layout.png")
+    _plot_raw_polygons(formatted, out_dir, file_name="formatted_layout.png")
+
+    return polygons, generator
+
+
 if __name__ == "__main__":
-    # quick manual execution
-    rep = debug_report_plot()
-    print("report keys:", list(rep.keys()))
+    # allow easy invocation of helpers from the project root e.g.
+    #   python -m app/algorithms/fp_formatter_for_frontend/debug.py formatter
+    #   python app/algorithms/fp_formatter_for_frontend/debug.py report
+    import sys
+
+    if len(sys.argv) >= 2:
+        cmd = sys.argv[1].lower()
+        if cmd == "formatter":
+            debug_fp_formatter()
+        elif cmd == "report":
+            rep = debug_report_plot()
+            print("report keys:", list(rep.keys()))
+        else:
+            print(f"unknown command '{cmd}' (formatter|report)")
+    else:
+        # default behaviour remains the report helper
+        rep = debug_report_plot()
+        print("report keys:", list(rep.keys()))

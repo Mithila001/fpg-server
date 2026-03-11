@@ -18,9 +18,7 @@ Point = Tuple[float, float]
 Segment = Tuple[Point, Point]
 
 
-def plot_points(
-    points: Iterable[Point], filename: str = "points.png"
-) -> str:
+def plot_points(points: Iterable[Point], filename: str = "points.png") -> str:
     """Draw a scatter of *points* and save to *filename*.
 
     Each point is printed to stdout before being plotted.
@@ -43,7 +41,7 @@ def plot_points(
     # finer grid: use unit spacing ticks
     ax.xaxis.set_major_locator(MultipleLocator(1))
     ax.yaxis.set_major_locator(MultipleLocator(1))
-    ax.grid(True, which='major', linestyle='--', linewidth=0.5)
+    ax.grid(True, which="major", linestyle="--", linewidth=0.5)
 
     base_dir = os.path.dirname(__file__)
     img_dir = os.path.join(base_dir, "images")
@@ -55,9 +53,7 @@ def plot_points(
     return outpath
 
 
-def plot_segments(
-    segments: Iterable[Segment], filename: str = "segments.png"
-) -> str:
+def plot_segments(segments: Iterable[Segment], filename: str = "segments.png") -> str:
     """Draw line segments and save to *filename*.
 
     Each segment is printed as a start/end pair.
@@ -76,7 +72,50 @@ def plot_segments(
     ax.set_title("Segments")
     ax.xaxis.set_major_locator(MultipleLocator(1))
     ax.yaxis.set_major_locator(MultipleLocator(1))
-    ax.grid(True, which='major', linestyle='--', linewidth=0.5)
+    ax.grid(True, which="major", linestyle="--", linewidth=0.5)
+
+    base_dir = os.path.dirname(__file__)
+    img_dir = os.path.join(base_dir, "images")
+    os.makedirs(img_dir, exist_ok=True)
+    outpath = os.path.join(img_dir, filename)
+    fig.savefig(outpath)
+    plt.close(fig)
+    print(f"saved plot to {outpath}")
+    return outpath
+
+
+def plot_segment_sets(
+    segment_sets: Iterable[Iterable[Segment]], filename: str = "segment_sets.png"
+) -> str:
+    """Draw each iterable of segments in *segment_sets* using a unique colour.
+
+    The outer iterable represents groups (e.g. walls belonging to different
+    rooms) and each inner iterable is a collection of ``((x1, y1), (x2, y2))``
+    segments.  A scatter of the set index is logged along with each segment
+    for clarity.
+
+    Returns the path of the written image file.
+    """
+    all_sets = list(segment_sets)
+    for idx, segs in enumerate(all_sets, start=1):
+        for s in segs:
+            print(f"set {idx} segment", s)
+
+    if not any(all_sets):
+        raise ValueError("no segments to plot")
+
+    fig, ax = plt.subplots()
+    # pick a distinct colour per set using matplotlib's tab10 cycle
+    colors = plt.cm.get_cmap("tab10")
+    for idx, segs in enumerate(all_sets):
+        color = colors(idx % 10)
+        for (x1, y1), (x2, y2) in segs:
+            ax.plot([x1, x2], [y1, y2], color=color)
+    ax.set_aspect("equal")
+    ax.set_title("Segment sets")
+    ax.xaxis.set_major_locator(MultipleLocator(1))
+    ax.yaxis.set_major_locator(MultipleLocator(1))
+    ax.grid(True, which="major", linestyle="--", linewidth=0.5)
 
     base_dir = os.path.dirname(__file__)
     img_dir = os.path.join(base_dir, "images")
@@ -94,3 +133,5 @@ if __name__ == "__main__":
     sample_segments = [((0, 0), (1, 2)), ((1, 2), (2, 1))]
     plot_points(sample_points, filename="points_demo.png")
     plot_segments(sample_segments, filename="segments_demo.png")
+    # demo segment sets
+    plot_segment_sets([sample_segments, sample_segments], filename="sets_demo.png")
