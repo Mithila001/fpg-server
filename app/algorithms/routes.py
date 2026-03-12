@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List,Tuple
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -61,6 +61,7 @@ def get_formatted_layout():
             center = (x + w / 2.0, y + h / 2.0)
             room_centers.append(RoomCenter(name=r.get("name", ""), center=center))
 
+    # format the polygons for frontend consumption
     fmt = FpFormatter()
     merged_horiz, merged_vert = fmt.fpFormatter(polygons)
 
