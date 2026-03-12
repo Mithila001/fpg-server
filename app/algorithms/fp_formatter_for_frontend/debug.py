@@ -26,7 +26,8 @@ from app.algorithms.floor_plan_generator.generator import FloorPlanGenerator
 # reuse the dev plotting helper; import lazily in case matplotlib isn't
 # installed in a production environment (debug module is dev-only anyway)
 from app.algorithms.fp_formatter_for_frontend.dev_test.fpfff_plot_wall import (
-    plot_points, plot_segment_sets,
+    plot_points,
+    plot_segment_sets,
 )
 
 Point = Tuple[float, float]
@@ -146,7 +147,7 @@ def debug_fp_formatter() -> tuple[list[list[Point]], Optional["FloorPlanGenerato
 
     polygons, generator = quicklyRunWithDbData()
     fmt = FpFormatter()
-    snapped = fmt.fpFormatter(polygons)
+    fmt.fpFormatter(polygons)
 
     # helper to flatten the dictionary-of-intervals into a list-of-lists
     def _flatten_intervals(data: Dict[float, List[Point]]) -> List[List[Point]]:
@@ -176,8 +177,12 @@ def debug_fp_formatter() -> tuple[list[list[Point]], Optional["FloorPlanGenerato
     # reuse the raw polygon plot helper; formatted data will usually be a list
     # of polygons but we treat it generically for now.
     _plot_raw_polygons(polygons, out_dir, file_name="raw_layout.png")
-    # combine horizontal & vertical flattened sets for a single plot
-    # plot_segment_sets(horiz_sets=flat_horiz, vert_sets=flat_vert,out_dir=out_dir, filename="combined_segments.png")
+    plot_segment_sets(
+        fmt._merged_horiz,
+        fmt._merged_vert,
+        out_dir=out_dir,
+        filename="merged_segments.png",
+    )
 
     return polygons, generator
 

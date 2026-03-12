@@ -38,7 +38,9 @@ class FpFormatter:
         # once segments are classified by room we can further coalesce them
         # across the entire layout by their axis alignment.
         horiz_groups, vert_groups = self._group_segments_by_axis(segmented)
-        self._merge_collinear_segments(horiz_groups, vert_groups)
+        self._merged_horiz, self._merged_vert = self._merge_collinear_segments(
+            horiz_groups, vert_groups
+        )
 
         return snapped
 

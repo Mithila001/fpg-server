@@ -8,14 +8,16 @@ running the script manually leaves a PNG alongside the source.
 
 from __future__ import annotations
 
+import itertools
 import os
-from typing import Iterable, Tuple
+from typing import Dict, Iterable, List, Tuple
 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 
 Point = Tuple[float, float]
 Segment = Tuple[Point, Point]
+CollinearLine = List[Point]
 
 
 def plot_points(points: Iterable[Point], filename: str = "points.png") -> str:
@@ -84,92 +86,71 @@ def plot_segments(segments: Iterable[Segment], filename: str = "segments.png") -
     return outpath
 
 
+
+
 def plot_segment_sets(
-    horiz_sets: Iterable[Iterable],
-    vert_sets: Iterable[Iterable],
-    out_dir: str = "app/algorithms/fp_formatter_for_frontend/dev_test/images",
-    filename: str = "segment_sets.png",
+    horiz_groups: Dict[float, List[CollinearLine]],
+    vert_groups: Dict[float, List[CollinearLine]],
+    out_dir: str,
+    filename: str = "merged_segments.png",
 ) -> str:
-    """Draw each iterable of segments in *segment_sets* using a unique colour.
+    """Plot merged collinear lines from horizontal and vertical groups.
 
-    The two arguments represent collections of segment sets drawn in
-    different orientations:
+    Each distinct collinear line (polyline of 2+ points) receives a unique
+    colour.  Horizontal lines are drawn with a dotted line style; vertical
+    lines with a dashed line style.
 
-    * ``horiz_sets`` — groups of segments that should be rendered
-      horizontally (typically intervals with ``is_horiz`` behaviour).
-    * ``vert_sets`` — groups of segments that should be rendered vertically.
+    Args:
+        horiz_groups: mapping from y-value to list of collinear polylines.
+        vert_groups:  mapping from x-value to list of collinear polylines.
+        out_dir:      directory in which the PNG is saved.
+        filename:     output file name (must end in ``.png``).
 
-    Both arguments follow the same relaxed format as the previous version
-    of this function: each inner iterable may contain either full ``((x1,
-    y1),(x2,y2))`` segments or simple ``(start, end)`` intervals.  The
-    orientation determines how simple intervals are interpreted.
-
-    Horizontal sets are drawn with a loose dashed line style ``'--'``;
-    vertical sets use a dotted style ``':'``.  Colours are still chosen
-    uniquely from the ``tab10`` cycle across **all** sets so every group is
-    visually distinct.
-
-    This consolidated API makes it easy to visualise both decompositions in a
-    single plot without invoking the helper twice.
-
-    Returns the path of the written image file.
+    Returns:
+        Absolute path of the saved image.
     """
-    # combine the two collections so that colours are unique across both
-    horiz_list = list(horiz_sets) if horiz_sets is not None else []
-    vert_list = list(vert_sets) if vert_sets is not None else []
-    all_sets = horiz_list + vert_list
+    # build a flat list of all polylines so we can assign unique colours
+    all_lines: List[Tuple[str, CollinearLine]] = []
+    for _y, lines in sorted(horiz_groups.items()):
+        for line in lines:
+            all_lines.append(("h", line))
+    for _x, lines in sorted(vert_groups.items()):
+        for line in lines:
+            all_lines.append(("v", line))
 
-    # # log every segment for debugging (we tag horizontal/vertical sets)
-    # for idx, segs in enumerate(all_sets, start=1):
-    #     kind = "horiz" if idx <= len(horiz_list) else "vert"
-    #     for s in segs:
-    #         print(f"set {idx} ({kind}) segment", s)
+    n = max(len(all_lines), 1)
+    # choose a palette large enough; tab20 covers up to 20 distinct hues,
+    # fall back to the hsv map for larger sets
+    cmap_name = "tab20" if n <= 20 else "hsv"
+    cmap = plt.colormaps[cmap_name]
+    colors = [cmap(i / n) for i in range(n)]
+    color_cycle = itertools.cycle(colors)
 
-    if not any(all_sets):
-        raise ValueError("no segments to plot")
+    fig, ax = plt.subplots(figsize=(10, 10))
 
-    fig, ax = plt.subplots()
-    colors = plt.cm.get_cmap("tab10")
-    # draw horizontal groups first, then vertical groups
-    for idx, segs in enumerate(all_sets):
-        color = colors(idx % 10)
-        style = "--" if idx < len(horiz_list) else ":"
-        offset = idx
-        for seg in segs:
-            # same detection logic as before
-            if (
-                isinstance(seg, tuple)
-                and len(seg) == 2
-                and all(isinstance(v, (int, float)) for v in seg)
-                and not (
-                    isinstance(seg[0], (list, tuple))
-                    and len(seg[0]) == 2
-                    and isinstance(seg[0][0], (int, float))
-                )
-            ):
-                a, b = seg
-                if idx < len(horiz_list):
-                    # horizontal interval
-                    x1, x2 = a, b
-                    y1 = y2 = offset
-                else:
-                    # vertical interval
-                    y1, y2 = a, b
-                    x1 = x2 = offset
-            else:
-                (x1, y1), (x2, y2) = seg  # type: ignore
-            ax.plot([x1, x2], [y1, y2], color=color, linestyle=style)
+    for orientation, line in all_lines:
+        color = next(color_cycle)
+        xs = [pt[0] for pt in line]
+        ys = [pt[1] for pt in line]
+        if orientation == "h":
+            ax.plot(xs, ys, linestyle=":", linewidth=2, color=color)
+            # mark intermediate points so they are visible
+            ax.scatter(xs, ys, color=color, s=20, zorder=5)
+        else:
+            ax.plot(xs, ys, linestyle="--", linewidth=2, color=color)
+            ax.scatter(xs, ys, color=color, s=20, zorder=5)
+
     ax.set_aspect("equal")
-    ax.set_title("Segment sets")
+    ax.set_title("Merged segments (dotted=horizontal, dashed=vertical)")
     ax.xaxis.set_major_locator(MultipleLocator(1))
     ax.yaxis.set_major_locator(MultipleLocator(1))
-    ax.grid(True, which="major", linestyle="--", linewidth=0.5)
+    ax.grid(True, which="major", linestyle="-", linewidth=0.3, alpha=0.4)
 
     os.makedirs(out_dir, exist_ok=True)
     outpath = os.path.join(out_dir, filename)
     fig.savefig(outpath)
     plt.close(fig)
-    print(f"saved plot to {outpath}")
+    print(f"Plot saved: {outpath}")
     return outpath
 
 
