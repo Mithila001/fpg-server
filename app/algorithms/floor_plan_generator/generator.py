@@ -4,7 +4,11 @@ from .solver_models.room import Room
 from .types.room import FpgRequirements
 from .rules import normalize_requirements
 from .constraints.basic_constraints import add_basic_constraints
-from .constraints.adjacency_constraints import add_kitchen_living_adjacency
+from .constraints.adjacency_constraints import adjacency_constraints
+from sqlmodel import Session
+from app.core.database import engine
+from app.crud.room_relations_constraint import get_all as get_relation_constraints
+from app.schemas.db.room_relations_constraints import RoomRelationsConstraintBase
 from .constraints.floor_area_coverage import add_minimum_area_coverage
 from .constraints.room_size_hierarchy_constraints import add_room_size_hierarchy
 from .constraints.compact_layout import add_center_proximity_objective
@@ -49,7 +53,17 @@ class FloorPlanGenerator:
 
         # 2. Add constraints
         add_basic_constraints(self.model, self.rooms)
-        add_kitchen_living_adjacency(self.model, self.rooms)
+
+        # apply any adjacency rules defined in the database
+        with Session(engine) as session:
+            relations = get_relation_constraints(session)
+        # ``relations`` is a sequence of ORM models; convert to the base schema
+        # so our generic helper can operate on it without depending on SQLModel.
+        relations_schema = [
+            RoomRelationsConstraintBase.model_validate(r) for r in relations
+        ]  # type: ignore[assignment]
+        adjacency_constraints(self.model, self.rooms, relations_schema)
+
         add_minimum_area_coverage(
             self.model,
             self.rooms,
@@ -76,7 +90,6 @@ class FloorPlanGenerator:
         status = self.solver.Solve(self.model)
 
         return status in (cp_model.OPTIMAL, cp_model.FEASIBLE)
-        
 
     def get_solution(self) -> list[dict]:
         """Extract room placements from the solver after a successful solve."""

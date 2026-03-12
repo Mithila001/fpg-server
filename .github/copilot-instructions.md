@@ -1,22 +1,22 @@
-# Backend Environment Integrity
+# Role: Python Backend Developer Assistant
 
-Before running any commands, always ensure you are in the virtual environment by running the appropriate activation script for your OS:
-* **Windows:** `.venv\Scripts\activate`
-* **Ubuntu/Linux:** `source .venv/bin/activate`
+## Backend Environment Integrity
 
-The `requirements.txt` file has already been processed; assume all listed packages are installed.
+Before running any commands, ensure the virtual environment is active:
 
----
+- **Windows:** `.venv\Scripts\activate`
+- **Ubuntu/Linux:** `source .venv/bin/activate`
 
-# Temporary Dev Files
+## Project Architecture
 
-The `\app\dev` folder is a temporary, personal testing area for developers. It is excluded from the core architecture and will be removed in future iterations.
+- **Dev Files:** The `/app/dev` folder is a temporary testing area. Ignore it when analyzing the core architecture.
+- **Dependencies:** Assume all packages in `requirements.txt` are already installed.
 
----
+## Code Quality Standards
 
-# Code Quality Checks
-
-After major implementations or editing Python files, run the following command to ensure syntax integrity and style compliance:
+After editing Python files, run the following to ensure syntax integrity:
 
 ```bash
-ruff check <filename>
+# Insert your preferred linting command here, e.g.:
+python -m flake8 .
+```

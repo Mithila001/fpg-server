@@ -60,48 +60,49 @@ MOCK_LANDS: Sequence[dict] = [
 ]
 
 
-def run_floor(show: bool = True) -> list[list[tuple[float, float]]]:
-    """Generate and plot a floor plan using the first DB template.
-
-    The function queries the database for a room setup template, runs the
-    floor‑plan generator, and returns the resulting room polygons.  When a
-    successful layout is obtained *and* ``show`` is ``True`` the result is
-    plotted using :meth:`PolygonPlotter.floor_plan_plot` which consumes the
-    underlying solver/room objects directly.
+# python app/dev/d-main.py floor
+def run_floor(times: int = 1, show: bool = True) -> list[list[tuple[float, float]]]:
+    """Generate and optionally plot one or more floor plans from the DB template.
 
     Args:
-        show: whether to display the generated plot interactively.  Images
-            are always saved under ``./app/dev/outputs`` regardless of this
-            flag.
+        times: how many independent runs to perform.
+        show: if True, display (and save) the plot.
 
     Returns:
-        List of room polygons produced by the solver (may be empty).
+        A list of polygon lists, one per run.
     """
     # import here to avoid a circular import at module load time
-    from app.services.algorithm_manager import testRunWithDBData
-    polygons, generator = testRunWithDBData()
+    from app.services.algorithm_manager import quicklyRunWithDbData
 
-    # log coordinates and sizes for each room/polygon if generator exists
-    if generator is not None:
-        for idx, r in enumerate(generator.get_solution(), start=1):
-            # r contains x, y, w, h along with name/type
-            print(
-                f"polygon {idx}: x={r.get('x')} y={r.get('y')} w={r.get('w')} h={r.get('h')}"
+    # accumulate polygons from each run; type inferred by Python
+    results = []
+
+    for run_index in range(1, times + 1):
+        polygons, generator = quicklyRunWithDbData()
+
+        # log coordinates and sizes for each room/polygon if generator exists
+        if generator is not None:
+            for idx, r in enumerate(generator.get_solution(), start=1):
+                # r contains x, y, w, h along with name/type
+                print(
+                    f"run {run_index} polygon {idx}: x={r.get('x')} y={r.get('y')} w={r.get('w')} h={r.get('h')}"
+                )
+
+        if polygons and generator and show:
+            plotter = PolygonPlotter(output_base_dir="./app/dev/outputs")
+            # generator exposes floor dimensions already used during solve
+            plotter.floor_plan_plot(
+                rooms_list=generator.rooms,
+                solver=generator.solver,
+                LAND_WIDTH=generator.floor_plan_width,
+                LAND_HEIGHT=generator.floor_plan_height,
+                show=False,
+                title=f"Floor plan (DB template) run {run_index}",
             )
 
-    if polygons and generator and show:
-        plotter = PolygonPlotter(output_base_dir="./app/dev/outputs")
-        # generator exposes floor dimensions already used during solve
-        plotter.floor_plan_plot(
-            rooms_list=generator.rooms,
-            solver=generator.solver,
-            LAND_WIDTH=generator.floor_plan_width,
-            LAND_HEIGHT=generator.floor_plan_height,
-            show=show,
-            title="Floor plan (DB template)",
-        )
+        results.append(polygons)
 
-    return polygons
+    return results
 
 
 def run_usable(
@@ -109,11 +110,9 @@ def run_usable(
     offsets: list[float] | None = None,
     show: bool = True,
 ) -> list[tuple[float, float]]:
-    """Compute a usable polygon, optionally plotting the result.
+    """Return a usable buildable polygon and plot if requested.
 
-    If ``vertices`` or ``offsets`` are omitted, a simple square example is used.
-
-    Returns the computed usable polygon (empty if computation fails).
+    Defaults to a 10x5 rectangle with unit offsets when inputs are None.
     """
     finder = UsableSpaceFinder()
 
@@ -136,17 +135,9 @@ def run_boundary(
     min_height: float = 1,
     show: bool = True,
 ) -> tuple[list[tuple[float, float]] | None, list[tuple[float, float]] | None]:
-    """Compute boundary rectangles for a polygon and optionally plot them.
+    """Find boundary rectangles for a polygon and optionally plot results.
 
-    Args:
-        polygon: list of (x,y) vertices; defaults to a simple rectangle
-        min_width: minimum candidate width for rectangles
-        min_height: minimum candidate height
-        show: whether to display/save the result
-
-    Returns:
-        Tuple of (parallel_rect, perpendicular_rect), each may be ``None`` if no
-        valid rectangle was found.
+    Returns (parallel_rect, perpendicular_rect); either may be None.
     """
     bf = FPBoundaryFinder()
     if polygon is None:
@@ -168,12 +159,7 @@ def run_boundary(
 
 
 def run_mocks():
-    """Iterate over ``MOCK_LANDS`` and produce usable polygons + plots.
-
-    Each terrain is processed by :class:`UsableSpaceFinder` and the original
-    land polygon is drawn alongside the computed buildable polygon.  Images
-    are saved in the same output directory used by the other examples.
-    """
+    """Process each entry in MOCK_LANDS, generating and plotting examples."""
     # UsableSpaceFinder isn't needed here since run_usable handles it
     plotter = PolygonPlotter(output_base_dir="./app/dev/outputs")
 
@@ -200,16 +186,9 @@ def run_mocks():
 
 
 def full_algorithm():
-    """Run the entire pipeline against every entry in ``MOCK_LANDS``.
+    """Execute the full pipeline (usable, boundary, floor) for all MOCK_LANDS.
 
-    For each parcel the steps are:
-    1. compute usable polygon
-    2. compute boundary rectangles
-    3. generate a floor plan (default config)
-    4. collect results and save a combined plot
-
-    The function returns a list of result dictionaries for further processing
-    if desired.
+    Returns a list of dictionaries containing the results for each entry.
     """
     all_results = []
 
@@ -248,7 +227,14 @@ if __name__ == "__main__":
         sys.exit(1)
     command = sys.argv[1].lower()
     if command == "floor":
-        run_floor()
+        # optional repeat count after the command
+        count = 1
+        if len(sys.argv) >= 3:
+            try:
+                count = max(1, int(sys.argv[2]))
+            except ValueError:
+                print(f"ignored invalid count '{sys.argv[2]}', using 1")
+        run_floor(times=count)
     elif command == "usable":
         run_usable()
     elif command == "boundary":

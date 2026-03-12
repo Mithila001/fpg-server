@@ -26,7 +26,17 @@ app.add_middleware(
 
 # app.include_router(dimensions.router)  # removed - dimensions router not implemented
 
+# Dev-only routers (remove before production deployment)
+from app.dev.routes import router as dev_router  # noqa: E402
+
+app.include_router(dev_router)
+
 # Data routers
 
 
 # Algorithm routers
+
+# include the algorithm-related endpoints we just added
+from app.algorithms.routes import router as algorithms_router  # noqa: E402
+
+app.include_router(algorithms_router)
