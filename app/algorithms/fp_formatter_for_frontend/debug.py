@@ -26,7 +26,7 @@ from app.algorithms.floor_plan_generator.generator import FloorPlanGenerator
 # reuse the dev plotting helper; import lazily in case matplotlib isn't
 # installed in a production environment (debug module is dev-only anyway)
 from app.algorithms.fp_formatter_for_frontend.dev_test.fpfff_plot_wall import (
-    plot_points,
+    plot_points, plot_segment_sets,
 )
 
 Point = Tuple[float, float]
@@ -146,24 +146,45 @@ def debug_fp_formatter() -> tuple[list[list[Point]], Optional["FloorPlanGenerato
 
     polygons, generator = quicklyRunWithDbData()
     fmt = FpFormatter()
-    formatted = fmt.fpFormatter(polygons)
+    snapped = fmt.fpFormatter(polygons)
+
+    # helper to flatten the dictionary-of-intervals into a list-of-lists
+    def _flatten_intervals(data: Dict[float, List[Point]]) -> List[List[Point]]:
+        """Return the values of *data* as a plain list-of-lists.
+
+        The formatter routines produce the axis-aligned decomposition as a
+        mapping from coordinate (float) to a list of intervals.  For
+        quick inspectfion we often just want the inner lists; this helper
+        drops the keys and returns them in insertion order.
+        """
+        return list(data.values())
+
+    # # demonstrate conversion in the debug output
+    # flat_horiz = _flatten_intervals(horiz)
+    # flat_vert = _flatten_intervals(vert)
+
+    # show the flattened results; this mirrors the example transformation the
+    # user asked about in their message.
+
 
     # plot whatever the formatter returned so we can inspect it visually
     base_dir = os.path.join(os.path.dirname(__file__), "dev_test", "images")
     ts = datetime.now().strftime("%Y%m%d-%H-%M-%S")
     out_dir = os.path.join(base_dir, f"{ts}-formatted")
     os.makedirs(out_dir, exist_ok=True)
+    
     # reuse the raw polygon plot helper; formatted data will usually be a list
     # of polygons but we treat it generically for now.
     _plot_raw_polygons(polygons, out_dir, file_name="raw_layout.png")
-    _plot_raw_polygons(formatted, out_dir, file_name="formatted_layout.png")
+    # combine horizontal & vertical flattened sets for a single plot
+    # plot_segment_sets(horiz_sets=flat_horiz, vert_sets=flat_vert,out_dir=out_dir, filename="combined_segments.png")
 
     return polygons, generator
 
 
 if __name__ == "__main__":
     # allow easy invocation of helpers from the project root e.g.
-    #   python -m app/algorithms/fp_formatter_for_frontend/debug.py formatter
+    #   python3 -m app.algorithms.fp_formatter_for_frontend.debug formatter
     #   python app/algorithms/fp_formatter_for_frontend/debug.py report
     import sys
 

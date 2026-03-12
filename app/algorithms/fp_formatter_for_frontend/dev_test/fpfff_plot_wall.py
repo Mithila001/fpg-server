@@ -85,42 +85,88 @@ def plot_segments(segments: Iterable[Segment], filename: str = "segments.png") -
 
 
 def plot_segment_sets(
-    segment_sets: Iterable[Iterable[Segment]], filename: str = "segment_sets.png"
+    horiz_sets: Iterable[Iterable],
+    vert_sets: Iterable[Iterable],
+    out_dir: str = "app/algorithms/fp_formatter_for_frontend/dev_test/images",
+    filename: str = "segment_sets.png",
 ) -> str:
     """Draw each iterable of segments in *segment_sets* using a unique colour.
 
-    The outer iterable represents groups (e.g. walls belonging to different
-    rooms) and each inner iterable is a collection of ``((x1, y1), (x2, y2))``
-    segments.  A scatter of the set index is logged along with each segment
-    for clarity.
+    The two arguments represent collections of segment sets drawn in
+    different orientations:
+
+    * ``horiz_sets`` — groups of segments that should be rendered
+      horizontally (typically intervals with ``is_horiz`` behaviour).
+    * ``vert_sets`` — groups of segments that should be rendered vertically.
+
+    Both arguments follow the same relaxed format as the previous version
+    of this function: each inner iterable may contain either full ``((x1,
+    y1),(x2,y2))`` segments or simple ``(start, end)`` intervals.  The
+    orientation determines how simple intervals are interpreted.
+
+    Horizontal sets are drawn with a loose dashed line style ``'--'``;
+    vertical sets use a dotted style ``':'``.  Colours are still chosen
+    uniquely from the ``tab10`` cycle across **all** sets so every group is
+    visually distinct.
+
+    This consolidated API makes it easy to visualise both decompositions in a
+    single plot without invoking the helper twice.
 
     Returns the path of the written image file.
     """
-    all_sets = list(segment_sets)
-    for idx, segs in enumerate(all_sets, start=1):
-        for s in segs:
-            print(f"set {idx} segment", s)
+    # combine the two collections so that colours are unique across both
+    horiz_list = list(horiz_sets) if horiz_sets is not None else []
+    vert_list = list(vert_sets) if vert_sets is not None else []
+    all_sets = horiz_list + vert_list
+
+    # # log every segment for debugging (we tag horizontal/vertical sets)
+    # for idx, segs in enumerate(all_sets, start=1):
+    #     kind = "horiz" if idx <= len(horiz_list) else "vert"
+    #     for s in segs:
+    #         print(f"set {idx} ({kind}) segment", s)
 
     if not any(all_sets):
         raise ValueError("no segments to plot")
 
     fig, ax = plt.subplots()
-    # pick a distinct colour per set using matplotlib's tab10 cycle
     colors = plt.cm.get_cmap("tab10")
+    # draw horizontal groups first, then vertical groups
     for idx, segs in enumerate(all_sets):
         color = colors(idx % 10)
-        for (x1, y1), (x2, y2) in segs:
-            ax.plot([x1, x2], [y1, y2], color=color)
+        style = "--" if idx < len(horiz_list) else ":"
+        offset = idx
+        for seg in segs:
+            # same detection logic as before
+            if (
+                isinstance(seg, tuple)
+                and len(seg) == 2
+                and all(isinstance(v, (int, float)) for v in seg)
+                and not (
+                    isinstance(seg[0], (list, tuple))
+                    and len(seg[0]) == 2
+                    and isinstance(seg[0][0], (int, float))
+                )
+            ):
+                a, b = seg
+                if idx < len(horiz_list):
+                    # horizontal interval
+                    x1, x2 = a, b
+                    y1 = y2 = offset
+                else:
+                    # vertical interval
+                    y1, y2 = a, b
+                    x1 = x2 = offset
+            else:
+                (x1, y1), (x2, y2) = seg  # type: ignore
+            ax.plot([x1, x2], [y1, y2], color=color, linestyle=style)
     ax.set_aspect("equal")
     ax.set_title("Segment sets")
     ax.xaxis.set_major_locator(MultipleLocator(1))
     ax.yaxis.set_major_locator(MultipleLocator(1))
     ax.grid(True, which="major", linestyle="--", linewidth=0.5)
 
-    base_dir = os.path.dirname(__file__)
-    img_dir = os.path.join(base_dir, "images")
-    os.makedirs(img_dir, exist_ok=True)
-    outpath = os.path.join(img_dir, filename)
+    os.makedirs(out_dir, exist_ok=True)
+    outpath = os.path.join(out_dir, filename)
     fig.savefig(outpath)
     plt.close(fig)
     print(f"saved plot to {outpath}")
@@ -134,4 +180,3 @@ if __name__ == "__main__":
     plot_points(sample_points, filename="points_demo.png")
     plot_segments(sample_segments, filename="segments_demo.png")
     # demo segment sets
-    plot_segment_sets([sample_segments, sample_segments], filename="sets_demo.png")
