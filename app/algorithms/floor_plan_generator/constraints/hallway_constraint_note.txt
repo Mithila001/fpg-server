@@ -1,0 +1,12 @@
+We going to implement a hallway to the fpg algorithm, Here, according to my noob understanding, 
+I am thinking creating a dedicated file called hallway_constraints.py at app/algorithms/floor_plan_generator/constraints and implementing related rules there would be good.
+
+These are the rules what i can think of right now. 
+- Should have min width and length. Only aspect ratio should be fixed to (fix value) : (expandable value) so hallway always will look like a long rectangle instated of large square like room. We should maintain a Width consistency.
+- One end must connected to living room, and more than 2 rooms should be connected to hallway (mean fixed living room + another room, witch make the hallway practical moving path between room to living room)
+- Hallway should not go more that y max and y min value rooms got and x min and x max value room go ( witch make the hallway not pop out of the outer wall of the house)
+- Hallways can join with another hallways. but joining face segment coordinates between two hallways should be place on top of each other so the hallway is consistently joined. 
+-Hallways placement is optional and not required for the floor plane. Example: Use hallway when having hard time connecting rooms to living room.
+
+
+* We will not focus on more advance features like door placement for now.
