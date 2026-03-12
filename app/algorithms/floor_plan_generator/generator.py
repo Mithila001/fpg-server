@@ -12,6 +12,7 @@ from app.schemas.db.room_relations_constraints import RoomRelationsConstraintBas
 from .constraints.floor_area_coverage import add_minimum_area_coverage
 from .constraints.room_size_hierarchy_constraints import add_room_size_hierarchy
 from .constraints.compact_layout import add_center_proximity_objective
+from .constraints.hallway_constraints import add_hallway_constraints
 
 
 class FloorPlanGenerator:
@@ -53,6 +54,7 @@ class FloorPlanGenerator:
 
         # 2. Add constraints
         add_basic_constraints(self.model, self.rooms)
+        add_hallway_constraints(self.model, self.rooms, w_int, h_int)
 
         # apply any adjacency rules defined in the database
         with Session(engine) as session:

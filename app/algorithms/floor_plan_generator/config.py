@@ -18,6 +18,13 @@ MIN_COVERAGE = 0.5
 # Room size increments (set to 0 for no scaling)
 ADD_VALUE = 0
 
+# Hallway dimensions
+# Fixed narrow dimension — the solver enforces exactly this value for
+# whichever of width/height is the "short" side.
+HALLWAY_WIDTH = 5
+# Minimum length of the long side (the solver may extend it further).
+HALLWAY_MIN_LENGTH = 5
+
 # Living Room
 livingRoomMinWidth = 30
 livingRoomMaxWidth = 50
@@ -41,10 +48,10 @@ bathroomMaxHeight = 15
 
 # Default room specifications used when no rooms_data is provided
 DEFAULT_ROOMS_DATA: list[RoomData] = [
-    RoomData("Living Room", "LivingRoom", livingRoomMinWidth + ADD_VALUE, livingRoomMinHeight + ADD_VALUE, livingRoomMaxWidth + ADD_VALUE, livingRoomMaxHeight + ADD_VALUE),
-    RoomData("Bedroom", "Bedroom", bedroomMinWidth + ADD_VALUE, bedroomMinHeight + ADD_VALUE, bedroomMaxWidth + ADD_VALUE, bedroomMaxHeight + ADD_VALUE),
-    RoomData("Bedroom 2", "Bedroom", bedroomMinWidth + ADD_VALUE, bedroomMinHeight + ADD_VALUE, bedroomMaxWidth + ADD_VALUE, bedroomMaxHeight + ADD_VALUE),
-    RoomData("Bedroom 3", "Bedroom", bedroomMinWidth + ADD_VALUE, bedroomMinHeight + ADD_VALUE, bedroomMaxWidth + ADD_VALUE, bedroomMaxHeight + ADD_VALUE),
-    RoomData("Kitchen", "Kitchen", kitchenMinWidth + ADD_VALUE, kitchenMinHeight + ADD_VALUE, kitchenMaxWidth + ADD_VALUE, kitchenMaxHeight + ADD_VALUE),
-    RoomData("Bathroom", "Bathroom", bathroomMinWidth + ADD_VALUE, bathroomMinHeight + ADD_VALUE, bathroomMaxWidth + ADD_VALUE, bathroomMaxHeight + ADD_VALUE),
+    RoomData("Living Room", "livingRoom", livingRoomMinWidth + ADD_VALUE, livingRoomMinHeight + ADD_VALUE, livingRoomMaxWidth + ADD_VALUE, livingRoomMaxHeight + ADD_VALUE),
+    RoomData("Bedroom", "bedroom", bedroomMinWidth + ADD_VALUE, bedroomMinHeight + ADD_VALUE, bedroomMaxWidth + ADD_VALUE, bedroomMaxHeight + ADD_VALUE),
+    RoomData("Bedroom 2", "bedroom", bedroomMinWidth + ADD_VALUE, bedroomMinHeight + ADD_VALUE, bedroomMaxWidth + ADD_VALUE, bedroomMaxHeight + ADD_VALUE),
+    RoomData("Bedroom 3", "bedroom", bedroomMinWidth + ADD_VALUE, bedroomMinHeight + ADD_VALUE, bedroomMaxWidth + ADD_VALUE, bedroomMaxHeight + ADD_VALUE),
+    RoomData("Kitchen", "kitchen", kitchenMinWidth + ADD_VALUE, kitchenMinHeight + ADD_VALUE, kitchenMaxWidth + ADD_VALUE, kitchenMaxHeight + ADD_VALUE),
+    RoomData("Bathroom", "bathroom", bathroomMinWidth + ADD_VALUE, bathroomMinHeight + ADD_VALUE, bathroomMaxWidth + ADD_VALUE, bathroomMaxHeight + ADD_VALUE),
 ]

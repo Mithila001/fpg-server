@@ -48,7 +48,7 @@ bathroomMaxHeight = 100
 ROOMS_DATA = [
     {
         "name": "Living Room",
-        "type": "LivingRoom",
+        "type": "livingRoom",
         "min_w": livingRoomMinWidth + ADD_VALUE,
         "min_h": livingRoomMinHeight + ADD_VALUE,
         "max_w": livingRoomMaxWidth + ADD_VALUE,
@@ -56,7 +56,7 @@ ROOMS_DATA = [
     },
     {
         "name": "Bedroom",
-        "type": "Bedroom",
+        "type": "bedroom",
         "min_w": bedroomMinWidth + ADD_VALUE,
         "min_h": bedroomMinHeight + ADD_VALUE,
         "max_w": bedroomMaxWidth + ADD_VALUE,
@@ -64,7 +64,7 @@ ROOMS_DATA = [
     },
     {
         "name": "Bedroom 2",
-        "type": "Bedroom",
+        "type": "bedroom",
         "min_w": bedroomMinWidth + ADD_VALUE,
         "min_h": bedroomMinHeight + ADD_VALUE,
         "max_w": bedroomMaxWidth + ADD_VALUE,
@@ -72,7 +72,7 @@ ROOMS_DATA = [
     },
     {
         "name": "Bedroom 3",
-        "type": "Bedroom",
+        "type": "bedroom",
         "min_w": bedroomMinWidth + ADD_VALUE,
         "min_h": bedroomMinHeight + ADD_VALUE,
         "max_w": bedroomMaxWidth + ADD_VALUE,
@@ -80,7 +80,7 @@ ROOMS_DATA = [
     },
     {
         "name": "Kitchen",
-        "type": "Kitchen",
+        "type": "kitchen",
         "min_w": kitchenMinWidth + ADD_VALUE,
         "min_h": kitchenMinHeight + ADD_VALUE,
         "max_w": kitchenMaxWidth + ADD_VALUE,
@@ -88,7 +88,7 @@ ROOMS_DATA = [
     },
     {
         "name": "Bathroom",
-        "type": "Bathroom",
+        "type": "bathroom",
         "min_w": bathroomMinWidth + ADD_VALUE,
         "min_h": bathroomMinHeight + ADD_VALUE,
         "max_w": bathroomMaxWidth + ADD_VALUE,
