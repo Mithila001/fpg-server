@@ -14,44 +14,49 @@ FormattedLayout = Any
 
 
 class FpFormatter:
-    def __init__(self, snap_precision: float = 0.1) -> None:
-        """Create a new formatter.
+    """Helper for preparing floor‑plan layouts for frontend tools.
 
-        Args:
-            snap_precision: grid spacing used by :meth:`_snap_to_grid`.
+    The formatter currently performs simple grid snapping, orientation
+    categorisation and collinear merging of wall segments.  It exists as an
+    interim step until a full layout pipeline is available.
+    """
+
+    def __init__(self, snap_precision: float = 0.1) -> None:
+        """Initialise with a grid resolution.
+
+        ``snap_precision`` defines the spacing used when snapping coordinates to
+        the grid in :meth:`_snap_to_grid`.
         """
         self._snap_precision = snap_precision
 
     # Main Entry Function
     def fpFormatter(self, room_layout: Any) -> FormattedLayout:
-        """Format *room_layout* for plotting.
+        """Primary entry point used by clients.
 
-        At present the formatter only snaps every coordinate onto a regular
-        grid; the adjusted layout is returned so callers can plot or inspect
-        the result.  This supports early visualisation and will be replaced
-        with the full pipeline once available.
+        The input may be a list of room dictionaries (from
+        :class:`FloorPlanGenerator`) or raw polygons.  The routine snaps
+        coordinates, splits walls into horizontal/vertical segments, groups
+        them by their constant axis, and finally merges any collinear pieces
+        into ordered point sequences.  The return value is a pair of mappings
+        describing the merged horizontal and vertical lines.
         """
 
         print("Received room layout:", room_layout)
         snapped = self._snap_to_grid(room_layout)
-        segmented = self._split_segments_by_orientation(room_layout)
-        # once segments are classified by room we can further coalesce them
-        # across the entire layout by their axis alignment.
+        segmented = self._split_segments_by_orientation(snapped)
+        # classify segments by axis before merging across rooms
         horiz_groups, vert_groups = self._group_segments_by_axis(segmented)
-        self._merged_horiz, self._merged_vert = self._merge_collinear_segments(
+        merged_horiz, merged_vert = self._merge_collinear_segments(
             horiz_groups, vert_groups
         )
 
-        return snapped
+        return merged_horiz, merged_vert
 
     def _snap_to_grid(self, layout: Any) -> Any:
-        """Return a copy of *layout* with all (x, y) points snapped to grid.
+        """Round every coordinate in *layout* to the nearest grid point.
 
-        The implementation currently expects *layout* to be a sequence of
-        polygons, where each polygon is itself a sequence of ``(x, y)`` pairs.
-        Coordinates are rounded to the nearest multiple of ``self._snap_precision``.
-        Any unexpected structure is returned unchanged to keep the helper
-        forgiving during early development.
+        Works on a list of polygons (lists of ``(x, y)`` tuples).  If the input
+        does not conform, the original value is returned unchanged.
         """
 
         if layout is None:
@@ -68,7 +73,8 @@ class FpFormatter:
                 return (round(x / g) * g, round(y / g) * g)
             return pt
 
-        # try to walk two levels deep (polygons -> points); fall back gracefully
+        # attempt a two‑level traversal; if layout is not iterable in the
+        # expected way just return it unchanged rather than raising.
         try:
             return [
                 [snap_point(p) for p in poly]
@@ -82,35 +88,21 @@ class FpFormatter:
     def _split_segments_by_orientation(
         self, room_layout: Any
     ) -> Dict[str, Dict[str, List[WallSegment]]]:
-        """Split each room's wall segments into horizontal and vertical groups.
+        """Break each room into its horizontal and vertical wall segments.
 
-        The formatter may receive *room_layout* in one of two forms:
+        Input may be a list of room dictionaries (with ``x``, ``y`` and
+        ``_end`` keys) or polygons (sequence of points).  For dictionary
+        entries the four sides of the rectangle are constructed; for polygons
+        we walk each edge in turn.
 
-        1. A list of dictionaries describing each room (the output of
-           ``FloorPlanGenerator.get_solution``).  In this case we derive the
-           four edges of the axis-aligned rectangle using the ``x``/``y``
-           coordinates and their ``_end`` counterparts.
-
-        2. A list of polygons, where each room is represented by a sequence of
-           ``(x, y)`` points.  This is the format produced by the planner when
-           polygons are returned directly (as seen in ``debug_fp_formatter``).
-           Here we iterate consecutive point pairs (closing the loop) to build
-           the wall segments.
-
-        Segments whose endpoints share an identical *y* value are classified as
-        **horizontal**; those sharing an identical *x* value are treated as
-        **vertical**.  Any irregular segments (neither purely horizontal nor
-        vertical) are ignored to keep the output simple.
-
-        The return value is a mapping from room identifier to the two segment
-        groups:
-
-        ``{ name: {"horizontal": [...], "vertical": [...]} }``
+        Only perfectly axis-aligned segments are kept.  The result is a map
+        from room name to two lists under the keys ``"horizontal"`` and
+        ``"vertical"``.
         """
         result: Dict[str, Dict[str, List[WallSegment]]] = {}
 
         for idx, room in enumerate(room_layout or []):
-            # determine whether we have a dict or a polygon-like list
+            # prepare containers for this room
             horizontal: List[WallSegment] = []
             vertical: List[WallSegment] = []
 
@@ -135,7 +127,7 @@ class FpFormatter:
                     for i in range(len(pts)):
                         p1 = pts[i]
                         p2 = pts[(i + 1) % len(pts)]
-                        # ensure we have numeric pairs
+                        # only add well-formed numeric pairs
                         if (
                             isinstance(p1, (list, tuple))
                             and isinstance(p2, (list, tuple))
@@ -158,13 +150,6 @@ class FpFormatter:
 
             result[name] = {"horizontal": horizontal, "vertical": vertical}
 
-            # print(f"Room: {name}")
-            # print(f"  Horizontal segments ({len(horizontal)}):")
-            # for seg in horizontal:
-            #     print(f"    {seg[0]} --> {seg[1]}")
-            # print(f"  Vertical segments ({len(vertical)}):")
-            # for seg in vertical:
-            #     print(f"    {seg[0]} --> {seg[1]}")
 
         return result
 
@@ -172,16 +157,11 @@ class FpFormatter:
         self,
         segmented: Dict[str, Dict[str, List[WallSegment]]],
     ) -> Tuple[Dict[float, List[WallSegment]], Dict[float, List[WallSegment]]]:
-        """Aggregate horizontal/vertical segments by their constant axis.
+        """Collect segments sharing the same axis value.
 
-        *segmented* is the dictionary returned by
-        :meth:`_split_segments_by_orientation`.  We iterate over every room's
-        segments, collecting all horizontal segments into a map keyed by their
-        *y* coordinate and all vertical segments keyed by their *x* coordinate.
-
-        The method prints a summary suitable for human inspection and returns a
-        tuple ``(horiz_groups, vert_groups)`` where each group map has floats as
-        keys and lists of wall segments as values.
+        Walk the output of :meth:`_split_segments_by_orientation` and build two
+        dictionaries: horizontal segments grouped by their constant ``y`` and
+        vertical ones by ``x``.  Useful for downstream merging.
         """
         horiz_groups: Dict[float, List[WallSegment]] = {}
         vert_groups: Dict[float, List[WallSegment]] = {}
@@ -195,7 +175,7 @@ class FpFormatter:
                 x = seg[0][0]
                 vert_groups.setdefault(x, []).append(seg)
 
-        # printing the aggregated result
+        # debug dump of grouped segments
         print("\nGrouped horizontal segments by y:")
         for y, segs in sorted(horiz_groups.items()):
             print(f" y={y}: {len(segs)} segments")
@@ -217,21 +197,14 @@ class FpFormatter:
         horiz_groups: Dict[float, List[WallSegment]],
         vert_groups: Dict[float, List[WallSegment]],
     ) -> Tuple[Dict[float, List[CollinearLine]], Dict[float, List[CollinearLine]]]:
-        """Merge connected segments into collinear polylines, keeping all points.
+        """Combine overlapping or adjacent wall segments along the same line.
 
-        For each axis value the input segments are interval-merged.  When
-        segments are adjacent or overlapping, **all** unique endpoint
-        coordinates are collected, de-duplicated, and sorted — producing one
-        :data:`CollinearLine` (an ordered sequence of collinear points) that
-        spans the full extent while still exposing every intermediate point.
-        Disconnected groups on the same axis line produce separate collinear
-        lines.  Single-segment entries pass through the same path so the
-        return structure is always uniform.
-
-        Returns ``(merged_horiz, merged_vert)`` where each value is a list of
-        :data:`CollinearLine` instances.
+        Each group is reduced so that touching/overlapping segments yield a
+        single ordered sequence of unique points.  Separate clusters on a
+        common axis remain as distinct polylines.  The structure of the return
+        value mirrors the input: dictionaries keyed by axis values with lists
+        of collinear point sequences.
         """
-
         def _merge_horiz(segs: List[WallSegment], y_val: float) -> List[CollinearLine]:
             # build (lo, hi, {all x coords}) per segment, sorted by lo
             items = sorted(

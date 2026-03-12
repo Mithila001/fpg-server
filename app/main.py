@@ -35,3 +35,8 @@ app.include_router(dev_router)
 
 
 # Algorithm routers
+
+# include the algorithm-related endpoints we just added
+from app.algorithms.routes import router as algorithms_router  # noqa: E402
+
+app.include_router(algorithms_router)

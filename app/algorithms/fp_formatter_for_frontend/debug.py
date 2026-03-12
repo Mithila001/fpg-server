@@ -147,7 +147,7 @@ def debug_fp_formatter() -> tuple[list[list[Point]], Optional["FloorPlanGenerato
 
     polygons, generator = quicklyRunWithDbData()
     fmt = FpFormatter()
-    fmt.fpFormatter(polygons)
+    merged_horiz, merged_vert = fmt.fpFormatter(polygons)
 
     # helper to flatten the dictionary-of-intervals into a list-of-lists
     def _flatten_intervals(data: Dict[float, List[Point]]) -> List[List[Point]]:
@@ -178,8 +178,8 @@ def debug_fp_formatter() -> tuple[list[list[Point]], Optional["FloorPlanGenerato
     # of polygons but we treat it generically for now.
     _plot_raw_polygons(polygons, out_dir, file_name="raw_layout.png")
     plot_segment_sets(
-        fmt._merged_horiz,
-        fmt._merged_vert,
+        merged_horiz,
+        merged_vert,
         out_dir=out_dir,
         filename="merged_segments.png",
     )
