@@ -47,7 +47,6 @@ CREATE TABLE room_relations_constraints (
 
 INSERT INTO room_relations_constraints (room_type, related_room, last_updated)
 VALUES 
-    ('bedroom', '["bathroom", "livingRoom"]', CURRENT_DATE),
-    ('livingRoom', '["kitchen", "bedroom", "bathroom"]', CURRENT_DATE),
+    ('bedroom', '["livingRoom"]', CURRENT_DATE),
     ('kitchen', '["livingRoom"]', CURRENT_DATE),
-    ('bathroom', '["bedroom", "livingRoom"]', CURRENT_DATE);
+    ('bathroom', '["livingRoom"]', CURRENT_DATE);

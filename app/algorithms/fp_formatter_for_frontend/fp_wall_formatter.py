@@ -40,8 +40,6 @@ class FpFormatter:
         into ordered point sequences.  The return value is a pair of mappings
         describing the merged horizontal and vertical lines.
         """
-
-        print("Received room layout:", room_layout)
         snapped = self._snap_to_grid(room_layout)
         segmented = self._split_segments_by_orientation(snapped)
         # classify segments by axis before merging across rooms
@@ -134,8 +132,12 @@ class FpFormatter:
                             and len(p1) == 2
                             and len(p2) == 2
                         ):
-                            all_segments.append(((float(p1[0]), float(p1[1])),
-                                                 (float(p2[0]), float(p2[1]))))
+                            all_segments.append(
+                                (
+                                    (float(p1[0]), float(p1[1])),
+                                    (float(p2[0]), float(p2[1])),
+                                )
+                            )
             else:
                 # unknown room format; skip but log for debugging
                 print(f"Skipping unsupported room type: {type(room)}")
@@ -149,7 +151,6 @@ class FpFormatter:
                     vertical.append(seg)
 
             result[name] = {"horizontal": horizontal, "vertical": vertical}
-
 
         return result
 
@@ -175,18 +176,18 @@ class FpFormatter:
                 x = seg[0][0]
                 vert_groups.setdefault(x, []).append(seg)
 
-        # debug dump of grouped segments
-        print("\nGrouped horizontal segments by y:")
-        for y, segs in sorted(horiz_groups.items()):
-            print(f" y={y}: {len(segs)} segments")
-            for s in segs:
-                print(f"   {s[0]} --> {s[1]}")
+        # # debug dump of grouped segments
+        # print("\nGrouped horizontal segments by y:")
+        # for y, segs in sorted(horiz_groups.items()):
+        #     print(f" y={y}: {len(segs)} segments")
+        #     for s in segs:
+        #         print(f"   {s[0]} --> {s[1]}")
 
-        print("\nGrouped vertical segments by x:")
-        for x, segs in sorted(vert_groups.items()):
-            print(f" x={x}: {len(segs)} segments")
-            for s in segs:
-                print(f"   {s[0]} --> {s[1]}")
+        # print("\nGrouped vertical segments by x:")
+        # for x, segs in sorted(vert_groups.items()):
+        #     print(f" x={x}: {len(segs)} segments")
+        #     for s in segs:
+        #         print(f"   {s[0]} --> {s[1]}")
 
         return horiz_groups, vert_groups
 
@@ -205,6 +206,7 @@ class FpFormatter:
         value mirrors the input: dictionaries keyed by axis values with lists
         of collinear point sequences.
         """
+
         def _merge_horiz(segs: List[WallSegment], y_val: float) -> List[CollinearLine]:
             # build (lo, hi, {all x coords}) per segment, sorted by lo
             items = sorted(
@@ -217,10 +219,10 @@ class FpFormatter:
             result: List[CollinearLine] = []
             cur_lo, cur_hi, cur_xs = items[0]
             for lo, hi, xs in items[1:]:
-                if lo <= cur_hi:          # touching or overlapping → extend
+                if lo <= cur_hi:  # touching or overlapping → extend
                     cur_hi = max(cur_hi, hi)
                     cur_xs = cur_xs | xs
-                else:                     # gap → flush current group
+                else:  # gap → flush current group
                     result.append([(xv, y_val) for xv in sorted(cur_xs)])
                     _, cur_hi, cur_xs = lo, hi, xs
             result.append([(xv, y_val) for xv in sorted(cur_xs)])
@@ -255,17 +257,16 @@ class FpFormatter:
         for x, segs in sorted(vert_groups.items()):
             merged_vert[x] = _merge_vert(segs, x)
 
-        print("\nMerged horizontal segments:")
-        for y, lines in sorted(merged_horiz.items()):
-            print(f"  y={y}: {len(lines)} line(s)")
-            for line in lines:
-                print("    " + " --> ".join(str(pt) for pt in line))
+        # print("\nMerged horizontal segments:")
+        # for y, lines in sorted(merged_horiz.items()):
+        #     print(f"  y={y}: {len(lines)} line(s)")
+        #     for line in lines:
+        #         print("    " + " --> ".join(str(pt) for pt in line))
 
-        print("\nMerged vertical segments:")
-        for x, lines in sorted(merged_vert.items()):
-            print(f"  x={x}: {len(lines)} line(s)")
-            for line in lines:
-                print("    " + " --> ".join(str(pt) for pt in line))
+        # print("\nMerged vertical segments:")
+        # for x, lines in sorted(merged_vert.items()):
+        #     print(f"  x={x}: {len(lines)} line(s)")
+        #     for line in lines:
+        #         print("    " + " --> ".join(str(pt) for pt in line))
 
         return merged_horiz, merged_vert
-    

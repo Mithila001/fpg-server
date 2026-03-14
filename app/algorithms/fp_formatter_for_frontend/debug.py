@@ -167,13 +167,12 @@ def debug_fp_formatter() -> tuple[list[list[Point]], Optional["FloorPlanGenerato
     # show the flattened results; this mirrors the example transformation the
     # user asked about in their message.
 
-
     # plot whatever the formatter returned so we can inspect it visually
     base_dir = os.path.join(os.path.dirname(__file__), "dev_test", "images")
     ts = datetime.now().strftime("%Y%m%d-%H-%M-%S")
     out_dir = os.path.join(base_dir, f"{ts}-formatted")
     os.makedirs(out_dir, exist_ok=True)
-    
+
     # reuse the raw polygon plot helper; formatted data will usually be a list
     # of polygons but we treat it generically for now.
     _plot_raw_polygons(polygons, out_dir, file_name="raw_layout.png")

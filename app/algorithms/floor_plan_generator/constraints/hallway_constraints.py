@@ -20,14 +20,6 @@ Rules enforced per hallway
    room, making it a practical routing path between that room and the living
    room.
 
-4. Bounding-box containment
-   A hallway may not extend beyond the combined axis-aligned bounding box of
-   all non-hallway rooms — it cannot "pop out of the outer walls".
-
-5. Hallway-to-hallway joining (when > 1 hallway)
-   If two hallways share a touching face, their face-segment coordinates must
-   be fully aligned (no staggered joins).
-
 Usage
 -----
 The Hallway room should be included in FpgRequirements with dimensions that
@@ -76,16 +68,9 @@ def _touch_constraints(
 
     # ── Channelling: BoolVar is True iff the corresponding face equality holds ─
     model.Add(room1.x == room2.x_end).OnlyEnforceIf(conds + [touch_right])  # type: ignore
-    model.Add(room1.x != room2.x_end).OnlyEnforceIf(conds + [touch_right.Not()])  # type: ignore
-
     model.Add(room1.x_end == room2.x).OnlyEnforceIf(conds + [touch_left])  # type: ignore
-    model.Add(room1.x_end != room2.x).OnlyEnforceIf(conds + [touch_left.Not()])  # type: ignore
-
     model.Add(room1.y == room2.y_end).OnlyEnforceIf(conds + [touch_top])  # type: ignore
-    model.Add(room1.y != room2.y_end).OnlyEnforceIf(conds + [touch_top.Not()])  # type: ignore
-
     model.Add(room1.y_end == room2.y).OnlyEnforceIf(conds + [touch_bottom])  # type: ignore
-    model.Add(room1.y_end != room2.y).OnlyEnforceIf(conds + [touch_bottom.Not()])  # type: ignore
 
     # ── At least one direction must be active ─────────────────────────────────
     all_touch = [touch_right, touch_left, touch_top, touch_bottom]
@@ -117,27 +102,17 @@ def add_hallway_constraints(
     Safe to call unconditionally — returns immediately when no hallways are
     present, ensuring zero impact on layouts that don't use hallways.
     """
-    hallways = [r for r in rooms if r.type == "Hallway"]
+    hallways = [r for r in rooms if r.type == "hallway"]
     if not hallways:
         return
 
-    non_hallways = [r for r in rooms if r.type != "Hallway"]
-    living_rooms = [r for r in non_hallways if r.type == "LivingRoom"]
-    extra_rooms = [r for r in non_hallways if r.type != "LivingRoom"]
+    non_hallways = [r for r in rooms if r.type != "hallway"]
+    living_rooms = [r for r in non_hallways if r.type == "livingRoom"]
+    extra_rooms = [r for r in non_hallways if r.type != "livingRoom"]
 
-    # ── Bounding-box auxiliary variables ──────────────────────────────────────
-    # Derived from all non-hallway rooms so hallways cannot exceed the outer
-    # envelope of the house.
-    if non_hallways:
-        bb_x_min = model.NewIntVar(0, floor_w, "hallway_bb_x_min")  # type: ignore
-        bb_x_max = model.NewIntVar(0, floor_w, "hallway_bb_x_max")  # type: ignore
-        bb_y_min = model.NewIntVar(0, floor_h, "hallway_bb_y_min")  # type: ignore
-        bb_y_max = model.NewIntVar(0, floor_h, "hallway_bb_y_max")  # type: ignore
-
-        model.AddMinEquality(bb_x_min, [r.x for r in non_hallways])  # type: ignore
-        model.AddMaxEquality(bb_x_max, [r.x_end for r in non_hallways])  # type: ignore
-        model.AddMinEquality(bb_y_min, [r.y for r in non_hallways])  # type: ignore
-        model.AddMaxEquality(bb_y_max, [r.y_end for r in non_hallways])  # type: ignore
+    print("Non Hallways: " + ", ".join(r.name for r in non_hallways))
+    print("Living Rooms: " + ", ".join(r.name for r in living_rooms))
+    print("Extra Rooms: " + ", ".join(r.name for r in extra_rooms))
 
     for hallway in hallways:
         # ── Rule 1: Fixed-width / scalable-length shape ───────────────────────
@@ -176,46 +151,3 @@ def add_hallway_constraints(
                 extra_adj_vars.append(is_adj)
                 _touch_constraints(model, hallway, other, enforcer=is_adj)
             model.AddBoolOr(extra_adj_vars)  # type: ignore
-
-        # ── Rule 4: Bounding-box containment ──────────────────────────────────
-        if non_hallways:
-            model.Add(hallway.x >= bb_x_min)  # type: ignore
-            model.Add(hallway.x_end <= bb_x_max)  # type: ignore
-            model.Add(hallway.y >= bb_y_min)  # type: ignore
-            model.Add(hallway.y_end <= bb_y_max)  # type: ignore
-
-    # ── Rule 5: Hallway-to-hallway full-edge alignment ────────────────────────
-    # Only applies when more than one hallway exists.  If two hallways touch,
-    # their shared face segment must be perfectly aligned (no staggered joins).
-    for i in range(len(hallways)):
-        for j in range(i + 1, len(hallways)):
-            h1 = hallways[i]
-            h2 = hallways[j]
-            suffix = f"{h1.name}_{h2.name}"
-
-            hh_tr = model.NewBoolVar(f"hh_tr_{suffix}")  # type: ignore
-            hh_tl = model.NewBoolVar(f"hh_tl_{suffix}")  # type: ignore
-            hh_tt = model.NewBoolVar(f"hh_tt_{suffix}")  # type: ignore
-            hh_tb = model.NewBoolVar(f"hh_tb_{suffix}")  # type: ignore
-
-            # Channelling: BoolVar tracks whether the face equality holds
-            model.Add(h1.x == h2.x_end).OnlyEnforceIf(hh_tr)  # type: ignore
-            model.Add(h1.x != h2.x_end).OnlyEnforceIf(hh_tr.Not())  # type: ignore
-            model.Add(h1.x_end == h2.x).OnlyEnforceIf(hh_tl)  # type: ignore
-            model.Add(h1.x_end != h2.x).OnlyEnforceIf(hh_tl.Not())  # type: ignore
-            model.Add(h1.y == h2.y_end).OnlyEnforceIf(hh_tt)  # type: ignore
-            model.Add(h1.y != h2.y_end).OnlyEnforceIf(hh_tt.Not())  # type: ignore
-            model.Add(h1.y_end == h2.y).OnlyEnforceIf(hh_tb)  # type: ignore
-            model.Add(h1.y_end != h2.y).OnlyEnforceIf(hh_tb.Not())  # type: ignore
-
-            # Full-edge alignment when touching on a vertical face (right/left):
-            # both hallways must share exactly the same y-extent.
-            for t in (hh_tr, hh_tl):
-                model.Add(h1.y == h2.y).OnlyEnforceIf(t)  # type: ignore
-                model.Add(h1.y_end == h2.y_end).OnlyEnforceIf(t)  # type: ignore
-
-            # Full-edge alignment when touching on a horizontal face (top/bottom):
-            # both hallways must share exactly the same x-extent.
-            for t in (hh_tt, hh_tb):
-                model.Add(h1.x == h2.x).OnlyEnforceIf(t)  # type: ignore
-                model.Add(h1.x_end == h2.x_end).OnlyEnforceIf(t)  # type: ignore

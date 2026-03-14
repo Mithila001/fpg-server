@@ -8,6 +8,7 @@ from app.schemas.db.room_relations_constraints import RoomRelationsConstraintBas
 # hard constraint logic is now handled by `_conditional_constraint` with
 # a constant ``True`` enforcer; the old `_constraint` helper has been removed.
 
+
 def _conditional_constraint(
     model: cp_model.CpModel,
     room1: Room,
@@ -46,7 +47,9 @@ def _conditional_constraint(
 
     # when the pair is active, one of the sides must touch
     if enforcer is not None:
-        model.AddBoolOr([touch_right, touch_left, touch_top, touch_bottom]).OnlyEnforceIf(enforcer)  # type: ignore
+        model.AddBoolOr(  # type: ignore
+            [touch_right, touch_left, touch_top, touch_bottom]
+        ).OnlyEnforceIf(enforcer)  # type: ignore
     else:
         model.AddBoolOr([touch_right, touch_left, touch_top, touch_bottom])  # type: ignore
 
@@ -62,39 +65,42 @@ def adjacency_constraints(
     rooms_list: List[Room],
     relations: List[RoomRelationsConstraintBase],
 ) -> None:
-    """Apply adjacency rules derived from database records.
-
-    Each record specifies a ``room_type`` and a list of ``related_room`` types.
-    The semantics are OR-based: the room must be adjacent to **at least one**
-    of the listed related rooms.
-
-    - Single candidate  → hard adjacency via ``_constraint``.
-    - Multiple candidates → each gets an ``is_adj`` BoolVar; the solver must
-      set at least one True via ``AddBoolOr``.
-    """
+    """Apply adjacency rules dynamically from database records."""
+    # print("\nRoom Lists" + str(rooms_list))
+    # print("\nRelations" + str(relations), "\n")
     for rec in relations:
-        if not rec.related_room:
+        # 1. FIX Pylance Error: Ensure related_room is a list, not None
+        related_types = rec.related_room or []
+        if not related_types:
             continue
 
-        room1 = next((r for r in rooms_list if r.type == rec.room_type), None)
-        if room1 is None:
+        # 2. FIX Bedroom 2: Find ALL rooms of this type (e.g., all Bedrooms)
+        # Instead of 'next()', we use a list comprehension to get everyone.
+        subject_rooms = [r for r in rooms_list if r.type == rec.room_type]
+        if not subject_rooms:
             continue
 
-        candidates = [r for r in rooms_list if r.type in rec.related_room]
+        # 3. Find all potential candidate neighbors
+        candidates = [r for r in rooms_list if r.type in related_types]
         if not candidates:
             continue
 
-        # use the unified helper for both single and multiple candidates
-        if len(candidates) == 1:
-            # no choice – enforce adjacency unconditionally
-            _conditional_constraint(model, room1, candidates[0], enforcer=None)
-        else:
-            adj_vars = []
-            for room2 in candidates:
-                is_adj = model.NewBoolVar(f"is_adj_{room1.name}_{room2.name}")  # type: ignore
-                adj_vars.append(is_adj)
-                _conditional_constraint(model, room1, room2, enforcer=is_adj)
-            # at least one of the candidate links must be true
-            model.AddBoolOr(adj_vars)  # type: ignore
+        # 4. Apply the rule to EACH subject room (Bedroom 1, Bedroom 2, etc.)
+        for room1 in subject_rooms:
+            if len(candidates) == 1:
+                # If only one option (e.g., Living Room), it's a hard requirement
+                _conditional_constraint(model, room1, candidates[0], enforcer=None)
+            else:
+                # If multiple options, create a master 'OR' for this specific room
+                adj_switches = []
+                for room2 in candidates:
+                    # Don't let a room try to be adjacent to itself
+                    if room1.name == room2.name:
+                        continue
 
+                    is_adj = model.NewBoolVar(f"is_adj_{room1.name}_{room2.name}")  # type: ignore
+                    adj_switches.append(is_adj)
+                    _conditional_constraint(model, room1, room2, enforcer=is_adj)
 
+                if adj_switches:
+                    model.AddBoolOr(adj_switches)  # type: ignore
