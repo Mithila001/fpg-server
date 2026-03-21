@@ -96,6 +96,7 @@ def add_hallway_constraints(
     rooms: List[Room],
     floor_w: int,
     floor_h: int,
+    hallway_used: cp_model.IntVar | None = None,
 ) -> None:
     """Apply all hallway-specific constraints.
 
@@ -110,36 +111,44 @@ def add_hallway_constraints(
     living_rooms = [r for r in non_hallways if r.type == "livingRoom"]
     extra_rooms = [r for r in non_hallways if r.type != "livingRoom"]
 
-    print("Non Hallways: " + ", ".join(r.name for r in non_hallways))
-    print("Living Rooms: " + ", ".join(r.name for r in living_rooms))
-    print("Extra Rooms: " + ", ".join(r.name for r in extra_rooms))
+    # Safety guard from business rules: if multiple living rooms appear,
+    # only the first one is used for hallway connectivity constraints.
+    living_room = living_rooms[0] if living_rooms else None
+
+    if hallway_used is None:
+        hallway_used = model.NewBoolVar("hallway_used_default")  # type: ignore
+        model.Add(hallway_used == 1)  # type: ignore
 
     for hallway in hallways:
+        assert hallway.w is not None and hallway.h is not None
+
+        # Hallway can be disabled entirely when not selected by the solver.
+        model.Add(hallway.w == 0).OnlyEnforceIf(hallway_used.Not())  # type: ignore
+        model.Add(hallway.h == 0).OnlyEnforceIf(hallway_used.Not())  # type: ignore
+
         # ── Rule 1: Fixed-width / scalable-length shape ───────────────────────
         is_horizontal = model.NewBoolVar(f"{hallway.name}_is_horizontal")  # type: ignore
 
         # Horizontal: w is the long, free side; h is the fixed narrow side
-        model.Add(hallway.w >= HALLWAY_MIN_LENGTH).OnlyEnforceIf(is_horizontal)  # type: ignore
-        model.Add(hallway.h == HALLWAY_WIDTH).OnlyEnforceIf(is_horizontal)  # type: ignore
+        model.Add(hallway.w >= HALLWAY_MIN_LENGTH).OnlyEnforceIf(  # type: ignore[attr-defined]
+            [hallway_used, is_horizontal]
+        )
+        model.Add(hallway.h == HALLWAY_WIDTH).OnlyEnforceIf(  # type: ignore[attr-defined]
+            [hallway_used, is_horizontal]
+        )
 
         # Vertical: h is the long, free side; w is the fixed narrow side
-        model.Add(hallway.h >= HALLWAY_MIN_LENGTH).OnlyEnforceIf(is_horizontal.Not())  # type: ignore
-        model.Add(hallway.w == HALLWAY_WIDTH).OnlyEnforceIf(is_horizontal.Not())  # type: ignore
+        model.Add(hallway.h >= HALLWAY_MIN_LENGTH).OnlyEnforceIf(  # type: ignore[attr-defined]
+            [hallway_used, is_horizontal.Not()]
+        )
+        model.Add(hallway.w == HALLWAY_WIDTH).OnlyEnforceIf(  # type: ignore[attr-defined]
+            [hallway_used, is_horizontal.Not()]
+        )
 
         # ── Rule 2: Living-room connection (hard) ─────────────────────────────
-        if living_rooms:
-            if len(living_rooms) == 1:
-                # Hard: hallway must always touch the living room
-                _touch_constraints(model, hallway, living_rooms[0], enforcer=None)
-            else:
-                lr_adj_vars = []
-                for lr in living_rooms:
-                    is_adj = model.NewBoolVar(  # type: ignore
-                        f"{hallway.name}_lr_adj_{lr.name}"
-                    )
-                    lr_adj_vars.append(is_adj)
-                    _touch_constraints(model, hallway, lr, enforcer=is_adj)
-                model.AddBoolOr(lr_adj_vars)  # type: ignore
+        if living_room is not None:
+            # Hard when hallway is active: hallway must touch living room.
+            _touch_constraints(model, hallway, living_room, enforcer=hallway_used)
 
         # ── Rule 3: At-least-one extra room connection ────────────────────────
         if extra_rooms:
@@ -150,4 +159,5 @@ def add_hallway_constraints(
                 )
                 extra_adj_vars.append(is_adj)
                 _touch_constraints(model, hallway, other, enforcer=is_adj)
-            model.AddBoolOr(extra_adj_vars)  # type: ignore
+                model.AddImplication(is_adj, hallway_used)  # type: ignore[attr-defined]
+            model.AddBoolOr(extra_adj_vars).OnlyEnforceIf(hallway_used)  # type: ignore

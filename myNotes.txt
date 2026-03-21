@@ -9,6 +9,8 @@ uvicorn app.main:app --reload
 cd /home/mithila/ssd_projects/house-plan-generator/backend
 source .venv/bin/activate 
 
+& ".\.venv\Scripts\Activate.ps1"
+
 
 pip install -r requirements.txt
 

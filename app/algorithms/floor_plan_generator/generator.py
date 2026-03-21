@@ -15,6 +15,10 @@ from .constraints.compact_layout import add_center_proximity_objective
 from .constraints.hallway_constraints import add_hallway_constraints
 
 
+_LIVING_MISS_PENALTY = 2000
+_HALLWAY_USAGE_PENALTY = 600
+
+
 class FloorPlanGenerator:
     def __init__(self, requirements: FpgRequirements):
         """Initialize generator from a full requirements object.
@@ -43,6 +47,19 @@ class FloorPlanGenerator:
             for r in requirements.rooms
         ]
 
+        # Hallway is solver-optional and should not depend on DB input.
+        if not any(r.type == "hallway" for r in self.rooms):
+            self.rooms.append(
+                Room(
+                    "Hallway",
+                    0,
+                    0,
+                    int(self.floor_plan_width),
+                    int(self.floor_plan_height),
+                    "hallway",
+                )
+            )
+
     def generate(self) -> bool:
         """Build and solve the floor plan. Returns True if a solution was found."""
         # 1. Initialize CP-SAT variables for every room
@@ -52,9 +69,17 @@ class FloorPlanGenerator:
         for room in self.rooms:
             room.create_variables(self.model, w_int, h_int)
 
+        hallway_used = self.model.NewBoolVar("hallway_used")  # type: ignore
+
         # 2. Add constraints
         add_basic_constraints(self.model, self.rooms)
-        add_hallway_constraints(self.model, self.rooms, w_int, h_int)
+        add_hallway_constraints(
+            self.model,
+            self.rooms,
+            w_int,
+            h_int,
+            hallway_used=hallway_used,
+        )
 
         # apply any adjacency rules defined in the database
         with Session(engine) as session:
@@ -64,7 +89,12 @@ class FloorPlanGenerator:
         relations_schema = [
             RoomRelationsConstraintBase.model_validate(r) for r in relations
         ]  # type: ignore[assignment]
-        adjacency_constraints(self.model, self.rooms, relations_schema)
+        living_touch_vars = adjacency_constraints(
+            self.model,
+            self.rooms,
+            relations_schema,
+            hallway_used=hallway_used,
+        )
 
         add_minimum_area_coverage(
             self.model,
@@ -83,7 +113,22 @@ class FloorPlanGenerator:
             self.floor_plan_width,
             self.floor_plan_height,
         )
-        self.model.Minimize(cost)  # type: ignore[attr-defined]
+
+        missing_living_vars = []
+        for idx, touch_var in enumerate(living_touch_vars):
+            miss = self.model.NewBoolVar(f"miss_living_touch_{idx}")  # type: ignore
+            # miss = 1 - touch_var
+            self.model.Add(miss + touch_var == 1)  # type: ignore
+            missing_living_vars.append(miss)
+
+        objective_terms = [cost]
+        if missing_living_vars:
+            objective_terms.append(
+                _LIVING_MISS_PENALTY * cp_model.LinearExpr.Sum(missing_living_vars)
+            )
+        objective_terms.append(_HALLWAY_USAGE_PENALTY * hallway_used)
+
+        self.model.Minimize(cp_model.LinearExpr.Sum(objective_terms))  # type: ignore[attr-defined]
 
         # 3. Solve
         self.solver.parameters.max_time_in_seconds = 1.0
