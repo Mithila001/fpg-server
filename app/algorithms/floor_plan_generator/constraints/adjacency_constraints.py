@@ -58,6 +58,7 @@ def adjacency_constraints(
 ) -> List[cp_model.IntVar]:
     """Convert database adjacency rules into CP-SAT constraints."""
 
+    ### IMPORTANT : In this function, we mainly use Room Types only rather Room Names.
     living_touch_vars: List[cp_model.IntVar] = []
     living_touch_by_room: dict[str, cp_model.IntVar] = {}
 
@@ -65,22 +66,29 @@ def adjacency_constraints(
     hallway_room = hallways[0] if hallways else None
 
     for rec in relations:
-        related_types = rec.related_room or []
+        related_types = (
+            rec.related_room or []
+        )  # Relationship Room list for specific Room Type
         if not related_types:
             continue
 
-        subject_rooms = [r for r in rooms_list if r.type == rec.room_type]
+        subject_rooms = [
+            r for r in rooms_list if r.type == rec.room_type
+        ]  # Origin Rooms list
         if not subject_rooms:
             continue
 
-        candidates = [r for r in rooms_list if r.type in related_types]
+        candidates = [
+            r for r in rooms_list if r.type in related_types
+        ]  # Neighbor Rooms list
         if not candidates:
             continue
 
+        # For each Origin Room:
         for room1 in subject_rooms:
             if "livingRoom" in related_types:
+                # Pick a living Room
                 living_candidates = [r for r in candidates if r.type == "livingRoom"]
-                # the chosen living room
                 living_candidate = living_candidates[0] if living_candidates else None
 
                 has_living_touch = living_touch_by_room.get(room1.name)
