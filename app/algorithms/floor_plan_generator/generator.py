@@ -48,8 +48,8 @@ def add_mandatory_data(
     # Hallway size is restricted later by hallway constraints.
     hallway_room = Room(
         "Hallway",
-        3,
-        8,
+        0,
+        0,
         int(floor_width),
         int(floor_height),
         "hallway",
@@ -84,6 +84,7 @@ class FloorPlanGenerator:
         self.model = cp_model.CpModel()
         self.solver = cp_model.CpSolver()
 
+        # Initializing Rooms
         self.rooms: list[Room] = [
             Room(r.name, r.min_w, r.min_h, r.max_w, r.max_h, r.type)
             for r in requirements.rooms

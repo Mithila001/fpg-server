@@ -84,8 +84,10 @@ def add_hallway_constraints(
         return {}
 
     non_hallways = [r for r in rooms if r.type != "hallway"]
+    
     living_rooms = [r for r in non_hallways if r.type == "livingRoom"]
     living_room = living_rooms[0] if living_rooms else None
+    
     non_living_rooms = [r for r in non_hallways if r.type != "livingRoom"]
 
     hallway_activation: Dict[str, cp_model.IntVar] = {}
