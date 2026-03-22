@@ -44,26 +44,33 @@ def _conditional_constraint(
         model.AddBoolOr([touch_right, touch_left, touch_top, touch_bottom])  # type: ignore[attr-defined]
 
     MIN_OVERLAP = 10
-    model.Add(room1.y + MIN_OVERLAP < room2.y_end).OnlyEnforceIf(conds + [touch_right])  # type: ignore
-    model.Add(room2.y + MIN_OVERLAP < room1.y_end).OnlyEnforceIf(conds + [touch_right])  # type: ignore
-    model.Add(room1.x + MIN_OVERLAP < room2.x_end).OnlyEnforceIf(conds + [touch_top])  # type: ignore
-    model.Add(room2.x + MIN_OVERLAP < room1.x_end).OnlyEnforceIf(conds + [touch_top])  # type: ignore
+
+    # Vertical-face touches (left/right) require overlap on y-axis.
+    for t in (touch_right, touch_left):
+        model.Add(room1.y + MIN_OVERLAP <= room2.y_end).OnlyEnforceIf(conds + [t])  # type: ignore
+        model.Add(room2.y + MIN_OVERLAP <= room1.y_end).OnlyEnforceIf(conds + [t])  # type: ignore
+
+    # Horizontal-face touches (top/bottom) require overlap on x-axis.
+    for t in (touch_top, touch_bottom):
+        model.Add(room1.x + MIN_OVERLAP <= room2.x_end).OnlyEnforceIf(conds + [t])  # type: ignore
+        model.Add(room2.x + MIN_OVERLAP <= room1.x_end).OnlyEnforceIf(conds + [t])  # type: ignore
 
 
 def adjacency_constraints(
     model: cp_model.CpModel,
     rooms_list: List[Room],
     relations: List[RoomRelationsConstraintBase],
-    hallway_used: cp_model.IntVar | None = None,
 ) -> List[cp_model.IntVar]:
-    """Convert database adjacency rules into CP-SAT constraints."""
+    """Convert database adjacency rules into CP-SAT constraints.
 
-    ### IMPORTANT : In this function, we mainly use Room Types only rather Room Names.
+    Applies relation rules uniformly to all room types, treating hallways as
+    a normal room type. Hallway activation is handled by hallway_constraints;
+    this module simply applies the rules defined in the database relations.
+    """
+
+    ### IMPORTANT : In this function, we apply rules uniformly per room type.
     living_touch_vars: List[cp_model.IntVar] = []
     living_touch_by_room: dict[str, cp_model.IntVar] = {}
-
-    hallways = [r for r in rooms_list if r.type == "hallway"]
-    hallway_room = hallways[0] if hallways else None
 
     for rec in relations:
         related_types = (
@@ -86,52 +93,12 @@ def adjacency_constraints(
 
         # For each Origin Room:
         for room1 in subject_rooms:
-            if "livingRoom" in related_types:
-                # Pick a living Room
-                living_candidates = [r for r in candidates if r.type == "livingRoom"]
-                living_candidate = living_candidates[0] if living_candidates else None
-
-                has_living_touch = living_touch_by_room.get(room1.name)
-                if has_living_touch is None:
-                    has_living_touch = model.NewBoolVar(  # type: ignore
-                        f"has_living_touch_{room1.name}"
-                    )
-                    living_touch_by_room[room1.name] = has_living_touch
-                    living_touch_vars.append(has_living_touch)
-
-                if living_candidate is not None and room1.name != living_candidate.name:
-                    is_living_adj = model.NewBoolVar(  # type: ignore
-                        f"is_adj_{room1.name}_{living_candidate.name}"
-                    )
-                    _conditional_constraint(
-                        model, room1, living_candidate, enforcer=is_living_adj
-                    )
-                    model.Add(has_living_touch == is_living_adj)  # type: ignore
-                else:
-                    model.Add(has_living_touch == 0)  # type: ignore
-
-                has_hallway_touch = model.NewBoolVar(f"has_hallway_touch_{room1.name}")  # type: ignore
-                if hallway_room is not None and room1.name != hallway_room.name:
-                    is_hallway_adj = model.NewBoolVar(  # type: ignore
-                        f"is_adj_{room1.name}_{hallway_room.name}"
-                    )
-                    _conditional_constraint(
-                        model, room1, hallway_room, enforcer=is_hallway_adj
-                    )
-
-                    if hallway_used is not None:
-                        model.AddImplication(is_hallway_adj, hallway_used)  # type: ignore[attr-defined]
-                    model.Add(has_hallway_touch == is_hallway_adj)  # type: ignore
-                else:
-                    model.Add(has_hallway_touch == 0)  # type: ignore
-
-                model.AddBoolOr([has_living_touch, has_hallway_touch])  # type: ignore
-                continue
-
             if len(candidates) == 1:
+                # Only one neighbor type available—must touch it
                 _conditional_constraint(model, room1, candidates[0], enforcer=None)
                 continue
 
+            # Multiple neighbor types—must touch at least one
             adj_switches: List[Any] = []
             for room2 in candidates:
                 if room1.name == room2.name:
@@ -143,5 +110,31 @@ def adjacency_constraints(
 
             if adj_switches:
                 model.AddBoolOr(adj_switches)  # type: ignore
+
+            # Track living-room touch for objective penalty
+            if "livingRoom" in related_types:
+                has_living_touch = living_touch_by_room.get(room1.name)
+                if has_living_touch is None:
+                    has_living_touch = model.NewBoolVar(  # type: ignore
+                        f"has_living_touch_{room1.name}"
+                    )
+                    living_touch_by_room[room1.name] = has_living_touch
+                    living_touch_vars.append(has_living_touch)
+
+                living_candidates = [r for r in candidates if r.type == "livingRoom"]
+                if living_candidates:
+                    living_candidate = living_candidates[0]
+                    if room1.name != living_candidate.name:
+                        is_living_adj = model.NewBoolVar(  # type: ignore
+                            f"is_adj_{room1.name}_{living_candidate.name}"
+                        )
+                        _conditional_constraint(
+                            model, room1, living_candidate, enforcer=is_living_adj
+                        )
+                        model.Add(has_living_touch == is_living_adj)  # type: ignore
+                    else:
+                        model.Add(has_living_touch == 0)  # type: ignore
+                else:
+                    model.Add(has_living_touch == 0)  # type: ignore
 
     return living_touch_vars

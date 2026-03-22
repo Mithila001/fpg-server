@@ -1,37 +1,9 @@
 """
 Hallway constraints for the floor plan generator.
-
-Activated only when at least one room with ``type == "Hallway"`` is present in
-the rooms list.  If no hallways are requested the function returns immediately
-so existing layouts are completely unaffected.
-
-Rules enforced per hallway
---------------------------
-1. Fixed-width / scalable-length shape
-   Each hallway has a fixed narrow dimension (HALLWAY_WIDTH) and a freely
-   scalable long dimension (>= HALLWAY_MIN_LENGTH).  A per-hallway orientation
-   BoolVar ``is_horizontal`` decides which axis carries which role.
-
-2. Living-room connection (hard)
-   Every hallway must share a touching edge with the living room.
-
-3. At-least-one extra room connection (hard via OR)
-   Every hallway must also touch at least one non-hallway, non-living-room
-   room, making it a practical routing path between that room and the living
-   room.
-
-Usage
------
-The Hallway room should be included in FpgRequirements with dimensions that
-allow both orientations, for example:
-    RoomData("Hallway", "Hallway", min_w=HALLWAY_WIDTH, min_h=HALLWAY_WIDTH,
-             max_w=floor_w, max_h=floor_h)
-The constraints here will then further restrict the actual width/height to the
-fixed-narrow + scalable-long shape according to the chosen orientation.
 """
 
 from ortools.sat.python import cp_model
-from typing import List
+from typing import List, Dict, Any
 
 from ..solver_models.room import Room
 from ..config import HALLWAY_WIDTH, HALLWAY_MIN_LENGTH
@@ -49,13 +21,6 @@ def _touch_constraints(
     enforcer=None,
 ) -> None:
     """Add touch constraints between room1 and room2.
-
-    When *enforcer* is None the pair must always share an edge (hard
-    constraint).  When supplied, the pair is only required to touch when the
-    enforcer BoolVar is True.
-
-    A minimum shared-edge overlap of _MIN_OVERLAP is enforced so adjacency is
-    meaningful (not just a corner).
     """
     suffix = f"{room1.name}_{room2.name}"
 
@@ -94,70 +59,100 @@ def _touch_constraints(
 def add_hallway_constraints(
     model: cp_model.CpModel,
     rooms: List[Room],
-    floor_w: int,
-    floor_h: int,
-    hallway_used: cp_model.IntVar | None = None,
-) -> None:
-    """Apply all hallway-specific constraints.
+) -> Dict[str, Any]:
+    """Apply hallway-specific constraints and return activation metadata.
 
-    Safe to call unconditionally — returns immediately when no hallways are
-    present, ensuring zero impact on layouts that don't use hallways.
+    Creates per-hallway activation BoolVars internally and enforces geometry
+    rules (fixed-width/scalable-length, living-room connection, and at least
+    one additional non-living-room connection) for each active hallway.
+    Allows solver to activate 0, 1, or 2 hallways.
+
+    Args:
+        model: CP-SAT model to add constraints to.
+        rooms: List of all rooms including hallway rooms.
+
+    Returns:
+        Dict with keys:
+        - 'hallway_activation': dict mapping hallway room names to their BoolVar
+        - 'hallway_usage_sum': LinearExpr summing all active hallways (for objective)
+        - 'hallway_rooms': list of hallway room objects processed
+
+        Returns empty dict if no hallways are present.
     """
     hallways = [r for r in rooms if r.type == "hallway"]
     if not hallways:
-        return
+        return {}
 
     non_hallways = [r for r in rooms if r.type != "hallway"]
     living_rooms = [r for r in non_hallways if r.type == "livingRoom"]
-    extra_rooms = [r for r in non_hallways if r.type != "livingRoom"]
-
-    # Safety guard from business rules: if multiple living rooms appear,
-    # only the first one is used for hallway connectivity constraints.
     living_room = living_rooms[0] if living_rooms else None
+    non_living_rooms = [r for r in non_hallways if r.type != "livingRoom"]
 
-    if hallway_used is None:
-        hallway_used = model.NewBoolVar("hallway_used_default")  # type: ignore
-        model.Add(hallway_used == 1)  # type: ignore
+    hallway_activation: Dict[str, cp_model.IntVar] = {}
+    activation_list: List[cp_model.IntVar] = []
 
     for hallway in hallways:
         assert hallway.w is not None and hallway.h is not None
 
-        # Hallway can be disabled entirely when not selected by the solver.
-        model.Add(hallway.w == 0).OnlyEnforceIf(hallway_used.Not())  # type: ignore
-        model.Add(hallway.h == 0).OnlyEnforceIf(hallway_used.Not())  # type: ignore
+        # Create per-hallway activation BoolVar
+        is_active = model.NewBoolVar(f"{hallway.name}_active")  # type: ignore
+        hallway_activation[hallway.name] = is_active
+        activation_list.append(is_active)
+
+        # Hallway can be disabled entirely when not active.
+        model.Add(hallway.w == 0).OnlyEnforceIf(is_active.Not())  # type: ignore
+        model.Add(hallway.h == 0).OnlyEnforceIf(is_active.Not())  # type: ignore
 
         # ── Rule 1: Fixed-width / scalable-length shape ───────────────────────
         is_horizontal = model.NewBoolVar(f"{hallway.name}_is_horizontal")  # type: ignore
 
         # Horizontal: w is the long, free side; h is the fixed narrow side
         model.Add(hallway.w >= HALLWAY_MIN_LENGTH).OnlyEnforceIf(  # type: ignore[attr-defined]
-            [hallway_used, is_horizontal]
+            [is_active, is_horizontal]
         )
         model.Add(hallway.h == HALLWAY_WIDTH).OnlyEnforceIf(  # type: ignore[attr-defined]
-            [hallway_used, is_horizontal]
+            [is_active, is_horizontal]
         )
 
         # Vertical: h is the long, free side; w is the fixed narrow side
         model.Add(hallway.h >= HALLWAY_MIN_LENGTH).OnlyEnforceIf(  # type: ignore[attr-defined]
-            [hallway_used, is_horizontal.Not()]
+            [is_active, is_horizontal.Not()]
         )
         model.Add(hallway.w == HALLWAY_WIDTH).OnlyEnforceIf(  # type: ignore[attr-defined]
-            [hallway_used, is_horizontal.Not()]
+            [is_active, is_horizontal.Not()]
         )
 
-        # ── Rule 2: Living-room connection (hard) ─────────────────────────────
+        # ── Rule 2: Living-room connection (hard when active) ─────────────────
         if living_room is not None:
-            # Hard when hallway is active: hallway must touch living room.
-            _touch_constraints(model, hallway, living_room, enforcer=hallway_used)
+            _touch_constraints(model, hallway, living_room, enforcer=is_active)
+        else:
+            # No living room available means hallway cannot be activated.
+            model.Add(is_active == 0)
 
-        # ── Rule 3: At-least-one extra room connection ────────────────────────
-        if extra_rooms:
-            extra_adj_vars = []
-            for other in extra_rooms:
-                is_adj = model.NewBoolVar(  # type: ignore
-                    f"{hallway.name}_extra_adj_{other.name}"
-                )
-                extra_adj_vars.append(is_adj)
-                _touch_constraints(model, hallway, other, enforcer=is_adj)
-                model.AddImplication(is_adj, hallway_used)  # type: ignore[attr-defined]
-            model.AddBoolOr(extra_adj_vars).OnlyEnforceIf(hallway_used)  # type: ignore
+        # ── Rule 3: Must touch at least one non-living room when active ──────
+        if non_living_rooms:
+            touches_non_living: List[cp_model.IntVar] = []
+            for room in non_living_rooms:
+                touches_room = model.NewBoolVar(
+                    f"{hallway.name}_touch_non_living_{room.name}"
+                )  # type: ignore
+                touches_non_living.append(touches_room)
+
+                _touch_constraints(model, hallway, room, enforcer=touches_room)
+                model.AddImplication(touches_room, is_active)  # type: ignore
+
+            model.AddBoolOr(touches_non_living).OnlyEnforceIf(is_active)  # type: ignore
+        else:
+            # No non-living room available means hallway cannot be activated.
+            model.Add(is_active == 0)
+
+    # ── Cardinality: at most 2 hallways active ────────────────────────────────
+    model.Add(cp_model.LinearExpr.Sum(activation_list) <= 2)  # type: ignore
+
+    # Return metadata for parent to use in objective and adjacency
+    hallway_usage_sum = cp_model.LinearExpr.Sum(activation_list)
+    return {
+        "hallway_activation": hallway_activation,
+        "hallway_usage_sum": hallway_usage_sum,
+        "hallway_rooms": hallways,
+    }
