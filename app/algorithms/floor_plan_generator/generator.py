@@ -123,11 +123,12 @@ class FloorPlanGenerator:
 
         all_relations = self.mandatory_relations + relations_schema
 
-        # Returns booleans indicating whether required room-to-living touch exists.
+        # Placeholder list for future soft-adjacency objective signals.
         living_touch_vars = adjacency_constraints(
             self.model,
             self.rooms,
-            all_relations,
+            hardRelations=all_relations,
+            softRelations=all_relations,
         )
 
         add_minimum_area_coverage(

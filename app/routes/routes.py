@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Tuple
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from app.services.algorithm_manager import quicklyRunWithDbData
+from app.services.algorithm_manager import devModRunFPG
 from app.algorithms.fp_formatter_for_frontend.fp_wall_formatter import FpFormatter
 
 
@@ -74,7 +74,7 @@ def get_formatted_layout():
     """
 
     try:
-        polygons, generator = quicklyRunWithDbData()
+        polygons, generator = devModRunFPG()
     except Exception:
         # Keep frontend stable on backend solve/runtime failures.
         return _build_error_layout(30.0, 30.0, label="ERROR")

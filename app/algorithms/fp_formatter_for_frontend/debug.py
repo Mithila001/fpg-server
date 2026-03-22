@@ -14,7 +14,7 @@ import os
 from typing import Any, Dict, List, Tuple, Optional
 from datetime import datetime
 
-from app.services.algorithm_manager import run_fpg, quicklyRunWithDbData
+from app.services.algorithm_manager import run_fpg, devModRunFPG
 from app.util.layout_coordinates_clean_up import validate_layout
 
 # formatter class needed by debug helper
@@ -138,14 +138,14 @@ def debug_fp_formatter() -> tuple[list[list[Point]], Optional["FloorPlanGenerato
     """Run the database-backed generator and pass layout to :class:`FpFormatter`.
 
     This helper mirrors the behaviour requested by the user: it invokes
-    :func:`app.services.algorithm_manager.quicklyRunWithDbData` to obtain the
+    :func:`app.services.algorithm_manager.devModRunFPG` to obtain the
     resulting polygons and generator instance, then constructs an
     :class:`FpFormatter` and calls its :meth:`main` method using the polygons
     as the *room_layout* argument.  The return values from the generator are
     returned to the caller for any further inspection.
     """
 
-    polygons, generator = quicklyRunWithDbData()
+    polygons, generator = devModRunFPG()
     fmt = FpFormatter()
     merged_horiz, merged_vert = fmt.fpFormatter(polygons)
 

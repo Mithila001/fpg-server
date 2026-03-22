@@ -1,5 +1,5 @@
 from ortools.sat.python import cp_model
-from typing import Any, List
+from typing import Any, List, Optional
 
 from ..solver_models.room import Room
 from app.schemas.db.room_relations_constraints import RoomRelationsConstraintBase
@@ -56,85 +56,61 @@ def _conditional_constraint(
         model.Add(room2.x + MIN_OVERLAP <= room1.x_end).OnlyEnforceIf(conds + [t])  # type: ignore
 
 
+def _hard_adjacency_constraints(
+    model: cp_model.CpModel,
+    rooms_list: List[Room],
+    hardRelations: List[RoomRelationsConstraintBase],
+) -> None:
+    """Apply hard adjacency relations as mandatory per-required-type connections."""
+
+    for room in rooms_list:
+        matching_rules = [rel for rel in hardRelations if rel.room_type == room.type]
+        if not matching_rules:
+            continue
+
+        for rule in matching_rules:
+            related_types = rule.related_room or []
+            if not related_types:
+                continue
+
+            # For each required related type, this room must touch at least one
+            # existing room of that type.
+            for required_type in related_types:
+                candidates = [
+                    r
+                    for r in rooms_list
+                    if r.type == required_type and r.name != room.name
+                ]
+                if not candidates:
+                    continue
+
+                adj_switches: List[Any] = []
+                for candidate in candidates:
+                    is_adj = model.NewBoolVar(f"is_adj_{room.name}_{candidate.name}")  # type: ignore
+                    adj_switches.append(is_adj)
+                    _conditional_constraint(model, room, candidate, enforcer=is_adj)
+
+                model.AddBoolOr(adj_switches)  # type: ignore
+
+
 def adjacency_constraints(
     model: cp_model.CpModel,
     rooms_list: List[Room],
-    relations: List[RoomRelationsConstraintBase],
+    hardRelations: Optional[List[RoomRelationsConstraintBase]] = None,
+    softRelations: Optional[List[RoomRelationsConstraintBase]] = None,
 ) -> List[cp_model.IntVar]:
-    """Convert database adjacency rules into CP-SAT constraints.
+    """Apply adjacency constraints.
 
-    Applies relation rules uniformly to all room types, treating hallways as
-    a normal room type. Hallway activation is handled by hallway_constraints;
-    this module simply applies the rules defined in the database relations.
+    Returns an empty list when hard or soft relations are missing/invalid.
+    For now, only hard relations are enforced.
     """
 
-    ### IMPORTANT : In this function, we apply rules uniformly per room type.
-    living_touch_vars: List[cp_model.IntVar] = []
-    living_touch_by_room: dict[str, cp_model.IntVar] = {}
+    if not isinstance(hardRelations, list) or not hardRelations:
+        return []
 
-    for rec in relations:
-        related_types = (
-            rec.related_room or []
-        )  # Relationship Room list for specific Room Type
-        if not related_types:
-            continue
+    if not isinstance(softRelations, list) or not softRelations:
+        return []
 
-        subject_rooms = [
-            r for r in rooms_list if r.type == rec.room_type
-        ]  # Origin Rooms list
-        if not subject_rooms:
-            continue
+    _hard_adjacency_constraints(model, rooms_list, hardRelations)
 
-        candidates = [
-            r for r in rooms_list if r.type in related_types
-        ]  # Neighbor Rooms list
-        if not candidates:
-            continue
-
-        # For each Origin Room:
-        for room1 in subject_rooms:
-            if len(candidates) == 1:
-                # Only one neighbor type available—must touch it
-                _conditional_constraint(model, room1, candidates[0], enforcer=None)
-                continue
-
-            # Multiple neighbor types—must touch at least one
-            adj_switches: List[Any] = []
-            for room2 in candidates:
-                if room1.name == room2.name:
-                    continue
-
-                is_adj = model.NewBoolVar(f"is_adj_{room1.name}_{room2.name}")  # type: ignore
-                adj_switches.append(is_adj)
-                _conditional_constraint(model, room1, room2, enforcer=is_adj)
-
-            if adj_switches:
-                model.AddBoolOr(adj_switches)  # type: ignore
-
-            # Track living-room touch for objective penalty
-            if "livingRoom" in related_types:
-                has_living_touch = living_touch_by_room.get(room1.name)
-                if has_living_touch is None:
-                    has_living_touch = model.NewBoolVar(  # type: ignore
-                        f"has_living_touch_{room1.name}"
-                    )
-                    living_touch_by_room[room1.name] = has_living_touch
-                    living_touch_vars.append(has_living_touch)
-
-                living_candidates = [r for r in candidates if r.type == "livingRoom"]
-                if living_candidates:
-                    living_candidate = living_candidates[0]
-                    if room1.name != living_candidate.name:
-                        is_living_adj = model.NewBoolVar(  # type: ignore
-                            f"is_adj_{room1.name}_{living_candidate.name}"
-                        )
-                        _conditional_constraint(
-                            model, room1, living_candidate, enforcer=is_living_adj
-                        )
-                        model.Add(has_living_touch == is_living_adj)  # type: ignore
-                    else:
-                        model.Add(has_living_touch == 0)  # type: ignore
-                else:
-                    model.Add(has_living_touch == 0)  # type: ignore
-
-    return living_touch_vars
+    return []
