@@ -45,8 +45,8 @@ def _normalize_requirements(
                 f"ERROR: Room type '{room.type}' has no constraint record in database"
             )
 
-        min_w = int(constraint.min_w) if constraint.min_w is not None else 1
-        min_h = int(constraint.min_h) if constraint.min_h is not None else 1
+        min_w = int(constraint.min_w) if constraint.min_w is not None else 10
+        min_h = int(constraint.min_h) if constraint.min_h is not None else 10
         max_w = int(constraint.max_w) if constraint.max_w is not None else 1000
         max_h = int(constraint.max_h) if constraint.max_h is not None else 1000
         
@@ -127,9 +127,13 @@ def DEV_RUN() -> None:
             floor_plan_height=FLOOR_HEIGHT,
         )
         
-        # Create FpgRequirements
+        # Create FpgRequirements with relation constraints
         print(f"Floor dimensions: {config.floor_plan_width} x {config.floor_plan_height}")
-        requirements = FpgRequirements(rooms=rooms, config=config)
+        requirements = FpgRequirements(
+            rooms=rooms,
+            config=config,
+            relation_constraints=relation_constraints
+        )
         RunFPG(requirements)
         
         

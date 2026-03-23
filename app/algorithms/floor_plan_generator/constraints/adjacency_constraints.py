@@ -43,7 +43,7 @@ def _conditional_constraint(
     else:
         model.AddBoolOr([touch_right, touch_left, touch_top, touch_bottom])  # type: ignore[attr-defined]
 
-    MIN_OVERLAP = 10
+    MIN_OVERLAP = 1
 
     # Vertical-face touches (left/right) require overlap on y-axis.
     for t in (touch_right, touch_left):
@@ -61,7 +61,12 @@ def _hard_adjacency_constraints(
     rooms_list: List[Room],
     hardRelations: List[RoomRelationsConstraintBase],
 ) -> None:
-    """Apply hard adjacency relations as mandatory per-required-type connections."""
+    """Apply hard adjacency relations as mandatory per-required-type connections.
+    
+    Each required_type in the rule must be satisfied independently:
+    room must touch at least one candidate of EACH listed type (AND across types).
+    Within each type, at least one candidate suffices (OR within type).
+    """
 
     for room in rooms_list:
         matching_rules = [rel for rel in hardRelations if rel.room_type == room.type]
@@ -73,8 +78,10 @@ def _hard_adjacency_constraints(
             if not related_types:
                 continue
 
-            # For each required related type, this room must touch at least one
-            # existing room of that type.
+            print(f"[adjacency] Room '{room.name}' (type={room.type}) requires one of each type in {related_types}")
+
+            # For each required type, this room must touch at least one
+            # candidate room of that type (satisfied independently).
             for required_type in related_types:
                 candidates = [
                     r
@@ -82,15 +89,30 @@ def _hard_adjacency_constraints(
                     if r.type == required_type and r.name != room.name
                 ]
                 if not candidates:
+                    print(
+                        f"[adjacency]  - no candidates for required type '{required_type}' for room '{room.name}'"
+                    )
+                    # No candidates means infeasible for this required_type
+                    model.AddBoolOr([])
                     continue
+
+                print(
+                    f"[adjacency]  - required_type '{required_type}' candidates: {[c.name for c in candidates]}"
+                )
 
                 adj_switches: List[Any] = []
                 for candidate in candidates:
                     is_adj = model.NewBoolVar(f"is_adj_{room.name}_{candidate.name}")  # type: ignore
                     adj_switches.append(is_adj)
+                    print(
+                        f"[adjacency]    - adding conditional adjacency bool var '{is_adj.Name()}' for '{room.name}' <-> '{candidate.name}'"
+                    )
                     _conditional_constraint(model, room, candidate, enforcer=is_adj)
 
                 model.AddBoolOr(adj_switches)  # type: ignore
+                print(
+                    f"[adjacency]    - added OR of {[v.Name() for v in adj_switches]} for required_type '{required_type}'"
+                )
 
 
 def adjacency_constraints(

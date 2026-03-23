@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 @dataclass
 class RoomData:
@@ -23,3 +24,4 @@ class ConfigData:
 class FpgRequirements:
     rooms: list[RoomData]
     config: ConfigData
+    relation_constraints: list[Any] = field(default_factory=list)  # RoomRelationsConstraintBase rows

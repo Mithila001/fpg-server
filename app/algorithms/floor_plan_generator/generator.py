@@ -6,17 +6,11 @@ from .types.room import FpgRequirements
 from .rules import normalize_requirements
 from .constraints.basic_constraints import add_basic_constraints
 from .constraints.adjacency_constraints import adjacency_constraints
-from sqlmodel import Session
-from app.core.database import engine
-from app.crud.room_relations_constraint import get_all as get_relation_constraints
 from app.schemas.db.room_relations_constraints import RoomRelationsConstraintBase
 from .constraints.floor_area_coverage import add_minimum_area_coverage
 from .constraints.room_size_hierarchy_constraints import add_room_size_hierarchy
 from .constraints.compact_layout import add_center_proximity_objective
 from .constraints.hallway_constraints import add_hallway_constraints
-
-
-_LIVING_MISS_PENALTY = 2000
 
 
 def add_mandatory_data(
@@ -68,11 +62,14 @@ class FloorPlanGenerator:
         """Initialize generator from a full requirements object.
 
         ``requirements`` bundles room specifications and configuration
-        parameters (coverage, aspect ratios, floor size, etc.).
+        parameters (coverage, aspect ratios, floor size, etc.) and relation constraints.
 
         We first normalize the incoming data with ``rules.normalize_requirements``
         so that downstream code can rely on sensible numeric values.
         """
+        # Store relation constraints from requirements before normalization
+        self.relation_constraints_raw = requirements.relation_constraints
+        
         requirements = normalize_requirements(requirements)
 
         cfg = requirements.config
@@ -108,21 +105,21 @@ class FloorPlanGenerator:
         for room in self.rooms:
             room.create_variables(self.model, w_int, h_int)
 
+        # Print debug log before applying constraints
+        self.printDevLog()
+
         add_basic_constraints(self.model, self.rooms)
 
         add_hallway_constraints(self.model, self.rooms)
 
-        with Session(engine) as session:
-            relations = get_relation_constraints(session)
-        # Convert ORM rows to schema objects used by the generic constraint helper.
+        # Use relation constraints from requirements (passed from algorithm_manager)
         relations_schema = [
-            RoomRelationsConstraintBase.model_validate(r) for r in relations
+            RoomRelationsConstraintBase.model_validate(r) for r in self.relation_constraints_raw
         ]  # type: ignore[assignment]
 
         all_relations = self.mandatory_relations + relations_schema
 
-        # Placeholder list for future soft-adjacency objective signals.
-        living_touch_vars = adjacency_constraints(
+        adjacency_constraints(
             self.model,
             self.rooms,
             hardRelations=all_relations,
@@ -146,19 +143,7 @@ class FloorPlanGenerator:
             self.floor_plan_height,
         )
 
-        missing_living_vars = []
-        for idx, touch_var in enumerate(living_touch_vars):
-            miss = self.model.NewBoolVar(f"miss_living_touch_{idx}")  # type: ignore
-            self.model.Add(miss + touch_var == 1)  # type: ignore
-            missing_living_vars.append(miss)
-
-        objective_terms = [cost]
-        if missing_living_vars:
-            objective_terms.append(
-                _LIVING_MISS_PENALTY * cp_model.LinearExpr.Sum(missing_living_vars)
-            )
-
-        self.model.Minimize(cp_model.LinearExpr.Sum(objective_terms))  # type: ignore[attr-defined]
+        self.model.Minimize(cost)
 
         self.solver.parameters.max_time_in_seconds = 1.0
         self.solver.parameters.random_seed = random.randint(0, 1000)
@@ -196,3 +181,27 @@ class FloorPlanGenerator:
                 }
             )
         return results
+
+    def printDevLog(self) -> None:
+        """Print room information and configuration before constraints are applied."""
+        print("\n" + "="*100)
+        print("FLOOR PLAN GENERATOR - PRE-CONSTRAINT LOG")
+        print("="*100)
+        print(f"\nFloor Dimensions: {self.floor_plan_width} x {self.floor_plan_height}")
+        print(f"Minimum Coverage Requirement: {self.min_coverage * 100:.1f}%")
+        print(f"\nTotal Rooms to be Constrained: {len(self.rooms)}")
+        print("\n" + "-"*100)
+
+        for i, room in enumerate(self.rooms, 1):
+            print(f"\n[Room {i}] {room.name}")
+            print(f"  Type:                {room.type}")
+            print(f"  Width Bounds:        {room.min_w} - {room.max_w} units")
+            print(f"  Height Bounds:       {room.min_h} - {room.max_h} units")
+            print(f"  Min Possible Area:   {room.min_w * room.min_h} sq units")
+            print(f"  Max Possible Area:   {room.max_w * room.max_h} sq units")
+            if room.x is not None:
+                print(f"  CP Variables:        x, y, w, h, x_end, y_end, area (created)")
+
+        print("\n" + "="*100)
+        print("[Status] Room variables created. Constraints about to be applied...")
+        print("="*100 + "\n")
