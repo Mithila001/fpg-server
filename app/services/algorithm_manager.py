@@ -1,3 +1,5 @@
+import contextlib
+import io
 from typing import List, Sequence
 
 from app.algorithms.floor_plan_generator import FloorPlanGenerator
@@ -12,6 +14,11 @@ from app.algorithms.floor_plan_generator.config import (
     MIN_COVERAGE,
 )
 from app.algorithms.floor_plan_generator.fpg_score import score_layout
+from app.algorithms.floor_plan_generator.fpg_optuna import (
+    FpgEvaluationResult,
+    OptunaOptimizationResult,
+    run_optuna_optimization,
+)
 
 from sqlmodel import Session
 from app.core.database import engine
@@ -65,11 +72,7 @@ def _normalize_requirements(
     return normalized
 
 
-def DEV_RUN() -> None:
-    """Development function that retrieves database records and runs the floor plan generator.
-    
-    """
-    
+def _build_requirements_from_database() -> FpgRequirements | None:
     with Session(engine) as session:
         # Retrieve all database records
         templates = room_setup_template_crud.get_all(session)
@@ -83,7 +86,7 @@ def DEV_RUN() -> None:
         # If no templates, exit early
         if not templates:
             print("No room setup templates found in database")
-            return
+            return None
         
         # Use the first template as the basis
         template = templates[0]
@@ -135,51 +138,134 @@ def DEV_RUN() -> None:
             config=config,
             relation_constraints=relation_constraints
         )
-        RunFPG(requirements)
+        return requirements
+
+
+def DEV_RUN(use_optuna: bool = True, n_trials: int = 50) -> None:
+    """Development entrypoint to run one-shot FPG or Optuna optimization."""
+    requirements = _build_requirements_from_database()
+    if requirements is None:
+        return
+
+    if use_optuna:
+        OptunaEntry(requirements, n_trials=n_trials)
+        return
+
+    RunFPG(requirements)
         
         
             
             
-def RunFPG(requirements: FpgRequirements) -> None:
-    
-    print(f"\nCreated FpgRequirements with {len(requirements.rooms)} rooms")
-    print(f"\nRequirements {requirements}\n\n")
+def RunFPG(requirements: FpgRequirements, verbose: bool = True) -> FpgEvaluationResult:
+    if verbose:
+        print(f"\nCreated FpgRequirements with {len(requirements.rooms)} rooms")
+        print(f"\nRequirements {requirements}\n\n")
     
     # Initialize FloorPlanGenerator
     generator = FloorPlanGenerator(requirements)
-    print("FloorPlanGenerator initialized")
+    if verbose:
+        print("FloorPlanGenerator initialized")
     
     # Generate floor plan
-    print("\nCalling generate()...")
-    solved = generator.generate()
+    if verbose:
+        print("\nCalling generate()...")
+
+    if verbose:
+        solved = generator.generate()
+    else:
+        with contextlib.redirect_stdout(io.StringIO()):
+            solved = generator.generate()
+
+    status = generator.last_status_name
     
     if solved:
-        print("✓ Floor plan generated successfully!")
+        if verbose:
+            print("✓ Floor plan generated successfully!")
         solution = generator.get_solution()
         score_report = score_layout(solution, requirements)
 
-        print(f"\nSolution with {len(solution)} rooms:")
-        for room_result in solution:
-            print(f"  - {room_result['name']} ({room_result['type']})")
-            print(f"    Position: ({room_result['x']}, {room_result['y']})")
-            print(f"    Size: {room_result['w']} x {room_result['h']}")
-            print(f"    Area: {room_result['area']}")
+        if verbose:
+            print(f"\nSolution with {len(solution)} rooms:")
+            for room_result in solution:
+                print(f"  - {room_result['name']} ({room_result['type']})")
+                print(f"    Position: ({room_result['x']}, {room_result['y']})")
+                print(f"    Size: {room_result['w']} x {room_result['h']}")
+                print(f"    Area: {room_result['area']}")
 
-        print("\nScore Report:")
-        print(f"  - Valid: {score_report.valid}")
-        print(f"  - Total Score: {score_report.total_score}")
-        print(f"  - Component Scores: {score_report.component_scores}")
-        if score_report.hard_violations:
-            print("  - Hard Violations:")
-            for violation in score_report.hard_violations:
-                print(f"    * {violation}")
-        print(f"  - Diagnostics: {score_report.diagnostics}")
-            
-        print("\nRaw Solution:")
-        print(solution)
+            print("\nScore Report:")
+            print(f"  - Valid: {score_report.valid}")
+            print(f"  - Total Score: {score_report.total_score}")
+            print(f"  - Component Scores: {score_report.component_scores}")
+            if score_report.hard_violations:
+                print("  - Hard Violations:")
+                for violation in score_report.hard_violations:
+                    print(f"    * {violation}")
+            print(f"  - Diagnostics: {score_report.diagnostics}")
+
+            print("\nRaw Solution:")
+            print(solution)
+
+        return FpgEvaluationResult(
+            solved=True,
+            solution=solution,
+            score_report=score_report,
+            status=status,
+            message="Solver found a layout",
+        )
     else:
-        print("✗ Floor plan generation failed - no solution found")
+        if verbose:
+            print(f"✗ Floor plan generation failed - no solution found ({status})")
+
+        return FpgEvaluationResult(
+            solved=False,
+            solution=[],
+            score_report=None,
+            status=status,
+            message="Solver did not return FEASIBLE/OPTIMAL",
+        )
     
     
-def OptunaEntry():
-    print("Optuna Entry")
+def _print_optuna_summary(result: OptunaOptimizationResult) -> None:
+    print("\nOptuna Summary:")
+    print(f"  - Study Name: {result.study_name}")
+    print(f"  - Completed Trials: {result.completed_trials}")
+    print(f"  - Failed/Zero Trials: {result.failed_trials}")
+    print(f"  - Best Trial Number: {result.best_trial_number}")
+    print(f"  - Best Score: {result.best_value}")
+    print(f"  - Best Params: {result.best_params}")
+
+    if result.best_run is not None:
+        print("  - Best Run Status:")
+        print(f"    * Solved: {result.best_run.solved}")
+        print(f"    * Status: {result.best_run.status}")
+        if result.best_run.score_report is not None:
+            print(f"    * Valid: {result.best_run.score_report.valid}")
+            print(f"    * Total Score: {result.best_run.score_report.total_score}")
+        if result.best_run.solution:
+            print("  - Best Layout (Coordinates):")
+            for room_result in result.best_run.solution:
+                print(
+                    "    * "
+                    f"{room_result['name']} ({room_result['type']}): "
+                    f"x={room_result['x']}, y={room_result['y']}, "
+                    f"w={room_result['w']}, h={room_result['h']}, "
+                    f"area={room_result['area']}"
+                )
+
+
+def OptunaEntry(
+    requirements: FpgRequirements,
+    n_trials: int = 50,
+    study_name: str = "fpg_layout_optimization",
+    storage: str | None = "sqlite:///optuna_fpg.db",
+) -> OptunaOptimizationResult:
+    print(f"\nRunning Optuna optimization for {n_trials} trials...")
+    result = run_optuna_optimization(
+        base_requirements=requirements,
+        evaluator=RunFPG,
+        n_trials=n_trials,
+        study_name=study_name,
+        storage=storage,
+    )
+    _print_optuna_summary(result)
+    return result

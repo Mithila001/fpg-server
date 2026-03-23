@@ -79,6 +79,8 @@ class FloorPlanGenerator:
 
         self.model = cp_model.CpModel()
         self.solver = cp_model.CpSolver()
+        self.last_status: int | None = None
+        self.last_status_name: str = "NOT_RUN"
 
         # Initializing Rooms
         self.rooms: list[Room] = [
@@ -149,6 +151,8 @@ class FloorPlanGenerator:
         self.solver.parameters.random_seed = random.randint(0, 1000)
         self.solver.parameters.randomize_search = True
         status = self.solver.Solve(self.model)
+        self.last_status = status
+        self.last_status_name = self.solver.StatusName(status)
 
         return status in (cp_model.OPTIMAL, cp_model.FEASIBLE)
 

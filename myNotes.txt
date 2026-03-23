@@ -24,3 +24,6 @@ When you Rotating the TA, make sure to check if its already aling with X axis be
 
 
 python -c "from app.services.algorithm_manager import DEV_RUN; DEV_RUN()"
+
+
+optuna-dashboard sqlite:///optuna_fpg.db
