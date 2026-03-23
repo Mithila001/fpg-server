@@ -200,7 +200,7 @@ class FloorPlanGenerator:
             print(f"  Min Possible Area:   {room.min_w * room.min_h} sq units")
             print(f"  Max Possible Area:   {room.max_w * room.max_h} sq units")
             if room.x is not None:
-                print(f"  CP Variables:        x, y, w, h, x_end, y_end, area (created)")
+                print("  CP Variables:        x, y, w, h, x_end, y_end, area (created)")
 
         print("\n" + "="*100)
         print("[Status] Room variables created. Constraints about to be applied...")

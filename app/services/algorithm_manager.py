@@ -159,6 +159,9 @@ def RunFPG(requirements):
             print(f"    Position: ({room_result['x']}, {room_result['y']})")
             print(f"    Size: {room_result['w']} x {room_result['h']}")
             print(f"    Area: {room_result['area']}")
+            
+        print("\nRaw Solution:")
+        print(solution)
     else:
         print("✗ Floor plan generation failed - no solution found")
     
