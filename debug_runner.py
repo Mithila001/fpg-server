@@ -7,13 +7,14 @@ and runs it when executed as a script.  You can set breakpoints here or in
 from this file.
 """
 
-from app.algorithms.fp_formatter_for_frontend.debug import debug_fp_formatter
+
+from app.services.algorithm_manager import DEV_RUN
 
 
 def main() -> None:
     # call the helper; the return value isn't used, but you can inspect it in
     # the debugger.
-    debug_fp_formatter()
+    DEV_RUN()
 
 
 if __name__ == "__main__":

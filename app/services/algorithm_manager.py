@@ -1,4 +1,6 @@
-from typing import List, Tuple
+import contextlib
+import io
+from typing import List, Sequence
 
 from app.algorithms.floor_plan_generator import FloorPlanGenerator
 from app.algorithms.floor_plan_generator.types.room import (
@@ -11,161 +13,259 @@ from app.algorithms.floor_plan_generator.config import (
     FLOOR_HEIGHT,
     MIN_COVERAGE,
 )
+from app.algorithms.floor_plan_generator.fpg_score import score_layout
+from app.algorithms.floor_plan_generator.fpg_optuna import (
+    FpgEvaluationResult,
+    OptunaOptimizationResult,
+    run_optuna_optimization,
+)
 
 from sqlmodel import Session
 from app.core.database import engine
 from app.crud import (
     room_size_constraint as room_size_constraint_crud,
     room_setup_template as room_setup_template_crud,
+    room_relations_constraint as room_relations_constraint_crud,
 )
-from typing import Optional
+from app.models.room_size_constraint import RoomSizeConstraint
 
 
-def _room_dimensions(rooms: List[RoomData], session: Session) -> List[RoomData]:
-    """Normalise a list of :class:`RoomData` using database constraints.
+# Fallback room dimension used when a room_size_constraints column is NULL.
+DEFAULT_ROOM_DIMENSION = 1000
 
-    For each item in ``rooms`` we look up a matching
-    :class:`RoomSizeConstraint` (by ``type``).  If found, the dimensions are
-    pulled from the record; otherwise a set of permissive defaults is
-    applied.  This mirrors the much earlier helper that used hard‑coded
-    values, but now honours whatever the database contains.
 
-    ``session`` is expected to be an open SQLModel session.  The helper does
-    not close the session itself so callers retain control over transactions.
+def _normalize_requirements(
+    rooms: List[RoomData],
+    constraints: Sequence[RoomSizeConstraint],
+) -> List[RoomData]:
+    """Normalize room dimensions from DB constraints with simple defaults.
+
+    For each room type, use the DB value when present; otherwise use 10.
     """
-    db_constraints = room_size_constraint_crud.get_all(session)
-    by_type = {c.type: c for c in db_constraints}
-
+    constraints_by_type = {c.type: c for c in constraints}
     normalized: List[RoomData] = []
-    for r in rooms:
-        c = by_type.get(r.type)
-        if c:
-            normalized.append(
-                RoomData(
-                    r.name,
-                    r.type,
-                    min_w=int(c.min_w) if c.min_w is not None else 0,
-                    min_h=int(c.min_h) if c.min_h is not None else 0,
-                    max_w=int(c.max_w) if c.max_w is not None else 100,
-                    max_h=int(c.max_h) if c.max_h is not None else 100,
-                )
+    
+    for room in rooms:
+        constraint = constraints_by_type.get(room.type)
+        
+        if not constraint:
+            raise ValueError(
+                f"ERROR: Room type '{room.type}' has no constraint record in database"
             )
-        else:
-            # no matching DB entry; fall back to generic bounds
-            normalized.append(
-                RoomData(r.name, r.type, min_w=0, min_h=0, max_w=100, max_h=100)
+
+        min_w = int(constraint.min_w) if constraint.min_w is not None else 10
+        min_h = int(constraint.min_h) if constraint.min_h is not None else 10
+        max_w = int(constraint.max_w) if constraint.max_w is not None else 1000
+        max_h = int(constraint.max_h) if constraint.max_h is not None else 1000
+        
+        normalized.append(
+            RoomData(
+                name=room.name,
+                type=room.type,
+                min_w=min_w,
+                min_h=min_h,
+                max_w=max_w,
+                max_h=max_h,
             )
+        )
+    
     return normalized
 
 
-def run_fpg(
-    width: float = FLOOR_WIDTH,
-    height: float = FLOOR_HEIGHT,
-    rooms_data: List[RoomData] | None = None,
-) -> tuple[List[List[Tuple[float, float]]], "FloorPlanGenerator"]:
-    """Run the floor‑plan generator and return raw results (plus generator).
-
-    The plotting side‑effect has been removed; callers receive a list of
-    room polygons containing the final layout along with the underlying
-    :class:`FloorPlanGenerator` instance.  The additional return value is
-    useful for callers that need access to the solver and room objects
-    (for example when using :meth:`PolygonPlotter.floor_plan_plot`).
-
-    Args:
-        width: floor plan width
-        height: floor plan height
-        rooms_data: room specs as RoomData objects; if ``None`` the
-            hardcoded defaults (four generic rooms) are used.
-
-    Returns:
-        A tuple ``(polygons, generator)`` where ``polygons`` is a list of
-        polygons (one per room) representing the solution.  If no solution
-        was found the polygon list will be empty; the generator is returned
-        regardless so callers can examine its state.
-    """
-    print("running floor plan generator")
-
-    # sanitise any user-supplied room data against DB constraints
-    if rooms_data is not None:
-        with Session(engine) as session:
-            rooms_data = _room_dimensions(rooms_data, session)
-
-    # static defaults used when no explicit rooms_data is provided
-    default_rooms: List[RoomData] = [
-        RoomData("livingRoom1", "livingRoom", min_w=0, min_h=0, max_w=100, max_h=100),
-        RoomData("bedroom1", "bedroom", min_w=0, min_h=0, max_w=100, max_h=100),
-        RoomData("bathroom1", "bathroom", min_w=0, min_h=0, max_w=100, max_h=100),
-        RoomData("kitchen1", "kitchen", min_w=0, min_h=0, max_w=100, max_h=100),
-    ]
-
-    config_obj = ConfigData(
-        min_coverage=MIN_COVERAGE,
-        max_aspect_ratio=16.0,
-        min_aspect_ratio=0.0,
-        floor_plan_width=width,
-        floor_plan_height=height,
-    )
-    requirements = FpgRequirements(
-        rooms=rooms_data if rooms_data is not None else default_rooms,
-        config=config_obj,
-    )
-
-    generator = FloorPlanGenerator(requirements)
-    solved = generator.generate()
-    if not solved:
-        # still return generator so callers can inspect why it failed if
-        # they wish (e.g. examine solver status, rooms, etc.)
-        return [], generator
-
-    solution = generator.get_solution()
-
-    # convert the raw solution into a list of polygons (one per room)
-    polygons: List[List[Tuple[float, float]]] = []
-    for r in solution:
-        x, y, w, h = r["x"], r["y"], r["w"], r["h"]
-        polygons.append([(x, y), (x + w, y), (x + w, y + h), (x, y + h)])
-
-    return polygons, generator
-
-
-def quicklyRunWithDbData() -> tuple[
-    List[List[Tuple[float, float]]], Optional["FloorPlanGenerator"]
-]:
-    """Run the floor planner using the first template row from the database.
-
-    The single record returned by :func:`app.crud.room_setup_template.get_first`
-    contains a JSON ``data`` payload describing one or more rooms.  We map
-    that structure into a list of :class:`RoomData` objects with permissive
-    default bounds and hand the result to :func:`run_fpg`.  The generated
-    polygons plus the underlying :class:`FloorPlanGenerator` instance are
-    returned so that callers can either inspect the raw layout or use the
-    solver/room objects for plotting or further analysis.  When the database
-    contains no template the polygon list will be empty and the generator
-    value will be ``None``.
-    """
-
+def _build_requirements_from_database() -> FpgRequirements | None:
     with Session(engine) as session:
-        template = room_setup_template_crud.get_first(session)
-        if not template or not template.data:
-            # nothing available in the database; short‑circuit to an empty result
-            # return ``None`` for the generator so callers can detect absence
-            return [], None
-
-        # convert stored room definitions into RoomData instances.
+        # Retrieve all database records
+        templates = room_setup_template_crud.get_all(session)
+        size_constraints = room_size_constraint_crud.get_all(session)
+        relation_constraints = room_relations_constraint_crud.get_all(session)
+        
+        print(f"Retrieved {len(templates)} templates")
+        print(f"Retrieved {len(size_constraints)} size constraints")
+        print(f"Retrieved {len(relation_constraints)} relation constraints")
+        
+        # If no templates, exit early
+        if not templates:
+            print("No room setup templates found in database")
+            return None
+        
+        # Use the first template as the basis
+        template = templates[0]
+        print(f"\nUsing template: {template.name}")
+        
+        # Build RoomData list from template data
         rooms: List[RoomData] = []
-        for entry in template.data:
-            name = entry.get("id") or entry.get("name") or ""
-            rooms.append(
-                RoomData(
-                    name=name,
-                    type=entry.get("type", ""),
-                    min_w=0,
-                    min_h=0,
-                    max_w=100,
-                    max_h=100,
+        if template.data:
+            for entry in template.data:
+                room_type = entry.get("type", "")
+                room_name = entry.get("name") or entry.get("id") or room_type
+                
+                rooms.append(
+                    RoomData(
+                        name=room_name,
+                        type=room_type,
+                        min_w=1,
+                        min_h=1,
+                        max_w=1,
+                        max_h=1,
+                    )
                 )
-            )
+        
+        print(f"Created {len(rooms)} RoomData objects")
+        for room in rooms:
+            print(f"  - {room.name} ({room.type}): {room.min_w}-{room.max_w} * {room.min_h}-{room.max_h}")
+        
+        # Normalize rooms based on database constraint rules
+        print("\nNormalizing rooms against database constraints...")
+        rooms = _normalize_requirements(rooms, size_constraints)
+        
+        print(f"Normalized {len(rooms)} RoomData objects")
+        for room in rooms:
+            print(f"  - {room.name} ({room.type}): Min W: {room.min_w} - Max W: {room.max_w} * Min H: {room.min_h} - Max H: {room.max_h}")
+        
+        # Create ConfigData
+        config = ConfigData(
+            min_coverage=MIN_COVERAGE,
+            max_aspect_ratio=16.0,
+            min_aspect_ratio=0.0,
+            floor_plan_width=FLOOR_WIDTH,
+            floor_plan_height=FLOOR_HEIGHT,
+        )
+        
+        # Create FpgRequirements with relation constraints
+        print(f"Floor dimensions: {config.floor_plan_width} x {config.floor_plan_height}")
+        requirements = FpgRequirements(
+            rooms=rooms,
+            config=config,
+            relation_constraints=relation_constraints
+        )
+        return requirements
 
-    # delegate to the existing generator helper
-    polygons, generator = run_fpg(rooms_data=rooms)
-    return polygons, generator
+
+def DEV_RUN(use_optuna: bool = True, n_trials: int = 50) -> None:
+    """Development entrypoint to run one-shot FPG or Optuna optimization."""
+    requirements = _build_requirements_from_database()
+    if requirements is None:
+        return
+
+    if use_optuna:
+        OptunaEntry(requirements, n_trials=n_trials)
+        return
+
+    RunFPG(requirements)
+        
+        
+            
+            
+def RunFPG(requirements: FpgRequirements, verbose: bool = True) -> FpgEvaluationResult:
+    if verbose:
+        print(f"\nCreated FpgRequirements with {len(requirements.rooms)} rooms")
+        print(f"\nRequirements {requirements}\n\n")
+    
+    # Initialize FloorPlanGenerator
+    generator = FloorPlanGenerator(requirements)
+    if verbose:
+        print("FloorPlanGenerator initialized")
+    
+    # Generate floor plan
+    if verbose:
+        print("\nCalling generate()...")
+
+    if verbose:
+        solved = generator.generate()
+    else:
+        with contextlib.redirect_stdout(io.StringIO()):
+            solved = generator.generate()
+
+    status = generator.last_status_name
+    
+    if solved:
+        if verbose:
+            print("✓ Floor plan generated successfully!")
+        solution = generator.get_solution()
+        score_report = score_layout(solution, requirements)
+
+        if verbose:
+            print(f"\nSolution with {len(solution)} rooms:")
+            for room_result in solution:
+                print(f"  - {room_result['name']} ({room_result['type']})")
+                print(f"    Position: ({room_result['x']}, {room_result['y']})")
+                print(f"    Size: {room_result['w']} x {room_result['h']}")
+                print(f"    Area: {room_result['area']}")
+
+            print("\nScore Report:")
+            print(f"  - Valid: {score_report.valid}")
+            print(f"  - Total Score: {score_report.total_score}")
+            print(f"  - Component Scores: {score_report.component_scores}")
+            if score_report.hard_violations:
+                print("  - Hard Violations:")
+                for violation in score_report.hard_violations:
+                    print(f"    * {violation}")
+            print(f"  - Diagnostics: {score_report.diagnostics}")
+
+            print("\nRaw Solution:")
+            print(solution)
+
+        return FpgEvaluationResult(
+            solved=True,
+            solution=solution,
+            score_report=score_report,
+            status=status,
+            message="Solver found a layout",
+        )
+    else:
+        if verbose:
+            print(f"✗ Floor plan generation failed - no solution found ({status})")
+
+        return FpgEvaluationResult(
+            solved=False,
+            solution=[],
+            score_report=None,
+            status=status,
+            message="Solver did not return FEASIBLE/OPTIMAL",
+        )
+    
+    
+def _print_optuna_summary(result: OptunaOptimizationResult) -> None:
+    print("\nOptuna Summary:")
+    print(f"  - Study Name: {result.study_name}")
+    print(f"  - Completed Trials: {result.completed_trials}")
+    print(f"  - Failed/Zero Trials: {result.failed_trials}")
+    print(f"  - Best Trial Number: {result.best_trial_number}")
+    print(f"  - Best Score: {result.best_value}")
+    print(f"  - Best Params: {result.best_params}")
+
+    if result.best_run is not None:
+        print("  - Best Run Status:")
+        print(f"    * Solved: {result.best_run.solved}")
+        print(f"    * Status: {result.best_run.status}")
+        if result.best_run.score_report is not None:
+            print(f"    * Valid: {result.best_run.score_report.valid}")
+            print(f"    * Total Score: {result.best_run.score_report.total_score}")
+        if result.best_run.solution:
+            print("  - Best Layout (Coordinates):")
+            for room_result in result.best_run.solution:
+                print(
+                    "    * "
+                    f"{room_result['name']} ({room_result['type']}): "
+                    f"x={room_result['x']}, y={room_result['y']}, "
+                    f"w={room_result['w']}, h={room_result['h']}, "
+                    f"area={room_result['area']}"
+                )
+
+
+def OptunaEntry(
+    requirements: FpgRequirements,
+    n_trials: int = 50,
+    study_name: str = "fpg_layout_optimization",
+    storage: str | None = "sqlite:///optuna_fpg.db",
+) -> OptunaOptimizationResult:
+    print(f"\nRunning Optuna optimization for {n_trials} trials...")
+    result = run_optuna_optimization(
+        base_requirements=requirements,
+        evaluator=RunFPG,
+        n_trials=n_trials,
+        study_name=study_name,
+        storage=storage,
+    )
+    _print_optuna_summary(result)
+    return result

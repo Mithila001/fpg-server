@@ -72,13 +72,13 @@ def run_floor(times: int = 1, show: bool = True) -> list[list[tuple[float, float
         A list of polygon lists, one per run.
     """
     # import here to avoid a circular import at module load time
-    from app.services.algorithm_manager import quicklyRunWithDbData
+    from app.services.algorithm_manager import devModRunFPG
 
     # accumulate polygons from each run; type inferred by Python
     results = []
 
     for run_index in range(1, times + 1):
-        polygons, generator = quicklyRunWithDbData()
+        polygons, generator = devModRunFPG()
 
         # log coordinates and sizes for each room/polygon if generator exists
         if generator is not None:

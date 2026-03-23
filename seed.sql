@@ -21,14 +21,16 @@ CREATE TABLE IF NOT EXISTS public.room_size_constraints (
 
 
 -- Insert Template
+-- NOTE: livingRoom and hallway are created by code (mandatory rooms).
+-- Only define optional user-facing room types here.
 INSERT INTO public.room_setup_templates (name, "data") 
 VALUES (
     'Standard 2BHK Layout',
-    '[{"id": "livingRoom1", "type": "livingRoom"}, {"id": "bedroom1", "type": "bedroom"}, {"id": "bedroom2", "type": "bedroom"}, {"id": "bathroom1", "type": "bathroom"}, {"id": "kitchen1", "type": "kitchen"}]'
+    '[{"id": "bedroom1", "type": "bedroom"}, {"id": "bedroom2", "type": "bedroom"}, {"id": "bathroom1", "type": "bathroom"}, {"id": "kitchen1", "type": "kitchen"}]'
 );
 
 -- Insert Constraints
-INSERT INTO public.room_size_constraints ("type", min_w, max_w, min_h, max_h, max_area, min_area, preset_id, last_updated) 
+INSERT INTO public.room_size_constraints ("type", min_w, max_w, min_h, max_h, max_area, min_area, preset_id) 
 VALUES
 	 ('bedroom', 10.00, NULL, NULL, NULL, NULL, 97.00, NULL),
 	 ('kitchen', 5.00, NULL, NULL, NULL, NULL, 54.00, NULL),
@@ -47,6 +49,6 @@ CREATE TABLE room_relations_constraints (
 
 INSERT INTO room_relations_constraints (room_type, related_room, last_updated)
 VALUES 
-    ('bedroom', '["livingRoom"]', CURRENT_DATE),
-    ('kitchen', '["livingRoom"]', CURRENT_DATE),
-    ('bathroom', '["livingRoom"]', CURRENT_DATE);
+    ('bedroom', '["livingRoom", "hallway" ]', CURRENT_DATE),
+    ('kitchen', '["livingRoom", "hallway"]', CURRENT_DATE),
+    ('bathroom', '["livingRoom", "bedroom"]', CURRENT_DATE);

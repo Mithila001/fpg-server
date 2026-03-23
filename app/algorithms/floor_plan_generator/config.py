@@ -6,8 +6,8 @@ Values here are used as fallbacks when no custom config is provided via the API.
 from .types.room import RoomData
 
 # Floor Dimensions (default)
-FLOOR_WIDTH = 30
-FLOOR_HEIGHT = 30
+FLOOR_WIDTH = 100
+FLOOR_HEIGHT = 100
 # Maximum allowed aspect ratio for rooms
 MAX_ASPECT_RATIO_HEIGHT = 10
 MAX_ASPECT_RATIO_WIDTH = 16
