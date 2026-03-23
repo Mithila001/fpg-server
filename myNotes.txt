@@ -17,7 +17,10 @@ pip install -r requirements.txt
 
 
 
-
+minoshi
 
 
 When you Rotating the TA, make sure to check if its already aling with X axis befor rotate. Or add some check 
+
+
+python -c "from app.services.algorithm_manager import DEV_RUN; DEV_RUN()"

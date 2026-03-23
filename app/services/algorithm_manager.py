@@ -143,6 +143,8 @@ def DEV_RUN() -> None:
 def RunFPG(requirements: FpgRequirements) -> None:
     
     print(f"\nCreated FpgRequirements with {len(requirements.rooms)} rooms")
+    print(f"\nRequirements {requirements}\n\n")
+    
     # Initialize FloorPlanGenerator
     generator = FloorPlanGenerator(requirements)
     print("FloorPlanGenerator initialized")
@@ -179,3 +181,5 @@ def RunFPG(requirements: FpgRequirements) -> None:
         print("✗ Floor plan generation failed - no solution found")
     
     
+def OptunaEntry():
+    print("Optuna Entry")
