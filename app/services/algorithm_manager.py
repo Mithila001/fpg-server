@@ -1,6 +1,6 @@
 import contextlib
 import io
-from typing import List, Sequence
+from typing import Any, List, Sequence
 
 from app.algorithms.floor_plan_generator import FloorPlanGenerator
 from app.algorithms.floor_plan_generator.types.room import (
@@ -19,6 +19,9 @@ from app.algorithms.floor_plan_generator.fpg_optuna import (
     OptunaOptimizationResult,
     run_optuna_optimization,
 )
+from app.algorithms.floor_plan_generator.fpg_post_process import (
+    build_post_processed_layout,
+)
 
 from sqlmodel import Session
 from app.core.database import engine
@@ -32,6 +35,10 @@ from app.models.room_size_constraint import RoomSizeConstraint
 
 # Fallback room dimension used when a room_size_constraints column is NULL.
 DEFAULT_ROOM_DIMENSION = 1000
+
+
+EMPTY_POST_PROCESS_LAYOUT = {"walls": [], "rooms": []}
+DEFAULT_OPTUNA_TRIALS = 20
 
 
 def _normalize_requirements(
@@ -142,16 +149,17 @@ def _build_requirements_from_database() -> FpgRequirements | None:
 
 
 def DEV_RUN(use_optuna: bool = True, n_trials: int = 50) -> None:
-    """Development entrypoint to run one-shot FPG or Optuna optimization."""
-    requirements = _build_requirements_from_database()
-    if requirements is None:
-        return
-
-    if use_optuna:
-        OptunaEntry(requirements, n_trials=n_trials)
-        return
-
-    RunFPG(requirements)
+    """Development entrypoint for the full solve -> post-process pipeline."""
+    payload = run_layout_pipeline(
+        use_optuna=use_optuna,
+        n_trials=n_trials,
+        verbose=True,
+    )
+    print("\nPost-Process Summary:")
+    print(f"  - Status: {payload['status']}")
+    print(f"  - Message: {payload['message']}")
+    print(f"  - Walls: {len(payload['walls'])}")
+    print(f"  - Rooms: {len(payload['rooms'])}")
         
         
             
@@ -267,5 +275,76 @@ def OptunaEntry(
         study_name=study_name,
         storage=storage,
     )
+
     _print_optuna_summary(result)
     return result
+
+
+def _select_solver_result(
+    requirements: FpgRequirements,
+    use_optuna: bool,
+    n_trials: int,
+    verbose: bool,
+) -> FpgEvaluationResult:
+    """Return a single solver result selected from one-shot or Optuna flow."""
+    if not use_optuna:
+        return RunFPG(requirements, verbose=verbose)
+
+    optuna_result = OptunaEntry(requirements, n_trials=n_trials)
+    if optuna_result.best_run is not None:
+        return optuna_result.best_run
+
+    return FpgEvaluationResult(
+        solved=False,
+        solution=[],
+        score_report=None,
+        status="NO_BEST_RUN",
+        message="Optuna did not produce a best run",
+    )
+
+
+def _build_payload_from_solver_result(run_result: FpgEvaluationResult) -> dict[str, Any]:
+    """Transform solver output into API payload with post-processed geometry."""
+    if run_result.solved:
+        post_process = build_post_processed_layout(run_result.solution)
+    else:
+        post_process = EMPTY_POST_PROCESS_LAYOUT
+
+    return {
+        "status": run_result.status,
+        "message": run_result.message,
+        "walls": post_process["walls"],
+        "rooms": post_process["rooms"],
+    }
+
+
+def run_layout_pipeline(
+    use_optuna: bool = False,
+    n_trials: int = DEFAULT_OPTUNA_TRIALS,
+    verbose: bool = False,
+) -> dict[str, Any]:
+    """Main orchestrator: DB requirements -> solve -> post-process -> payload."""
+    try:
+        requirements = _build_requirements_from_database()
+        if requirements is None:
+            return {
+                "status": "NO_TEMPLATE",
+                "message": "No room template available in database",
+                "walls": [],
+                "rooms": [],
+            }
+
+        run_result = _select_solver_result(
+            requirements=requirements,
+            use_optuna=use_optuna,
+            n_trials=n_trials,
+            verbose=verbose,
+        )
+        return _build_payload_from_solver_result(run_result)
+    except Exception as exc:
+        return {
+            "status": "ERROR",
+            "message": f"Failed to generate layout: {exc}",
+            "walls": [],
+            "rooms": [],
+        }
