@@ -11,6 +11,7 @@ from app.algorithms.floor_plan_generator.config import (
     FLOOR_HEIGHT,
     MIN_COVERAGE,
 )
+from app.algorithms.floor_plan_generator.fpg_score import score_layout
 
 from sqlmodel import Session
 from app.core.database import engine
@@ -139,7 +140,7 @@ def DEV_RUN() -> None:
         
             
             
-def RunFPG(requirements):
+def RunFPG(requirements: FpgRequirements) -> None:
     
     print(f"\nCreated FpgRequirements with {len(requirements.rooms)} rooms")
     # Initialize FloorPlanGenerator
@@ -153,12 +154,24 @@ def RunFPG(requirements):
     if solved:
         print("✓ Floor plan generated successfully!")
         solution = generator.get_solution()
+        score_report = score_layout(solution, requirements)
+
         print(f"\nSolution with {len(solution)} rooms:")
         for room_result in solution:
             print(f"  - {room_result['name']} ({room_result['type']})")
             print(f"    Position: ({room_result['x']}, {room_result['y']})")
             print(f"    Size: {room_result['w']} x {room_result['h']}")
             print(f"    Area: {room_result['area']}")
+
+        print("\nScore Report:")
+        print(f"  - Valid: {score_report.valid}")
+        print(f"  - Total Score: {score_report.total_score}")
+        print(f"  - Component Scores: {score_report.component_scores}")
+        if score_report.hard_violations:
+            print("  - Hard Violations:")
+            for violation in score_report.hard_violations:
+                print(f"    * {violation}")
+        print(f"  - Diagnostics: {score_report.diagnostics}")
             
         print("\nRaw Solution:")
         print(solution)
