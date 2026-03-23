@@ -24,7 +24,7 @@ def add_basic_constraints(model, rooms: List[Room]):
 
         # Hallways use fixed-width / scalable-length — skip the global
         # aspect-ratio cap so they can be as elongated as needed.
-        if r.type == "Hallway":
+        if r.type == "hallway":
             continue
 
         model.Add(r.w * h_ratio <= r.h * w_ratio)  # type: ignore

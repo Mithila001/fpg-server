@@ -17,7 +17,6 @@ from .constraints.hallway_constraints import add_hallway_constraints
 
 
 _LIVING_MISS_PENALTY = 2000
-_HALLWAY_USAGE_PENALTY = 600
 
 
 def add_mandatory_data(
@@ -111,8 +110,7 @@ class FloorPlanGenerator:
 
         add_basic_constraints(self.model, self.rooms)
 
-        # Collect hallway activation metadata for objective penalties.
-        hallway_metadata = add_hallway_constraints(self.model, self.rooms)
+        add_hallway_constraints(self.model, self.rooms)
 
         with Session(engine) as session:
             relations = get_relation_constraints(session)
@@ -158,11 +156,6 @@ class FloorPlanGenerator:
         if missing_living_vars:
             objective_terms.append(
                 _LIVING_MISS_PENALTY * cp_model.LinearExpr.Sum(missing_living_vars)
-            )
-
-        if hallway_metadata and "hallway_usage_sum" in hallway_metadata:
-            objective_terms.append(
-                _HALLWAY_USAGE_PENALTY * hallway_metadata["hallway_usage_sum"]
             )
 
         self.model.Minimize(cp_model.LinearExpr.Sum(objective_terms))  # type: ignore[attr-defined]
