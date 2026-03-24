@@ -17,7 +17,7 @@ class FpFormatter:
     """Helper for preparing floor‑plan layouts for frontend tools.
 
     The formatter currently performs simple grid snapping, orientation
-    categorisation and collinear merging of wall segments.  It exists as an
+    categorization and collinear merging of wall segments.  It exists as an
     interim step until a full layout pipeline is available.
     """
 
