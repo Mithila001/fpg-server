@@ -39,7 +39,7 @@ router = APIRouter(prefix="/algorithms", tags=["algorithms"])
 @router.get("/format", response_model=FormatterResponse)
 def get_formatted_layout():
     """Run the DB-backed solver and return post-processed wall layout payload."""
-    payload = run_layout_pipeline(use_optuna=False, verbose=False)
+    payload = run_layout_pipeline(use_optuna=True, verbose=False)
 
     walls = [WallSegmentResponse(**wall) for wall in payload.get("walls", [])]
     rooms = [

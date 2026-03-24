@@ -11,6 +11,7 @@ from .constraints.floor_area_coverage import add_minimum_area_coverage
 from .constraints.room_size_hierarchy_constraints import add_room_size_hierarchy
 from .constraints.compact_layout import add_center_proximity_objective
 from .constraints.hallway_constraints import add_hallway_constraints
+from .constraints.room_location import room_location_hard, room_location_soft
 
 
 def _generate_hallway_rooms(
@@ -168,16 +169,24 @@ class FloorPlanGenerator:
             self.min_coverage,
         )
         add_room_size_hierarchy(self.model, self.rooms)
+        room_location_hard(self.model, self.rooms)
 
         # Soft objective: cluster rooms toward the center via Manhattan distance.
-        cost = add_center_proximity_objective(
+        center_cost = add_center_proximity_objective(
             self.model,
             self.rooms,
             self.floor_plan_width,
             self.floor_plan_height,
         )
+        bathroom_location_cost = room_location_soft(
+            self.model,
+            self.rooms,
+            self.floor_plan_height,
+            bathroom_weight=1,
+        )
+        total_cost = cp_model.LinearExpr.Sum([center_cost, bathroom_location_cost])  # type: ignore
 
-        self.model.Minimize(cost)
+        self.model.Minimize(total_cost)
 
         self.solver.parameters.max_time_in_seconds = 1.0
         self.solver.parameters.random_seed = random.randint(0, 1000)
