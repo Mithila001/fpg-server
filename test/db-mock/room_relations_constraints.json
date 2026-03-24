@@ -1,0 +1,17 @@
+[
+    {
+      "room_type": "bedroom",
+      "related_room": ["livingRoom", "hallway"],
+      "last_updated": "2026-03-25"
+    },
+    {
+      "room_type": "kitchen",
+      "related_room": ["livingRoom", "hallway"],
+      "last_updated": "2026-03-25"
+    },
+    {
+      "room_type": "bathroom",
+      "related_room": ["livingRoom", "bedroom"],
+      "last_updated": "2026-03-25"
+    }
+]

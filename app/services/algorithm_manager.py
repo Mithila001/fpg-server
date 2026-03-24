@@ -32,6 +32,11 @@ from app.crud import (
     room_relations_constraint as room_relations_constraint_crud,
 )
 from app.util.room_requirements import normalize_requirements
+from app.util.dev_use_mock_db import (
+    load_room_relations_constraints,
+    load_room_setup_templates,
+    load_room_size_constraints,
+)
 
 
 # Fallback room dimension used when a room_size_constraints column is NULL.
@@ -47,56 +52,63 @@ DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
 
 
 def _build_requirements_from_database() -> FpgRequirements | None:
-    with Session(engine) as session:
-        # Retrieve all database records
-        templates = room_setup_template_crud.get_all(session)
-        size_constraints = room_size_constraint_crud.get_all(session)
-        relation_constraints = room_relations_constraint_crud.get_all(session)
-        
-        print(f"Retrieved {len(templates)} templates")
-        print(f"Retrieved {len(size_constraints)} size constraints")
-        print(f"Retrieved {len(relation_constraints)} relation constraints")
-        
-        # If no templates, exit early
-        if not templates:
-            print("No room setup templates found in database")
-            return None
-        
-        # Use the first template as the basis
-        template = templates[0]
-        print(f"\nUsing template: {template.name}")
-        
-        # Build RoomData list from template data
-        rooms: List[RoomData] = []
-        if template.data:
-            for entry in template.data:
-                room_type = entry.get("type", "")
-                room_name = entry.get("name") or entry.get("id") or room_type
-                
-                rooms.append(
-                    RoomData(
-                        name=room_name,
-                        type=room_type,
-                        min_w=1,
-                        min_h=1,
-                        max_w=1,
-                        max_h=1,
-                    )
+    should_bypass = True
+
+    if should_bypass:
+        print("bypass function call")
+        templates = load_room_setup_templates()
+        size_constraints = load_room_size_constraints()
+        relation_constraints = load_room_relations_constraints()
+    else:
+        with Session(engine) as session:
+            templates = room_setup_template_crud.get_all(session)
+            size_constraints = room_size_constraint_crud.get_all(session)
+            relation_constraints = room_relations_constraint_crud.get_all(session)
+
+    print(f"Retrieved {len(templates)} templates")
+    print(f"Retrieved {len(size_constraints)} size constraints")
+    print(f"Retrieved {len(relation_constraints)} relation constraints")
+
+    # If no templates, exit early
+    if not templates:
+        print("No room setup templates found in database")
+        return None
+
+    # Use the first template as the basis
+    template = templates[0]
+    print(f"\nUsing template: {template.name}")
+
+    # Build RoomData list from template data
+    rooms: List[RoomData] = []
+    if template.data:
+        for entry in template.data:
+            room_type = entry.get("type", "")
+            room_name = entry.get("name") or entry.get("id") or room_type
+
+            rooms.append(
+                RoomData(
+                    name=room_name,
+                    type=room_type,
+                    min_w=1,
+                    min_h=1,
+                    max_w=1,
+                    max_h=1,
                 )
-        
-        print(f"Created {len(rooms)} RoomData objects")
-        for room in rooms:
-            print(f"  - {room.name} ({room.type}): {room.min_w}-{room.max_w} * {room.min_h}-{room.max_h}")
-        
-        # Normalize rooms based on database constraint rules
-        print("\nNormalizing rooms against database constraints...")
-        rooms = normalize_requirements(rooms, size_constraints)
-        
-        print(f"Normalized {len(rooms)} RoomData objects")
-        for room in rooms:
-            print(f"  - {room.name} ({room.type}): Min W: {room.min_w} - Max W: {room.max_w} * Min H: {room.min_h} - Max H: {room.max_h}")
-        
-        # Create ConfigData
+            )
+
+    print(f"Created {len(rooms)} RoomData objects")
+    for room in rooms:
+        print(f"  - {room.name} ({room.type}): {room.min_w}-{room.max_w} * {room.min_h}-{room.max_h}")
+
+    # Normalize rooms based on database constraint rules
+    print("\nNormalizing rooms against database constraints...")
+    rooms = normalize_requirements(rooms, size_constraints)
+
+    print(f"Normalized {len(rooms)} RoomData objects")
+    for room in rooms:
+        print(f"  - {room.name} ({room.type}): Min W: {room.min_w} - Max W: {room.max_w} * Min H: {room.min_h} - Max H: {room.max_h}")
+
+    # Create ConfigData
         config = ConfigData(
             min_coverage=MIN_COVERAGE,
             max_aspect_ratio=16.0,
