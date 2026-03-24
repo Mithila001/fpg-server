@@ -1,5 +1,6 @@
 import contextlib
 import io
+from datetime import datetime
 from typing import Any, List
 
 from app.algorithms.floor_plan_generator import FloorPlanGenerator
@@ -38,7 +39,9 @@ DEFAULT_ROOM_DIMENSION = 1000
 
 
 EMPTY_POST_PROCESS_LAYOUT = {"walls": [], "rooms": []}
-DEFAULT_OPTUNA_TRIALS = 20
+DEFAULT_OPTUNA_TRIALS = 5
+DEFAULT_OPTUNA_STORAGE_ENABLED = False
+DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
 
 
 
@@ -101,6 +104,11 @@ def _build_requirements_from_database() -> FpgRequirements | None:
             floor_plan_width=FLOOR_WIDTH,
             floor_plan_height=FLOOR_HEIGHT,
             hallway_count=1,
+            envelope_enabled=True,
+            envelope_min_gap=5,
+            envelope_max_gap=15,
+            envelope_exclude_types=["hallway"],
+            envelope_apply_sides=["left", "right", "top", "bottom"],
         )
         
         # Create FpgRequirements with relation constraints
@@ -211,14 +219,20 @@ def _OptunaEntry(
     requirements: FpgRequirements,
     n_trials: int = 50,
     study_name: str = "fpg_layout_optimization",
-    storage: str | None = "sqlite:///optuna_fpg.db",
 ) -> OptunaOptimizationResult:
-    print(f"\nRunning Optuna optimization for {n_trials} trials...")
+    storage = DEFAULT_OPTUNA_STORAGE_URL if DEFAULT_OPTUNA_STORAGE_ENABLED else None
+    mode = "database" if storage is not None else "in-memory"
+    # Use a unique study name per run to avoid reusing old trials from previous executions.
+    run_study_name = f"{study_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    print(
+        f"\nRunning Optuna optimization for {n_trials} trials "
+        f"({mode} study storage), study={run_study_name}..."
+    )
     result = run_optuna_optimization(
         base_requirements=requirements,
         evaluator=_RunFPG,
         n_trials=n_trials,
-        study_name=study_name,
+        study_name=run_study_name,
         storage=storage,
     )
 

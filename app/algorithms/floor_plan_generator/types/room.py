@@ -18,6 +18,13 @@ class ConfigData:
     floor_plan_width: float
     floor_plan_height: float
     hallway_count: int = 1
+    envelope_enabled: bool = True
+    envelope_min_gap: int = 5
+    envelope_max_gap: int = 15
+    envelope_exclude_types: list[str] = field(default_factory=lambda: ["hallway"])
+    envelope_apply_sides: list[str] = field(
+        default_factory=lambda: ["left", "right", "top", "bottom"]
+    )
 
 
 # Main Param Type

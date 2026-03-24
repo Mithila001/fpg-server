@@ -8,6 +8,7 @@ from .metrics_rectangularity import score_rectangularity
 from .types import ScoreReport
 from .validators import (
     validate_adjacency_relations,
+    validate_envelope_staircase_bounds,
     validate_no_overlap,
     validate_room_geometry,
 )
@@ -54,6 +55,20 @@ def score_layout(
             min_overlap=min_touch_overlap,
         )
     )
+    if bool(getattr(cfg, "envelope_enabled", True)):
+        hard_violations.extend(
+            validate_envelope_staircase_bounds(
+                solution,
+                min_gap=int(getattr(cfg, "envelope_min_gap", 5)),
+                max_gap=int(getattr(cfg, "envelope_max_gap", 15)),
+                exclude_types=getattr(cfg, "envelope_exclude_types", ["hallway"]),
+                apply_sides=getattr(
+                    cfg,
+                    "envelope_apply_sides",
+                    ["left", "right", "top", "bottom"],
+                ),
+            )
+        )
 
     coverage_score, coverage_diag = score_coverage(
         solution,

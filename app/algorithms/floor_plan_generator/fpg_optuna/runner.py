@@ -73,6 +73,19 @@ def mutate_requirements(base_requirements: FpgRequirements, trial: optuna.Trial)
         min_aspect_ratio=base_requirements.config.min_aspect_ratio,
         floor_plan_width=base_requirements.config.floor_plan_width,
         floor_plan_height=base_requirements.config.floor_plan_height,
+        envelope_enabled=bool(getattr(base_requirements.config, "envelope_enabled", True)),
+        envelope_min_gap=int(getattr(base_requirements.config, "envelope_min_gap", 5)),
+        envelope_max_gap=int(getattr(base_requirements.config, "envelope_max_gap", 15)),
+        envelope_exclude_types=list(
+            getattr(base_requirements.config, "envelope_exclude_types", ["hallway"])
+        ),
+        envelope_apply_sides=list(
+            getattr(
+                base_requirements.config,
+                "envelope_apply_sides",
+                ["left", "right", "top", "bottom"],
+            )
+        ),
     )
 
     return FpgRequirements(
@@ -182,6 +195,19 @@ def _requirements_from_best_params(
         min_aspect_ratio=base_requirements.config.min_aspect_ratio,
         floor_plan_width=base_requirements.config.floor_plan_width,
         floor_plan_height=base_requirements.config.floor_plan_height,
+        envelope_enabled=bool(getattr(base_requirements.config, "envelope_enabled", True)),
+        envelope_min_gap=int(getattr(base_requirements.config, "envelope_min_gap", 5)),
+        envelope_max_gap=int(getattr(base_requirements.config, "envelope_max_gap", 15)),
+        envelope_exclude_types=list(
+            getattr(base_requirements.config, "envelope_exclude_types", ["hallway"])
+        ),
+        envelope_apply_sides=list(
+            getattr(
+                base_requirements.config,
+                "envelope_apply_sides",
+                ["left", "right", "top", "bottom"],
+            )
+        ),
     )
 
     return FpgRequirements(

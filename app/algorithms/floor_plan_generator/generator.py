@@ -12,6 +12,7 @@ from .constraints.room_size_hierarchy_constraints import add_room_size_hierarchy
 from .constraints.compact_layout import add_center_proximity_objective
 from .constraints.hallway_constraints import add_hallway_constraints
 from .constraints.room_location import room_location_hard, room_location_soft
+from .constraints.envelope_staircase import add_envelope_staircase_constraints
 
 
 def _generate_hallway_rooms(
@@ -99,6 +100,18 @@ class FloorPlanGenerator:
         self.floor_plan_height: float = cfg.floor_plan_height
         self.min_coverage: float = cfg.min_coverage
         self.hallway_count: int = max(0, int(cfg.hallway_count))
+        self.envelope_enabled: bool = bool(getattr(cfg, "envelope_enabled", True))
+        self.envelope_min_gap: int = max(1, int(getattr(cfg, "envelope_min_gap", 5)))
+        self.envelope_max_gap: int = max(
+            self.envelope_min_gap,
+            int(getattr(cfg, "envelope_max_gap", 15)),
+        )
+        self.envelope_exclude_types: set[str] = {
+            str(t).lower() for t in (getattr(cfg, "envelope_exclude_types", ["hallway"]) or [])
+        }
+        self.envelope_apply_sides: set[str] = {
+            str(side).lower() for side in (getattr(cfg, "envelope_apply_sides", ["left", "right", "top", "bottom"]) or [])
+        }
 
         self.model = cp_model.CpModel()
         self.solver = cp_model.CpSolver()
@@ -158,7 +171,7 @@ class FloorPlanGenerator:
             self.rooms,
             hardRelations=all_relations,
             softRelations=all_relations,
-            min_overlap=1,
+            min_overlap=10,
         )
 
         add_minimum_area_coverage(
@@ -170,6 +183,17 @@ class FloorPlanGenerator:
         )
         add_room_size_hierarchy(self.model, self.rooms)
         room_location_hard(self.model, self.rooms)
+        if self.envelope_enabled:
+            add_envelope_staircase_constraints(
+                self.model,
+                self.rooms,
+                floor_width=w_int,
+                floor_height=h_int,
+                min_gap=self.envelope_min_gap,
+                max_gap=self.envelope_max_gap,
+                exclude_types=self.envelope_exclude_types,
+                apply_sides=self.envelope_apply_sides,
+            )
 
         # Soft objective: cluster rooms toward the center via Manhattan distance.
         center_cost = add_center_proximity_objective(
