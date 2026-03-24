@@ -16,6 +16,8 @@ from .types import FpgEvaluationResult, OptunaOptimizationResult
 EVALUATION_FN = Callable[[FpgRequirements, bool], FpgEvaluationResult]
 
 
+
+
 def _trial_param_key(room: RoomData, index: int, suffix: str) -> str:
     return f"room_{index}_{room.type}_{suffix}"
 
@@ -227,9 +229,33 @@ def run_optuna_optimization(
     """Run Optuna optimization for floor-plan requirements."""
 
     best_run_by_trial: dict[int, FpgEvaluationResult] = {}
+    
+    # Log limited by this Code, Remove this line to enable Default logs 
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+    
+
 
     def objective(trial: optuna.Trial) -> float:
         trial_requirements = mutate_requirements(base_requirements, trial)
+        
+        # user custom debug print
+        picked = {
+            "hallway_count": trial_requirements.config.hallway_count,
+            "min_coverage": trial_requirements.config.min_coverage,
+            # include room params if you want:
+            "rooms": [
+                {
+                    "name": r.name,
+                    "type": r.type,
+                    # "min_w": r.min_w,
+                    # "min_h": r.min_h,
+                    # "max_w": r.max_w,
+                    # "max_h": r.max_h,
+                }
+                for r in trial_requirements.rooms
+            ],
+        }
+        print(f"[CUSTOM OPTUNA] Trial {trial.number} picked values: {picked}\n\n")
 
         ok, reason = _precheck(trial_requirements)
         if not ok:
@@ -239,6 +265,17 @@ def run_optuna_optimization(
             return 0.0
 
         result = evaluator(trial_requirements, False)
+        
+        # add score to log
+        score = (
+            float(result.score_report.total_score)
+            if result.score_report is not None and result.score_report.total_score is not None
+            else None
+        )
+        print(
+            f"[CUSTOM OPTUNA] Trial {trial.number} params={picked} "
+            f"score={score} solver_status={result.status}"
+        )
         best_run_by_trial[trial.number] = result
 
         trial.set_user_attr("status", result.status)
@@ -254,6 +291,7 @@ def run_optuna_optimization(
             trial.set_user_attr("hard_violations", result.score_report.hard_violations)
             return 0.0
 
+        
         return float(result.score_report.total_score)
 
     sampler = optuna.samplers.TPESampler()

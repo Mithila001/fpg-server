@@ -44,7 +44,7 @@ DEFAULT_ROOM_DIMENSION = 1000
 
 
 EMPTY_POST_PROCESS_LAYOUT = {"walls": [], "rooms": []}
-DEFAULT_OPTUNA_TRIALS = 5
+DEFAULT_OPTUNA_TRIALS = 10
 DEFAULT_OPTUNA_STORAGE_ENABLED = False
 DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
 
@@ -68,6 +68,12 @@ def _build_requirements_from_database() -> FpgRequirements | None:
     print(f"Retrieved {len(templates)} templates")
     print(f"Retrieved {len(size_constraints)} size constraints")
     print(f"Retrieved {len(relation_constraints)} relation constraints")
+
+    # debug: print loaded values
+    print("Templates:", templates)
+    print("Size constraints:", size_constraints)
+    print("Relation constraints:", relation_constraints)
+    
 
     # If no templates, exit early
     if not templates:

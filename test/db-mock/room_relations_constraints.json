@@ -1,12 +1,12 @@
 [
     {
       "room_type": "bedroom",
-      "related_room": ["livingRoom", "hallway"],
+      "related_room": ["livingRoom"],
       "last_updated": "2026-03-25"
     },
     {
       "room_type": "kitchen",
-      "related_room": ["livingRoom", "hallway"],
+      "related_room": ["livingRoom"],
       "last_updated": "2026-03-25"
     },
     {
