@@ -100,6 +100,7 @@ def _build_requirements_from_database() -> FpgRequirements | None:
             min_aspect_ratio=0.0,
             floor_plan_width=FLOOR_WIDTH,
             floor_plan_height=FLOOR_HEIGHT,
+            hallway_count=1,
         )
         
         # Create FpgRequirements with relation constraints

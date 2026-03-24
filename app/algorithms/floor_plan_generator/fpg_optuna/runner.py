@@ -68,6 +68,7 @@ def mutate_requirements(base_requirements: FpgRequirements, trial: optuna.Trial)
 
     tuned_config = ConfigData(
         min_coverage=trial.suggest_float("config_min_coverage", 0.30, 0.90, step=0.05),
+        hallway_count=trial.suggest_int("hallway_count", 0, 3),
         max_aspect_ratio=base_requirements.config.max_aspect_ratio,
         min_aspect_ratio=base_requirements.config.min_aspect_ratio,
         floor_plan_width=base_requirements.config.floor_plan_width,
@@ -170,9 +171,13 @@ def _requirements_from_best_params(
         best_params.get("config_min_coverage", float(base_requirements.config.min_coverage))
     )
     coverage = min(1.0, max(0.01, coverage))
+    base_hallway_count = int(getattr(base_requirements.config, "hallway_count", 1))
+    hallway_count = int(best_params.get("hallway_count", base_hallway_count))
+    hallway_count = max(0, min(3, hallway_count))
 
     tuned_config = ConfigData(
         min_coverage=coverage,
+        hallway_count=hallway_count,
         max_aspect_ratio=base_requirements.config.max_aspect_ratio,
         min_aspect_ratio=base_requirements.config.min_aspect_ratio,
         floor_plan_width=base_requirements.config.floor_plan_width,

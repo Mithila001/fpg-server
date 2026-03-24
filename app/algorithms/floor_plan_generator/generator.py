@@ -13,9 +13,38 @@ from .constraints.compact_layout import add_center_proximity_objective
 from .constraints.hallway_constraints import add_hallway_constraints
 
 
+def _generate_hallway_rooms(
+    hallway_count: int,
+    floor_width: float,
+    floor_height: float,
+) -> List[Room]:
+    """Create hallway rooms based on configured hallway count."""
+    if hallway_count <= 0:
+        return []
+
+    max_w = max(5, int(floor_width * 0.8))
+    max_h = max(5, int(floor_height * 0.8))
+
+    hallways: list[Room] = []
+    for i in range(hallway_count):
+        hallways.append(
+            Room(
+                f"hallway{i + 1}",
+                5,
+                5,
+                max_w,
+                max_h,
+                "hallway",
+            )
+        )
+
+    return hallways
+
+
 def add_mandatory_data(
     floor_width: float,
     floor_height: float,
+    hallway_count: int,
 ) -> Tuple[List[Room], List[RoomRelationsConstraintBase]]:
     """Create mandatory rooms and their hardcoded relation rules.
 
@@ -38,17 +67,9 @@ def add_mandatory_data(
         "livingRoom",
     )
 
-    # Hallway size is restricted later by hallway constraints.
-    hallway_room = Room(
-        "Hallway",
-        0,
-        0,
-        int(floor_width),
-        int(floor_height),
-        "hallway",
-    )
+    hallway_rooms = _generate_hallway_rooms(hallway_count, floor_width, floor_height)
 
-    mandatory_rooms = [living_room, hallway_room]
+    mandatory_rooms = [living_room] + hallway_rooms
 
     # Relation list is intentionally empty; hallway/living linkage is enforced
     # by hallway constraints in the solver phase.
@@ -76,6 +97,7 @@ class FloorPlanGenerator:
         self.floor_plan_width: float = cfg.floor_plan_width
         self.floor_plan_height: float = cfg.floor_plan_height
         self.min_coverage: float = cfg.min_coverage
+        self.hallway_count: int = max(0, int(cfg.hallway_count))
 
         self.model = cp_model.CpModel()
         self.solver = cp_model.CpSolver()
@@ -91,13 +113,20 @@ class FloorPlanGenerator:
         # Add mandatory rooms (living room + hallway) from code, not user input.
         # Avoid duplicates if upstream payload already includes those types.
         mandatory_rooms, self.mandatory_relations = add_mandatory_data(
-            self.floor_plan_width, self.floor_plan_height
+            self.floor_plan_width,
+            self.floor_plan_height,
+            self.hallway_count,
         )
         existing_types = {r.type for r in self.rooms}
+        existing_names = {r.name for r in self.rooms}
         for room in mandatory_rooms:
-            if room.type not in existing_types:
+            if room.type == "livingRoom":
+                if room.type not in existing_types:
+                    self.rooms.append(room)
+                    existing_types.add(room.type)
+            elif room.name not in existing_names:
                 self.rooms.append(room)
-                existing_types.add(room.type)
+                existing_names.add(room.name)
 
     def generate(self) -> bool:
         """Build and solve the floor plan. Returns True if a solution was found."""
@@ -112,7 +141,8 @@ class FloorPlanGenerator:
 
         add_basic_constraints(self.model, self.rooms)
 
-        add_hallway_constraints(self.model, self.rooms)
+        if self.hallway_count > 0:
+            add_hallway_constraints(self.model, self.rooms)
 
         # Use relation constraints from requirements (passed from algorithm_manager)
         relations_schema = [

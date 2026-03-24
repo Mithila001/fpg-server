@@ -17,6 +17,7 @@ class ConfigData:
     min_aspect_ratio: float
     floor_plan_width: float
     floor_plan_height: float
+    hallway_count: int = 1
 
 
 # Main Param Type
