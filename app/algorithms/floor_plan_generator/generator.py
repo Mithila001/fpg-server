@@ -151,11 +151,13 @@ class FloorPlanGenerator:
 
         all_relations = self.mandatory_relations + relations_schema
 
+        # Use fixed adjacency overlap requirement (at least 1 unit of shared edge).
         adjacency_constraints(
             self.model,
             self.rooms,
             hardRelations=all_relations,
             softRelations=all_relations,
+            min_overlap=1,
         )
 
         add_minimum_area_coverage(

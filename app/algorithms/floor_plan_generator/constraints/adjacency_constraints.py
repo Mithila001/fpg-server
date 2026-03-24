@@ -10,6 +10,7 @@ def _conditional_constraint(
     room1: Room,
     room2: Room,
     enforcer: Any | None = None,
+    min_overlap: int = 1,
 ) -> None:
     """Require two rooms to share an edge when active."""
 
@@ -43,23 +44,22 @@ def _conditional_constraint(
     else:
         model.AddBoolOr([touch_right, touch_left, touch_top, touch_bottom])  # type: ignore[attr-defined]
 
-    MIN_OVERLAP = 1
-
     # Vertical-face touches (left/right) require overlap on y-axis.
     for t in (touch_right, touch_left):
-        model.Add(room1.y + MIN_OVERLAP <= room2.y_end).OnlyEnforceIf(conds + [t])  # type: ignore
-        model.Add(room2.y + MIN_OVERLAP <= room1.y_end).OnlyEnforceIf(conds + [t])  # type: ignore
+        model.Add(room1.y + min_overlap <= room2.y_end).OnlyEnforceIf(conds + [t])  # type: ignore
+        model.Add(room2.y + min_overlap <= room1.y_end).OnlyEnforceIf(conds + [t])  # type: ignore
 
     # Horizontal-face touches (top/bottom) require overlap on x-axis.
     for t in (touch_top, touch_bottom):
-        model.Add(room1.x + MIN_OVERLAP <= room2.x_end).OnlyEnforceIf(conds + [t])  # type: ignore
-        model.Add(room2.x + MIN_OVERLAP <= room1.x_end).OnlyEnforceIf(conds + [t])  # type: ignore
+        model.Add(room1.x + min_overlap <= room2.x_end).OnlyEnforceIf(conds + [t])  # type: ignore
+        model.Add(room2.x + min_overlap <= room1.x_end).OnlyEnforceIf(conds + [t])  # type: ignore
 
 
 def _hard_adjacency_constraints(
     model: cp_model.CpModel,
     rooms_list: List[Room],
     hardRelations: List[RoomRelationsConstraintBase],
+    min_overlap: int = 1,
 ) -> None:
     """Apply hard adjacency relations as mandatory per-required-type connections.
     
@@ -107,7 +107,13 @@ def _hard_adjacency_constraints(
                     print(
                         f"[adjacency]    - adding conditional adjacency bool var '{is_adj.Name()}' for '{room.name}' <-> '{candidate.name}'"
                     )
-                    _conditional_constraint(model, room, candidate, enforcer=is_adj)
+                    _conditional_constraint(
+                        model,
+                        room,
+                        candidate,
+                        enforcer=is_adj,
+                        min_overlap=min_overlap,
+                    )
 
                 model.AddBoolOr(adj_switches)  # type: ignore
                 print(
@@ -120,6 +126,7 @@ def adjacency_constraints(
     rooms_list: List[Room],
     hardRelations: Optional[List[RoomRelationsConstraintBase]] = None,
     softRelations: Optional[List[RoomRelationsConstraintBase]] = None,
+    min_overlap: int = 1,
 ) -> List[cp_model.IntVar]:
     """Apply adjacency constraints.
 
@@ -133,6 +140,6 @@ def adjacency_constraints(
     if not isinstance(softRelations, list) or not softRelations:
         return []
 
-    _hard_adjacency_constraints(model, rooms_list, hardRelations)
+    _hard_adjacency_constraints(model, rooms_list, hardRelations, min_overlap=min_overlap)
 
     return []
