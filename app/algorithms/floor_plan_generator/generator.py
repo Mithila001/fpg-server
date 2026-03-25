@@ -4,6 +4,8 @@ from typing import List, Tuple
 from .solver_models.room import Room
 from .types.room import FpgRequirements
 from .rules import normalize_requirements
+from .utils.generator.util_hallway_rooms import generate_hallway_rooms
+from .utils.generator.util_living_room import generate_living_room
 from .constraints.basic_constraints import add_basic_constraints
 from .constraints.adjacency_constraints import adjacency_constraints
 from app.schemas.db.room_relations_constraints import RoomRelationsConstraintBase
@@ -13,71 +15,6 @@ from .constraints.compact_layout import add_center_proximity_objective
 from .constraints.hallway_constraints import add_hallway_constraints
 from .constraints.room_location import room_location_hard, room_location_soft
 from .constraints.envelope_staircase import add_envelope_staircase_constraints
-
-
-def _generate_hallway_rooms(
-    hallway_count: int,
-    floor_width: float,
-    floor_height: float,
-) -> List[Room]:
-    """Create hallway rooms based on configured hallway count."""
-    if hallway_count <= 0:
-        return []
-
-    max_w = max(5, int(floor_width * 0.8))
-    max_h = max(5, int(floor_height * 0.8))
-
-    hallways: list[Room] = []
-    for i in range(hallway_count):
-        hallways.append(
-            Room(
-                f"hallway{i + 1}",
-                5,
-                5,
-                max_w,
-                max_h,
-                "hallway",
-            )
-        )
-
-    return hallways
-
-
-def add_mandatory_data(
-    floor_width: float,
-    floor_height: float,
-    hallway_count: int,
-) -> Tuple[List[Room], List[RoomRelationsConstraintBase]]:
-    """Create mandatory rooms and their hardcoded relation rules.
-
-    Returns:
-        Tuple of (mandatory_rooms, mandatory_relations)
-        - mandatory_rooms: List of Room objects (living room, hallway(s))
-        - mandatory_relations: List of pre-defined RoomRelationsConstraintBase
-          defining rules for mandatory rooms (e.g., hallway must touch living room)
-
-    These are system-mandatory and not configurable via database input.
-    They are merged with user-provided database relations during generation.
-    """
-    # Keep bounds permissive so mandatory rooms can coexist on small floors.
-    living_room = Room(
-        "Living Room",
-        0,
-        0,
-        int(floor_width),
-        int(floor_height),
-        "livingRoom",
-    )
-
-    hallway_rooms = _generate_hallway_rooms(hallway_count, floor_width, floor_height)
-
-    mandatory_rooms = [living_room] + hallway_rooms
-
-    # Relation list is intentionally empty; hallway/living linkage is enforced
-    # by hallway constraints in the solver phase.
-    mandatory_relations = []
-
-    return mandatory_rooms, mandatory_relations
 
 
 class FloorPlanGenerator:
@@ -91,7 +28,7 @@ class FloorPlanGenerator:
         so that downstream code can rely on sensible numeric values.
         """
         # Store relation constraints from requirements before normalization
-        self.relation_constraints_raw = requirements.relation_constraints
+        self.relation_constraints = requirements.relation_constraints
         
         requirements = normalize_requirements(requirements)
 
@@ -126,14 +63,14 @@ class FloorPlanGenerator:
 
         # Add mandatory rooms (living room + hallway) from code, not user input.
         # Avoid duplicates if upstream payload already includes those types.
-        mandatory_rooms, self.mandatory_relations = add_mandatory_data(
-            self.floor_plan_width,
-            self.floor_plan_height,
-            self.hallway_count,
-        )
+        living_room = generate_living_room(requirements)
+        hallway_rooms = generate_hallway_rooms(requirements)
+        system_added_rooms = [living_room] + hallway_rooms
+        self.mandatory_relations = []
+
         existing_types = {r.type for r in self.rooms}
         existing_names = {r.name for r in self.rooms}
-        for room in mandatory_rooms:
+        for room in system_added_rooms:
             if room.type == "livingRoom":
                 if room.type not in existing_types:
                     self.rooms.append(room)
@@ -160,7 +97,7 @@ class FloorPlanGenerator:
 
         # Use relation constraints from requirements (passed from algorithm_manager)
         relations_schema = [
-            RoomRelationsConstraintBase.model_validate(r) for r in self.relation_constraints_raw
+            RoomRelationsConstraintBase.model_validate(r) for r in self.relation_constraints
         ]  # type: ignore[assignment]
 
         all_relations = self.mandatory_relations + relations_schema
