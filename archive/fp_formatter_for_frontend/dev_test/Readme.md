@@ -1,1 +1,0 @@
-# This is a temporary Directory to do testing and store development related tools. This directory will be removed later. 

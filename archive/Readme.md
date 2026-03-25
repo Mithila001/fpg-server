@@ -1,1 +1,0 @@
-# Ignore this directory. DO NOT READ. OUTDATE CONTENT !!!
