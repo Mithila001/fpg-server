@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from time import time
 
 from app.services.algorithm_manager import run_layout_pipeline
+# from app.util.logger import SystemLogger
 
 # In-memory per-client rate limit tracker (simple, single-process)
 _last_format_request: dict[str, float] = {}

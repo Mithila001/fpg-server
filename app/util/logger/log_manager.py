@@ -20,13 +20,23 @@ class _JsonlFormatter(logging.Formatter):
             payload = {"value": payload}
 
         event = getattr(record, "event", None)
+        timestamp = datetime.now(timezone.utc).isoformat()
         entry: dict[str, Any] = {
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "time": timestamp,
+            "ts": timestamp,
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
             "data": payload,
         }
+        filename = getattr(record, "source_filename", None)
+        if filename is not None:
+            entry["filename"] = str(filename)
+
+        sector = getattr(record, "sector", None)
+        if sector is not None:
+            entry["sector"] = str(sector)
+
         if event is not None:
             entry["event"] = str(event)
 
@@ -137,13 +147,24 @@ class LogManager:
         payload: dict[str, Any] | None = None,
         level: int = logging.INFO,
         message: str = "",
+        filename: str | None = None,
+        sector: str | None = None,
     ) -> None:
         """Write a structured use-case event; never raise to callers."""
         logger = LogManager.get_logger(use_case)
         safe_payload = payload or {}
 
         try:
-            logger.log(level, message, extra={"event": event, "payload": safe_payload})
+            logger.log(
+                level,
+                message,
+                extra={
+                    "event": event,
+                    "payload": safe_payload,
+                    "source_filename": filename,
+                    "sector": sector,
+                },
+            )
         except Exception as exc:  # noqa: BLE001
             LogManager._warn_console_once(
                 f"LogManager fallback: failed to write event '{event}' for '{use_case}': {exc}"
