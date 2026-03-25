@@ -10,6 +10,25 @@ from app.algorithms.floor_plan_generator.types.room import (
     FpgRequirements,
     RoomData,
 )
+from app.core.config_optuna import (
+    OPTUNA_DEFAULT_STUDY_NAME,
+    OPTUNA_DEFAULT_TRIALS,
+    OPTUNA_DIMENSION_MAX_JITTER,
+    OPTUNA_DIMENSION_MIN_JITTER,
+    OPTUNA_ENVELOPE_APPLY_SIDES_DEFAULT,
+    OPTUNA_ENVELOPE_ENABLED_DEFAULT,
+    OPTUNA_ENVELOPE_EXCLUDE_TYPES_DEFAULT,
+    OPTUNA_ENVELOPE_MAX_GAP_DEFAULT,
+    OPTUNA_ENVELOPE_MIN_GAP_DEFAULT,
+    OPTUNA_HALLWAY_COUNT_MAX,
+    OPTUNA_HALLWAY_COUNT_MIN,
+    OPTUNA_MIN_COVERAGE_FLOOR,
+    OPTUNA_MIN_COVERAGE_HIGH,
+    OPTUNA_MIN_COVERAGE_LOW,
+    OPTUNA_MIN_COVERAGE_STEP,
+    OPTUNA_PARAM_KEY_HALLWAY_COUNT,
+    OPTUNA_PARAM_KEY_MIN_COVERAGE,
+)
 from app.util.logger.optuna_logger import OptunaLogger
 
 from .types import FpgEvaluationResult, OptunaOptimizationResult
@@ -35,20 +54,20 @@ def _tune_room_dimension(
     base_min_w = max(1, min(int(room.min_w), base_max_w))
     base_min_h = max(1, min(int(room.min_h), base_max_h))
 
-    min_w_low = max(1, base_min_w - 5)
-    min_w_high = min(base_max_w, base_min_w + 5)
+    min_w_low = max(1, base_min_w - OPTUNA_DIMENSION_MIN_JITTER)
+    min_w_high = min(base_max_w, base_min_w + OPTUNA_DIMENSION_MIN_JITTER)
     min_w = trial.suggest_int(_trial_param_key(room, index, "min_w"), min_w_low, min_w_high)
 
-    min_h_low = max(1, base_min_h - 5)
-    min_h_high = min(base_max_h, base_min_h + 5)
+    min_h_low = max(1, base_min_h - OPTUNA_DIMENSION_MIN_JITTER)
+    min_h_high = min(base_max_h, base_min_h + OPTUNA_DIMENSION_MIN_JITTER)
     min_h = trial.suggest_int(_trial_param_key(room, index, "min_h"), min_h_low, min_h_high)
 
-    max_w_low = max(min_w, max(1, base_max_w - 10))
-    max_w_high = max(max_w_low, min(floor_w, base_max_w + 10))
+    max_w_low = max(min_w, max(1, base_max_w - OPTUNA_DIMENSION_MAX_JITTER))
+    max_w_high = max(max_w_low, min(floor_w, base_max_w + OPTUNA_DIMENSION_MAX_JITTER))
     max_w = trial.suggest_int(_trial_param_key(room, index, "max_w"), max_w_low, max_w_high)
 
-    max_h_low = max(min_h, max(1, base_max_h - 10))
-    max_h_high = max(max_h_low, min(floor_h, base_max_h + 10))
+    max_h_low = max(min_h, max(1, base_max_h - OPTUNA_DIMENSION_MAX_JITTER))
+    max_h_high = max(max_h_low, min(floor_h, base_max_h + OPTUNA_DIMENSION_MAX_JITTER))
     max_h = trial.suggest_int(_trial_param_key(room, index, "max_h"), max_h_low, max_h_high)
 
     return RoomData(
@@ -70,23 +89,54 @@ def mutate_requirements(base_requirements: FpgRequirements, trial: optuna.Trial)
         tuned_rooms.append(_tune_room_dimension(trial, floor_w, floor_h, room, idx))
 
     tuned_config = ConfigData(
-        min_coverage=trial.suggest_float("config_min_coverage", 0.30, 0.90, step=0.05),
-        hallway_count=trial.suggest_int("hallway_count", 0, 3),
+        min_coverage=trial.suggest_float(
+            OPTUNA_PARAM_KEY_MIN_COVERAGE,
+            OPTUNA_MIN_COVERAGE_LOW,
+            OPTUNA_MIN_COVERAGE_HIGH,
+            step=OPTUNA_MIN_COVERAGE_STEP,
+        ),
+        hallway_count=trial.suggest_int(
+            OPTUNA_PARAM_KEY_HALLWAY_COUNT,
+            OPTUNA_HALLWAY_COUNT_MIN,
+            OPTUNA_HALLWAY_COUNT_MAX,
+        ),
         max_aspect_ratio=base_requirements.config.max_aspect_ratio,
         min_aspect_ratio=base_requirements.config.min_aspect_ratio,
         floor_plan_width=base_requirements.config.floor_plan_width,
         floor_plan_height=base_requirements.config.floor_plan_height,
-        envelope_enabled=bool(getattr(base_requirements.config, "envelope_enabled", True)),
-        envelope_min_gap=int(getattr(base_requirements.config, "envelope_min_gap", 5)),
-        envelope_max_gap=int(getattr(base_requirements.config, "envelope_max_gap", 15)),
+        envelope_enabled=bool(
+            getattr(
+                base_requirements.config,
+                "envelope_enabled",
+                OPTUNA_ENVELOPE_ENABLED_DEFAULT,
+            )
+        ),
+        envelope_min_gap=int(
+            getattr(
+                base_requirements.config,
+                "envelope_min_gap",
+                OPTUNA_ENVELOPE_MIN_GAP_DEFAULT,
+            )
+        ),
+        envelope_max_gap=int(
+            getattr(
+                base_requirements.config,
+                "envelope_max_gap",
+                OPTUNA_ENVELOPE_MAX_GAP_DEFAULT,
+            )
+        ),
         envelope_exclude_types=list(
-            getattr(base_requirements.config, "envelope_exclude_types", ["hallway"])
+            getattr(
+                base_requirements.config,
+                "envelope_exclude_types",
+                OPTUNA_ENVELOPE_EXCLUDE_TYPES_DEFAULT,
+            )
         ),
         envelope_apply_sides=list(
             getattr(
                 base_requirements.config,
                 "envelope_apply_sides",
-                ["left", "right", "top", "bottom"],
+                OPTUNA_ENVELOPE_APPLY_SIDES_DEFAULT,
             )
         ),
     )
@@ -184,12 +234,15 @@ def _requirements_from_best_params(
         )
 
     coverage = float(
-        best_params.get("config_min_coverage", float(base_requirements.config.min_coverage))
+        best_params.get(
+            OPTUNA_PARAM_KEY_MIN_COVERAGE,
+            float(base_requirements.config.min_coverage),
+        )
     )
-    coverage = min(1.0, max(0.01, coverage))
+    coverage = min(1.0, max(OPTUNA_MIN_COVERAGE_FLOOR, coverage))
     base_hallway_count = int(getattr(base_requirements.config, "hallway_count", 1))
-    hallway_count = int(best_params.get("hallway_count", base_hallway_count))
-    hallway_count = max(0, min(3, hallway_count))
+    hallway_count = int(best_params.get(OPTUNA_PARAM_KEY_HALLWAY_COUNT, base_hallway_count))
+    hallway_count = max(OPTUNA_HALLWAY_COUNT_MIN, min(OPTUNA_HALLWAY_COUNT_MAX, hallway_count))
 
     tuned_config = ConfigData(
         min_coverage=coverage,
@@ -198,17 +251,39 @@ def _requirements_from_best_params(
         min_aspect_ratio=base_requirements.config.min_aspect_ratio,
         floor_plan_width=base_requirements.config.floor_plan_width,
         floor_plan_height=base_requirements.config.floor_plan_height,
-        envelope_enabled=bool(getattr(base_requirements.config, "envelope_enabled", True)),
-        envelope_min_gap=int(getattr(base_requirements.config, "envelope_min_gap", 5)),
-        envelope_max_gap=int(getattr(base_requirements.config, "envelope_max_gap", 15)),
+        envelope_enabled=bool(
+            getattr(
+                base_requirements.config,
+                "envelope_enabled",
+                OPTUNA_ENVELOPE_ENABLED_DEFAULT,
+            )
+        ),
+        envelope_min_gap=int(
+            getattr(
+                base_requirements.config,
+                "envelope_min_gap",
+                OPTUNA_ENVELOPE_MIN_GAP_DEFAULT,
+            )
+        ),
+        envelope_max_gap=int(
+            getattr(
+                base_requirements.config,
+                "envelope_max_gap",
+                OPTUNA_ENVELOPE_MAX_GAP_DEFAULT,
+            )
+        ),
         envelope_exclude_types=list(
-            getattr(base_requirements.config, "envelope_exclude_types", ["hallway"])
+            getattr(
+                base_requirements.config,
+                "envelope_exclude_types",
+                OPTUNA_ENVELOPE_EXCLUDE_TYPES_DEFAULT,
+            )
         ),
         envelope_apply_sides=list(
             getattr(
                 base_requirements.config,
                 "envelope_apply_sides",
-                ["left", "right", "top", "bottom"],
+                OPTUNA_ENVELOPE_APPLY_SIDES_DEFAULT,
             )
         ),
     )
@@ -223,8 +298,8 @@ def _requirements_from_best_params(
 def run_optuna_optimization(
     base_requirements: FpgRequirements,
     evaluator: EVALUATION_FN,
-    n_trials: int = 50,
-    study_name: str = "fpg_layout_optimization",
+    n_trials: int = OPTUNA_DEFAULT_TRIALS,
+    study_name: str = OPTUNA_DEFAULT_STUDY_NAME,
     storage: str | None = None,
 ) -> OptunaOptimizationResult:
     """Run Optuna optimization for floor-plan requirements."""

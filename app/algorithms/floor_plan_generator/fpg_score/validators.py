@@ -2,6 +2,14 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Sequence
 
+from app.core.config_score import (
+    SCORE_ENVELOPE_APPLY_SIDES,
+    SCORE_ENVELOPE_EXCLUDE_TYPES,
+    SCORE_ENVELOPE_MAX_GAP,
+    SCORE_ENVELOPE_MIN_GAP,
+    SCORE_VALIDATION_MIN_OVERLAP,
+)
+
 
 def _interval_overlap_len(a1: int, a2: int, b1: int, b2: int) -> int:
     return min(a2, b2) - max(a1, b1)
@@ -103,7 +111,7 @@ def validate_no_overlap(solution: Sequence[Dict[str, Any]]) -> List[str]:
 def validate_adjacency_relations(
     solution: Sequence[Dict[str, Any]],
     relation_constraints: Sequence[Any],
-    min_overlap: int = 1,
+    min_overlap: int = SCORE_VALIDATION_MIN_OVERLAP,
 ) -> List[str]:
     """Validate hard adjacency relations against solved rectangles.
 
@@ -174,8 +182,8 @@ def _strict_axis_overlap(
 
 def validate_envelope_staircase_bounds(
     solution: Sequence[Dict[str, Any]],
-    min_gap: int = 5,
-    max_gap: int = 15,
+    min_gap: int = SCORE_ENVELOPE_MIN_GAP,
+    max_gap: int = SCORE_ENVELOPE_MAX_GAP,
     exclude_types: Sequence[str] | None = None,
     apply_sides: Sequence[str] | None = None,
 ) -> List[str]:
@@ -191,9 +199,9 @@ def validate_envelope_staircase_bounds(
     min_gap = max(1, int(min_gap))
     max_gap = max(min_gap, int(max_gap))
 
-    excluded = {str(t).lower() for t in (exclude_types or ["hallway"])}
+    excluded = {str(t).lower() for t in (exclude_types or SCORE_ENVELOPE_EXCLUDE_TYPES)}
     sides = {
-        str(side).lower() for side in (apply_sides or ["left", "right", "top", "bottom"])
+        str(side).lower() for side in (apply_sides or SCORE_ENVELOPE_APPLY_SIDES)
     }
     sides = sides.intersection({"left", "right", "top", "bottom"})
     if not sides:
