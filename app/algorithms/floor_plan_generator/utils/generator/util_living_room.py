@@ -9,8 +9,8 @@ def generate_living_room(requirements: FpgRequirements) -> Room:
 
     living_room = Room(
         "Living Room",
-        0,
-        0,
+        300,
+        300,
         int(floor_width),
         int(floor_height),
         "livingRoom",
