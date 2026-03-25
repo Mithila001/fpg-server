@@ -14,6 +14,21 @@ from app.core.config_fpg import (
     FLOOR_WIDTH,
     FLOOR_HEIGHT,
     MIN_COVERAGE,
+    DEFAULT_OPTUNA_TRIALS,
+    DEFAULT_OPTUNA_STORAGE_ENABLED,
+    DEFAULT_OPTUNA_STORAGE_URL,
+    DEFAULT_ASPECT_RATIO_MAX,
+    DEFAULT_ASPECT_RATIO_MIN,
+    DEFAULT_HALLWAY_COUNT,
+    DEFAULT_MIN_W,
+    DEFAULT_MIN_H,
+    DEFAULT_MAX_W,
+    DEFAULT_MAX_H,
+    ENVELOPE_ENABLED,
+    ENVELOPE_MIN_GAP,
+    ENVELOPE_MAX_GAP,
+    ENVELOPE_EXCLUDE_TYPES,
+    ENVELOPE_APPLY_SIDES,
 )
 from app.algorithms.floor_plan_generator.fpg_score import score_layout
 from app.algorithms.floor_plan_generator.fpg_optuna import (
@@ -42,13 +57,9 @@ from app.util.logger import SystemLogger
 
 
 # Fallback room dimension used when a room_size_constraints column is NULL.
-DEFAULT_ROOM_DIMENSION = 1000
-
+# (unified in config_fpg)
 
 EMPTY_POST_PROCESS_LAYOUT = {"walls": [], "rooms": []}
-DEFAULT_OPTUNA_TRIALS = 10
-DEFAULT_OPTUNA_STORAGE_ENABLED = False
-DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
 
 
 
@@ -97,10 +108,10 @@ def _build_requirements_from_database() -> FpgRequirements | None:
                 RoomData(
                     name=room_name,
                     type=room_type,
-                    min_w=1,
-                    min_h=1,
-                    max_w=1,
-                    max_h=1,
+                    min_w=DEFAULT_MIN_W,
+                    min_h=DEFAULT_MIN_H,
+                    max_w=DEFAULT_MAX_W,
+                    max_h=DEFAULT_MAX_H,
                 )
             )
 
@@ -119,16 +130,16 @@ def _build_requirements_from_database() -> FpgRequirements | None:
     # Create ConfigData
         config = ConfigData(
             min_coverage=MIN_COVERAGE,
-            max_aspect_ratio=16.0,
-            min_aspect_ratio=0.0,
+            max_aspect_ratio=DEFAULT_ASPECT_RATIO_MAX,
+            min_aspect_ratio=DEFAULT_ASPECT_RATIO_MIN,
             floor_plan_width=FLOOR_WIDTH,
             floor_plan_height=FLOOR_HEIGHT,
-            hallway_count=1,
-            envelope_enabled=True,
-            envelope_min_gap=5,
-            envelope_max_gap=15,
-            envelope_exclude_types=["hallway"],
-            envelope_apply_sides=["left", "right", "top", "bottom"],
+            hallway_count=DEFAULT_HALLWAY_COUNT,
+            envelope_enabled=ENVELOPE_ENABLED,
+            envelope_min_gap=ENVELOPE_MIN_GAP,
+            envelope_max_gap=ENVELOPE_MAX_GAP,
+            envelope_exclude_types=ENVELOPE_EXCLUDE_TYPES,
+            envelope_apply_sides=ENVELOPE_APPLY_SIDES,
         )
         
         # Create FpgRequirements with relation constraints

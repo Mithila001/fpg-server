@@ -17,6 +17,16 @@ from .constraints.compact_layout import add_center_proximity_objective
 from .constraints.hallway_constraints import add_hallway_constraints
 from .constraints.room_location import room_location_hard, room_location_soft
 from .constraints.envelope_staircase import add_envelope_staircase_constraints
+from app.core.config_fpg import (
+    ENVELOPE_ENABLED,
+    ENVELOPE_MIN_GAP,
+    ENVELOPE_MAX_GAP,
+    ENVELOPE_EXCLUDE_TYPES,
+    ENVELOPE_APPLY_SIDES,
+    GENERATOR_ADJACENCY_MIN_OVERLAP,
+    BATHROOM_LOCATION_WEIGHT,
+    DEFAULT_SOLVER_MAX_TIME_SECONDS,
+)
 
 
 class FloorPlanGenerator:
@@ -41,17 +51,17 @@ class FloorPlanGenerator:
         self.floor_plan_height: float = cfg.floor_plan_height
         self.min_coverage: float = cfg.min_coverage
         self.hallway_count: int = max(0, int(cfg.hallway_count))
-        self.envelope_enabled: bool = bool(getattr(cfg, "envelope_enabled", True))
-        self.envelope_min_gap: int = max(1, int(getattr(cfg, "envelope_min_gap", 5)))
+        self.envelope_enabled: bool = bool(getattr(cfg, "envelope_enabled", ENVELOPE_ENABLED))
+        self.envelope_min_gap: int = max(1, int(getattr(cfg, "envelope_min_gap", ENVELOPE_MIN_GAP)))
         self.envelope_max_gap: int = max(
             self.envelope_min_gap,
-            int(getattr(cfg, "envelope_max_gap", 15)),
+            int(getattr(cfg, "envelope_max_gap", ENVELOPE_MAX_GAP)),
         )
         self.envelope_exclude_types: set[str] = {
-            str(t).lower() for t in (getattr(cfg, "envelope_exclude_types", ["hallway"]) or [])
+            str(t).lower() for t in (getattr(cfg, "envelope_exclude_types", ENVELOPE_EXCLUDE_TYPES) or [])
         }
         self.envelope_apply_sides: set[str] = {
-            str(side).lower() for side in (getattr(cfg, "envelope_apply_sides", ["left", "right", "top", "bottom"]) or [])
+            str(side).lower() for side in (getattr(cfg, "envelope_apply_sides", ENVELOPE_APPLY_SIDES) or [])
         }
 
         self.model = cp_model.CpModel()
@@ -123,7 +133,7 @@ class FloorPlanGenerator:
             hard_AND_Relations=hard_and_relation_constraints,
             hard_OR_Relations=hard_or_relation_constraints,
             softRelations=soft_relation_constraints,
-            min_overlap=10,
+            min_overlap=GENERATOR_ADJACENCY_MIN_OVERLAP,
         )
 
         add_minimum_area_coverage(
@@ -158,13 +168,13 @@ class FloorPlanGenerator:
             self.model,
             self.rooms,
             self.floor_plan_height,
-            bathroom_weight=1,
+            bathroom_weight=BATHROOM_LOCATION_WEIGHT,
         )
         total_cost = cp_model.LinearExpr.Sum([center_cost, bathroom_location_cost])  # type: ignore
 
         self.model.Minimize(total_cost)
 
-        self.solver.parameters.max_time_in_seconds = 1
+        self.solver.parameters.max_time_in_seconds = DEFAULT_SOLVER_MAX_TIME_SECONDS
         self.solver.parameters.random_seed = random.randint(0, 1000)
         self.solver.parameters.randomize_search = True
         status = self.solver.Solve(self.model)

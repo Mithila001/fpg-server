@@ -11,7 +11,7 @@ from app.core.config_fpg import (
 )
 
 
-_SIDE_VALUES = {"left", "right", "top", "bottom"}
+_SIDE_VALUES = {str(side).lower() for side in ENVELOPE_APPLY_SIDES}
 
 
 def _non_empty_sides(apply_sides: set[str]) -> set[str]:

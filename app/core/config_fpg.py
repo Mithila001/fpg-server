@@ -27,9 +27,16 @@ ENVELOPE_APPLY_SIDES = ["left", "right", "top", "bottom"]
 
 # Adjacency constraint settings
 DEFAULT_ADJACENCY_MIN_OVERLAP = 1
+GENERATOR_ADJACENCY_MIN_OVERLAP = 10
 
 # Room location/bathroom preferences
 BATHROOM_LOCATION_WEIGHT = 1
+
+# Default room size bounds used in normalization/fallback payloads
+DEFAULT_MIN_W = 5
+DEFAULT_MIN_H = 5
+DEFAULT_MAX_W = 100
+DEFAULT_MAX_H = 100
 
 # Room size hierarchy (% of living room area)
 ROOM_SIZE_HIERARCHY = {
@@ -37,6 +44,18 @@ ROOM_SIZE_HIERARCHY = {
     "kitchen": (40, 50),
     "bathroom": (15, 30),
 }
+
+# Default solver/optuna execution settings
+DEFAULT_ROOM_DIMENSION = 1000
+DEFAULT_OPTUNA_TRIALS = 10
+DEFAULT_OPTUNA_STORAGE_ENABLED = False
+DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
+
+# Default generator config
+DEFAULT_ASPECT_RATIO_MAX = 16.0
+DEFAULT_ASPECT_RATIO_MIN = 0.0
+DEFAULT_HALLWAY_COUNT = 1
+DEFAULT_SOLVER_MAX_TIME_SECONDS = 1
 
 # Hallway dimensions
 # Fixed narrow dimension — the solver enforces exactly this value for
@@ -53,13 +72,26 @@ __all__ = [
     "MIN_COVERAGE",
     "SCORE_WEIGHTS",
     "DEFAULT_ADJACENCY_MIN_OVERLAP",
+    "GENERATOR_ADJACENCY_MIN_OVERLAP",
     "ENVELOPE_ENABLED",
     "ENVELOPE_MIN_GAP",
     "ENVELOPE_MAX_GAP",
     "ENVELOPE_EXCLUDE_TYPES",
     "ENVELOPE_APPLY_SIDES",
     "BATHROOM_LOCATION_WEIGHT",
+    "DEFAULT_MIN_W",
+    "DEFAULT_MIN_H",
+    "DEFAULT_MAX_W",
+    "DEFAULT_MAX_H",
     "ROOM_SIZE_HIERARCHY",
+    "DEFAULT_ROOM_DIMENSION",
+    "DEFAULT_OPTUNA_TRIALS",
+    "DEFAULT_OPTUNA_STORAGE_ENABLED",
+    "DEFAULT_OPTUNA_STORAGE_URL",
+    "DEFAULT_ASPECT_RATIO_MAX",
+    "DEFAULT_ASPECT_RATIO_MIN",
+    "DEFAULT_HALLWAY_COUNT",
+    "DEFAULT_SOLVER_MAX_TIME_SECONDS",
     "HALLWAY_WIDTH",
     "HALLWAY_MIN_LENGTH",
 ]
