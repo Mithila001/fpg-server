@@ -10,7 +10,7 @@ from .utils.generator.util_hallway_rooms import (
 from .utils.generator.util_living_room import generate_living_room
 from .constraints.basic_constraints import add_basic_constraints
 from .constraints.adjacency_constraints import adjacency_constraints
-from app.schemas.db.room_relations_constraints import RoomRelationsConstraintBase
+from .types.room_relations_constraints import RoomRelationsConstraint
 from .constraints.floor_area_coverage import add_minimum_area_coverage
 from .constraints.room_size_hierarchy_constraints import add_room_size_hierarchy
 from .constraints.compact_layout import add_center_proximity_objective
@@ -100,12 +100,12 @@ class FloorPlanGenerator:
             add_hallway_constraints(self.model, self.rooms)
 
         # Use relation constraints from requirements (passed from algorithm_manager)
-        soft_relation_constraints: list[RoomRelationsConstraintBase] = []
-        hard_or_relation_constraints: list[RoomRelationsConstraintBase] = []
-        hard_and_relation_constraints: list[RoomRelationsConstraintBase] = []
+        soft_relation_constraints: list[RoomRelationsConstraint] = []
+        hard_or_relation_constraints: list[RoomRelationsConstraint] = []
+        hard_and_relation_constraints: list[RoomRelationsConstraint] = []
 
         for relation in self.relation_constraints:
-            relation_obj = RoomRelationsConstraintBase.model_validate(relation)
+            relation_obj = RoomRelationsConstraint.model_validate(relation)
             level = str(getattr(relation_obj, "constraint_level", "soft") or "soft").strip().lower()
             if level == "hard_and":
                 hard_and_relation_constraints.append(relation_obj)
