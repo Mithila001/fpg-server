@@ -10,7 +10,7 @@ from app.algorithms.floor_plan_generator.types.room import (
     ConfigData,
     FpgRequirements,
 )
-from app.algorithms.floor_plan_generator.config import (
+from app.core.config_fpg import (
     FLOOR_WIDTH,
     FLOOR_HEIGHT,
     MIN_COVERAGE,
