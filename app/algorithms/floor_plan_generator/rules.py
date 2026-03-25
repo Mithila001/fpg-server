@@ -22,4 +22,11 @@ def normalize_requirements(req: FpgRequirements) -> FpgRequirements:
         normalized_rooms.append(
             RoomData(r.name, r.type, min_w, min_h, max_w, max_h)
         )
-    return FpgRequirements(rooms=normalized_rooms, config=req.config)
+
+    # Preserve relation constraints when normalizing.
+    relation_constraints = getattr(req, "relation_constraints", None)
+    return FpgRequirements(
+        rooms=normalized_rooms,
+        config=req.config,
+        relation_constraints=relation_constraints,
+    )

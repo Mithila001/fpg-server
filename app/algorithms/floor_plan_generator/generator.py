@@ -1,10 +1,12 @@
 from ortools.sat.python import cp_model
 import random
-from typing import List, Tuple
 from .solver_models.room import Room
 from .types.room import FpgRequirements
 from .rules import normalize_requirements
-from .utils.generator.util_hallway_rooms import generate_hallway_rooms
+from .utils.generator.util_hallway_rooms import (
+    generate_hallway_rooms,
+    prepare_requirements_for_hallway_rules,
+)
 from .utils.generator.util_living_room import generate_living_room
 from .constraints.basic_constraints import add_basic_constraints
 from .constraints.adjacency_constraints import adjacency_constraints
@@ -27,10 +29,12 @@ class FloorPlanGenerator:
         We first normalize the incoming data with ``rules.normalize_requirements``
         so that downstream code can rely on sensible numeric values.
         """
-        # Store relation constraints from requirements before normalization
-        self.relation_constraints = requirements.relation_constraints
-        
         requirements = normalize_requirements(requirements)
+        requirements = prepare_requirements_for_hallway_rules(requirements)
+        self.requirements = requirements
+
+        # Store relation constraints from the updated requirements object.
+        self.relation_constraints = self.requirements.relation_constraints
 
         cfg = requirements.config
         self.floor_plan_width: float = cfg.floor_plan_width
@@ -58,13 +62,13 @@ class FloorPlanGenerator:
         # Initializing Rooms
         self.rooms: list[Room] = [
             Room(r.name, r.min_w, r.min_h, r.max_w, r.max_h, r.type)
-            for r in requirements.rooms
+            for r in self.requirements.rooms
         ]
 
         # Add mandatory rooms (living room + hallway) from code, not user input.
         # Avoid duplicates if upstream payload already includes those types.
-        living_room = generate_living_room(requirements)
-        hallway_rooms = generate_hallway_rooms(requirements)
+        living_room = generate_living_room(self.requirements)
+        hallway_rooms = generate_hallway_rooms(self.requirements)
         system_added_rooms = [living_room] + hallway_rooms
         self.mandatory_relations = []
 
@@ -96,18 +100,29 @@ class FloorPlanGenerator:
             add_hallway_constraints(self.model, self.rooms)
 
         # Use relation constraints from requirements (passed from algorithm_manager)
-        relations_schema = [
-            RoomRelationsConstraintBase.model_validate(r) for r in self.relation_constraints
-        ]  # type: ignore[assignment]
+        soft_relation_constraints: list[RoomRelationsConstraintBase] = []
+        hard_or_relation_constraints: list[RoomRelationsConstraintBase] = []
+        hard_and_relation_constraints: list[RoomRelationsConstraintBase] = []
 
-        all_relations = self.mandatory_relations + relations_schema
+        for relation in self.relation_constraints:
+            relation_obj = RoomRelationsConstraintBase.model_validate(relation)
+            level = str(getattr(relation_obj, "constraint_level", "soft") or "soft").strip().lower()
+            if level == "hard_and":
+                hard_and_relation_constraints.append(relation_obj)
+            elif level == "hard_or":
+                hard_or_relation_constraints.append(relation_obj)
+            else:
+                soft_relation_constraints.append(relation_obj)
+
+        hard_and_relation_constraints = self.mandatory_relations + hard_and_relation_constraints
 
         # Use fixed adjacency overlap requirement (at least 1 unit of shared edge).
         adjacency_constraints(
             self.model,
             self.rooms,
-            hard_AND_Relations=all_relations,
-            hard_OR_Relations=all_relations,
+            hard_AND_Relations=hard_and_relation_constraints,
+            hard_OR_Relations=hard_or_relation_constraints,
+            softRelations=soft_relation_constraints,
             min_overlap=10,
         )
 
@@ -149,7 +164,7 @@ class FloorPlanGenerator:
 
         self.model.Minimize(total_cost)
 
-        self.solver.parameters.max_time_in_seconds = 1.0
+        self.solver.parameters.max_time_in_seconds = 60
         self.solver.parameters.random_seed = random.randint(0, 1000)
         self.solver.parameters.randomize_search = True
         status = self.solver.Solve(self.model)

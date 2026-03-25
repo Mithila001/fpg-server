@@ -44,7 +44,7 @@ DEFAULT_ROOM_DIMENSION = 1000
 
 
 EMPTY_POST_PROCESS_LAYOUT = {"walls": [], "rooms": []}
-DEFAULT_OPTUNA_TRIALS = 50
+DEFAULT_OPTUNA_TRIALS = 10
 DEFAULT_OPTUNA_STORAGE_ENABLED = False
 DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
 
@@ -324,18 +324,11 @@ def run_layout_pipeline(
             "rooms": [],
         }
 
-def DEV_RUN(use_optuna: bool = True, n_trials: int = 50) -> None:
+def DEV_RUN() -> None:
     """Development entrypoint for the full solve -> post-process pipeline."""
-    payload = run_layout_pipeline(
-        use_optuna=use_optuna,
-        n_trials=n_trials,
-        verbose=True,
-    )
-    print("\nPost-Process Summary:")
-    print(f"  - Status: {payload['status']}")
-    print(f"  - Message: {payload['message']}")
-    print(f"  - Walls: {len(payload['walls'])}")
-    print(f"  - Rooms: {len(payload['rooms'])}")
+    
+    requirements = _build_requirements_from_database()
+    _RunFPG (requirements=requirements , verbose=True)
         
         
             

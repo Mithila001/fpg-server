@@ -10,6 +10,7 @@ class RoomRelationsConstraintBase(SQLModel):
 
     room_type: str
     related_room: Optional[List[str]] = None
+    constraint_level: Optional[str] = None
 
 
 class RoomRelationsConstraintCreate(RoomRelationsConstraintBase):
