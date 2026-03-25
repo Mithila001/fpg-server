@@ -164,7 +164,7 @@ class FloorPlanGenerator:
 
         self.model.Minimize(total_cost)
 
-        self.solver.parameters.max_time_in_seconds = 60
+        self.solver.parameters.max_time_in_seconds = 1
         self.solver.parameters.random_seed = random.randint(0, 1000)
         self.solver.parameters.randomize_search = True
         status = self.solver.Solve(self.model)

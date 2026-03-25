@@ -31,7 +31,7 @@ from app.crud import (
     room_setup_template as room_setup_template_crud,
     room_relations_constraint as room_relations_constraint_crud,
 )
-from app.util.room_requirements import normalize_requirements
+from app.util.room_requirements import normalize_db_data_requirements
 from app.util.dev_use_mock_db import (
     load_room_relations_constraints,
     load_room_setup_templates,
@@ -108,7 +108,7 @@ def _build_requirements_from_database() -> FpgRequirements | None:
 
     # Normalize rooms based on database constraint rules
     print("\nNormalizing rooms against database constraints...")
-    rooms = normalize_requirements(rooms, size_constraints)
+    rooms = normalize_db_data_requirements(rooms, size_constraints)
 
     print(f"Normalized {len(rooms)} RoomData objects")
     for room in rooms:
