@@ -10,6 +10,7 @@ from app.algorithms.floor_plan_generator.types.room import (
     FpgRequirements,
     RoomData,
 )
+from app.util.logger.optuna_logger import OptunaLogger
 
 from .types import FpgEvaluationResult, OptunaOptimizationResult
 
@@ -229,53 +230,51 @@ def run_optuna_optimization(
     """Run Optuna optimization for floor-plan requirements."""
 
     best_run_by_trial: dict[int, FpgEvaluationResult] = {}
-    
-    # Log limited by this Code, Remove this line to enable Default logs 
-    optuna.logging.set_verbosity(optuna.logging.WARNING)
-    
 
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
 
     def objective(trial: optuna.Trial) -> float:
         trial_requirements = mutate_requirements(base_requirements, trial)
-        
-        # user custom debug print
-        picked = {
-            "hallway_count": trial_requirements.config.hallway_count,
-            "min_coverage": trial_requirements.config.min_coverage,
-            # include room params if you want:
-            "rooms": [
-                {
-                    "name": r.name,
-                    "type": r.type,
-                    # "min_w": r.min_w,
-                    # "min_h": r.min_h,
-                    # "max_w": r.max_w,
-                    # "max_h": r.max_h,
-                }
-                for r in trial_requirements.rooms
-            ],
-        }
-        print(f"[CUSTOM OPTUNA] Trial {trial.number} picked values: {picked}\n\n")
+
+        # --- Optuna logging block start ---
+        OptunaLogger.trial_start(trial.number, trial_requirements)
 
         ok, reason = _precheck(trial_requirements)
         if not ok:
+            OptunaLogger.precheck_failed(trial.number, trial_requirements, reason)
             trial.set_user_attr("status", "precheck_failed")
             trial.set_user_attr("reason", reason)
             trial.set_user_attr("valid", False)
             return 0.0
+        # --- Optuna logging block end ---
 
         result = evaluator(trial_requirements, False)
-        
-        # add score to log
+
         score = (
             float(result.score_report.total_score)
             if result.score_report is not None and result.score_report.total_score is not None
             else None
         )
-        print(
-            f"[CUSTOM OPTUNA] Trial {trial.number} params={picked} "
-            f"score={score} solver_status={result.status}"
+        is_valid = bool(result.score_report.valid) if result.score_report is not None else False
+        hard_violation_count = (
+            len(result.score_report.hard_violations)
+            if result.score_report is not None
+            else 0
         )
+
+        # --- Optuna evaluation log start ---
+        OptunaLogger.evaluation_done(
+            trial_number=trial.number,
+            requirements=trial_requirements,
+            status=result.status,
+            solved=result.solved,
+            valid=is_valid,
+            score=score,
+            hard_violation_count=hard_violation_count,
+            message=result.message,
+        )
+        # --- Optuna evaluation log end ---
+
         best_run_by_trial[trial.number] = result
 
         trial.set_user_attr("status", result.status)
@@ -291,7 +290,6 @@ def run_optuna_optimization(
             trial.set_user_attr("hard_violations", result.score_report.hard_violations)
             return 0.0
 
-        
         return float(result.score_report.total_score)
 
     sampler = optuna.samplers.TPESampler()
@@ -330,6 +328,19 @@ def run_optuna_optimization(
                 status="precheck_failed",
                 message=reason,
             )
+
+    # --- Optuna summary log start ---
+    OptunaLogger.optimization_summary(
+        study_name=study.study_name,
+        best_trial_number=int(study.best_trial.number),
+        best_value=float(study.best_value),
+        completed_trials=len(study.trials),
+        failed_trials=failed_trials,
+        best_params=dict(study.best_params),
+        best_status=best_run.status,
+        best_solved=best_run.solved,
+    )
+    # --- Optuna summary log end ---
 
     return OptunaOptimizationResult(
         study_name=study.study_name,
