@@ -3,6 +3,7 @@ from typing import Any, List, Optional
 
 from ..solver_models.room import Room
 from app.schemas.db.room_relations_constraints import RoomRelationsConstraintBase
+from app.core.config_fpg import DEFAULT_ADJACENCY_MIN_OVERLAP
 
 
 def _conditional_constraint(
@@ -10,7 +11,7 @@ def _conditional_constraint(
     room1: Room,
     room2: Room,
     enforcer: Any | None = None,
-    min_overlap: int = 1,
+    min_overlap: int = DEFAULT_ADJACENCY_MIN_OVERLAP,
 ) -> None:
     """Require two rooms to share an edge when active."""
 
@@ -59,7 +60,7 @@ def hard_AND_adjacency_constraints(
     model: cp_model.CpModel,
     rooms_list: List[Room],
     hard_AND_Relations: List[RoomRelationsConstraintBase],
-    min_overlap: int = 1,
+    min_overlap: int = DEFAULT_ADJACENCY_MIN_OVERLAP,
 ) -> None:
     """Apply hard AND adjacency relations: room MUST touch ALL listed types.
     
@@ -125,7 +126,7 @@ def hard_OR_adjacency_constraints(
     model: cp_model.CpModel,
     rooms_list: List[Room],
     hard_OR_Relations: List[RoomRelationsConstraintBase],
-    min_overlap: int = 1,
+    min_overlap: int = DEFAULT_ADJACENCY_MIN_OVERLAP,
 ) -> None:
     """Apply hard OR adjacency relations: room MUST touch AT LEAST ONE of the listed types.
     
@@ -193,7 +194,7 @@ def soft_adjacency_constraints(
     model: cp_model.CpModel,
     rooms_list: List[Room],
     softRelations: List[RoomRelationsConstraintBase],
-    min_overlap: int = 1,
+    min_overlap: int = DEFAULT_ADJACENCY_MIN_OVERLAP,
 ) -> List[cp_model.IntVar]:
     """Apply soft (optional) adjacency relations: room SHOULD touch listed types (preference).
     
@@ -259,7 +260,7 @@ def adjacency_constraints(
     hard_AND_Relations: Optional[List[RoomRelationsConstraintBase]] = None,
     hard_OR_Relations: Optional[List[RoomRelationsConstraintBase]] = None,
     softRelations: Optional[List[RoomRelationsConstraintBase]] = None,
-    min_overlap: int = 1,
+    min_overlap: int = DEFAULT_ADJACENCY_MIN_OVERLAP,
 ) -> List[cp_model.IntVar]:
     """Apply all types of adjacency constraints.
 

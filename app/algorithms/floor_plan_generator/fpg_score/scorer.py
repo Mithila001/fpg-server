@@ -2,6 +2,14 @@ from __future__ import annotations
 
 from typing import Any, Dict, Sequence
 
+from app.core.config_fpg import (
+    ENVELOPE_APPLY_SIDES,
+    ENVELOPE_ENABLED,
+    ENVELOPE_EXCLUDE_TYPES,
+    ENVELOPE_MAX_GAP,
+    ENVELOPE_MIN_GAP,
+    SCORE_WEIGHTS,
+)
 from .metrics_coverage import score_coverage
 from .metrics_empty_space import score_empty_space
 from .metrics_rectangularity import score_rectangularity
@@ -13,11 +21,7 @@ from .validators import (
     validate_room_geometry,
 )
 
-DEFAULT_WEIGHTS = {
-    "coverage": 0.40,
-    "rectangularity": 0.35,
-    "empty_space": 0.25,
-}
+DEFAULT_WEIGHTS = SCORE_WEIGHTS.copy()
 
 
 def score_layout(
@@ -55,18 +59,14 @@ def score_layout(
             min_overlap=min_touch_overlap,
         )
     )
-    if bool(getattr(cfg, "envelope_enabled", True)):
+    if bool(getattr(cfg, "envelope_enabled", ENVELOPE_ENABLED)):
         hard_violations.extend(
             validate_envelope_staircase_bounds(
                 solution,
-                min_gap=int(getattr(cfg, "envelope_min_gap", 5)),
-                max_gap=int(getattr(cfg, "envelope_max_gap", 15)),
-                exclude_types=getattr(cfg, "envelope_exclude_types", ["hallway"]),
-                apply_sides=getattr(
-                    cfg,
-                    "envelope_apply_sides",
-                    ["left", "right", "top", "bottom"],
-                ),
+                min_gap=int(getattr(cfg, "envelope_min_gap", ENVELOPE_MIN_GAP)),
+                max_gap=int(getattr(cfg, "envelope_max_gap", ENVELOPE_MAX_GAP)),
+                exclude_types=getattr(cfg, "envelope_exclude_types", ENVELOPE_EXCLUDE_TYPES),
+                apply_sides=getattr(cfg, "envelope_apply_sides", ENVELOPE_APPLY_SIDES),
             )
         )
 
@@ -89,11 +89,15 @@ def score_layout(
         "empty_space": empty_space_score,
     }
 
+    weights = getattr(cfg, "score_weights", SCORE_WEIGHTS)
+    if weights is None:
+        weights = SCORE_WEIGHTS
+
     diagnostics = {
         "coverage": coverage_diag,
         "rectangularity": rectangularity_diag,
         "empty_space": empty_space_diag,
-        "weights": DEFAULT_WEIGHTS,
+        "weights": weights,
     }
 
     valid = len(hard_violations) == 0
@@ -107,9 +111,9 @@ def score_layout(
         )
 
     total_score = (
-        component_scores["coverage"] * DEFAULT_WEIGHTS["coverage"]
-        + component_scores["rectangularity"] * DEFAULT_WEIGHTS["rectangularity"]
-        + component_scores["empty_space"] * DEFAULT_WEIGHTS["empty_space"]
+        component_scores["coverage"] * float(weights.get("coverage", SCORE_WEIGHTS["coverage"]))
+        + component_scores["rectangularity"] * float(weights.get("rectangularity", SCORE_WEIGHTS["rectangularity"]))
+        + component_scores["empty_space"] * float(weights.get("empty_space", SCORE_WEIGHTS["empty_space"]))
     )
 
     return ScoreReport(

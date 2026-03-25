@@ -3,6 +3,12 @@ from __future__ import annotations
 from ortools.sat.python import cp_model
 
 from ..solver_models.room import Room
+from app.core.config_fpg import (
+    ENVELOPE_MIN_GAP,
+    ENVELOPE_MAX_GAP,
+    ENVELOPE_EXCLUDE_TYPES,
+    ENVELOPE_APPLY_SIDES,
+)
 
 
 _SIDE_VALUES = {"left", "right", "top", "bottom"}
@@ -112,8 +118,8 @@ def add_envelope_staircase_constraints(
     rooms: list[Room],
     floor_width: int,
     floor_height: int,
-    min_gap: int = 5,
-    max_gap: int = 15,
+    min_gap: int = ENVELOPE_MIN_GAP,
+    max_gap: int = ENVELOPE_MAX_GAP,
     exclude_types: set[str] | None = None,
     apply_sides: set[str] | None = None,
 ) -> None:
@@ -134,8 +140,8 @@ def add_envelope_staircase_constraints(
     if max_gap < min_gap:
         max_gap = min_gap
 
-    excluded = {t.lower() for t in (exclude_types or {"hallway"})}
-    sides = _non_empty_sides(apply_sides or _SIDE_VALUES)
+    excluded = {t.lower() for t in (exclude_types or ENVELOPE_EXCLUDE_TYPES)}
+    sides = _non_empty_sides(apply_sides or ENVELOPE_APPLY_SIDES)
     if not sides:
         return
 

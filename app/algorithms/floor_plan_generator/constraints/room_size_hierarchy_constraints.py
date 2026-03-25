@@ -2,6 +2,7 @@ from ortools.sat.python import cp_model
 from typing import List
 from ..solver_models.room import Room
 from ..utils.tracker import tracker
+from app.core.config_fpg import ROOM_SIZE_HIERARCHY
 
 
 def add_room_size_hierarchy(model: cp_model.CpModel, rooms: List[Room]):
@@ -22,13 +23,7 @@ def add_room_size_hierarchy(model: cp_model.CpModel, rooms: List[Room]):
         tracker.log_skip("Room Size Hierarchy", "No LivingRoom found")
         return
 
-    hierarchy = {
-        "bedroom": (50, 70),
-        "kitchen": (40, 50),
-        "bathroom": (15, 30),
-    }
-
-    for room_type, (min_p, max_p) in hierarchy.items():
+    for room_type, (min_p, max_p) in ROOM_SIZE_HIERARCHY.items():
         target_rooms = [r for r in rooms if r.type == room_type]
         for target_room in target_rooms:
             model.Add(target_room.area * 100 >= living_room.area * min_p)  # type: ignore

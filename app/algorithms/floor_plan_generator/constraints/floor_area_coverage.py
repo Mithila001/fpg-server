@@ -1,6 +1,7 @@
 from ortools.sat.python import cp_model
 from typing import List
 from ..solver_models.room import Room
+from app.core.config_fpg import MIN_COVERAGE
 
 
 def add_minimum_area_coverage(
@@ -8,7 +9,7 @@ def add_minimum_area_coverage(
     rooms: List[Room],
     floor_width: float,
     floor_height: float,
-    min_coverage: float = 0.5,
+    min_coverage: float = MIN_COVERAGE,
 ):
     """Enforce that the combined room area covers at least min_coverage of the floor.
 

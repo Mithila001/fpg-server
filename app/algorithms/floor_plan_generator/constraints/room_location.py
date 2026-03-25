@@ -2,6 +2,7 @@ from ortools.sat.python import cp_model
 from typing import List
 
 from ..solver_models.room import Room
+from app.core.config_fpg import BATHROOM_LOCATION_WEIGHT
 
 
 def room_location_hard(
@@ -29,7 +30,7 @@ def room_location_soft(
     model: cp_model.CpModel,
     rooms: List[Room],
     floor_height: float,
-    bathroom_weight: int = 1,
+    bathroom_weight: int = BATHROOM_LOCATION_WEIGHT,
 ) -> cp_model.LinearExprT:
     """Return soft cost encouraging bathrooms toward plus-y direction.
 
