@@ -106,8 +106,8 @@ class FloorPlanGenerator:
         adjacency_constraints(
             self.model,
             self.rooms,
-            hardRelations=all_relations,
-            softRelations=all_relations,
+            hard_AND_Relations=all_relations,
+            hard_OR_Relations=all_relations,
             min_overlap=10,
         )
 
