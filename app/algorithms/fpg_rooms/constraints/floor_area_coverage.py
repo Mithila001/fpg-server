@@ -1,7 +1,7 @@
 from ortools.sat.python import cp_model
 from typing import List
 from ..solver_models.room import Room
-from app.core.config_fpg import MIN_COVERAGE
+from app.core.fpg_rooms.config_fpg import MIN_COVERAGE
 
 
 def add_minimum_area_coverage(

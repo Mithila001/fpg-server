@@ -2,7 +2,7 @@ from ortools.sat.python import cp_model
 from typing import List
 from ..solver_models.room import Room
 from ..utils.tracker import tracker
-from app.core.config_fpg import ROOM_SIZE_HIERARCHY
+from app.core.fpg_rooms.config_fpg import ROOM_SIZE_HIERARCHY
 
 
 def add_room_size_hierarchy(model: cp_model.CpModel, rooms: List[Room]):

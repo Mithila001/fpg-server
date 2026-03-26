@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Sequence
 
-from app.core.config_fpg import (
+from app.core.fpg_rooms.config_fpg import (
     ENVELOPE_APPLY_SIDES,
     ENVELOPE_ENABLED,
     ENVELOPE_EXCLUDE_TYPES,

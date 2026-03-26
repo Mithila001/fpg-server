@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Sequence
 
-from app.core.config_score import (
+from app.core.fpg_rooms.config_score import (
     SCORE_ENVELOPE_APPLY_SIDES,
     SCORE_ENVELOPE_EXCLUDE_TYPES,
     SCORE_ENVELOPE_MAX_GAP,

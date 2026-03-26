@@ -2,7 +2,7 @@ from ortools.sat.python import cp_model
 from typing import List
 
 from ..solver_models.room import Room
-from app.core.config_fpg import BATHROOM_LOCATION_WEIGHT
+from app.core.fpg_rooms.config_fpg import BATHROOM_LOCATION_WEIGHT
 
 
 def room_location_hard(

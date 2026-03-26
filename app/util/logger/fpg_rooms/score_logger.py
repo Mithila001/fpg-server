@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .log_manager import LogManager
+from app.util.logger.log_manager import LogManager
 
 
 class ScoreLogger:

@@ -17,7 +17,7 @@ from .constraints.compact_layout import add_center_proximity_objective
 from .constraints.hallway_constraints import add_hallway_constraints
 from .constraints.room_location import room_location_hard, room_location_soft
 from .constraints.envelope_staircase import add_envelope_staircase_constraints
-from app.core.config_fpg import (
+from app.core.fpg_rooms.config_fpg import (
     ENVELOPE_ENABLED,
     ENVELOPE_MIN_GAP,
     ENVELOPE_MAX_GAP,

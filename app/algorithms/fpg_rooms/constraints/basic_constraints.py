@@ -1,6 +1,6 @@
 from typing import List
 from ..solver_models.room import Room
-from app.core.config_fpg import MAX_ASPECT_RATIO_HEIGHT, MAX_ASPECT_RATIO_WIDTH
+from app.core.fpg_rooms.config_fpg import MAX_ASPECT_RATIO_HEIGHT, MAX_ASPECT_RATIO_WIDTH
 
 
 def add_basic_constraints(model, rooms: List[Room]):

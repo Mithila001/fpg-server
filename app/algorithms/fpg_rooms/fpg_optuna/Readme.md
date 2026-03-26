@@ -18,7 +18,7 @@ The objective is to maximize `score_report.total_score`.
 	- `DEV_RUN(use_optuna=True, n_trials=50)`
 	- `RunFPG(requirements, verbose=True)`
 	- `OptunaEntry(requirements, n_trials=50, ...)`
-- `app/algorithms/floor_plan_generator/fpg_optuna/runner.py`
+- `app/algorithms/fpg_rooms/fpg_optuna/runner.py`
 	- `run_optuna_optimization(...)`
 
 ## Quick start

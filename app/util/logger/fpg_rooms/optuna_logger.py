@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.algorithms.floor_plan_generator.types.room import FpgRequirements
+from app.algorithms.fpg_rooms.types.room import FpgRequirements
 
-from .log_manager import LogManager
+from app.util.logger.log_manager import LogManager
 
 
 class OptunaLogger:

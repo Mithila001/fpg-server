@@ -1,6 +1,6 @@
 """Scoring and validation defaults for floor plan generation."""
 
-from app.core.config_fpg import (
+from app.core.fpg_rooms.config_fpg import (
     DEFAULT_ADJACENCY_MIN_OVERLAP,
     ENVELOPE_APPLY_SIDES,
     ENVELOPE_EXCLUDE_TYPES,

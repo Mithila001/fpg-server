@@ -6,7 +6,7 @@ from ortools.sat.python import cp_model
 from typing import List, Dict, Any
 
 from ..solver_models.room import Room
-from app.core.config_fpg import HALLWAY_WIDTH, HALLWAY_MIN_LENGTH
+from app.core.fpg_rooms.config_fpg import HALLWAY_WIDTH, HALLWAY_MIN_LENGTH
 
 # Minimum shared-edge length required for a hallway ↔ room connection.
 # Set to HALLWAY_WIDTH so the requirement is always satisfiable even when the

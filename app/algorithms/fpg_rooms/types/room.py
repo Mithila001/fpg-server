@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Any
-from app.core.config_fpg import (
+from app.core.fpg_rooms.config_fpg import (
     ENVELOPE_ENABLED,
     ENVELOPE_MIN_GAP,
     ENVELOPE_MAX_GAP,

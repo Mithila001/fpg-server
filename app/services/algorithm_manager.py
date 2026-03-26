@@ -4,13 +4,13 @@ from datetime import datetime
 from time import perf_counter
 from typing import Any, List
 
-from app.algorithms.floor_plan_generator import FloorPlanGenerator
-from app.algorithms.floor_plan_generator.types.room import (
+from app.algorithms.fpg_rooms import FloorPlanGenerator
+from app.algorithms.fpg_rooms.types.room import (
     RoomData,
     ConfigData,
     FpgRequirements,
 )
-from app.core.config_fpg import (
+from app.core.fpg_rooms.config_fpg import (
     FLOOR_WIDTH,
     FLOOR_HEIGHT,
     MIN_COVERAGE,
@@ -30,13 +30,13 @@ from app.core.config_fpg import (
     ENVELOPE_EXCLUDE_TYPES,
     ENVELOPE_APPLY_SIDES,
 )
-from app.algorithms.floor_plan_generator.fpg_score import score_layout
-from app.algorithms.floor_plan_generator.fpg_optuna import (
+from app.algorithms.fpg_rooms.fpg_score import score_layout
+from app.algorithms.fpg_rooms.fpg_optuna import (
     FpgEvaluationResult,
     OptunaOptimizationResult,
     run_optuna_optimization,
 )
-from app.algorithms.floor_plan_generator.fpg_post_process import (
+from app.algorithms.fpg_rooms.fpg_post_process import (
     build_post_processed_layout,
 )
 

@@ -30,7 +30,7 @@ import math
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 if TYPE_CHECKING:
-    from app.algorithms.floor_plan_generator import FloorPlanGenerator
+    from app.algorithms.fpg_rooms import FloorPlanGenerator
 
 # ---------------------------------------------------------------------------
 # Public type aliases
@@ -119,7 +119,7 @@ def clean_layout(
             is an ordered list of (x, y) vertices in counter-clockwise order:
             ``[(x, y), (x+w, y), (x+w, y+h), (x, y+h)]``.
         generator:
-            Optional :class:`~app.algorithms.floor_plan_generator.FloorPlanGenerator`
+            Optional :class:`~app.algorithms.fpg_rooms.FloorPlanGenerator`
             instance used to retrieve room names, types, and exact solver values.
             When provided, ``get_solution()`` is called to obtain per-room
             metadata and precise centre coordinates.

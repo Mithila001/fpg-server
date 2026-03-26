@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from .log_manager import LogManager
+from app.util.logger.log_manager import LogManager
 
 
 class SystemLogger:

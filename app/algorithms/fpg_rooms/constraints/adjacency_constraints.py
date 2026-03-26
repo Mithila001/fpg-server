@@ -3,7 +3,7 @@ from typing import Any, List, Optional
 
 from ..solver_models.room import Room
 from app.schemas.db.room_relations_constraints import RoomRelationsConstraintBase
-from app.core.config_fpg import DEFAULT_ADJACENCY_MIN_OVERLAP
+from app.core.fpg_rooms.config_fpg import DEFAULT_ADJACENCY_MIN_OVERLAP
 
 
 def _conditional_constraint(

@@ -5,12 +5,12 @@ from typing import Callable
 
 import optuna
 
-from app.algorithms.floor_plan_generator.types.room import (
+from app.algorithms.fpg_rooms.types.room import (
     ConfigData,
     FpgRequirements,
     RoomData,
 )
-from app.core.config_optuna import (
+from app.core.fpg_rooms.config_optuna import (
     OPTUNA_DEFAULT_STUDY_NAME,
     OPTUNA_DEFAULT_TRIALS,
     OPTUNA_DIMENSION_MAX_JITTER,
@@ -29,7 +29,7 @@ from app.core.config_optuna import (
     OPTUNA_PARAM_KEY_HALLWAY_COUNT,
     OPTUNA_PARAM_KEY_MIN_COVERAGE,
 )
-from app.util.logger.optuna_logger import OptunaLogger
+from app.util.logger.fpg_rooms.optuna_logger import OptunaLogger
 
 from .types import FpgEvaluationResult, OptunaOptimizationResult
 

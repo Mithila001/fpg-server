@@ -1,6 +1,6 @@
 from typing import List, Sequence
 
-from app.algorithms.floor_plan_generator.types.room import RoomData
+from app.algorithms.fpg_rooms.types.room import RoomData
 from app.models.room_size_constraint import RoomSizeConstraint
 
 

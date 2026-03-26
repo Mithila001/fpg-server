@@ -3,7 +3,7 @@ from __future__ import annotations
 from ortools.sat.python import cp_model
 
 from ..solver_models.room import Room
-from app.core.config_fpg import (
+from app.core.fpg_rooms.config_fpg import (
     ENVELOPE_MIN_GAP,
     ENVELOPE_MAX_GAP,
     ENVELOPE_EXCLUDE_TYPES,
