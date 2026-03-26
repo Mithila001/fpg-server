@@ -64,16 +64,16 @@ def generate_hallway_rooms(requirements: FpgRequirements) -> List[Room]:
     if hallway_count <= 0:
         return []
 
-    max_w = max(100, int(floor_width * 0.8))
-    max_h = max(100, int(floor_height * 0.8))
+    max_w = max(10, int(floor_width * 0.8))
+    max_h = max(10, int(floor_height * 0.8))
 
     hallways: list[Room] = []
     for i in range(hallway_count):
         hallways.append(
             Room(
                 f"hallway{i + 1}",
-                100,
-                100,
+                10,
+                10,
                 max_w,
                 max_h,
                 "hallway",

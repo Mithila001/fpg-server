@@ -316,7 +316,7 @@ def _build_payload_from_solver_result(run_result: FpgEvaluationResult) -> dict[s
 def run_layout_pipeline(
     use_optuna: bool = False,
     n_trials: int = DEFAULT_OPTUNA_TRIALS,
-    verbose: bool = False,
+    verbose: bool = True,
 ) -> dict[str, Any]:
     """Main orchestrator: DB requirements -> solve -> post-process -> payload."""
     started_at = perf_counter()

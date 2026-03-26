@@ -1,8 +1,8 @@
 """Floor plan generation config (shared)."""
 
 # Floor Dimensions (default)
-FLOOR_WIDTH = 1000
-FLOOR_HEIGHT = 1500
+FLOOR_WIDTH = 100
+FLOOR_HEIGHT = 150
 
 # Maximum allowed aspect ratio for rooms
 MAX_ASPECT_RATIO_HEIGHT = 10
@@ -20,23 +20,23 @@ SCORE_WEIGHTS = {
 
 # Envelope/staircase settings
 ENVELOPE_ENABLED = True
-ENVELOPE_MIN_GAP = 50
-ENVELOPE_MAX_GAP = 200
+ENVELOPE_MIN_GAP = 5
+ENVELOPE_MAX_GAP = 20
 ENVELOPE_EXCLUDE_TYPES = ["hallway"]
 ENVELOPE_APPLY_SIDES = ["left", "right", "top", "bottom"]
 
 # Adjacency constraint settings
-DEFAULT_ADJACENCY_MIN_OVERLAP = 100
-GENERATOR_ADJACENCY_MIN_OVERLAP = 100
+DEFAULT_ADJACENCY_MIN_OVERLAP = 10
+GENERATOR_ADJACENCY_MIN_OVERLAP = 10
 
 # Room location/bathroom preferences
 BATHROOM_LOCATION_WEIGHT = 1
 
 # Default room size bounds used in normalization/fallback payloads
-DEFAULT_MIN_W = 120
-DEFAULT_MIN_H = 5
-DEFAULT_MAX_W = 700
-DEFAULT_MAX_H = 700
+DEFAULT_MIN_W = 12
+DEFAULT_MIN_H = 10
+DEFAULT_MAX_W = 70
+DEFAULT_MAX_H = 70
 
 # Room size hierarchy (% of living room area)
 ROOM_SIZE_HIERARCHY = {
@@ -46,7 +46,7 @@ ROOM_SIZE_HIERARCHY = {
 }
 
 # Default solver/optuna execution settings
-DEFAULT_ROOM_DIMENSION = 700
+DEFAULT_ROOM_DIMENSION = 70
 DEFAULT_OPTUNA_TRIALS = 10
 DEFAULT_OPTUNA_STORAGE_ENABLED = False
 DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
@@ -60,9 +60,9 @@ DEFAULT_SOLVER_MAX_TIME_SECONDS = 1
 # Hallway dimensions
 # Fixed narrow dimension — the solver enforces exactly this value for
 # whichever of width/height is the "short" side.
-HALLWAY_WIDTH = 100
+HALLWAY_WIDTH = 10
 # Minimum length of the long side (the solver may extend it further).
-HALLWAY_MIN_LENGTH = 100
+HALLWAY_MIN_LENGTH = 10
 
 __all__ = [
     "FLOOR_WIDTH",

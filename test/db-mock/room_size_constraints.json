@@ -1,42 +1,42 @@
 [
   {
     "type": "bedroom",
-    "min_w": 300,
+    "min_w": 30,
     "max_w": null,
     "min_h": null,
     "max_h": null,
     "max_area": null,
-    "min_area": 140000,
+    "min_area": 900,
     "preset_id": null
   },
   {
     "type": "kitchen",
-    "min_w": 240,
+    "min_w": 24,
     "max_w": null,
     "min_h": null,
     "max_h": null,
     "max_area": null,
-    "min_area": 80000,
+    "min_area": 600,
     "preset_id": null
   },
   {
     "type": "bathroom",
-    "min_w": 120,
+    "min_w": 12,
     "max_w": null,
     "min_h": null,
     "max_h": null,
     "max_area": null,
-    "min_area": 35000,
+    "min_area": 150,
     "preset_id": null
   },
   {
     "type": "livingRoom",
-    "min_w": 300,
+    "min_w": 35,
     "max_w": null,
     "min_h": null,
     "max_h": null,
     "max_area": null,
-    "min_area": 14000,
+    "min_area": 1225,
     "preset_id": null
   }
 ]

@@ -11,7 +11,7 @@ from app.services.algorithm_manager import run_layout_pipeline
 
 # In-memory per-client rate limit tracker (simple, single-process)
 _last_format_request: dict[str, float] = {}
-_rate_limit_seconds = 5
+_rate_limit_seconds = 2
 
 
 class PointResponse(BaseModel):

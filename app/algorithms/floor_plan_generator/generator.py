@@ -214,7 +214,7 @@ class FloorPlanGenerator:
         return results
 
     def printDevLog(self) -> None:
-        """Print room information and configuration before constraints are applied."""
+        """=== Print room information and configuration before constraints are applied. ==="""
         print("\n" + "="*100)
         print("FLOOR PLAN GENERATOR - PRE-CONSTRAINT LOG")
         print("="*100)
@@ -228,8 +228,8 @@ class FloorPlanGenerator:
             print(f"  Type:                {room.type}")
             print(f"  Width Bounds:        {room.min_w} - {room.max_w} units")
             print(f"  Height Bounds:       {room.min_h} - {room.max_h} units")
-            print(f"  Min Possible Area:   {room.min_w * room.min_h} sq units")
-            print(f"  Max Possible Area:   {room.max_w * room.max_h} sq units")
+            print(f"  Min Possible Area:   {room.min_w * room.min_h} units")
+            print(f"  Max Possible Area:   {room.max_w * room.max_h} units")
             if room.x is not None:
                 print("  CP Variables:        x, y, w, h, x_end, y_end, area (created)")
 
