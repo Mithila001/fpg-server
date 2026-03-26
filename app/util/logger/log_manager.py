@@ -20,10 +20,13 @@ class _JsonlFormatter(logging.Formatter):
             payload = {"value": payload}
 
         event = getattr(record, "event", None)
-        timestamp = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(timezone.utc)
+        timestamp = now.isoformat()
+        epoch = now.timestamp()
+
         entry: dict[str, Any] = {
             "time": timestamp,
-            "ts": timestamp,
+            "ts": epoch,
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),

@@ -10,6 +10,7 @@ from app.core.config_fpg import (
     ENVELOPE_MIN_GAP,
     SCORE_WEIGHTS,
 )
+from app.util.logger import ScoreLogger
 from .metrics_coverage import score_coverage
 from .metrics_empty_space import score_empty_space
 from .metrics_rectangularity import score_rectangularity
@@ -102,6 +103,12 @@ def score_layout(
 
     valid = len(hard_violations) == 0
     if not valid:
+        ScoreLogger.score_breakdown(
+            component_scores=component_scores,
+            total_score=0.0,
+            valid=False,
+            hard_violation_count=len(hard_violations),
+        )
         return ScoreReport(
             valid=False,
             total_score=0.0,
@@ -114,6 +121,13 @@ def score_layout(
         component_scores["coverage"] * float(weights.get("coverage", SCORE_WEIGHTS["coverage"]))
         + component_scores["rectangularity"] * float(weights.get("rectangularity", SCORE_WEIGHTS["rectangularity"]))
         + component_scores["empty_space"] * float(weights.get("empty_space", SCORE_WEIGHTS["empty_space"]))
+    )
+
+    ScoreLogger.score_breakdown(
+        component_scores=component_scores,
+        total_score=total_score,
+        valid=True,
+        hard_violation_count=0,
     )
 
     return ScoreReport(
