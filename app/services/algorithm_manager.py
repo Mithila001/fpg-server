@@ -385,8 +385,7 @@ def run_layout_pipeline(
 def DEV_RUN() -> None:
     """Development entrypoint for the full solve -> post-process pipeline."""
     
-    requirements = _build_requirements_from_database()
-    _RunFPG (requirements=requirements , verbose=True)
+    payload = run_layout_pipeline(use_optuna=True, verbose=True)
         
         
             
