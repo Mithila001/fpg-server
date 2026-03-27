@@ -58,6 +58,7 @@ def get_formatted_layout(request: Request):
         )
     _last_format_request[client_ip] = now
 
+    # TODO : Currently not working due to formatting update.
     payload = run_layout_pipeline(use_optuna=True, verbose=False)
 
     walls = [WallSegmentResponse(**wall) for wall in payload.get("walls", [])]

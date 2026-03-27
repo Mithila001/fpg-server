@@ -36,9 +36,7 @@ from app.algorithms.fpg_rooms.fpg_optuna import (
     OptunaOptimizationResult,
     run_optuna_optimization,
 )
-from app.algorithms.fpg_rooms.fpg_post_process import (
-    build_post_processed_layout,
-)
+from app.algorithms.fpg_rooms.utils.grid_snap import snap_solution_rooms_to_grid
 
 from sqlmodel import Session
 from app.core.database import engine
@@ -302,7 +300,9 @@ def _select_solver_result(
 def _build_payload_from_solver_result(run_result: FpgEvaluationResult) -> dict[str, Any]:
     """Transform solver output into API payload with post-processed geometry."""
     if run_result.solved:
-        post_process = build_post_processed_layout(run_result.solution)
+        snapped_solution = snap_solution_rooms_to_grid(run_result.solution, grid_size=8.0)
+        post_process = snapped_solution
+        # print(f"\n\n ============ Post Processed: {post_process}")
     else:
         post_process = EMPTY_POST_PROCESS_LAYOUT
 
