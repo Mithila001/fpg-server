@@ -32,11 +32,23 @@ class RoomCenter(BaseModel):
     center: PointResponse
 
 
+class OpeningSegmentResponse(BaseModel):
+    room_name: str
+    room_type: str
+    opening_type: str
+    side: str
+    x1: float
+    y1: float
+    x2: float
+    y2: float
+
+
 class FormatterResponse(BaseModel):
     status: str
     message: str
     walls: List[WallSegmentResponse]
     rooms: List[RoomCenter]
+    openings: List[OpeningSegmentResponse]
 
 
 router = APIRouter(prefix="/algorithms", tags=["algorithms"])
@@ -70,10 +82,12 @@ def get_formatted_layout(request: Request):
         )
         for room in payload.get("rooms", [])
     ]
+    openings = [OpeningSegmentResponse(**opening) for opening in payload.get("openings", [])]
 
     return FormatterResponse(
         status=str(payload.get("status", "UNKNOWN")),
         message=str(payload.get("message", "")),
         walls=walls,
         rooms=rooms,
+        openings=openings,
     )

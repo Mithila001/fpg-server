@@ -37,6 +37,8 @@ from app.algorithms.fpg_rooms.fpg_optuna import (
     run_optuna_optimization,
 )
 from app.algorithms.fpg_rooms.utils.grid_snap import snap_solution_rooms_to_grid
+from app.algorithms.fpg_rooms.fpg_post_process import build_post_processed_layout
+from app.algorithms.fpg_opening import generate_main_doors
 
 from sqlmodel import Session
 from app.core.database import engine
@@ -58,6 +60,7 @@ from app.util.logger import SystemLogger
 # (unified in config_fpg)
 
 EMPTY_POST_PROCESS_LAYOUT = {"walls": [], "rooms": []}
+EMPTY_OPENING_LAYOUT = {"openings": [], "warnings": [], "status": "NOT_RUN", "message": "Not run"}
 
 
 
@@ -301,16 +304,49 @@ def _build_payload_from_solver_result(run_result: FpgEvaluationResult) -> dict[s
     """Transform solver output into API payload with post-processed geometry."""
     if run_result.solved:
         snapped_solution = snap_solution_rooms_to_grid(run_result.solution, grid_size=8.0)
-        post_process = snapped_solution
-        # print(f"\n\n ============ Post Processed: {post_process}")
-    else:
-        post_process = EMPTY_POST_PROCESS_LAYOUT
+        # post_process = build_post_processed_layout(snapped_solution)
+        opening_result = generate_main_doors(snapped_solution)
+        print("\n\n\=======================================")
+        print (f"Rooms Solver : {run_result.solution}")
+        print (f"Opening Solver : {opening_result}")
+        print("\n\n\n")
+        # [dev/low footprint] grid snap side-by-side comparison plot
+        try:
+            import importlib.util
+            from pathlib import Path
 
+            base_dir = Path(__file__).resolve().parents[2]
+            snap_module_path = base_dir / "test" / "dev" / "test_grid_snapping.py"
+
+            if snap_module_path.exists():
+                spec = importlib.util.spec_from_file_location("test_grid_snapping", str(snap_module_path))
+                if spec and spec.loader:
+                    module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(module)
+                    plot_snap_vs_grid = getattr(module, "plot_snap_vs_grid", None)
+                    if callable(plot_snap_vs_grid):
+                        output_plot = plot_snap_vs_grid(run_result.solution, snapped_solution)
+                        print(f"Grid-snap comparison plot saved to: {output_plot}")
+                    else:
+                        print("plot_snap_vs_grid function not found in module")
+                else:
+                    print("Could not load snap module spec")
+            else:
+                print(f"Grid snap module not found at: {snap_module_path}")
+        except Exception as exc:
+            print(f"plot_snap_vs_grid skipped due to error: {exc}")
+        
+        # continue normal operation (keeping low footprint behavior)
+    else:
+        opening_result = EMPTY_OPENING_LAYOUT
+
+    # TODO : Returning data should be modified, But not now.
     return {
         "status": run_result.status,
         "message": run_result.message,
-        "walls": post_process["walls"],
-        "rooms": post_process["rooms"],
+        "walls": snapped_solution["walls"],
+        "rooms": snapped_solution["rooms"],
+        "openings Results": opening_result,
     }
 
 def run_layout_pipeline(
@@ -345,6 +381,10 @@ def run_layout_pipeline(
                 "message": "No room template available in database",
                 "walls": [],
                 "rooms": [],
+                "openings": [],
+                "opening_status": "NOT_RUN",
+                "opening_message": "Not run",
+                "opening_warnings": [],
             }
 
         run_result = _select_solver_result(
@@ -380,12 +420,15 @@ def run_layout_pipeline(
             "message": f"Failed to generate layout: {exc}",
             "walls": [],
             "rooms": [],
+            "openings": [],
+            "opening_status": "NOT_RUN",
+            "opening_message": "Not run",
+            "opening_warnings": [],
         }
 
 def DEV_RUN() -> None:
     """Development entrypoint for the full solve -> post-process pipeline."""
-    
-    payload = run_layout_pipeline(use_optuna=True, verbose=True)
+    run_layout_pipeline(use_optuna=True, verbose=True)
         
         
             
