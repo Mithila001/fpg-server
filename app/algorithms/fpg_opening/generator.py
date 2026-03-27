@@ -3,7 +3,12 @@ from __future__ import annotations
 from typing import Any
 from ortools.sat.python import cp_model
 
-from .constraints import add_internal_doors_placement_constraint, add_main_door_to_outside_constraint
+from .constraints import (
+	add_internal_doors_placement_constraint,
+	add_main_door_to_outside_constraint,
+	add_windows_placement_constraint,
+)
+from .constraints.windows_placement import build_window_candidates_for_room, is_window_eligible_room
 from .solver_models import from_scaled_int, to_scaled_int
 from .types.opening import OpeningRunResult
 from .utils import get_exterior_sides, get_internal_door_candidates, is_room_type, normalize_rooms
@@ -21,11 +26,15 @@ class OpeningGenerator:
 		fpg_room_requirements: list[dict[str, Any]],
 		side_priority: tuple[str, ...] = ("south", "east", "north", "west"),
 		preferred_door_length: float = 8.0,
+		window_width: float = 16.0,
+		window_door_clearance: float = 4.0,
 		tolerance: float = 1e-6,
 	) -> None:
 		self.fpg_room_requirements = fpg_room_requirements
 		self.side_priority = side_priority
 		self.preferred_door_length = float(preferred_door_length)
+		self.window_width = float(window_width)
+		self.window_door_clearance = float(window_door_clearance)
 		self.tolerance = float(tolerance)
 
 		self.last_status_name: str = "NOT_RUN"
@@ -161,6 +170,66 @@ class OpeningGenerator:
 			else:
 				warnings.append("Internal door constraint solve failed")
 
+		window_candidates = []
+		for room in normalized_rooms:
+			if not is_window_eligible_room(room["type"]):
+				continue
+
+			exterior_sides = get_exterior_sides(
+				target_room=room,
+				all_rooms=normalized_rooms,
+				tolerance=self.tolerance,
+			)
+			room_candidates = build_window_candidates_for_room(
+				room=room,
+				exterior_sides=exterior_sides,
+				existing_openings=openings,
+				window_width=self.window_width,
+				door_clearance=self.window_door_clearance,
+				tolerance=self.tolerance,
+			)
+
+			if not room_candidates:
+				warnings.append(
+					f"No valid exterior window for {room['type']} '{room['name']}'"
+				)
+				continue
+
+			window_candidates.extend(room_candidates)
+
+		if window_candidates:
+			window_model = cp_model.CpModel()
+			window_decisions = add_windows_placement_constraint(
+				model=window_model,
+				candidates=window_candidates,
+			)
+
+			window_solver = cp_model.CpSolver()
+			window_solver.parameters.max_time_in_seconds = 1.0
+			window_solver.parameters.num_search_workers = 1
+			window_status = window_solver.Solve(window_model)
+
+			if window_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+				for index, selected_var in enumerate(window_decisions["selected"]):
+					if window_solver.Value(selected_var) != 1:
+						continue
+
+					candidate = window_candidates[index]
+					openings.append(
+						{
+							"room_name": candidate["room_name"],
+							"room_type": candidate["room_type"],
+							"opening_type": "window",
+							"side": candidate["side"],  # type: ignore[typeddict-item]
+							"x1": candidate["x1"],
+							"y1": candidate["y1"],
+							"x2": candidate["x2"],
+							"y2": candidate["y2"],
+						}
+					)
+			else:
+				warnings.append("Window constraint solve failed")
+
 		self._openings = openings
 		self._warnings = warnings
 
@@ -194,10 +263,12 @@ class OpeningGenerator:
 		}
 
 
-def generate_main_doors(
+def generate_openings(
 	fpg_room_requirements: list[dict[str, Any]],
 	side_priority: tuple[str, ...] = ("south", "east", "north", "west"),
 	preferred_door_length: float = 8.0,
+	window_width: float = 16.0,
+	window_door_clearance: float = 4.0,
 	tolerance: float = 1e-6,
 ) -> OpeningRunResult:
 	"""Convenience wrapper used by pipeline orchestration code."""
@@ -205,6 +276,8 @@ def generate_main_doors(
 		fpg_room_requirements=fpg_room_requirements,
 		side_priority=side_priority,
 		preferred_door_length=preferred_door_length,
+		window_width=window_width,
+		window_door_clearance=window_door_clearance,
 		tolerance=tolerance,
 	)
 	generator.generate()

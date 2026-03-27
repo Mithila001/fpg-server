@@ -7,7 +7,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
-from app.algorithms.fpg_opening.generator import generate_main_doors
+from app.algorithms.fpg_opening.generator import generate_openings
 
 
 def run_dev_main_door_plot(
@@ -33,7 +33,7 @@ def run_dev_main_door_plot(
         raise ValueError("Selected entry does not contain 'rooms_solver'")
 
     # The generator expects list[dict[str, Any]] room data
-    result = generate_main_doors(fpg_room_requirements=rooms_solver, tolerance=1e-6)
+    result = generate_openings(fpg_room_requirements=rooms_solver, tolerance=1e-6)
 
     # Plot the rectangles and openings
     fig, ax = plt.subplots(figsize=(8, 8))

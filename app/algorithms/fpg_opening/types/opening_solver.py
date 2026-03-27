@@ -34,3 +34,17 @@ class InternalDoorCandidate(TypedDict):
 
 class InternalDoorDecisionVars(TypedDict):
     selected: list[cp_model.IntVar]
+
+
+class WindowCandidate(TypedDict):
+    room_name: str
+    room_type: str
+    side: str
+    x1: float
+    y1: float
+    x2: float
+    y2: float
+
+
+class WindowDecisionVars(TypedDict):
+    selected: list[cp_model.IntVar]
