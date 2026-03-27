@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.algorithms.fpg_opening.types.opening import NormalizedRoom
+from app.algorithms.fpg_opening.types.opening_solver import InternalDoorCandidate
 
 
 def _to_float(value: Any) -> float:
@@ -99,3 +100,118 @@ def get_exterior_sides(
                 blocked["north"] = True
 
     return {side for side, is_blocked in blocked.items() if not is_blocked}
+
+
+def get_internal_door_candidates(
+    all_rooms: list[NormalizedRoom],
+    preferred_door_length: float,
+    tolerance: float = 1e-6,
+) -> list[InternalDoorCandidate]:
+    candidates: list[InternalDoorCandidate] = []
+
+    for i in range(len(all_rooms)):
+        room_a = all_rooms[i]
+        for j in range(i + 1, len(all_rooms)):
+            room_b = all_rooms[j]
+
+            overlap_y = _overlap_length(room_a["y"], room_a["y_end"], room_b["y"], room_b["y_end"])
+            overlap_x = _overlap_length(room_a["x"], room_a["x_end"], room_b["x"], room_b["x_end"])
+
+            # Vertical adjacency: shared x wall and positive y overlap.
+            if overlap_y > tolerance and abs(room_a["x_end"] - room_b["x"]) <= tolerance:
+                span_start = max(room_a["y"], room_b["y"])
+                span_end = min(room_a["y_end"], room_b["y_end"])
+                span_length = span_end - span_start
+                door_length = min(preferred_door_length, span_length)
+                mid = (span_start + span_end) / 2.0
+                y1 = mid - (door_length / 2.0)
+                y2 = mid + (door_length / 2.0)
+                x = room_a["x_end"]
+                candidates.append(
+                    {
+                        "room_a_name": room_a["name"],
+                        "room_a_type": room_a["type"],
+                        "room_b_name": room_b["name"],
+                        "room_b_type": room_b["type"],
+                        "side": "east",
+                        "x1": x,
+                        "y1": y1,
+                        "x2": x,
+                        "y2": y2,
+                    }
+                )
+                continue
+
+            if overlap_y > tolerance and abs(room_a["x"] - room_b["x_end"]) <= tolerance:
+                span_start = max(room_a["y"], room_b["y"])
+                span_end = min(room_a["y_end"], room_b["y_end"])
+                span_length = span_end - span_start
+                door_length = min(preferred_door_length, span_length)
+                mid = (span_start + span_end) / 2.0
+                y1 = mid - (door_length / 2.0)
+                y2 = mid + (door_length / 2.0)
+                x = room_a["x"]
+                candidates.append(
+                    {
+                        "room_a_name": room_a["name"],
+                        "room_a_type": room_a["type"],
+                        "room_b_name": room_b["name"],
+                        "room_b_type": room_b["type"],
+                        "side": "west",
+                        "x1": x,
+                        "y1": y1,
+                        "x2": x,
+                        "y2": y2,
+                    }
+                )
+                continue
+
+            # Horizontal adjacency: shared y wall and positive x overlap.
+            if overlap_x > tolerance and abs(room_a["y_end"] - room_b["y"]) <= tolerance:
+                span_start = max(room_a["x"], room_b["x"])
+                span_end = min(room_a["x_end"], room_b["x_end"])
+                span_length = span_end - span_start
+                door_length = min(preferred_door_length, span_length)
+                mid = (span_start + span_end) / 2.0
+                x1 = mid - (door_length / 2.0)
+                x2 = mid + (door_length / 2.0)
+                y = room_a["y_end"]
+                candidates.append(
+                    {
+                        "room_a_name": room_a["name"],
+                        "room_a_type": room_a["type"],
+                        "room_b_name": room_b["name"],
+                        "room_b_type": room_b["type"],
+                        "side": "north",
+                        "x1": x1,
+                        "y1": y,
+                        "x2": x2,
+                        "y2": y,
+                    }
+                )
+                continue
+
+            if overlap_x > tolerance and abs(room_a["y"] - room_b["y_end"]) <= tolerance:
+                span_start = max(room_a["x"], room_b["x"])
+                span_end = min(room_a["x_end"], room_b["x_end"])
+                span_length = span_end - span_start
+                door_length = min(preferred_door_length, span_length)
+                mid = (span_start + span_end) / 2.0
+                x1 = mid - (door_length / 2.0)
+                x2 = mid + (door_length / 2.0)
+                y = room_a["y"]
+                candidates.append(
+                    {
+                        "room_a_name": room_a["name"],
+                        "room_a_type": room_a["type"],
+                        "room_b_name": room_b["name"],
+                        "room_b_type": room_b["type"],
+                        "side": "south",
+                        "x1": x1,
+                        "y1": y,
+                        "x2": x2,
+                        "y2": y,
+                    }
+                )
+
+    return candidates

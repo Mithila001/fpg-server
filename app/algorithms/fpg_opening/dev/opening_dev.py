@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import random
 from pathlib import Path
 
@@ -60,10 +59,12 @@ def run_dev_main_door_plot(
         y1 = opening["y1"]
         x2 = opening["x2"]
         y2 = opening["y2"]
-        ax.plot([x1, x2], [y1, y2], color="red", linewidth=3, solid_capstyle="round")
-        ax.text((x1 + x2) / 2, (y1 + y2) / 2, "mainDoor", color="red", fontsize=8, ha="center", va="center")
+        opening_type = str(opening.get("opening_type", "opening"))
+        color = "red" if opening_type == "mainDoor" else "blue"
+        ax.plot([x1, x2], [y1, y2], color=color, linewidth=3, solid_capstyle="round")
+        ax.text((x1 + x2) / 2, (y1 + y2) / 2, opening_type, color=color, fontsize=8, ha="center", va="center")
 
-    ax.set_title("FPG Opening Dev: Main Door Selection")
+    ax.set_title("FPG Opening Dev: Opening Selection")
     ax.set_xlabel("X")
     ax.set_ylabel("Y")
     ax.set_xlim(min_x - grid_size, max_x + grid_size)

@@ -1,5 +1,10 @@
 from .opening import NormalizedRoom, OpeningPayload, OpeningRunResult
-from .opening_solver import MainDoorCpSatVariables, ScaledRoomBounds
+from .opening_solver import (
+	InternalDoorCandidate,
+	InternalDoorDecisionVars,
+	MainDoorCpSatVariables,
+	ScaledRoomBounds,
+)
 
 __all__ = [
 	"NormalizedRoom",
@@ -7,4 +12,6 @@ __all__ = [
 	"OpeningRunResult",
 	"ScaledRoomBounds",
 	"MainDoorCpSatVariables",
+	"InternalDoorCandidate",
+	"InternalDoorDecisionVars",
 ]

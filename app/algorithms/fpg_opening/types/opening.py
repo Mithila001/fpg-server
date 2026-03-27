@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict
 
 
 OpeningSide = Literal["south", "east", "north", "west"]
@@ -24,6 +24,8 @@ class OpeningPayload(TypedDict):
     y1: float
     x2: float
     y2: float
+    connected_room_name: NotRequired[str]
+    connected_room_type: NotRequired[str]
 
 
 class OpeningRunResult(TypedDict):

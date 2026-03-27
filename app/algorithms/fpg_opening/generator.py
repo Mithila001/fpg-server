@@ -3,10 +3,10 @@ from __future__ import annotations
 from typing import Any
 from ortools.sat.python import cp_model
 
-from .constraints import add_main_door_to_outside_constraint
+from .constraints import add_internal_doors_placement_constraint, add_main_door_to_outside_constraint
 from .solver_models import from_scaled_int, to_scaled_int
 from .types.opening import OpeningRunResult
-from .utils import get_exterior_sides, is_room_type, normalize_rooms
+from .utils import get_exterior_sides, get_internal_door_candidates, is_room_type, normalize_rooms
 
 
 class OpeningGenerator:
@@ -50,13 +50,10 @@ class OpeningGenerator:
 
 		living_rooms = [room for room in normalized_rooms if is_room_type(room, "livingRoom")]
 		if not living_rooms:
-			self.last_status_name = "NO_LIVING_ROOM"
 			self._warnings = ["No livingRoom found; no mainDoor generated"]
-			self._openings = []
-			return True
 
 		openings: list[dict[str, Any]] = []
-		warnings: list[str] = []
+		warnings: list[str] = list(self._warnings)
 
 		for living_room in living_rooms:
 			exterior_sides = get_exterior_sides(
@@ -125,13 +122,55 @@ class OpeningGenerator:
 				}
 			)
 
+		internal_candidates = get_internal_door_candidates(
+			all_rooms=normalized_rooms,
+			preferred_door_length=self.preferred_door_length,
+			tolerance=self.tolerance,
+		)
+		if internal_candidates:
+			internal_model = cp_model.CpModel()
+			internal_decisions = add_internal_doors_placement_constraint(
+				model=internal_model,
+				candidates=internal_candidates,
+			)
+
+			internal_solver = cp_model.CpSolver()
+			internal_solver.parameters.max_time_in_seconds = 1.0
+			internal_solver.parameters.num_search_workers = 1
+			internal_status = internal_solver.Solve(internal_model)
+
+			if internal_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+				for index, selected_var in enumerate(internal_decisions["selected"]):
+					if internal_solver.Value(selected_var) != 1:
+						continue
+					candidate = internal_candidates[index]
+					openings.append(
+						{
+							"room_name": candidate["room_a_name"],
+							"room_type": candidate["room_a_type"],
+							"opening_type": "internalDoor",
+							"side": candidate["side"],  # type: ignore[typeddict-item]
+							"x1": candidate["x1"],
+							"y1": candidate["y1"],
+							"x2": candidate["x2"],
+							"y2": candidate["y2"],
+							"connected_room_name": candidate["room_b_name"],
+							"connected_room_type": candidate["room_b_type"],
+						}
+					)
+			else:
+				warnings.append("Internal door constraint solve failed")
+
 		self._openings = openings
 		self._warnings = warnings
 
 		if openings:
 			self.last_status_name = "SUCCESS"
 		elif warnings:
-			self.last_status_name = "NO_VALID_OPENING"
+			if not living_rooms:
+				self.last_status_name = "NO_LIVING_ROOM"
+			else:
+				self.last_status_name = "NO_VALID_OPENING"
 		else:
 			self.last_status_name = "EMPTY_RESULT"
 

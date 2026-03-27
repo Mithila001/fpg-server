@@ -18,3 +18,19 @@ class MainDoorCpSatVariables(TypedDict):
     x2: cp_model.IntVar
     y2: cp_model.IntVar
     side_selected: dict[str, cp_model.IntVar]
+
+
+class InternalDoorCandidate(TypedDict):
+    room_a_name: str
+    room_a_type: str
+    room_b_name: str
+    room_b_type: str
+    side: str
+    x1: float
+    y1: float
+    x2: float
+    y2: float
+
+
+class InternalDoorDecisionVars(TypedDict):
+    selected: list[cp_model.IntVar]
