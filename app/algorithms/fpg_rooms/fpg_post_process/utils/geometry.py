@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from shapely.geometry import LineString, MultiLineString, Polygon, box
-from shapely.ops import unary_union
+from shapely.geometry import GeometryCollection, LineString, MultiLineString, Polygon
 
-from .types import NormalizedRoom, WallSegmentPayload
+from ..types import WallSegmentPayload
 
 
 def _snap(value: float, tolerance: float) -> float:
@@ -14,7 +13,7 @@ def _snap(value: float, tolerance: float) -> float:
     return round(value / tolerance) * tolerance
 
 
-def _iter_lines(geometry: LineString | MultiLineString | Polygon) -> Iterable[LineString]:
+def _iter_lines(geometry: object) -> Iterable[LineString]:
     if isinstance(geometry, LineString):
         yield geometry
         return
@@ -26,6 +25,11 @@ def _iter_lines(geometry: LineString | MultiLineString | Polygon) -> Iterable[Li
 
     if isinstance(geometry, Polygon):
         yield LineString(geometry.exterior.coords)
+        return
+
+    if isinstance(geometry, GeometryCollection):
+        for item in geometry.geoms:
+            yield from _iter_lines(item)
 
 
 def _segment_key(
@@ -39,35 +43,19 @@ def _segment_key(
     return (a, b) if a <= b else (b, a)
 
 
-def generate_unique_wall_segments(
-    rooms: list[NormalizedRoom],
-    tolerance: float = 1e-6,
-) -> list[WallSegmentPayload]:
-    """Generate unique wall segments across all room rectangles.
-
-    Shared boundaries between touching rooms are emitted only once.
-    """
-    if not rooms:
-        return []
-
-    room_polygons = [
-        box(room["x"], room["y"], room["x_end"], room["y_end"])
-        for room in rooms
-    ]
-
-    merged_boundaries = unary_union([poly.boundary for poly in room_polygons])
-
+def extract_unique_segments(geometry: object, tolerance: float = 1e-6) -> list[WallSegmentPayload]:
+    """Convert any line-like geometry into sorted unique wall segments."""
     seen: set[tuple[tuple[float, float], tuple[float, float]]] = set()
     segments: list[WallSegmentPayload] = []
 
-    for line in _iter_lines(merged_boundaries):
+    for line in _iter_lines(geometry):
         coords = list(line.coords)
         if len(coords) < 2:
             continue
 
-        for i in range(len(coords) - 1):
-            x1, y1 = coords[i]
-            x2, y2 = coords[i + 1]
+        for index in range(len(coords) - 1):
+            x1, y1 = coords[index]
+            x2, y2 = coords[index + 1]
 
             sx1 = _snap(float(x1), tolerance)
             sy1 = _snap(float(y1), tolerance)
@@ -92,5 +80,5 @@ def generate_unique_wall_segments(
                 }
             )
 
-    segments.sort(key=lambda s: (s["x1"], s["y1"], s["x2"], s["y2"]))
+    segments.sort(key=lambda segment: (segment["x1"], segment["y1"], segment["x2"], segment["y2"]))
     return segments

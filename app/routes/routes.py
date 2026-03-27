@@ -17,8 +17,6 @@ _rate_limit_seconds = 2
 class PointResponse(BaseModel):
     x: float
     y: float
-
-
 class WallSegmentResponse(BaseModel):
     x1: float
     y1: float
@@ -26,29 +24,31 @@ class WallSegmentResponse(BaseModel):
     y2: float
 
 
-class RoomCenter(BaseModel):
-    name: str
-    type: str
-    center: PointResponse
-
-
 class OpeningSegmentResponse(BaseModel):
     room_name: str
+    room_type: str | None = None
+    opening_type: str | None = None
+    side: str | None = None
+    x1: float | None = None
+    y1: float | None = None
+    x2: float | None = None
+    y2: float | None = None
+    connected_room_name: str | None = None
+    connected_room_type: str | None = None
+
+
+class CompactRoomResponse(BaseModel):
+    room_name: str
     room_type: str
-    opening_type: str
-    side: str
-    x1: float
-    y1: float
-    x2: float
-    y2: float
+    walls: List[WallSegmentResponse]
+    openings: List[OpeningSegmentResponse]
 
 
 class FormatterResponse(BaseModel):
     status: str
     message: str
     walls: List[WallSegmentResponse]
-    rooms: List[RoomCenter]
-    openings: List[OpeningSegmentResponse]
+    compact_by_room: dict[str, CompactRoomResponse]
 
 
 router = APIRouter(prefix="/algorithms", tags=["algorithms"])
@@ -70,24 +70,5 @@ def get_formatted_layout(request: Request):
         )
     _last_format_request[client_ip] = now
 
-    # TODO : Currently not working due to formatting update.
     payload = run_layout_pipeline(use_optuna=True, verbose=False)
-
-    walls = [WallSegmentResponse(**wall) for wall in payload.get("walls", [])]
-    rooms = [
-        RoomCenter(
-            name=room.get("name", ""),
-            type=room.get("type", ""),
-            center=PointResponse(**room.get("center", {"x": 0.0, "y": 0.0})),
-        )
-        for room in payload.get("rooms", [])
-    ]
-    openings = [OpeningSegmentResponse(**opening) for opening in payload.get("openings", [])]
-
-    return FormatterResponse(
-        status=str(payload.get("status", "UNKNOWN")),
-        message=str(payload.get("message", "")),
-        walls=walls,
-        rooms=rooms,
-        openings=openings,
-    )
+    return FormatterResponse(**payload)
