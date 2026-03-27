@@ -9,7 +9,7 @@ from pathlib import Path
 def plot_snap_vs_grid(
     original_solution: list[dict],
     snapped_solution: list[dict] | dict,
-    output_dir: str | Path = "test/dev",
+    output_dir: str | Path = "test/dev/gridSnap/",
 ) -> str:
     """Plot original and snapped room layouts side-by-side."""
     # Normalize snapped_solution shape

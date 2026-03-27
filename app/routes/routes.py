@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from time import time
 
 from app.services.algorithm_manager import run_layout_pipeline
+from test.dev.plotter_loader import plot_floor_plan_payload
 # from app.util.logger import SystemLogger
 
 # In-memory per-client rate limit tracker (simple, single-process)
@@ -71,4 +72,9 @@ def get_formatted_layout(request: Request):
     _last_format_request[client_ip] = now
 
     payload = run_layout_pipeline(use_optuna=True, verbose=False)
+
+    # Simple call at endpoint layer:
+    if plot_floor_plan_payload:
+        plot_floor_plan_payload(payload)
+
     return FormatterResponse(**payload)

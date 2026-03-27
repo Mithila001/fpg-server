@@ -54,6 +54,7 @@ from app.util.dev_use_mock_db import (
     load_room_size_constraints,
 )
 from app.util.logger import SystemLogger
+from test.dev.test_grid_snapping import plot_snap_vs_grid
 
 
 # Fallback room dimension used when a room_size_constraints column is NULL.
@@ -304,6 +305,7 @@ def _build_payload_from_solver_result(run_result: FpgEvaluationResult) -> dict[s
     """Transform solver output into API payload with post-processed geometry."""
     if run_result.solved:
         snapped_solution = snap_solution_rooms_to_grid(run_result.solution, grid_size=8.0)
+        plot_snap_vs_grid(run_result.solution,snapped_solution )
         opening_result = generate_openings(snapped_solution)
         post_process_result = run_post_processor(
             {
