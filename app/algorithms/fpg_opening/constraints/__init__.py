@@ -1,3 +1,3 @@
-from .main_door import select_main_door
+from .main_door_to_outside import add_main_door_to_outside_constraint
 
-__all__ = ["select_main_door"]
+__all__ = ["add_main_door_to_outside_constraint"]

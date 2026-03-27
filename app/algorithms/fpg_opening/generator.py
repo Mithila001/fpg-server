@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from typing import Any
+from ortools.sat.python import cp_model
 
-from .constraints import select_main_door
+from .constraints import add_main_door_to_outside_constraint
+from .solver_models import from_scaled_int, to_scaled_int
 from .types.opening import OpeningRunResult
 from .utils import get_exterior_sides, is_room_type, normalize_rooms
 
@@ -63,20 +65,65 @@ class OpeningGenerator:
 				tolerance=self.tolerance,
 			)
 
-			main_door = select_main_door(
-				room=living_room,
-				exterior_sides=exterior_sides,
-				side_priority=self.side_priority,
-				preferred_door_length=self.preferred_door_length,
-			)
-
-			if main_door is None:
+			if not exterior_sides:
 				warnings.append(
 					f"No valid exterior wall for livingRoom '{living_room['name']}'"
 				)
 				continue
 
-			openings.append(main_door)
+			model = cp_model.CpModel()
+			scaled_room = {
+				"x": to_scaled_int(living_room["x"]),
+				"y": to_scaled_int(living_room["y"]),
+				"x_end": to_scaled_int(living_room["x_end"]),
+				"y_end": to_scaled_int(living_room["y_end"]),
+			}
+
+			preferred_len_int = to_scaled_int(self.preferred_door_length)
+			decision_vars, priority_cost = add_main_door_to_outside_constraint(
+				model=model,
+				room=scaled_room,
+				exterior_sides=exterior_sides,
+				side_priority=self.side_priority,
+				preferred_door_length=preferred_len_int,
+			)
+			model.Minimize(priority_cost)
+
+			solver = cp_model.CpSolver()
+			solver.parameters.max_time_in_seconds = 1.0
+			solver.parameters.num_search_workers = 1
+			status = solver.Solve(model)
+
+			if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+				warnings.append(
+					f"No valid CP-SAT opening for livingRoom '{living_room['name']}'"
+				)
+				continue
+
+			selected_side = None
+			for side, bool_var in decision_vars["side_selected"].items():
+				if solver.Value(bool_var) == 1:
+					selected_side = side
+					break
+
+			if selected_side is None:
+				warnings.append(
+					f"CP-SAT did not pick a side for livingRoom '{living_room['name']}'"
+				)
+				continue
+
+			openings.append(
+				{
+					"room_name": living_room["name"],
+					"room_type": living_room["type"],
+					"opening_type": "mainDoor",
+					"side": selected_side,  # type: ignore[typeddict-item]
+					"x1": from_scaled_int(solver.Value(decision_vars["x1"])),
+					"y1": from_scaled_int(solver.Value(decision_vars["y1"])),
+					"x2": from_scaled_int(solver.Value(decision_vars["x2"])),
+					"y2": from_scaled_int(solver.Value(decision_vars["y2"])),
+				}
+			)
 
 		self._openings = openings
 		self._warnings = warnings
