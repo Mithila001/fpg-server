@@ -28,6 +28,7 @@ DEFAULT_WEIGHTS = SCORE_WEIGHTS.copy()
 
 def score_layout(
     solution: Sequence[Dict[str, Any]],
+    post_processed_layout: Sequence[Dict[str, Any]],
     requirements: FpgRequirements,
     min_touch_overlap: int = 1,
 ) -> ScoreReport:
@@ -36,6 +37,7 @@ def score_layout(
     Hard checks (geometry, overlap, adjacency) are a gate. When a hard check
     fails, total_score becomes 0 while diagnostics are still returned.
     """
+    # TODO :Verify it actually receiving the data i want.
     if not solution:
         return ScoreReport(
             valid=False,
@@ -43,6 +45,12 @@ def score_layout(
             hard_violations=["Solution is empty"],
             diagnostics={},
         )
+    # Reserved for upcoming scoring signals that come from quick/final post-processing.
+    _ = post_processed_layout
+
+    print('\n\n')
+    print(f'Solution: {solution}')
+    print(f'requirements: {requirements} \n\n')
 
     cfg = requirements.config
     floor_width = float(cfg.floor_plan_width)
