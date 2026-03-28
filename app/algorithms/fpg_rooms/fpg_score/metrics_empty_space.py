@@ -2,33 +2,86 @@ from __future__ import annotations
 
 from typing import Any, Dict, Sequence, Tuple
 
+from shapely.geometry import MultiPolygon, Polygon, box
+from shapely.ops import unary_union
+
 
 def score_empty_space(
     solution: Sequence[Dict[str, Any]],
     floor_width: float,
     floor_height: float,
+    wall_union: Dict[str, Any] | None = None,
+    tolerance: float = 1e-6,
 ) -> Tuple[float, Dict[str, float]]:
-    """Empty-space score in [0, 100] using floor and envelope void ratios."""
-    floor_area = max(1, int(floor_width) * int(floor_height))
-    used_area = sum(int(room["area"]) for room in solution)
+    """Shapely empty-space score based on enclosed air-gaps.
 
-    floor_void_ratio = max(0.0, (floor_area - used_area) / floor_area)
+    The score now acts as a geometric gate signal:
+    - no enclosed air-gap => score 100
+    - enclosed air-gap exists => score 1
+    """
+    _ = wall_union
+    if not solution:
+        return 1.0, {
+            "has_air_gap": 1.0,
+            "air_gap_area": 0.0,
+            "boundary_area": 0.0,
+            "union_area": 0.0,
+            "floor_area": 0.0,
+            "tolerance": float(tolerance),
+            "geometry_valid": 0.0,
+        }
 
-    min_x = min(int(room["x"]) for room in solution)
-    min_y = min(int(room["y"]) for room in solution)
-    max_x = max(int(room["x_end"]) for room in solution)
-    max_y = max(int(room["y_end"]) for room in solution)
+    room_polygons = [
+        box(
+            float(room["x"]),
+            float(room["y"]),
+            float(room["x_end"]),
+            float(room["y_end"]),
+        )
+        for room in solution
+    ]
+    union_shape = unary_union(room_polygons)
 
-    bbox_area = max(1, (max_x - min_x) * (max_y - min_y))
-    bbox_void_ratio = max(0.0, (bbox_area - used_area) / bbox_area)
+    if union_shape.is_empty:
+        return 1.0, {
+            "has_air_gap": 1.0,
+            "air_gap_area": 0.0,
+            "boundary_area": 0.0,
+            "union_area": 0.0,
+            "floor_area": float(max(1.0, floor_width * floor_height)),
+            "tolerance": float(tolerance),
+            "geometry_valid": 0.0,
+        }
 
-    # Blend global floor emptiness and local packing quality.
-    blended_void = 0.6 * floor_void_ratio + 0.4 * bbox_void_ratio
-    score = max(0.0, min(100.0, 100.0 * (1.0 - blended_void)))
+    if isinstance(union_shape, Polygon):
+        boundary_shape = Polygon(union_shape.exterior)
+    elif isinstance(union_shape, MultiPolygon):
+        boundary_shape = MultiPolygon([Polygon(poly.exterior) for poly in union_shape.geoms])
+    else:
+        # Fallback for uncommon geometry collections from union operations.
+        polygons = [geom for geom in getattr(union_shape, "geoms", []) if isinstance(geom, Polygon)]
+        if not polygons:
+            return 1.0, {
+                "has_air_gap": 1.0,
+                "air_gap_area": 0.0,
+                "boundary_area": 0.0,
+                "union_area": 0.0,
+                "floor_area": float(max(1.0, floor_width * floor_height)),
+                "tolerance": float(tolerance),
+                "geometry_valid": 0.0,
+            }
+        boundary_shape = MultiPolygon([Polygon(poly.exterior) for poly in polygons])
 
-    return score, {
-        "floor_void_ratio": floor_void_ratio,
-        "bbox_void_ratio": bbox_void_ratio,
-        "bbox_area": float(bbox_area),
-        "blended_void": blended_void,
+    air_gaps = boundary_shape.difference(union_shape)
+    air_gap_area = float(max(0.0, air_gaps.area))
+    has_air_gap = air_gap_area > float(tolerance)
+
+    return (1.0 if has_air_gap else 100.0), {
+        "has_air_gap": 1.0 if has_air_gap else 0.0,
+        "air_gap_area": air_gap_area,
+        "boundary_area": float(max(0.0, boundary_shape.area)),
+        "union_area": float(max(0.0, union_shape.area)),
+        "floor_area": float(max(1.0, floor_width * floor_height)),
+        "tolerance": float(tolerance),
+        "geometry_valid": 1.0,
     }

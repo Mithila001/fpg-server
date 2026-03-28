@@ -213,7 +213,11 @@ def _RunFPG(requirements: FpgRequirements, verbose: bool = True) -> FpgEvaluatio
         
         plot_snap_vs_grid (solution, quick_post_process_result['rooms'])
         # stash quick result on run_result for _build_payload stage
-        score_report = score_layout(solution, quick_post_process_result, requirements)
+        score_report = score_layout(
+            solution=solution,
+            quick_post_process_result=quick_post_process_result,
+            requirements=requirements,
+        )
 
         if verbose:
             print(f"\nSolution with {len(solution)} rooms:")

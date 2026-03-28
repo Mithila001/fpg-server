@@ -6,6 +6,8 @@ from app.core.fpg_rooms.config_fpg import (
     ENVELOPE_MAX_GAP,
     ENVELOPE_EXCLUDE_TYPES,
     ENVELOPE_APPLY_SIDES,
+    INWARD_POCKET_MAX_LENGTH,
+    SCORE_GEOMETRY_TOLERANCE,
 )
 
 @dataclass
@@ -32,6 +34,8 @@ class ConfigData:
     envelope_apply_sides: list[str] = field(
         default_factory=lambda: ENVELOPE_APPLY_SIDES.copy()
     )
+    score_geometry_tolerance: float = SCORE_GEOMETRY_TOLERANCE
+    inward_pocket_max_length: float = INWARD_POCKET_MAX_LENGTH
 
 
 # Main Param Type
