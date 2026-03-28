@@ -37,7 +37,11 @@ def score_layout(
     Hard checks (geometry, overlap, adjacency) are a gate. When a hard check
     fails, total_score becomes 0 while diagnostics are still returned.
     """
-    # TODO :Verify it actually receiving the data i want.
+    # TODO :There are so many unnecessary amount of data bringing to this function. Fix later. Not now.
+    
+    # DEV NOTE: After some logs checks, 'post_processed_layout' provide all the important data we need, 
+    # And only half of 'requirements' data is useful. 'solution' data is almost useless/ outdate for this task.  
+    
     if not solution:
         return ScoreReport(
             valid=False,
@@ -49,7 +53,8 @@ def score_layout(
     _ = post_processed_layout
 
     print('\n\n')
-    print(f'Solution: {solution}')
+    print(f'Solution: {solution}\n')
+    print(f'post_processed_layout: {post_processed_layout}\n')
     print(f'requirements: {requirements} \n\n')
 
     cfg = requirements.config

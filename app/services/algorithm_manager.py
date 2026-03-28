@@ -56,6 +56,7 @@ from app.util.dev_use_mock_db import (
     load_room_size_constraints,
 )
 from app.util.logger import SystemLogger
+from test.dev.test_grid_snapping import plot_snap_vs_grid
 
 
 # Fallback room dimension used when a room_size_constraints column is NULL.
@@ -209,6 +210,8 @@ def _RunFPG(requirements: FpgRequirements, verbose: bool = True) -> FpgEvaluatio
         solution = generator.get_solution()
         # quick path for scoring and later final publish.
         quick_post_process_result = run_quick_post_process({"rooms": solution, "openings": []})
+        
+        plot_snap_vs_grid (solution, quick_post_process_result['rooms'])
         # stash quick result on run_result for _build_payload stage
         score_report = score_layout(solution, quick_post_process_result, requirements)
 

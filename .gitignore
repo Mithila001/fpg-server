@@ -64,3 +64,5 @@ app/algorithms/fp_formatter_for_frontend/dev_test/images
 
 logs/*
 optuna_fpg.db
+
+test/dev/gridSnap/*
