@@ -1,27 +1,44 @@
 import contextlib
 import io
+from datetime import datetime
+from time import perf_counter
 from typing import Any, List
 
-from app.algorithms.floor_plan_generator import FloorPlanGenerator
-from app.algorithms.floor_plan_generator.types.room import (
+from app.algorithms.fpg_rooms import FloorPlanGenerator
+from app.algorithms.fpg_rooms.types.room import (
     RoomData,
     ConfigData,
     FpgRequirements,
 )
-from app.algorithms.floor_plan_generator.config import (
+from app.core.fpg_rooms.config_fpg import (
     FLOOR_WIDTH,
     FLOOR_HEIGHT,
     MIN_COVERAGE,
+    DEFAULT_OPTUNA_TRIALS,
+    DEFAULT_OPTUNA_STORAGE_ENABLED,
+    DEFAULT_OPTUNA_STORAGE_URL,
+    DEFAULT_ASPECT_RATIO_MAX,
+    DEFAULT_ASPECT_RATIO_MIN,
+    DEFAULT_HALLWAY_COUNT,
+    DEFAULT_MIN_W,
+    DEFAULT_MIN_H,
+    DEFAULT_MAX_W,
+    DEFAULT_MAX_H,
+    ENVELOPE_ENABLED,
+    ENVELOPE_MIN_GAP,
+    ENVELOPE_MAX_GAP,
+    ENVELOPE_EXCLUDE_TYPES,
+    ENVELOPE_APPLY_SIDES,
 )
-from app.algorithms.floor_plan_generator.fpg_score import score_layout
-from app.algorithms.floor_plan_generator.fpg_optuna import (
+from app.algorithms.fpg_rooms.fpg_score import score_layout
+from app.algorithms.fpg_rooms.fpg_optuna import (
     FpgEvaluationResult,
     OptunaOptimizationResult,
     run_optuna_optimization,
 )
-from app.algorithms.floor_plan_generator.fpg_post_process import (
-    build_post_processed_layout,
-)
+from app.algorithms.fpg_rooms.fpg_post_process import run_post_processor
+from app.algorithms.fpg_rooms.utils.grid_snap import snap_solution_rooms_to_grid
+from app.algorithms.fpg_opening import generate_openings
 
 from sqlmodel import Session
 from app.core.database import engine
@@ -30,77 +47,101 @@ from app.crud import (
     room_setup_template as room_setup_template_crud,
     room_relations_constraint as room_relations_constraint_crud,
 )
-from app.util.room_requirements import normalize_requirements
+from app.util.room_requirements import normalize_db_data_requirements
+from app.util.dev_use_mock_db import (
+    load_room_relations_constraints,
+    load_room_setup_templates,
+    load_room_size_constraints,
+)
+from app.util.logger import SystemLogger
+from test.dev.test_grid_snapping import plot_snap_vs_grid
 
 
 # Fallback room dimension used when a room_size_constraints column is NULL.
-DEFAULT_ROOM_DIMENSION = 1000
+# (unified in config_fpg)
 
-
-EMPTY_POST_PROCESS_LAYOUT = {"walls": [], "rooms": []}
-DEFAULT_OPTUNA_TRIALS = 20
+EMPTY_POST_PROCESS_LAYOUT = {"walls": [], "compact_by_room": {}}
+EMPTY_OPENING_LAYOUT = {"openings": [], "warnings": [], "status": "NOT_RUN", "message": "Not run"}
 
 
 
 
 def _build_requirements_from_database() -> FpgRequirements | None:
-    with Session(engine) as session:
-        # Retrieve all database records
-        templates = room_setup_template_crud.get_all(session)
-        size_constraints = room_size_constraint_crud.get_all(session)
-        relation_constraints = room_relations_constraint_crud.get_all(session)
-        
-        print(f"Retrieved {len(templates)} templates")
-        print(f"Retrieved {len(size_constraints)} size constraints")
-        print(f"Retrieved {len(relation_constraints)} relation constraints")
-        
-        # If no templates, exit early
-        if not templates:
-            print("No room setup templates found in database")
-            return None
-        
-        # Use the first template as the basis
-        template = templates[0]
-        print(f"\nUsing template: {template.name}")
-        
-        # Build RoomData list from template data
-        rooms: List[RoomData] = []
-        if template.data:
-            for entry in template.data:
-                room_type = entry.get("type", "")
-                room_name = entry.get("name") or entry.get("id") or room_type
-                
-                rooms.append(
-                    RoomData(
-                        name=room_name,
-                        type=room_type,
-                        min_w=1,
-                        min_h=1,
-                        max_w=1,
-                        max_h=1,
-                    )
+    should_bypass = True
+
+    if should_bypass:
+        print("bypass function call")
+        templates = load_room_setup_templates()
+        size_constraints = load_room_size_constraints()
+        relation_constraints = load_room_relations_constraints()
+    else:
+        with Session(engine) as session:
+            templates = room_setup_template_crud.get_all(session)
+            size_constraints = room_size_constraint_crud.get_all(session)
+            relation_constraints = room_relations_constraint_crud.get_all(session)
+
+    print(f"Retrieved {len(templates)} templates")
+    print(f"Retrieved {len(size_constraints)} size constraints")
+    print(f"Retrieved {len(relation_constraints)} relation constraints")
+
+    # debug: print loaded values
+    print("Templates:", templates)
+    print("Size constraints:", size_constraints)
+    print("Relation constraints:", relation_constraints)
+    
+
+    # If no templates, exit early
+    if not templates:
+        print("No room setup templates found in database")
+        return None
+
+    # Use the first template as the basis
+    template = templates[0]
+    print(f"\nUsing template: {template.name}")
+
+    # Build RoomData list from template data
+    rooms: List[RoomData] = []
+    if template.data:
+        for entry in template.data:
+            room_type = entry.get("type", "")
+            room_name = entry.get("name") or entry.get("id") or room_type
+
+            rooms.append(
+                RoomData(
+                    name=room_name,
+                    type=room_type,
+                    min_w=DEFAULT_MIN_W,
+                    min_h=DEFAULT_MIN_H,
+                    max_w=DEFAULT_MAX_W,
+                    max_h=DEFAULT_MAX_H,
                 )
-        
-        print(f"Created {len(rooms)} RoomData objects")
-        for room in rooms:
-            print(f"  - {room.name} ({room.type}): {room.min_w}-{room.max_w} * {room.min_h}-{room.max_h}")
-        
-        # Normalize rooms based on database constraint rules
-        print("\nNormalizing rooms against database constraints...")
-        rooms = normalize_requirements(rooms, size_constraints)
-        
-        print(f"Normalized {len(rooms)} RoomData objects")
-        for room in rooms:
-            print(f"  - {room.name} ({room.type}): Min W: {room.min_w} - Max W: {room.max_w} * Min H: {room.min_h} - Max H: {room.max_h}")
-        
-        # Create ConfigData
+            )
+
+    print(f"Created {len(rooms)} RoomData objects")
+    for room in rooms:
+        print(f"  - {room.name} ({room.type}): {room.min_w}-{room.max_w} * {room.min_h}-{room.max_h}")
+
+    # Normalize rooms based on database constraint rules
+    print("\nNormalizing rooms against database constraints...")
+    rooms = normalize_db_data_requirements(rooms, size_constraints)
+
+    print(f"Normalized {len(rooms)} RoomData objects")
+    for room in rooms:
+        print(f"  - {room.name} ({room.type}): Min W: {room.min_w} - Max W: {room.max_w} * Min H: {room.min_h} - Max H: {room.max_h}")
+
+    # Create ConfigData
         config = ConfigData(
             min_coverage=MIN_COVERAGE,
-            max_aspect_ratio=16.0,
-            min_aspect_ratio=0.0,
+            max_aspect_ratio=DEFAULT_ASPECT_RATIO_MAX,
+            min_aspect_ratio=DEFAULT_ASPECT_RATIO_MIN,
             floor_plan_width=FLOOR_WIDTH,
             floor_plan_height=FLOOR_HEIGHT,
-            hallway_count=1,
+            hallway_count=DEFAULT_HALLWAY_COUNT,
+            envelope_enabled=ENVELOPE_ENABLED,
+            envelope_min_gap=ENVELOPE_MIN_GAP,
+            envelope_max_gap=ENVELOPE_MAX_GAP,
+            envelope_exclude_types=ENVELOPE_EXCLUDE_TYPES,
+            envelope_apply_sides=ENVELOPE_APPLY_SIDES,
         )
         
         # Create FpgRequirements with relation constraints
@@ -211,14 +252,20 @@ def _OptunaEntry(
     requirements: FpgRequirements,
     n_trials: int = 50,
     study_name: str = "fpg_layout_optimization",
-    storage: str | None = "sqlite:///optuna_fpg.db",
 ) -> OptunaOptimizationResult:
-    print(f"\nRunning Optuna optimization for {n_trials} trials...")
+    storage = DEFAULT_OPTUNA_STORAGE_URL if DEFAULT_OPTUNA_STORAGE_ENABLED else None
+    mode = "database" if storage is not None else "in-memory"
+    # Use a unique study name per run to avoid reusing old trials from previous executions.
+    run_study_name = f"{study_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    print(
+        f"\nRunning Optuna optimization for {n_trials} trials "
+        f"({mode} study storage), study={run_study_name}..."
+    )
     result = run_optuna_optimization(
         base_requirements=requirements,
         evaluator=_RunFPG,
         n_trials=n_trials,
-        study_name=study_name,
+        study_name=run_study_name,
         storage=storage,
     )
 
@@ -232,6 +279,13 @@ def _select_solver_result(
     verbose: bool,
 ) -> FpgEvaluationResult:
     """Return a single solver result selected from one-shot or Optuna flow."""
+    SystemLogger.info(
+        sector=1,
+        message="solver selection",
+        filename="algorithm_manager.py",
+        data={"use_optuna": bool(use_optuna), "n_trials": int(n_trials)},
+    )
+
     if not use_optuna:
         return _RunFPG(requirements, verbose=verbose)
 
@@ -250,31 +304,89 @@ def _select_solver_result(
 def _build_payload_from_solver_result(run_result: FpgEvaluationResult) -> dict[str, Any]:
     """Transform solver output into API payload with post-processed geometry."""
     if run_result.solved:
-        post_process = build_post_processed_layout(run_result.solution)
+        snapped_solution = snap_solution_rooms_to_grid(run_result.solution, grid_size=8.0)
+        plot_snap_vs_grid(run_result.solution,snapped_solution )
+        opening_result = generate_openings(snapped_solution)
+        post_process_result = run_post_processor(
+            {
+                "rooms": snapped_solution,
+                "openings": opening_result.get("openings", []),
+            }
+        )
+        print("\n\n\=======================================")
+        print (f"Rooms Solver : {run_result.solution}")
+        print (f"Opening Solver : {opening_result}")
+        print("\n\n\n")
+        # # [dev/low footprint] grid snap side-by-side comparison plot
+        # try:
+        #     import importlib.util
+        #     from pathlib import Path
+
+        #     base_dir = Path(__file__).resolve().parents[2]
+        #     snap_module_path = base_dir / "test" / "dev" / "test_grid_snapping.py"
+
+        #     if snap_module_path.exists():
+        #         spec = importlib.util.spec_from_file_location("test_grid_snapping", str(snap_module_path))
+        #         if spec and spec.loader:
+        #             module = importlib.util.module_from_spec(spec)
+        #             spec.loader.exec_module(module)
+        #             plot_snap_vs_grid = getattr(module, "plot_snap_vs_grid", None)
+        #             if callable(plot_snap_vs_grid):
+        #                 output_plot = plot_snap_vs_grid(run_result.solution, snapped_solution)
+        #                 print(f"Grid-snap comparison plot saved to: {output_plot}")
+        #             else:
+        #                 print("plot_snap_vs_grid function not found in module")
+        #         else:
+        #             print("Could not load snap module spec")
+        #     else:
+        #         print(f"Grid snap module not found at: {snap_module_path}")
+        # except Exception as exc:
+        #     print(f"plot_snap_vs_grid skipped due to error: {exc}")
+        
+        # # continue normal operation (keeping low footprint behavior)
     else:
-        post_process = EMPTY_POST_PROCESS_LAYOUT
+        opening_result = EMPTY_OPENING_LAYOUT
+        post_process_result = EMPTY_POST_PROCESS_LAYOUT
 
     return {
         "status": run_result.status,
         "message": run_result.message,
-        "walls": post_process["walls"],
-        "rooms": post_process["rooms"],
+        "walls": post_process_result["walls"],
+        "compact_by_room": post_process_result["compact_by_room"],
     }
 
 def run_layout_pipeline(
     use_optuna: bool = False,
     n_trials: int = DEFAULT_OPTUNA_TRIALS,
-    verbose: bool = False,
+    verbose: bool = True,
 ) -> dict[str, Any]:
     """Main orchestrator: DB requirements -> solve -> post-process -> payload."""
+    started_at = perf_counter()
+    SystemLogger.info(
+        sector=1,
+        message="layout pipeline started",
+        filename="algorithm_manager.py",
+        data={
+            "use_optuna": bool(use_optuna),
+            "n_trials": int(n_trials),
+            "verbose": bool(verbose),
+        },
+    )
+
     try:
         requirements = _build_requirements_from_database()
         if requirements is None:
+            SystemLogger.warning(
+                sector=1,
+                message="layout pipeline ended without template",
+                filename="algorithm_manager.py",
+                data={"status": "NO_TEMPLATE"},
+            )
             return {
                 "status": "NO_TEMPLATE",
                 "message": "No room template available in database",
                 "walls": [],
-                "rooms": [],
+                "compact_by_room": {},
             }
 
         run_result = _select_solver_result(
@@ -283,27 +395,38 @@ def run_layout_pipeline(
             n_trials=n_trials,
             verbose=verbose,
         )
-        return _build_payload_from_solver_result(run_result)
+        payload = _build_payload_from_solver_result(run_result)
+        SystemLogger.info(
+            sector=1,
+            message="layout pipeline completed",
+            filename="algorithm_manager.py",
+            data={
+                "status": payload.get("status", "UNKNOWN"),
+                "solved": bool(run_result.solved),
+                "duration_ms": round((perf_counter() - started_at) * 1000.0, 2),
+            },
+        )
+        return payload
     except Exception as exc:
+        SystemLogger.error(
+            sector=1,
+            message="layout pipeline failed",
+            filename="algorithm_manager.py",
+            data={
+                "error": str(exc),
+                "duration_ms": round((perf_counter() - started_at) * 1000.0, 2),
+            },
+        )
         return {
             "status": "ERROR",
             "message": f"Failed to generate layout: {exc}",
             "walls": [],
-            "rooms": [],
+            "compact_by_room": {},
         }
 
-def DEV_RUN(use_optuna: bool = True, n_trials: int = 50) -> None:
+def DEV_RUN() -> None:
     """Development entrypoint for the full solve -> post-process pipeline."""
-    payload = run_layout_pipeline(
-        use_optuna=use_optuna,
-        n_trials=n_trials,
-        verbose=True,
-    )
-    print("\nPost-Process Summary:")
-    print(f"  - Status: {payload['status']}")
-    print(f"  - Message: {payload['message']}")
-    print(f"  - Walls: {len(payload['walls'])}")
-    print(f"  - Rooms: {len(payload['rooms'])}")
+    run_layout_pipeline(use_optuna=True, verbose=True)
         
         
             

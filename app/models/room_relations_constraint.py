@@ -16,6 +16,9 @@ class RoomRelationsConstraint(SQLModel, table=True):
     related_room: Optional[List[str]] = Field(
         default=None, sa_column=Column("related_room", JSONB)
     )
+    constraint_level: Optional[str] = Field(
+        default=None, sa_column=Column("constraint_level", String(50), nullable=True)
+    )
     last_updated: Optional[date] = Field(
         default=None,
         sa_column=Column(Date, server_default=text("CURRENT_DATE")),

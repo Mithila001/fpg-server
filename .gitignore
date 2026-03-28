@@ -44,6 +44,7 @@ build/
 
 # Logs and miscellaneous
 *.log
+logs/*
 
 # Additional virtual environments
 .venv/
@@ -59,3 +60,4 @@ Thumbs.db
 backend/app/dev/plotters/output/
 app/dev/outputs
 app/algorithms/fp_formatter_for_frontend/dev_test/images
+optuna_fpg.db

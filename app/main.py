@@ -22,17 +22,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# app.include_router(layout.router)  # removed - layout router not implemented
-
-# app.include_router(dimensions.router)  # removed - dimensions router not implemented
-
-# Dev-only routers (remove before production deployment)
-from app.dev.routes import router as dev_router  # noqa: E402
-
-app.include_router(dev_router)
-
-# Data routers
-
 
 # Algorithm routers
 
