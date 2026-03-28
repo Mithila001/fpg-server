@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Sequence
 
+from app.algorithms.fpg_rooms.types.room import FpgRequirements
 from app.core.fpg_rooms.config_fpg import (
     ENVELOPE_APPLY_SIDES,
     ENVELOPE_ENABLED,
@@ -27,7 +28,7 @@ DEFAULT_WEIGHTS = SCORE_WEIGHTS.copy()
 
 def score_layout(
     solution: Sequence[Dict[str, Any]],
-    requirements: Any,
+    requirements: FpgRequirements,
     min_touch_overlap: int = 1,
 ) -> ScoreReport:
     """Score a solved floor-plan layout.
