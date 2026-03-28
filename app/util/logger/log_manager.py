@@ -26,12 +26,15 @@ class _JsonlFormatter(logging.Formatter):
 
         entry: dict[str, Any] = {
             "time": timestamp,
-            "ts": epoch,
+            "ts": f"{epoch:017.6f}",
             "level": record.levelname,
             "logger": record.name,
-            "message": record.getMessage(),
-            "data": payload,
         }
+        if event is not None:
+            entry["event"] = str(event)
+
+        entry["data"] = payload
+
         filename = getattr(record, "source_filename", None)
         if filename is not None:
             entry["filename"] = str(filename)
@@ -40,8 +43,7 @@ class _JsonlFormatter(logging.Formatter):
         if sector is not None:
             entry["sector"] = str(sector)
 
-        if event is not None:
-            entry["event"] = str(event)
+        entry["message"] = record.getMessage()
 
         return json.dumps(entry, ensure_ascii=True, default=str)
 

@@ -116,26 +116,28 @@ def score_layout(
     geometry_tolerance = float(getattr(cfg, "score_geometry_tolerance", 1e-6))
     inward_pocket_max_length = float(getattr(cfg, "inward_pocket_max_length", 20.0))
 
-    hard_violations = []
-    hard_violations.extend(validate_room_geometry(scoring_rooms, floor_width, floor_height))
-    hard_violations.extend(validate_no_overlap(scoring_rooms))
-    hard_violations.extend(
-        validate_adjacency_relations(
-            scoring_rooms,
-            relation_constraints,
-            min_overlap=min_touch_overlap,
-        )
+    geometry_violations = validate_room_geometry(scoring_rooms, floor_width, floor_height)
+    overlap_violations = validate_no_overlap(scoring_rooms)
+    adjacency_violations = validate_adjacency_relations(
+        scoring_rooms,
+        relation_constraints,
+        min_overlap=min_touch_overlap,
     )
+    envelope_violations = []
     if bool(getattr(cfg, "envelope_enabled", ENVELOPE_ENABLED)):
-        hard_violations.extend(
-            validate_envelope_staircase_bounds(
-                scoring_rooms,
-                min_gap=int(getattr(cfg, "envelope_min_gap", ENVELOPE_MIN_GAP)),
-                max_gap=int(getattr(cfg, "envelope_max_gap", ENVELOPE_MAX_GAP)),
-                exclude_types=getattr(cfg, "envelope_exclude_types", ENVELOPE_EXCLUDE_TYPES),
-                apply_sides=getattr(cfg, "envelope_apply_sides", ENVELOPE_APPLY_SIDES),
-            )
+        envelope_violations = validate_envelope_staircase_bounds(
+            scoring_rooms,
+            min_gap=int(getattr(cfg, "envelope_min_gap", ENVELOPE_MIN_GAP)),
+            max_gap=int(getattr(cfg, "envelope_max_gap", ENVELOPE_MAX_GAP)),
+            exclude_types=getattr(cfg, "envelope_exclude_types", ENVELOPE_EXCLUDE_TYPES),
+            apply_sides=getattr(cfg, "envelope_apply_sides", ENVELOPE_APPLY_SIDES),
         )
+
+    hard_violations = []
+    hard_violations.extend(geometry_violations)
+    hard_violations.extend(overlap_violations)
+    hard_violations.extend(adjacency_violations)
+    hard_violations.extend(envelope_violations)
 
     empty_space_score, empty_space_diag = score_empty_space(
         scoring_rooms,
@@ -169,8 +171,23 @@ def score_layout(
     }
 
     valid = len(hard_violations) == 0
+    room_geometry_score = not bool(geometry_violations)
+    no_overlap_score = not bool(overlap_violations)
+    adjacency_score = not bool(adjacency_violations)
+    envelope_score = not bool(envelope_violations)
+    inward_pocket_score = not bool(pocket_violation)
+
     if not valid:
-        component_scores = {"empty_space": empty_space_score}
+        component_scores = {
+            "coverage": 0.0,
+            "rectangularity": 0.0,
+            "empty_space": empty_space_score,
+            "room_geometry": room_geometry_score,
+            "no_overlap": no_overlap_score,
+            "adjacency": adjacency_score,
+            "envelope": envelope_score,
+            "inward_pocket": inward_pocket_score,
+        }
         ScoreLogger.score_breakdown(
             component_scores=component_scores,
             total_score=0.0,
@@ -186,7 +203,16 @@ def score_layout(
         )
 
     if geometric_gate_violations:
-        component_scores = {"empty_space": empty_space_score}
+        component_scores = {
+            "coverage": 0.0,
+            "rectangularity": 0.0,
+            "empty_space": empty_space_score,
+            "room_geometry": room_geometry_score,
+            "no_overlap": no_overlap_score,
+            "adjacency": adjacency_score,
+            "envelope": envelope_score,
+            "inward_pocket": inward_pocket_score,
+        }
         ScoreLogger.score_breakdown(
             component_scores=component_scores,
             total_score=1.0,
@@ -213,6 +239,11 @@ def score_layout(
         "coverage": coverage_score,
         "rectangularity": rectangularity_score,
         "empty_space": empty_space_score,
+        "room_geometry": room_geometry_score,
+        "no_overlap": no_overlap_score,
+        "adjacency": adjacency_score,
+        "envelope": envelope_score,
+        "inward_pocket": inward_pocket_score,
     }
     diagnostics["coverage"] = coverage_diag
     diagnostics["rectangularity"] = rectangularity_diag
