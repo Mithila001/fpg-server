@@ -4,6 +4,7 @@ import os
 import matplotlib
 
 from app.algorithms.fp_boundary_finder import FPBoundaryFinder
+from app.algorithms.usable_land_space_finder import find_usable_land_space
 
 
 # If DISPLAY is missing, we are likely in headless environment.
@@ -69,13 +70,19 @@ def _extract_ta_line(land_data: dict) -> tuple:
 
 
 def run_plotter_land_boundary() -> list:
-    """Run FP boundary finder on mock data and show polygon/rectangle plot."""
-    polygon_coordinates = _extract_polygon_coordinates(MOCK_LAND_DATA)
+    """Run usable-land shrink + FP boundary finder and save visualization plot."""
+    raw_polygon_coordinates = _extract_polygon_coordinates(MOCK_LAND_DATA)
     ta_line = _extract_ta_line(MOCK_LAND_DATA)
+
+    usable_land_result = find_usable_land_space(MOCK_LAND_DATA)
+    shrunk_polygon_coordinates = [
+        (point["x"], point["y"])
+        for point in usable_land_result["shrunkSegmentsCoordinates"]
+    ]
 
     finder = FPBoundaryFinder()
     best_rectangle = finder.fp_boundary_finder(
-        polygon_coordinates=polygon_coordinates,
+        polygon_coordinates=shrunk_polygon_coordinates,
         TA_line=ta_line,
         min_width=100,
         min_height=100,
@@ -83,9 +90,24 @@ def run_plotter_land_boundary() -> list:
 
     fig, ax = plt.subplots(figsize=(8, 8))
 
-    poly_x = [point[0] for point in polygon_coordinates] + [polygon_coordinates[0][0]]
-    poly_y = [point[1] for point in polygon_coordinates] + [polygon_coordinates[0][1]]
-    ax.plot(poly_x, poly_y, color="tab:blue", linewidth=2, label="Land boundary")
+    raw_x = [point[0] for point in raw_polygon_coordinates] + [raw_polygon_coordinates[0][0]]
+    raw_y = [point[1] for point in raw_polygon_coordinates] + [raw_polygon_coordinates[0][1]]
+    ax.plot(raw_x, raw_y, color="tab:blue", linewidth=2, label="Raw land boundary")
+
+    shrunk_x = [point[0] for point in shrunk_polygon_coordinates] + [
+        shrunk_polygon_coordinates[0][0]
+    ]
+    shrunk_y = [point[1] for point in shrunk_polygon_coordinates] + [
+        shrunk_polygon_coordinates[0][1]
+    ]
+    ax.plot(
+        shrunk_x,
+        shrunk_y,
+        color="tab:orange",
+        linewidth=2,
+        linestyle="-",
+        label="Shrunk boundary",
+    )
 
     ta_x = [ta_line[0][0], ta_line[1][0]]
     ta_y = [ta_line[0][1], ta_line[1][1]]
@@ -104,7 +126,7 @@ def run_plotter_land_boundary() -> list:
         )
 
     ax.set_aspect("equal", adjustable="box")
-    ax.set_title("Land Boundary and Largest Fitting Rectangle")
+    ax.set_title("Raw Boundary, Shrunk Boundary, and Largest Fitting Rectangle")
     ax.legend()
     ax.grid(True, alpha=0.3)
 
@@ -131,5 +153,6 @@ def run_plotter_land_boundary() -> list:
 
     plt.savefig(out_path)
     print(f"Saved plot to {out_path}")
+    print(f"Usable-land metadata: {usable_land_result['metadata']}")
 
     return best_rectangle

@@ -1,11 +1,4 @@
-"""Simple script to invoke debug_fp_formatter for VS Code debugging.
-
-This file is intended to be created temporarily and deleted later.  It
-imports :func:`debug_fp_formatter` from the frontend formatter debug module
-and runs it when executed as a script.  You can set breakpoints here or in
-`app/algorithms/fp_formatter_for_frontend/debug.py` and launch the debugger
-from this file.
-"""
+"""Debug entrypoint for usable-land shrink and boundary-rectangle plotting."""
 from test.dev.plotter_land_boundary import run_plotter_land_boundary
 
 
