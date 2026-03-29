@@ -51,7 +51,7 @@ ROOM_SIZE_HIERARCHY = {
 
 # Default solver/optuna execution settings
 DEFAULT_ROOM_DIMENSION = 70
-DEFAULT_OPTUNA_TRIALS = 10
+DEFAULT_OPTUNA_TRIALS = 20
 DEFAULT_OPTUNA_STORAGE_ENABLED = False
 DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
 
@@ -67,6 +67,20 @@ DEFAULT_SOLVER_MAX_TIME_SECONDS = 1
 HALLWAY_WIDTH = 10
 # Minimum length of the long side (the solver may extend it further).
 HALLWAY_MIN_LENGTH = 10
+# Number of hallway walls that must be fully shared with other rooms.
+# Default 3 means only one hallway wall may remain as an exterior wall.
+HALLWAY_REQUIRED_SHARED_WALLS = 3
+
+# Per-type room shared-wall requirements.
+# - min_walls/max_walls count fully shared sides.
+# - wiggle_pct relaxes minimum shared coverage length across the selected
+#   min_walls sides; e.g. 30 means up to 30% uncovered is allowed.
+ROOM_SHARED_WALL_RULES = {
+    "livingRoom": {"min_walls": 1, "max_walls": 3, "wiggle_pct": 30},
+    "bathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
+    "bedroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
+    "kitchen": {"min_walls": 1, "max_walls": 4, "wiggle_pct": 30},
+}
 
 __all__ = [
     "FLOOR_WIDTH",
@@ -100,4 +114,6 @@ __all__ = [
     "DEFAULT_SOLVER_MAX_TIME_SECONDS",
     "HALLWAY_WIDTH",
     "HALLWAY_MIN_LENGTH",
+    "HALLWAY_REQUIRED_SHARED_WALLS",
+    "ROOM_SHARED_WALL_RULES",
 ]

@@ -29,7 +29,7 @@ OPTUNA_PARAM_KEY_MIN_COVERAGE = "config_min_coverage"
 OPTUNA_PARAM_KEY_HALLWAY_COUNT = "hallway_count"
 
 # Runner defaults.
-OPTUNA_DEFAULT_TRIALS = 10
+OPTUNA_DEFAULT_TRIALS = 1
 OPTUNA_DEFAULT_STUDY_NAME = "fpg_layout_optimization"
 
 # Envelope fallbacks for mutated configs.

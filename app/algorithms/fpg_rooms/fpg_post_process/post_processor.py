@@ -42,17 +42,17 @@ def run_quick_post_process(payload: PostProcessInputPayload) -> QuickPostProcess
         "tolerance": float(payload.get("tolerance", 1e-6)),
     }
 
-    snapped_rooms = snap_solution_rooms_to_grid(context["rooms"], grid_size=8.0)
+    #snapped_rooms = snap_solution_rooms_to_grid(context["rooms"], grid_size=8.0)
 
     wall_union_result = run_wall_union(
-        rooms=snapped_rooms,
+        rooms=context["rooms"],
         tolerance=context["tolerance"],
     )
 
     return {
         "status": "SUCCESS",
         "message": "Quick post-processing completed",
-        "rooms": snapped_rooms,
+        "rooms": context["rooms"],
         "wall_union": wall_union_result,
     }
 
