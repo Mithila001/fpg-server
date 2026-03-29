@@ -18,6 +18,10 @@ SCORE_WEIGHTS = {
     "empty_space": 0.25,
 }
 
+# Shapely scoring controls
+SCORE_GEOMETRY_TOLERANCE = 1e-6
+INWARD_POCKET_MAX_LENGTH = 20.0
+
 # Envelope/staircase settings
 ENVELOPE_ENABLED = True
 ENVELOPE_MIN_GAP = 5
@@ -26,8 +30,8 @@ ENVELOPE_EXCLUDE_TYPES = ["hallway"]
 ENVELOPE_APPLY_SIDES = ["left", "right", "top", "bottom"]
 
 # Adjacency constraint settings
-DEFAULT_ADJACENCY_MIN_OVERLAP = 10
-GENERATOR_ADJACENCY_MIN_OVERLAP = 10
+DEFAULT_ADJACENCY_MIN_OVERLAP = 20
+GENERATOR_ADJACENCY_MIN_OVERLAP = 20
 
 # Room location/bathroom preferences
 BATHROOM_LOCATION_WEIGHT = 1
@@ -47,7 +51,7 @@ ROOM_SIZE_HIERARCHY = {
 
 # Default solver/optuna execution settings
 DEFAULT_ROOM_DIMENSION = 70
-DEFAULT_OPTUNA_TRIALS = 10
+DEFAULT_OPTUNA_TRIALS = 20
 DEFAULT_OPTUNA_STORAGE_ENABLED = False
 DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
 
@@ -63,6 +67,20 @@ DEFAULT_SOLVER_MAX_TIME_SECONDS = 1
 HALLWAY_WIDTH = 10
 # Minimum length of the long side (the solver may extend it further).
 HALLWAY_MIN_LENGTH = 10
+# Number of hallway walls that must be fully shared with other rooms.
+# Default 3 means only one hallway wall may remain as an exterior wall.
+HALLWAY_REQUIRED_SHARED_WALLS = 3
+
+# Per-type room shared-wall requirements.
+# - min_walls/max_walls count fully shared sides.
+# - wiggle_pct relaxes minimum shared coverage length across the selected
+#   min_walls sides; e.g. 30 means up to 30% uncovered is allowed.
+ROOM_SHARED_WALL_RULES = {
+    "livingRoom": {"min_walls": 1, "max_walls": 3, "wiggle_pct": 30},
+    "bathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
+    "bedroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
+    "kitchen": {"min_walls": 1, "max_walls": 4, "wiggle_pct": 30},
+}
 
 __all__ = [
     "FLOOR_WIDTH",
@@ -71,6 +89,8 @@ __all__ = [
     "MAX_ASPECT_RATIO_WIDTH",
     "MIN_COVERAGE",
     "SCORE_WEIGHTS",
+    "SCORE_GEOMETRY_TOLERANCE",
+    "INWARD_POCKET_MAX_LENGTH",
     "DEFAULT_ADJACENCY_MIN_OVERLAP",
     "GENERATOR_ADJACENCY_MIN_OVERLAP",
     "ENVELOPE_ENABLED",
@@ -94,4 +114,6 @@ __all__ = [
     "DEFAULT_SOLVER_MAX_TIME_SECONDS",
     "HALLWAY_WIDTH",
     "HALLWAY_MIN_LENGTH",
+    "HALLWAY_REQUIRED_SHARED_WALLS",
+    "ROOM_SHARED_WALL_RULES",
 ]

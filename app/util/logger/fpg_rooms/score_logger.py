@@ -9,6 +9,18 @@ class ScoreLogger:
     """Use-case logger for floor-plan scoring events only."""
 
     USE_CASE = "fpg_score"
+    SCORE_FIELDS = (
+        "coverage",
+        "rectangularity",
+        "empty_space",
+    )
+    BINARY_FIELDS = (
+        "room_geometry",
+        "no_overlap",
+        "adjacency",
+        "envelope",
+        "inward_pocket",
+    )
 
     @staticmethod
     def _as_float(value: Any, default: float = 0.0) -> float:
@@ -20,13 +32,23 @@ class ScoreLogger:
             return default
 
     @staticmethod
-    def _normalized_scores(component_scores: dict[str, Any] | None) -> dict[str, float]:
-        if not isinstance(component_scores, dict):
-            return {}
-        return {
-            str(key): round(ScoreLogger._as_float(value), 4)
-            for key, value in component_scores.items()
-        }
+    def _format_score(value: Any) -> str:
+        # Keep score fields scan-friendly with fixed width (e.g. 001.25).
+        numeric = ScoreLogger._as_float(value)
+        return f"{round(numeric, 2):06.2f}"
+
+    @staticmethod
+    def _normalized_scores(component_scores: dict[str, Any] | None) -> dict[str, Any]:
+        source = component_scores if isinstance(component_scores, dict) else {}
+        normalized: dict[str, Any] = {}
+
+        for key in ScoreLogger.SCORE_FIELDS:
+            normalized[key] = ScoreLogger._format_score(source.get(key, 0.0))
+
+        for key in ScoreLogger.BINARY_FIELDS:
+            normalized[key] = bool(source.get(key, False))
+
+        return normalized
 
     @staticmethod
     def score_breakdown(
@@ -37,7 +59,7 @@ class ScoreLogger:
     ) -> None:
         payload: dict[str, Any] = {
             **ScoreLogger._normalized_scores(component_scores),
-            "total_score": round(ScoreLogger._as_float(total_score), 4),
+            "total_score": ScoreLogger._format_score(total_score),
             "valid": bool(valid),
             "hard_violation_count": int(hard_violation_count),
         }

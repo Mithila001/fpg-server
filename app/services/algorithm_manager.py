@@ -36,8 +36,10 @@ from app.algorithms.fpg_rooms.fpg_optuna import (
     OptunaOptimizationResult,
     run_optuna_optimization,
 )
-from app.algorithms.fpg_rooms.fpg_post_process import run_post_processor
-from app.algorithms.fpg_rooms.utils.grid_snap import snap_solution_rooms_to_grid
+from app.algorithms.fpg_rooms.fpg_post_process import (
+    run_final_post_process,
+    run_quick_post_process,
+)
 from app.algorithms.fpg_opening import generate_openings
 
 from sqlmodel import Session
@@ -206,7 +208,15 @@ def _RunFPG(requirements: FpgRequirements, verbose: bool = True) -> FpgEvaluatio
         if verbose:
             print("✓ Floor plan generated successfully!")
         solution = generator.get_solution()
-        score_report = score_layout(solution, requirements)
+        quick_post_process_result = run_quick_post_process({"rooms": solution, "openings": []})
+        
+        # plot_snap_vs_grid (solution, quick_post_process_result['rooms'])
+
+        score_report = score_layout(
+            solution=solution,
+            quick_post_process_result=quick_post_process_result,
+            requirements=requirements,
+        )
 
         if verbose:
             print(f"\nSolution with {len(solution)} rooms:")
@@ -229,13 +239,15 @@ def _RunFPG(requirements: FpgRequirements, verbose: bool = True) -> FpgEvaluatio
             print("\nRaw Solution:")
             print(solution)
 
-        return FpgEvaluationResult(
+        result = FpgEvaluationResult(
             solved=True,
             solution=solution,
             score_report=score_report,
             status=status,
             message="Solver found a layout",
         )
+        result.quick_post_process_result = quick_post_process_result
+        return result
     else:
         if verbose:
             print(f"✗ Floor plan generation failed - no solution found ({status})")
@@ -304,46 +316,27 @@ def _select_solver_result(
 def _build_payload_from_solver_result(run_result: FpgEvaluationResult) -> dict[str, Any]:
     """Transform solver output into API payload with post-processed geometry."""
     if run_result.solved:
-        snapped_solution = snap_solution_rooms_to_grid(run_result.solution, grid_size=8.0)
-        plot_snap_vs_grid(run_result.solution,snapped_solution )
-        opening_result = generate_openings(snapped_solution)
-        post_process_result = run_post_processor(
+        quick_post_process_result = getattr(run_result, "quick_post_process_result", None)
+        if quick_post_process_result is not None:
+            post_processed_layout = quick_post_process_result["rooms"]
+            wall_union_result = quick_post_process_result["wall_union"]
+        else:
+            post_processed_layout = run_result.solution
+            wall_union_result = {"walls": [], "room_walls": {}}
+
+        opening_result = generate_openings(post_processed_layout)
+        post_process_result = run_final_post_process(
             {
-                "rooms": snapped_solution,
+                "rooms": post_processed_layout,
                 "openings": opening_result.get("openings", []),
+                "wall_union": wall_union_result,
             }
         )
         print("\n\n\=======================================")
         print (f"Rooms Solver : {run_result.solution}")
+        print (f"Rooms Post Processed : {post_processed_layout}")
         print (f"Opening Solver : {opening_result}")
         print("\n\n\n")
-        # # [dev/low footprint] grid snap side-by-side comparison plot
-        # try:
-        #     import importlib.util
-        #     from pathlib import Path
-
-        #     base_dir = Path(__file__).resolve().parents[2]
-        #     snap_module_path = base_dir / "test" / "dev" / "test_grid_snapping.py"
-
-        #     if snap_module_path.exists():
-        #         spec = importlib.util.spec_from_file_location("test_grid_snapping", str(snap_module_path))
-        #         if spec and spec.loader:
-        #             module = importlib.util.module_from_spec(spec)
-        #             spec.loader.exec_module(module)
-        #             plot_snap_vs_grid = getattr(module, "plot_snap_vs_grid", None)
-        #             if callable(plot_snap_vs_grid):
-        #                 output_plot = plot_snap_vs_grid(run_result.solution, snapped_solution)
-        #                 print(f"Grid-snap comparison plot saved to: {output_plot}")
-        #             else:
-        #                 print("plot_snap_vs_grid function not found in module")
-        #         else:
-        #             print("Could not load snap module spec")
-        #     else:
-        #         print(f"Grid snap module not found at: {snap_module_path}")
-        # except Exception as exc:
-        #     print(f"plot_snap_vs_grid skipped due to error: {exc}")
-        
-        # # continue normal operation (keeping low footprint behavior)
     else:
         opening_result = EMPTY_OPENING_LAYOUT
         post_process_result = EMPTY_POST_PROCESS_LAYOUT

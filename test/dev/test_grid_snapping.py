@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import matplotlib.ticker as ticker
 from datetime import datetime
 from pathlib import Path
 
@@ -47,21 +48,25 @@ def plot_snap_vs_grid(
         plot_max_x = grid_size * (int(max_x // grid_size) + 2)
         plot_max_y = grid_size * (int(max_y // grid_size) + 2)
 
-        x_ticks = [x for x in range(int(plot_min_x), int(plot_max_x) + 1, int(grid_size))]
-        y_ticks = [y for y in range(int(plot_min_y), int(plot_max_y) + 1, int(grid_size))]
+        ax.xaxis.set_major_locator(ticker.MultipleLocator(grid_size))
+        ax.yaxis.set_major_locator(ticker.MultipleLocator(grid_size))
+        ax.xaxis.set_minor_locator(ticker.MultipleLocator(1.0))
+        ax.yaxis.set_minor_locator(ticker.MultipleLocator(1.0))
 
-        ax.set_xticks(x_ticks)
-        ax.set_yticks(y_ticks)
-        ax.grid(True, which="both", color="lightgray", linestyle="--", linewidth=0.5)
+        ax.grid(True, which='minor', color='lightgray', linestyle='--', linewidth=0.3)
+        ax.grid(True, which='major', color='gray', linestyle='-', linewidth=0.5)
+
+        ax.tick_params(which='minor', length=2, labelsize=0)
+        ax.tick_params(which='major', length=5, labelsize=8)
 
         for room in rooms:
             x = float(room.get("x", 0))
             y = float(room.get("y", 0))
             w = float(room.get("w", room.get("x_end", x) - x))
             h = float(room.get("h", room.get("y_end", y) - y))
-            rect = patches.Rectangle((x, y), w, h, linewidth=1, edgecolor="blue", facecolor="none")
+            rect = patches.Rectangle((x, y), w, h, linewidth=1, edgecolor="blue", facecolor="none", zorder=3)
             ax.add_patch(rect)
-            ax.text(x + w / 2, y + h / 2, room.get("name", ""), ha="center", va="center", fontsize=8)
+            ax.text(x + w / 2, y + h / 2, room.get("name", ""), ha="center", va="center", fontsize=8, zorder=4)
 
         ax.set_title(title)
         ax.set_aspect("equal", adjustable="box")

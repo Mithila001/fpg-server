@@ -8,7 +8,7 @@ from this file.
 """
 
 
-from app.services.algorithm_manager import DEV_RUN
+from app.services.algorithm_manager import DEV_RUN, run_layout_pipeline
 from app.algorithms.fpg_opening.dev.opening_dev import run_dev_main_door_plot
 
 
@@ -16,7 +16,7 @@ def main() -> None:
     # call the helper; the return value isn't used, but you can inspect it in
     # the debugger.
     # DEV_RUN()
-    result = run_dev_main_door_plot()
+    run_layout_pipeline(use_optuna=True, verbose=True)
 
 
 if __name__ == "__main__":

@@ -15,7 +15,7 @@ OPTUNA_MIN_COVERAGE_STEP = 0.05
 
 # Search space for hallway count optimization.
 OPTUNA_HALLWAY_COUNT_MIN = 0
-OPTUNA_HALLWAY_COUNT_MAX = 3
+OPTUNA_HALLWAY_COUNT_MAX = 2
 
 # Search jitter around each room's current min/max bounds.
 OPTUNA_DIMENSION_MIN_JITTER = 5
@@ -29,7 +29,7 @@ OPTUNA_PARAM_KEY_MIN_COVERAGE = "config_min_coverage"
 OPTUNA_PARAM_KEY_HALLWAY_COUNT = "hallway_count"
 
 # Runner defaults.
-OPTUNA_DEFAULT_TRIALS = 10
+OPTUNA_DEFAULT_TRIALS = 1
 OPTUNA_DEFAULT_STUDY_NAME = "fpg_layout_optimization"
 
 # Envelope fallbacks for mutated configs.

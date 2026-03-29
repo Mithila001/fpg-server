@@ -7,11 +7,14 @@ from pydantic import BaseModel
 from time import time
 
 from app.services.algorithm_manager import run_layout_pipeline
+from app.services.algorithm_manager_v2 import run_fpg_pipeline_api
+from app.schemas.db.room_setup_template import RoomSetupTemplateBase
 from test.dev.plotter_loader import plot_floor_plan_payload
 # from app.util.logger import SystemLogger
 
 # In-memory per-client rate limit tracker (simple, single-process)
 _last_format_request: dict[str, float] = {}
+_last_format_v2_request: dict[str, float] = {}
 _rate_limit_seconds = 2
 
 
@@ -52,6 +55,14 @@ class FormatterResponse(BaseModel):
     compact_by_room: dict[str, CompactRoomResponse]
 
 
+class FormatterV2ApiRequest(BaseModel):
+    floor_width: float
+    floor_height: float
+    room_template: RoomSetupTemplateBase
+    should_optuna_run: bool = False
+    optuna_trial_count: int = 20
+
+
 router = APIRouter(prefix="/algorithms", tags=["algorithms"])
 
 
@@ -74,6 +85,36 @@ def get_formatted_layout(request: Request):
     payload = run_layout_pipeline(use_optuna=True, verbose=False)
 
     # Simple call at endpoint layer:
+    if plot_floor_plan_payload:
+        plot_floor_plan_payload(payload)
+
+    return FormatterResponse(**payload)
+
+
+@router.post("/format/v2", response_model=FormatterResponse)
+def get_formatted_layout_v2(request: Request, body: FormatterV2ApiRequest):
+    """Run v2 API pipeline from request payload with simple per-client rate limiting."""
+    client_ip = request.client.host if request.client else "unknown"
+    now = time()
+    last_call = _last_format_v2_request.get(client_ip, 0)
+    elapsed = now - last_call
+    if elapsed < _rate_limit_seconds:
+        retry_after = _rate_limit_seconds - elapsed
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded. Try again in {retry_after:.1f} seconds.",
+            headers={"Retry-After": str(int(retry_after) + 1)},
+        )
+    _last_format_v2_request[client_ip] = now
+
+    payload = run_fpg_pipeline_api(
+        floor_width=body.floor_width,
+        floor_height=body.floor_height,
+        room_template=body.room_template,
+        should_optuna_run=body.should_optuna_run,
+        optuna_trial_count=body.optuna_trial_count,
+    )
+
     if plot_floor_plan_payload:
         plot_floor_plan_payload(payload)
 

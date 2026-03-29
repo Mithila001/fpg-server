@@ -15,6 +15,7 @@ from .constraints.floor_area_coverage import add_minimum_area_coverage
 from .constraints.room_size_hierarchy_constraints import add_room_size_hierarchy
 from .constraints.compact_layout import add_center_proximity_objective
 from .constraints.hallway_constraints import add_hallway_constraints
+from .constraints.room_shared_wall_constraints import add_room_shared_wall_constraints
 from .constraints.room_location import room_location_hard, room_location_soft
 from .constraints.envelope_staircase import add_envelope_staircase_constraints
 from app.core.fpg_rooms.config_fpg import (
@@ -108,6 +109,8 @@ class FloorPlanGenerator:
 
         if self.hallway_count > 0:
             add_hallway_constraints(self.model, self.rooms)
+
+        add_room_shared_wall_constraints(self.model, self.rooms)
 
         # Use relation constraints from requirements (passed from algorithm_manager)
         soft_relation_constraints: list[RoomRelationsConstraint] = []
