@@ -208,11 +208,10 @@ def _RunFPG(requirements: FpgRequirements, verbose: bool = True) -> FpgEvaluatio
         if verbose:
             print("✓ Floor plan generated successfully!")
         solution = generator.get_solution()
-        # quick path for scoring and later final publish.
         quick_post_process_result = run_quick_post_process({"rooms": solution, "openings": []})
         
-        plot_snap_vs_grid (solution, quick_post_process_result['rooms'])
-        # stash quick result on run_result for _build_payload stage
+        # plot_snap_vs_grid (solution, quick_post_process_result['rooms'])
+
         score_report = score_layout(
             solution=solution,
             quick_post_process_result=quick_post_process_result,
@@ -338,33 +337,6 @@ def _build_payload_from_solver_result(run_result: FpgEvaluationResult) -> dict[s
         print (f"Rooms Post Processed : {post_processed_layout}")
         print (f"Opening Solver : {opening_result}")
         print("\n\n\n")
-        # # [dev/low footprint] grid snap side-by-side comparison plot
-        # try:
-        #     import importlib.util
-        #     from pathlib import Path
-
-        #     base_dir = Path(__file__).resolve().parents[2]
-        #     snap_module_path = base_dir / "test" / "dev" / "test_grid_snapping.py"
-
-        #     if snap_module_path.exists():
-        #         spec = importlib.util.spec_from_file_location("test_grid_snapping", str(snap_module_path))
-        #         if spec and spec.loader:
-        #             module = importlib.util.module_from_spec(spec)
-        #             spec.loader.exec_module(module)
-        #             plot_snap_vs_grid = getattr(module, "plot_snap_vs_grid", None)
-        #             if callable(plot_snap_vs_grid):
-        #                 output_plot = plot_snap_vs_grid(run_result.solution, post_processed_layout)
-        #                 print(f"Grid-snap comparison plot saved to: {output_plot}")
-        #             else:
-        #                 print("plot_snap_vs_grid function not found in module")
-        #         else:
-        #             print("Could not load snap module spec")
-        #     else:
-        #         print(f"Grid snap module not found at: {snap_module_path}")
-        # except Exception as exc:
-        #     print(f"plot_snap_vs_grid skipped due to error: {exc}")
-        
-        # # continue normal operation (keeping low footprint behavior)
     else:
         opening_result = EMPTY_OPENING_LAYOUT
         post_process_result = EMPTY_POST_PROCESS_LAYOUT

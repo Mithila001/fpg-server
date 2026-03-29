@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-OPENING_SCALE = 100
+OPENING_SCALE = 1
 
 
 def to_scaled_int(value: float, scale: int = OPENING_SCALE) -> int:

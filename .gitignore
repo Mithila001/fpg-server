@@ -66,3 +66,4 @@ logs/*
 optuna_fpg.db
 
 test/dev/gridSnap/*
+test/dev/output/*

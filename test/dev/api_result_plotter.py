@@ -51,7 +51,7 @@ def plot_floor_plan_payload(payload: Mapping[str, Any], show: bool = False) -> s
         y2 = _safe_float(wall.get("y2"))
         if None in (x1, y1, x2, y2):
             continue
-        ax.plot([x1, x2], [y1, y2], color="black", linewidth=2, alpha=0.75)
+        ax.plot([x1, x2], [y1, y2], color="black", linewidth=1.2, alpha=0.55)
         x_points.extend([x1, x2])
         y_points.extend([y1, y2])
 
@@ -67,7 +67,7 @@ def plot_floor_plan_payload(payload: Mapping[str, Any], show: bool = False) -> s
             continue
         opening_type = (opening.get("opening_type") or "opening").lower()
         color = "tab:blue" if "window" in opening_type else "tab:red"
-        ax.plot([x1, x2], [y1, y2], color=color, linewidth=3, linestyle="--")
+        ax.plot([x1, x2], [y1, y2], color=color, linewidth=4, linestyle="--", alpha=0.95)
         x_points.extend([x1, x2])
         y_points.extend([y1, y2])
 
@@ -87,7 +87,7 @@ def plot_floor_plan_payload(payload: Mapping[str, Any], show: bool = False) -> s
             y2 = _safe_float(wall.get("y2"))
             if None in (x1, y1, x2, y2):
                 continue
-            ax.plot([x1, x2], [y1, y2], color="black", linewidth=2)
+            ax.plot([x1, x2], [y1, y2], color="black", linewidth=1.2, alpha=0.55)
             room_x.extend([x1, x2])
             room_y.extend([y1, y2])
             x_points.extend([x1, x2])
@@ -103,7 +103,7 @@ def plot_floor_plan_payload(payload: Mapping[str, Any], show: bool = False) -> s
                 continue
             opening_type = (opening.get("opening_type") or "opening").lower()
             color = "tab:blue" if "window" in opening_type else "tab:red"
-            ax.plot([x1, x2], [y1, y2], color=color, linewidth=3)
+            ax.plot([x1, x2], [y1, y2], color=color, linewidth=4, alpha=0.95)
             x_points.extend([x1, x2])
             y_points.extend([y1, y2])
 
@@ -118,12 +118,19 @@ def plot_floor_plan_payload(payload: Mapping[str, Any], show: bool = False) -> s
 
     pad = 0.5
     ax.set_aspect("equal", adjustable="box")
-    ax.set_xlim(min(x_points) - pad, max(x_points) + pad)
-    ax.set_ylim(min(y_points) - pad, max(y_points) + pad)
+    x_min, x_max = min(x_points) - pad, max(x_points) + pad
+    y_min, y_max = min(y_points) - pad, max(y_points) + pad
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
+
+    # Use a 1x1 unit grid scale
+    ax.set_xticks([x for x in range(int(x_min), int(x_max) + 2)])
+    ax.set_yticks([y for y in range(int(y_min), int(y_max) + 2)])
+    ax.grid(which="both", color="gray", linestyle="--", linewidth=0.5, alpha=0.5)
+
     ax.set_title("Floor Plan Preview")
     ax.set_xlabel("X")
     ax.set_ylabel("Y")
-    ax.grid(alpha=0.2)
 
     timestamp = datetime.now().strftime("%m%d%H-%M-%S")
     output_path = output_dir / f"{timestamp}.png"
