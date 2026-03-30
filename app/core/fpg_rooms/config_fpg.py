@@ -59,7 +59,7 @@ DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
 DEFAULT_ASPECT_RATIO_MAX = 16.0
 DEFAULT_ASPECT_RATIO_MIN = 0.0
 DEFAULT_HALLWAY_COUNT = 1
-DEFAULT_SOLVER_MAX_TIME_SECONDS = 1
+DEFAULT_SOLVER_MAX_TIME_SECONDS = 5
 
 # Hallway dimensions
 # Fixed narrow dimension — the solver enforces exactly this value for
