@@ -56,9 +56,6 @@ These are the concept that might or might not be useful to achieve our Requireme
 - Adjustments should not exceed given Max Width and Max Height of floor plan
 - Should not change the aspect ratios of the room in unrealistic way.
 
-**IMPORTANT**: This FPGF should follow all the importance constraints rules from FPGR so that those rules will not break at FPGF adjustment. Example: Keeping Min two rooms wall overlapping destine, Min width and height of Each Room types, Aspect Ratios like stuff. We dont need to follow all the Rules from FPGR, Just only one that have possibility of violating at FPGF. 
-Here its important that we should not import constrains from FPGR and instated we should code here separately. Since both FPGF and FPGR is going to use same `requirement` data, we will have some consistency 
-
 ## A: Remove Dead Space,
 - Here, If you know a good robust way to find out `Dead Space` withing the floor plan with plain python code, then do it. IF not We can use Shapely for this. We can use `wall_union` and `room_walls` to some boolean stuff.
 - So When come to filling up these holes, I can think of two scenarios. Scenario A : Removing a Wall segment so the hole can be part of a other room type. Scenario B : Moving One or Few walls (To their perpendicular axis i think) so the hole will fill up. *In this scenario, I think the Requirements C solution will also help or conflict this.
@@ -73,6 +70,11 @@ Practically, a house can have SFLW, But the current problem is having too much S
     - Front Side will have 0-2 SFLS (Means two `Center Pointer Walls`)
     - Left or Right Side will have a 0 - 1 SFLS (Both of side combined only should have a one SFLS)
     - Back Side will have a 0-1 SFLS
+
+There is a another rules set:
+- If Front Facing Room Count Is less that 1, No SFLW should exist
+- If Left or Right facing Room count is less that 2, No SFLW should exist
+- If Back Facing Room Count Is less that 1, No SFLW should exist
 
 Also I realize there is a possibility that this Concept have a possibility of overlapping or conflating with `Requirement D`. So Keep in mind about that.
 

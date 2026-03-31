@@ -1,6 +1,8 @@
 import contextlib
 import io
 from datetime import datetime
+from importlib.util import module_from_spec, spec_from_file_location
+from pathlib import Path
 from time import perf_counter
 from typing import Any, Sequence
 
@@ -18,6 +20,7 @@ from app.algorithms.fpg_rooms.fpg_post_process import (
     run_quick_post_process,
 )
 from app.algorithms.fpg_rooms.fpg_score import score_layout
+from app.algorithms.fpg_rooms.fpgr_p_refine_1 import run_refine_profile_1
 from app.algorithms.fpg_rooms.types.room import ConfigData, FpgRequirements, RoomData
 from app.core.database import engine
 from app.core.fpg_rooms.config_fpg import (
@@ -62,6 +65,32 @@ EMPTY_OPENING_LAYOUT = {
     "status": "NOT_RUN",
     "message": "Not run",
 }
+
+
+def _plot_refine_before_after_dev(
+    before_rooms: list[dict[str, Any]],
+    after_rooms: list[dict[str, Any]],
+) -> str | None:
+    """Best-effort dev-only plotting hook with zero impact on pipeline outcomes."""
+    try:
+        project_root = Path(__file__).resolve().parents[2]
+        plotter_path = project_root / "test" / "dev" / "fpgr_refine_debug" / "plotter.py"
+        if not plotter_path.exists():
+            return None
+
+        spec = spec_from_file_location("fpgr_refine_debug_plotter", plotter_path)
+        if not spec or not spec.loader:
+            return None
+
+        module = module_from_spec(spec)
+        spec.loader.exec_module(module)
+        plot_fn = getattr(module, "plot_refine_before_after", None)
+        if not callable(plot_fn):
+            return None
+
+        return plot_fn(before_rooms=before_rooms, after_rooms=after_rooms, show=False)
+    except Exception:
+        return None
 
 
 def _error_payload(message: str, status: str = "ERROR") -> dict[str, Any]:
@@ -224,21 +253,39 @@ def _run_single_fpg_solve(
 
     solution = generator.get_solution()
     quick_post_process_result = run_quick_post_process({"rooms": solution, "openings": []})
-    print(f"\n\nPost Processing Results: {quick_post_process_result} \n\n")
+
+    refine_result = run_refine_profile_1(
+        requirements=requirements,
+        initial_rooms=quick_post_process_result["rooms"],
+        wiggle_room=10,
+        verbose=False,
+    )
+
+    final_rooms = refine_result.rooms if refine_result.rooms else quick_post_process_result["rooms"]
+
+    _plot_refine_before_after_dev(
+        before_rooms=quick_post_process_result["rooms"],
+        after_rooms=final_rooms,
+    )
+
+    final_quick_post_process_result = run_quick_post_process({"rooms": final_rooms, "openings": []})
+
     score_report = score_layout(
-        solution=solution,
-        quick_post_process_result=quick_post_process_result,
+        solution=final_rooms,
+        quick_post_process_result=final_quick_post_process_result,
         requirements=requirements,
     )
 
     result = FpgEvaluationResult(
         solved=True,
-        solution=solution,
+        solution=final_rooms,
         score_report=score_report,
         status=status,
         message="Solver found a layout",
     )
-    result.quick_post_process_result = quick_post_process_result
+    result.quick_post_process_result = final_quick_post_process_result
+    result.refine_status = refine_result.status
+    result.refine_message = refine_result.message
     return result
 
 
