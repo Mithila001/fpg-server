@@ -11,13 +11,12 @@ Content-Type: application/json
 		"name": "Standard 2BHK Layout",
 		"data": [
 			{ "id": "bedroom1", "type": "bedroom" },
-			{ "id": "bedroom2", "type": "bedroom" },
 			{ "id": "bathroom1", "type": "bathroom" },
 			{ "id": "kitchen1", "type": "kitchen" }
 		]
 	},
 	"should_optuna_run": true,
-	"optuna_trial_count": 25
+	"optuna_trial_count": 10
 }
 
 ###

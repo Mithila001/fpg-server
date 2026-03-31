@@ -224,6 +224,7 @@ def _run_single_fpg_solve(
 
     solution = generator.get_solution()
     quick_post_process_result = run_quick_post_process({"rooms": solution, "openings": []})
+    print(f"\n\nPost Processing Results: {quick_post_process_result} \n\n")
     score_report = score_layout(
         solution=solution,
         quick_post_process_result=quick_post_process_result,

@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.services.buildable_space_manager import run_buildable_space_pipeline
+from app.util.unit_converter import converter_cm_to_unit, converter_unit_to_meters
 
 
 _last_buildable_space_request: dict[str, float] = {}
@@ -67,16 +68,16 @@ def get_buildable_space(request: Request, body: BuildableSpaceRequest):
 
     _last_buildable_space_request[client_ip] = now
 
-    land_payload = {
+    land_payload = converter_cm_to_unit({
         "area": body.area,
         "segmentsCoordinates": [point.model_dump() for point in body.segmentsCoordinates],
         "roadConnected": [road.model_dump() for road in body.roadConnected],
-    }
+    })
 
     payload = run_buildable_space_pipeline(
         land_data=land_payload,
-        min_width=body.min_width,
-        min_height=body.min_height,
+        min_width=converter_cm_to_unit(body.min_width),
+        min_height=converter_cm_to_unit(body.min_height),
         should_plot=body.should_plot,
     )
-    return BuildableSpaceResponse(**payload)
+    return BuildableSpaceResponse(**converter_unit_to_meters(payload))
