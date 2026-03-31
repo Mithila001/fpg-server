@@ -56,6 +56,9 @@ These are the concept that might or might not be useful to achieve our Requireme
 - Adjustments should not exceed given Max Width and Max Height of floor plan
 - Should not change the aspect ratios of the room in unrealistic way.
 
+**IMPORTANT**: This FPGF should follow all the importance constraints rules from FPGR so that those rules will not break at FPGF adjustment. Example: Keeping Min two rooms wall overlapping destine, Min width and height of Each Room types, Aspect Ratios like stuff. We dont need to follow all the Rules from FPGR, Just only one that have possibility of violating at FPGF. 
+Here its important that we should not import constrains from FPGR and instated we should code here separately. Since both FPGF and FPGR is going to use same `requirement` data, we will have some consistency 
+
 ## A: Remove Dead Space,
 - Here, If you know a good robust way to find out `Dead Space` withing the floor plan with plain python code, then do it. IF not We can use Shapely for this. We can use `wall_union` and `room_walls` to some boolean stuff.
 - So When come to filling up these holes, I can think of two scenarios. Scenario A : Removing a Wall segment so the hole can be part of a other room type. Scenario B : Moving One or Few walls (To their perpendicular axis i think) so the hole will fill up. *In this scenario, I think the Requirements C solution will also help or conflict this.
@@ -88,4 +91,10 @@ Now you might starting to notice these concepts are bit similar to FPGR, yes, th
 Overall, this FPGF will not be a `do or die` section. Instead simply this setup will take the post processed floor plan, try to make it better quickly and send it. It will not stop the main pipeline just because it cannot find a solution. And when FPGF return the fixed or unfixed floor plan to main pipeline, that floor plan will send to the scoring system and based on the score, the rest of the program will handle rest.
 
 **IMPORTANT**: This FPGF must be a isolated project with single pubic exposing file (a file like `generator.py`) only config import. FPGF should not import any files from other algorithms like FPGR. But can get inspiration and layout structure from FPGR. Currently all Algorithms are isolated like this (Example: FPGR, FPGO) and this new FPGF should follow this as well. (So it easer to debug and maintain a complex project)
+
+
+# Implementation
+Only Add Code withing the `app/algorithms/fpg_finalize` 
+Also Create a `app/algorithms/fpg_finalize/dev` folder and create a file called fpgf_debugger.py and here create a function and place it at the end of the FPGF process where this debugger will take before and after floor plan and plot it side by side in a plotter (using matplotlib) and save the image at `app/algorithms/fpg_finalize/dev/output/` folder. This fpgf_debugger.py should have minimum footprint at main FPGF algorithm cause this dev function is temporary and will be delete in future.
+- And place this at `app/services/algorithm_manager_v2.py`
 
