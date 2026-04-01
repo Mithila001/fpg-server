@@ -25,8 +25,8 @@ def normalize_db_data_requirements(
 
         min_w = int(constraint.min_w) if constraint.min_w is not None else 10
         min_h = int(constraint.min_h) if constraint.min_h is not None else 10
-        max_w = int(constraint.max_w) if constraint.max_w is not None else 1000
-        max_h = int(constraint.max_h) if constraint.max_h is not None else 1000
+        max_w = int(constraint.max_w) if constraint.max_w is not None else 100
+        max_h = int(constraint.max_h) if constraint.max_h is not None else 100
 
         normalized.append(
             RoomData(

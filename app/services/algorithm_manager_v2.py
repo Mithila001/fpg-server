@@ -42,6 +42,8 @@ from app.core.fpg_rooms.config_fpg import (
     FLOOR_HEIGHT,
     FLOOR_WIDTH,
     MIN_COVERAGE,
+    SAFETY_BUFFER,
+    WIGGLE_ROOM,
     DEFAULT_OPTUNA_STUDY_NAME
 )
 from app.crud import (
@@ -183,15 +185,14 @@ def pre_validation(
         total_min_area += min_area
 
     floor_area = float(floor_width) * float(floor_height)
-    safety_buffer = 100.0
-    required_min_area = total_min_area + safety_buffer
+    required_min_area = total_min_area + SAFETY_BUFFER
 
     if required_min_area > floor_area:
         shortage = required_min_area - floor_area
         return (
             False,
             "Impossible Requirements For the given floor area. "
-            f"Required min area + buffer = {total_min_area:.2f} + {safety_buffer:.2f} "
+            f"Required min area + buffer = {total_min_area:.2f} + {SAFETY_BUFFER:.2f} "
             f"= {required_min_area:.2f}, floor area = {floor_width:.2f} * {floor_height:.2f} "
             f"= {floor_area:.2f}, shortage = {shortage:.2f}.",
         )
@@ -258,7 +259,7 @@ def _run_single_fpg_solve(
     refine_result = run_refine_profile_1(
         requirements=requirements,
         initial_rooms=quick_post_process_result["rooms"],
-        wiggle_room=10,
+        wiggle_room=WIGGLE_ROOM,
         verbose=False,
     )
 

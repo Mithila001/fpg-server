@@ -11,6 +11,9 @@ MAX_ASPECT_RATIO_WIDTH = 16
 # Minimum floor area coverage (50%)
 MIN_COVERAGE = 0.5
 
+# Safety buffer used in pre-validation feasibility checks
+SAFETY_BUFFER = 100.0
+
 # Floor-plan scoring weights
 SCORE_WEIGHTS = {
     "coverage": 0.40,
@@ -94,6 +97,7 @@ DEFAULT_ASPECT_RATIO_MAX = 16.0
 DEFAULT_ASPECT_RATIO_MIN = 0.0
 DEFAULT_HALLWAY_COUNT = 1
 DEFAULT_SOLVER_MAX_TIME_SECONDS = 5
+WIGGLE_ROOM = 10
 
 # Hallway dimensions
 # Fixed narrow dimension — the solver enforces exactly this value for
@@ -173,6 +177,8 @@ __all__ = [
     "DEFAULT_ASPECT_RATIO_MIN",
     "DEFAULT_HALLWAY_COUNT",
     "DEFAULT_SOLVER_MAX_TIME_SECONDS",
+    "WIGGLE_ROOM",
+    "SAFETY_BUFFER",
     "HALLWAY_WIDTH",
     "HALLWAY_MIN_LENGTH",
     "HALLWAY_REQUIRED_SHARED_WALLS",
