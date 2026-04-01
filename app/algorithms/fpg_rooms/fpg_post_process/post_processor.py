@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .processors import build_compact_data, run_wall_union, snap_solution_rooms_to_grid
+from .processors import build_compact_data, run_wall_union
 from .types import (
     PostProcessInputPayload,
     PostProcessOutputPayload,

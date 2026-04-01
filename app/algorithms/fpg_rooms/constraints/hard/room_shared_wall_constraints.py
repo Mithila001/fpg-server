@@ -1,4 +1,4 @@
-"""Per-room shared-wall constraints for non-hallway rooms."""
+"""Per-room shared-wall hard constraints for non-hallway rooms."""
 
 from __future__ import annotations
 
@@ -7,8 +7,9 @@ from typing import Dict, List
 
 from ortools.sat.python import cp_model
 
-from ..solver_models.room import Room
 from app.core.fpg_rooms.config_fpg import ROOM_SHARED_WALL_RULES
+
+from ...solver_models.room import Room
 
 _WIGGLE_SCALE = 1
 
@@ -34,11 +35,7 @@ def _normalize_rule(raw_rule: object) -> SharedWallRule | None:
         min_walls = max_walls
 
     wiggle_pct = max(0, min(100, wiggle_pct))
-    return SharedWallRule(
-        min_walls=min_walls,
-        max_walls=max_walls,
-        wiggle_pct=wiggle_pct,
-    )
+    return SharedWallRule(min_walls=min_walls, max_walls=max_walls, wiggle_pct=wiggle_pct)
 
 
 def _touch_constraints(
@@ -46,7 +43,6 @@ def _touch_constraints(
     room1: Room,
     room2: Room,
 ) -> Dict[str, cp_model.IntVar]:
-    """Create BoolVars for directional wall touching between two rooms."""
     suffix = f"{room1.name}_{room2.name}"
 
     touch_right = model.NewBoolVar(f"rs_tr_{suffix}")  # type: ignore
@@ -76,7 +72,6 @@ def _axis_overlap_length(
     coord_ub: int,
     suffix: str,
 ) -> cp_model.IntVar:
-    """Return max(0, min(end1, end2) - max(start1, start2))."""
     overlap_start = model.NewIntVar(0, coord_ub, f"rs_ov_start_{suffix}")  # type: ignore
     overlap_end = model.NewIntVar(0, coord_ub, f"rs_ov_end_{suffix}")  # type: ignore
     model.AddMaxEquality(overlap_start, [start1, start2])  # type: ignore
@@ -94,12 +89,6 @@ def add_room_shared_wall_constraints(
     model: cp_model.CpModel,
     rooms: List[Room],
 ) -> None:
-    """Apply per-type shared-wall rules for non-hallway rooms.
-
-    - max_walls is a hard cap on fully shared sides.
-    - min_walls uses wiggle on summed side lengths of a solver-chosen set of sides.
-    - Multiple neighboring rooms may collectively cover one side.
-    """
     normalized_rules: Dict[str, SharedWallRule] = {}
     for room_type, raw_rule in ROOM_SHARED_WALL_RULES.items():
         normalized = _normalize_rule(raw_rule)
@@ -109,7 +98,7 @@ def add_room_shared_wall_constraints(
     if not normalized_rules:
         return
 
-    coord_ub = max(1, sum(max(r.max_w, r.max_h) for r in rooms))
+    coord_ub = max(1, sum(max(room.max_w, room.max_h) for room in rooms))
 
     for room in rooms:
         if room.type == "hallway":
@@ -229,8 +218,6 @@ def add_room_shared_wall_constraints(
             model.Add(selected_covered_len == cp_model.LinearExpr.Sum(selected_covered_terms))  # type: ignore
 
             required_scale = _WIGGLE_SCALE - rule.wiggle_pct
-            model.Add(
-                _WIGGLE_SCALE * selected_covered_len >= required_scale * selected_required_len
-            )
+            model.Add(_WIGGLE_SCALE * selected_covered_len >= required_scale * selected_required_len)
         else:
             model.Add(cp_model.LinearExpr.Sum(list(selected_flags.values())) == 0)  # type: ignore

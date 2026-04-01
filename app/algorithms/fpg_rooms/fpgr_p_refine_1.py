@@ -23,7 +23,7 @@ def run_refine_profile_1(
     wiggle_room: int = 10,
     verbose: bool = False,
 ) -> RefineResult:
-    """Profile 2 (refine): seeded bounded solve focused on Constraints A/B/D."""
+    """Profile 2 (refine): seeded bounded solve focused on Constraints A/B/C/D."""
     if not initial_rooms:
         return RefineResult(
             solved=False,
@@ -38,6 +38,7 @@ def run_refine_profile_1(
         wiggle_room=wiggle_room,
         include_constraint_b_soft=True,
         include_constraint_a_soft=True,
+        include_constraint_c_soft=True,
         include_constraint_d_soft=True,
         max_time_seconds=max(1.0, float(DEFAULT_SOLVER_MAX_TIME_SECONDS)),
         debug_log=verbose,

@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from ortools.sat.python import cp_model
 
-from ..solver_models.room import Room
 from app.core.fpg_rooms.config_fpg import (
-    ENVELOPE_MIN_GAP,
-    ENVELOPE_MAX_GAP,
-    ENVELOPE_EXCLUDE_TYPES,
     ENVELOPE_APPLY_SIDES,
+    ENVELOPE_EXCLUDE_TYPES,
+    ENVELOPE_MAX_GAP,
+    ENVELOPE_MIN_GAP,
 )
+
+from ...solver_models.room import Room
 
 
 _SIDE_VALUES = {str(side).lower() for side in ENVELOPE_APPLY_SIDES}
@@ -27,7 +28,6 @@ def _axis_overlap_bool(
     b_end: cp_model.IntVar,
     name: str,
 ) -> cp_model.BoolVar:
-    """Return a BoolVar indicating strict positive overlap on one axis."""
     overlap = model.NewBoolVar(name)
 
     a_before_b = model.NewBoolVar(f"{name}_a_before_b")
@@ -39,7 +39,6 @@ def _axis_overlap_bool(
     model.Add(b_end <= a_start).OnlyEnforceIf(b_before_a)
     model.Add(b_end >= a_start + 1).OnlyEnforceIf(b_before_a.Not())
 
-    # overlap == not(a_before_b or b_before_a)
     model.AddBoolOr([a_before_b, b_before_a]).OnlyEnforceIf(overlap.Not())
     model.Add(a_before_b == 0).OnlyEnforceIf(overlap)
     model.Add(b_before_a == 0).OnlyEnforceIf(overlap)
@@ -53,7 +52,6 @@ def _ordered_bool(
     rhs: cp_model.IntVar,
     strict_less_name: str,
 ) -> cp_model.BoolVar:
-    """Bool for lhs < rhs using reified linear constraints."""
     lhs_less_rhs = model.NewBoolVar(strict_less_name)
     model.Add(lhs <= rhs - 1).OnlyEnforceIf(lhs_less_rhs)
     model.Add(lhs >= rhs).OnlyEnforceIf(lhs_less_rhs.Not())
@@ -65,7 +63,6 @@ def _or_of_literals(
     literals: list[cp_model.BoolVar],
     name: str,
 ) -> cp_model.BoolVar:
-    """Create bool == OR(literals)."""
     if not literals:
         literal = model.NewBoolVar(name)
         model.Add(literal == 0)
@@ -98,7 +95,6 @@ def _enforce_positive_gap_bounds(
     max_gap: int,
     prefix: str,
 ) -> None:
-    """If room is exterior and gap > 0, force min_gap <= gap <= max_gap."""
     gap_positive = model.NewBoolVar(f"{prefix}_gap_positive")
     model.Add(gap_var >= 1).OnlyEnforceIf(gap_positive)
     model.Add(gap_var == 0).OnlyEnforceIf(gap_positive.Not())
@@ -123,18 +119,6 @@ def add_envelope_staircase_constraints(
     exclude_types: set[str] | None = None,
     apply_sides: set[str] | None = None,
 ) -> None:
-    """Bound staircase-like outer-wall recess depth on selected envelope sides.
-
-    Semantics:
-    - Determine exterior rooms per side from pairwise blockers (same orthogonal span,
-      another room farther outward on that side).
-    - For exterior rooms only, if recess depth from side facade line is positive,
-      enforce min_gap <= depth <= max_gap.
-    - Zero-depth (aligned on the facade line) is always allowed.
-
-    This is a hard constraint and can make some layouts infeasible when combined
-    with tight adjacency/coverage requirements.
-    """
     if min_gap < 1:
         min_gap = 1
     if max_gap < min_gap:
