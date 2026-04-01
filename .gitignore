@@ -69,3 +69,7 @@ test/dev/gridSnap/*
 test/dev/output/*
 test/dev/land_boundary_output*
 test/dev/fpgr_refine_debug/output/*
+optuna_fpg.db
+/optuna_fpg.db
+
+*.db

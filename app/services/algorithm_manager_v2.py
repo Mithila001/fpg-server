@@ -42,6 +42,7 @@ from app.core.fpg_rooms.config_fpg import (
     FLOOR_HEIGHT,
     FLOOR_WIDTH,
     MIN_COVERAGE,
+    DEFAULT_OPTUNA_STUDY_NAME
 )
 from app.crud import (
     room_relations_constraint as room_relations_constraint_crud,
@@ -295,7 +296,9 @@ def _run_optuna_entry(
     study_name: str = "fpg_layout_optimization",
 ) -> OptunaOptimizationResult:
     storage = DEFAULT_OPTUNA_STORAGE_URL if DEFAULT_OPTUNA_STORAGE_ENABLED else None
-    run_study_name = f"{study_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    # run_study_name = f"{study_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    run_study_name = DEFAULT_OPTUNA_STUDY_NAME
+    
 
     return run_optuna_optimization(
         base_requirements=requirements,

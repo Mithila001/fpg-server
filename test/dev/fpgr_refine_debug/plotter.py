@@ -64,6 +64,8 @@ def _draw_plan(ax: Any, rooms: list[dict[str, Any]], title: str) -> tuple[list[f
     ax.set_ylabel("Y")
     ax.set_aspect("equal", adjustable="box")
     ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.5)
+    ax.xaxis.set_major_locator(plt.MultipleLocator(10))
+    ax.yaxis.set_major_locator(plt.MultipleLocator(10))
 
     return xs, ys
 
