@@ -58,6 +58,7 @@ CONSTRAINT_SOFT_LAYOUT_DEAD_SPACE_PENALTY = True
 CONSTRAINT_SOFT_SEED_FACADE_DEPTH_PENALTY = True
 CONSTRAINT_SOFT_SEED_FACADE_ALIGNMENT_PENALTY = True
 CONSTRAINT_SOFT_RECESSED_FACADE_PENALTY = True
+CONSTRAINT_SOFT_ROOM_SHARED_WALL_REFINE = True
 
 # Soft-constraint tuning constants
 SOFT_LAYOUT_DEAD_SPACE_WEIGHT = 12
@@ -71,6 +72,7 @@ SOFT_RECESSED_FACADE_BASE_WEIGHT = 45
 SOFT_RECESSED_FACADE_SEVERE_WEIGHT = 140
 SOFT_RECESSED_FACADE_ATTACH_WEIGHT = 14
 SOFT_RECESSED_FACADE_SIDE_GAP_THRESHOLD = 40
+SOFT_ROOM_SHARED_WALL_REFINE_WEIGHT = 50
 
 # Default room size bounds used in normalization/fallback payloads
 DEFAULT_MIN_W = 12
@@ -120,6 +122,15 @@ ROOM_SHARED_WALL_RULES = {
     "kitchen": {"min_walls": 1, "max_walls": 4, "wiggle_pct": 30},
 }
 
+# Refinement phase shared-wall rules (tighter minimum requirements for refine_1).
+# Applied as soft constraint with penalties for violations.
+ROOM_SHARED_WALL_RULES_REFINE = {
+    "livingRoom": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 30},
+    "bathroom": {"min_walls": 3, "max_walls": 4, "wiggle_pct": 20},
+    "bedroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
+    "kitchen": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 30},
+}
+
 __all__ = [
     "FLOOR_WIDTH",
     "FLOOR_HEIGHT",
@@ -153,6 +164,7 @@ __all__ = [
     "CONSTRAINT_SOFT_SEED_FACADE_DEPTH_PENALTY",
     "CONSTRAINT_SOFT_SEED_FACADE_ALIGNMENT_PENALTY",
     "CONSTRAINT_SOFT_RECESSED_FACADE_PENALTY",
+    "CONSTRAINT_SOFT_ROOM_SHARED_WALL_REFINE",
     "SOFT_LAYOUT_DEAD_SPACE_WEIGHT",
     "SOFT_SEED_FACADE_DEPTH_WEIGHT",
     "SOFT_SEED_FACADE_ALIGNMENT_WEIGHT",
@@ -164,6 +176,7 @@ __all__ = [
     "SOFT_RECESSED_FACADE_SEVERE_WEIGHT",
     "SOFT_RECESSED_FACADE_ATTACH_WEIGHT",
     "SOFT_RECESSED_FACADE_SIDE_GAP_THRESHOLD",
+    "SOFT_ROOM_SHARED_WALL_REFINE_WEIGHT",
     "DEFAULT_MIN_W",
     "DEFAULT_MIN_H",
     "DEFAULT_MAX_W",
@@ -183,4 +196,5 @@ __all__ = [
     "HALLWAY_MIN_LENGTH",
     "HALLWAY_REQUIRED_SHARED_WALLS",
     "ROOM_SHARED_WALL_RULES",
+    "ROOM_SHARED_WALL_RULES_REFINE",
 ]

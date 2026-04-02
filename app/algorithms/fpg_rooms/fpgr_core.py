@@ -20,6 +20,7 @@ from app.core.fpg_rooms.config_fpg import (
     CONSTRAINT_SOFT_LAYOUT_DEAD_SPACE_PENALTY,
     CONSTRAINT_SOFT_RECESSED_FACADE_PENALTY,
     CONSTRAINT_SOFT_ROOM_ADJACENCY_PREFERENCE,
+    CONSTRAINT_SOFT_ROOM_SHARED_WALL_REFINE,
     CONSTRAINT_SOFT_SEED_FACADE_ALIGNMENT_PENALTY,
     CONSTRAINT_SOFT_SEED_FACADE_DEPTH_PENALTY,
     CONSTRAINT_SOFT_SEED_LAYOUT_HINTS,
@@ -38,6 +39,7 @@ from app.core.fpg_rooms.config_fpg import (
     SOFT_RECESSED_FACADE_SEVERE_THRESHOLD,
     SOFT_RECESSED_FACADE_SEVERE_WEIGHT,
     SOFT_RECESSED_FACADE_SIDE_GAP_THRESHOLD,
+    SOFT_ROOM_SHARED_WALL_REFINE_WEIGHT,
     SOFT_SEED_FACADE_ALIGNMENT_THRESHOLD,
     SOFT_SEED_FACADE_ALIGNMENT_WEIGHT,
     SOFT_SEED_FACADE_DEPTH_WEIGHT,
@@ -55,6 +57,7 @@ from .constraints.soft.bathroom_location_preference import build_bathroom_locati
 from .constraints.soft.compact_layout import add_center_proximity_objective
 from .constraints.soft.layout_dead_space_penalty import build_layout_dead_space_penalty
 from .constraints.soft.recessed_facade_penalty import build_recessed_facade_penalty
+from .constraints.soft.room_shared_wall_soft_refine import build_room_shared_wall_refine_penalty
 from .constraints.soft.seed_facade_alignment_penalty import build_seed_facade_alignment_penalty
 from .constraints.soft.seed_facade_depth_penalty import build_seed_facade_depth_penalty
 from .constraints.soft.seed_layout_hints import apply_seed_layout_hints_with_wiggle
@@ -162,6 +165,9 @@ class FpgrCore:
         self.constraint_soft_recessed_facade_penalty = bool(
             getattr(cfg, "constraint_soft_recessed_facade_penalty", CONSTRAINT_SOFT_RECESSED_FACADE_PENALTY)
         )
+        self.constraint_soft_room_shared_wall_refine = bool(
+            getattr(cfg, "constraint_soft_room_shared_wall_refine", CONSTRAINT_SOFT_ROOM_SHARED_WALL_REFINE)
+        )
 
         self.model = cp_model.CpModel()
         self.solver = cp_model.CpSolver()
@@ -197,6 +203,7 @@ class FpgrCore:
         include_constraint_a_soft: bool = False,
         include_constraint_c_soft: bool = False,
         include_constraint_d_soft: bool = False,
+        include_constraint_shared_wall_soft: bool = False,
         max_time_seconds: float = DEFAULT_SOLVER_MAX_TIME_SECONDS,
         debug_log: bool = False,
     ) -> bool:
@@ -376,6 +383,15 @@ class FpgrCore:
                     severe_weight=SOFT_RECESSED_FACADE_SEVERE_WEIGHT,
                     attach_weight=SOFT_RECESSED_FACADE_ATTACH_WEIGHT,
                     side_gap_threshold=SOFT_RECESSED_FACADE_SIDE_GAP_THRESHOLD,
+                )
+            )
+
+        if self.constraint_soft_room_shared_wall_refine and include_constraint_shared_wall_soft:
+            objective_terms.append(
+                build_room_shared_wall_refine_penalty(
+                    self.model,
+                    self.rooms,
+                    refine_weight=SOFT_ROOM_SHARED_WALL_REFINE_WEIGHT,
                 )
             )
 

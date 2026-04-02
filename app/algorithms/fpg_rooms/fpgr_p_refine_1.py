@@ -40,6 +40,7 @@ def run_refine_profile_1(
         include_constraint_a_soft=True,
         include_constraint_c_soft=True,
         include_constraint_d_soft=True,
+        include_constraint_shared_wall_soft=True,
         max_time_seconds=max(1.0, float(DEFAULT_SOLVER_MAX_TIME_SECONDS)),
         debug_log=verbose,
     )
