@@ -1,6 +1,5 @@
 import contextlib
 import io
-from datetime import datetime
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from time import perf_counter
@@ -59,7 +58,10 @@ from app.util.dev_use_mock_db import (
     load_room_size_constraints,
 )
 from app.util.logger import SystemLogger
-from app.util.room_requirements import normalize_db_data_requirements
+from app.util.room_requirements import (
+    compute_floor_plan_dimension_bounds,
+    normalize_db_data_requirements,
+)
 
 EMPTY_POST_PROCESS_LAYOUT = {"walls": [], "compact_by_room": {}}
 EMPTY_OPENING_LAYOUT = {
@@ -299,7 +301,32 @@ def _run_optuna_entry(
     storage = DEFAULT_OPTUNA_STORAGE_URL if DEFAULT_OPTUNA_STORAGE_ENABLED else None
     # run_study_name = f"{study_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     run_study_name = DEFAULT_OPTUNA_STUDY_NAME
-    
+
+    bounds_result = compute_floor_plan_dimension_bounds(requirements)
+    if bounds_result.get("status") != "OK":
+        message = str(bounds_result.get("message") or "Failed to compute floor bounds")
+        return OptunaOptimizationResult(
+            study_name=run_study_name,
+            best_value=0.0,
+            best_trial_number=-1,
+            best_params={},
+            completed_trials=0,
+            failed_trials=0,
+            best_run=FpgEvaluationResult(
+                solved=False,
+                solution=[],
+                score_report=None,
+                status="INVALID_FLOOR_DIMENSION_BOUNDS",
+                message=message,
+            ),
+        )
+
+    floor_dimension_bounds = {
+        "min_floor_width": int(float(bounds_result["min_floor_width"])),
+        "min_floor_height": int(float(bounds_result["min_floor_height"])),
+        "max_floor_width": int(float(bounds_result["max_floor_width"])),
+        "max_floor_height": int(float(bounds_result["max_floor_height"])),
+    }
 
     return run_optuna_optimization(
         base_requirements=requirements,
@@ -307,6 +334,7 @@ def _run_optuna_entry(
         n_trials=optuna_trial_count,
         study_name=run_study_name,
         storage=storage,
+        floor_dimension_bounds=floor_dimension_bounds,
     )
 
 

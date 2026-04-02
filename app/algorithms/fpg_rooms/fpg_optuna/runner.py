@@ -34,6 +34,10 @@ from app.util.logger.fpg_rooms.optuna_logger import OptunaLogger
 from .types import FpgEvaluationResult, OptunaOptimizationResult
 
 EVALUATION_FN = Callable[[FpgRequirements, bool], FpgEvaluationResult]
+FLOOR_DIMENSION_BOUNDS = dict[str, int]
+
+OPTUNA_PARAM_KEY_FLOOR_PLAN_WIDTH = "floor_plan_width"
+OPTUNA_PARAM_KEY_FLOOR_PLAN_HEIGHT = "floor_plan_height"
 
 
 
@@ -80,9 +84,49 @@ def _tune_room_dimension(
     )
 
 
-def mutate_requirements(base_requirements: FpgRequirements, trial: optuna.Trial) -> FpgRequirements:
-    floor_w = int(base_requirements.config.floor_plan_width)
-    floor_h = int(base_requirements.config.floor_plan_height)
+def _resolve_floor_dimension_bounds(
+    base_requirements: FpgRequirements,
+    floor_dimension_bounds: FLOOR_DIMENSION_BOUNDS | None,
+) -> tuple[int, int, int, int]:
+    base_floor_w = max(1, int(base_requirements.config.floor_plan_width))
+    base_floor_h = max(1, int(base_requirements.config.floor_plan_height))
+
+    if floor_dimension_bounds is None:
+        return base_floor_w, base_floor_h, base_floor_w, base_floor_h
+
+    min_floor_w = int(floor_dimension_bounds.get("min_floor_width", base_floor_w))
+    min_floor_h = int(floor_dimension_bounds.get("min_floor_height", base_floor_h))
+    max_floor_w = int(floor_dimension_bounds.get("max_floor_width", base_floor_w))
+    max_floor_h = int(floor_dimension_bounds.get("max_floor_height", base_floor_h))
+
+    min_floor_w = max(1, min_floor_w)
+    min_floor_h = max(1, min_floor_h)
+    max_floor_w = max(min_floor_w, max_floor_w)
+    max_floor_h = max(min_floor_h, max_floor_h)
+
+    return min_floor_w, min_floor_h, max_floor_w, max_floor_h
+
+
+def mutate_requirements(
+    base_requirements: FpgRequirements,
+    trial: optuna.Trial,
+    floor_dimension_bounds: FLOOR_DIMENSION_BOUNDS | None = None,
+) -> FpgRequirements:
+    min_floor_w, min_floor_h, max_floor_w, max_floor_h = _resolve_floor_dimension_bounds(
+        base_requirements,
+        floor_dimension_bounds,
+    )
+
+    floor_w = trial.suggest_int(
+        OPTUNA_PARAM_KEY_FLOOR_PLAN_WIDTH,
+        min_floor_w,
+        max_floor_w,
+    )
+    floor_h = trial.suggest_int(
+        OPTUNA_PARAM_KEY_FLOOR_PLAN_HEIGHT,
+        min_floor_h,
+        max_floor_h,
+    )
 
     tuned_rooms: list[RoomData] = []
     for idx, room in enumerate(base_requirements.rooms):
@@ -102,8 +146,8 @@ def mutate_requirements(base_requirements: FpgRequirements, trial: optuna.Trial)
         ),
         max_aspect_ratio=base_requirements.config.max_aspect_ratio,
         min_aspect_ratio=base_requirements.config.min_aspect_ratio,
-        floor_plan_width=base_requirements.config.floor_plan_width,
-        floor_plan_height=base_requirements.config.floor_plan_height,
+        floor_plan_width=floor_w,
+        floor_plan_height=floor_h,
         envelope_enabled=bool(
             getattr(
                 base_requirements.config,
@@ -171,6 +215,9 @@ def _bounds_are_valid(requirements: FpgRequirements) -> tuple[bool, str]:
     floor_w = int(requirements.config.floor_plan_width)
     floor_h = int(requirements.config.floor_plan_height)
 
+    if floor_w < 1 or floor_h < 1:
+        return False, "floor_plan_width and floor_plan_height must be positive"
+
     for room in requirements.rooms:
         if room.min_w < 1 or room.min_h < 1:
             return False, f"Invalid min dimensions for {room.type}"
@@ -201,9 +248,17 @@ def _precheck(requirements: FpgRequirements) -> tuple[bool, str]:
 def _requirements_from_best_params(
     base_requirements: FpgRequirements,
     best_params: dict[str, float | int],
+    floor_dimension_bounds: FLOOR_DIMENSION_BOUNDS | None = None,
 ) -> FpgRequirements:
-    floor_w = int(base_requirements.config.floor_plan_width)
-    floor_h = int(base_requirements.config.floor_plan_height)
+    min_floor_w, min_floor_h, max_floor_w, max_floor_h = _resolve_floor_dimension_bounds(
+        base_requirements,
+        floor_dimension_bounds,
+    )
+
+    floor_w = int(best_params.get(OPTUNA_PARAM_KEY_FLOOR_PLAN_WIDTH, min_floor_w))
+    floor_h = int(best_params.get(OPTUNA_PARAM_KEY_FLOOR_PLAN_HEIGHT, min_floor_h))
+    floor_w = max(min_floor_w, min(max_floor_w, floor_w))
+    floor_h = max(min_floor_h, min(max_floor_h, floor_h))
 
     tuned_rooms: list[RoomData] = []
     for idx, room in enumerate(base_requirements.rooms):
@@ -249,8 +304,8 @@ def _requirements_from_best_params(
         hallway_count=hallway_count,
         max_aspect_ratio=base_requirements.config.max_aspect_ratio,
         min_aspect_ratio=base_requirements.config.min_aspect_ratio,
-        floor_plan_width=base_requirements.config.floor_plan_width,
-        floor_plan_height=base_requirements.config.floor_plan_height,
+        floor_plan_width=floor_w,
+        floor_plan_height=floor_h,
         envelope_enabled=bool(
             getattr(
                 base_requirements.config,
@@ -301,6 +356,7 @@ def run_optuna_optimization(
     n_trials: int = OPTUNA_DEFAULT_TRIALS,
     study_name: str = OPTUNA_DEFAULT_STUDY_NAME,
     storage: str | None = None,
+    floor_dimension_bounds: FLOOR_DIMENSION_BOUNDS | None = None,
 ) -> OptunaOptimizationResult:
     """Run Optuna optimization for floor-plan requirements."""
 
@@ -309,7 +365,11 @@ def run_optuna_optimization(
     optuna.logging.set_verbosity(optuna.logging.INFO)
 
     def objective(trial: optuna.Trial) -> float:
-        trial_requirements = mutate_requirements(base_requirements, trial)
+        trial_requirements = mutate_requirements(
+            base_requirements,
+            trial,
+            floor_dimension_bounds=floor_dimension_bounds,
+        )
 
         # --- Optuna logging block start ---
         OptunaLogger.trial_start(trial.number, trial_requirements)
@@ -391,6 +451,7 @@ def run_optuna_optimization(
         best_requirements = _requirements_from_best_params(
             base_requirements,
             dict(study.best_params),
+            floor_dimension_bounds=floor_dimension_bounds,
         )
         ok, reason = _precheck(best_requirements)
         if ok:
