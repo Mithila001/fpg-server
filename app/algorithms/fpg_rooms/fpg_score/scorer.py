@@ -13,17 +13,15 @@ from app.core.fpg_rooms.config_fpg import (
     SCORE_WEIGHTS,
 )
 from app.util.logger import ScoreLogger
-from .metrics_coverage import score_coverage
-from .metrics_empty_space import score_empty_space
-from .metrics_inward_pocket import detect_inward_pocket_violation
-from .metrics_rectangularity import score_rectangularity
-from .types import ScoreReport
-from .validators import (
+from .binary_scoring import (
+    detect_inward_pocket_violation,
     validate_adjacency_relations,
     validate_envelope_staircase_bounds,
     validate_no_overlap,
     validate_room_geometry,
 )
+from .range_scoring import score_coverage, score_empty_space, score_rectangularity
+from .types import ScoreReport
 
 DEFAULT_WEIGHTS = SCORE_WEIGHTS.copy()
 
@@ -82,6 +80,24 @@ def _resolve_scoring_inputs(
             normalized_rooms.append(normalized)
 
     return normalized_rooms, wall_union
+
+
+def _log_score_run(
+    component_scores: Dict[str, Any],
+    diagnostics: Dict[str, Any],
+    stage: str,
+    total_score: float,
+    valid: bool,
+    hard_violation_count: int,
+) -> None:
+    ScoreLogger.score_run(
+        component_scores=component_scores,
+        total_score=total_score,
+        valid=valid,
+        hard_violation_count=hard_violation_count,
+        diagnostics=diagnostics,
+        stage=stage,
+    )
 
 
 def score_layout(
@@ -188,8 +204,10 @@ def score_layout(
             "envelope": envelope_score,
             "inward_pocket": inward_pocket_score,
         }
-        ScoreLogger.score_breakdown(
+        _log_score_run(
             component_scores=component_scores,
+            diagnostics=diagnostics,
+            stage="hard-gate-failed",
             total_score=0.0,
             valid=False,
             hard_violation_count=len(hard_violations),
@@ -213,8 +231,10 @@ def score_layout(
             "envelope": envelope_score,
             "inward_pocket": inward_pocket_score,
         }
-        ScoreLogger.score_breakdown(
+        _log_score_run(
             component_scores=component_scores,
+            diagnostics=diagnostics,
+            stage="geometric-gate-failed",
             total_score=1.0,
             valid=True,
             hard_violation_count=0,
@@ -254,8 +274,10 @@ def score_layout(
         + component_scores["empty_space"] * float(weights.get("empty_space", SCORE_WEIGHTS["empty_space"]))
     )
 
-    ScoreLogger.score_breakdown(
+    _log_score_run(
         component_scores=component_scores,
+        diagnostics=diagnostics,
+        stage="final",
         total_score=total_score,
         valid=True,
         hard_violation_count=0,

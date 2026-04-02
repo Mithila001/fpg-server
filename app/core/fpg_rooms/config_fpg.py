@@ -29,7 +29,7 @@ INWARD_POCKET_MAX_LENGTH = 20.0
 ENVELOPE_ENABLED = True
 ENVELOPE_MIN_GAP = 5
 ENVELOPE_MAX_GAP = 20
-ENVELOPE_EXCLUDE_TYPES = ["hallway"]
+ENVELOPE_EXCLUDE_TYPES = []
 ENVELOPE_APPLY_SIDES = ["left", "right", "top", "bottom"]
 
 # Adjacency constraint settings
@@ -85,6 +85,7 @@ ROOM_SIZE_HIERARCHY = {
     "bedroom": (50, 70),
     "kitchen": (40, 50),
     "bathroom": (15, 30),
+    "attachedBathroom":(15,30)
 }
 
 # Default solver/optuna execution settings
@@ -120,8 +121,8 @@ ROOM_SHARED_WALL_RULES = {
     "bathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
     "bedroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
     "kitchen": {"min_walls": 1, "max_walls": 4, "wiggle_pct": 30},
+    "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
 }
-
 # Refinement phase shared-wall rules (tighter minimum requirements for refine_1).
 # Applied as soft constraint with penalties for violations.
 ROOM_SHARED_WALL_RULES_REFINE = {
@@ -129,6 +130,7 @@ ROOM_SHARED_WALL_RULES_REFINE = {
     "bathroom": {"min_walls": 3, "max_walls": 4, "wiggle_pct": 20},
     "bedroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
     "kitchen": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 30},
+    "attachedBathroom": {"min_walls": 3, "max_walls": 5, "wiggle_pct": 20},
 }
 
 __all__ = [
