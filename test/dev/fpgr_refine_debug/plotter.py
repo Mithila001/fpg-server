@@ -72,25 +72,27 @@ def _draw_plan(ax: Any, rooms: list[dict[str, Any]], title: str) -> tuple[list[f
     return xs, ys
 
 
-def plot_refine_before_after(
+def plot_refine_three_generations(
     before_rooms: list[dict[str, Any]],
+    middle_rooms: list[dict[str, Any]],
     after_rooms: list[dict[str, Any]],
     show: bool = False,
 ) -> str | None:
-    """Plot FPGR refine before/after layouts side by side and save image to output folder."""
-    if not before_rooms and not after_rooms:
+    """Plot FPGR refine stage 1/2/3 layouts side by side and save image to output folder."""
+    if not before_rooms and not middle_rooms and not after_rooms:
         return None
 
     output_dir = Path(__file__).resolve().parent / "output"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    fig, axes = plt.subplots(1, 2, figsize=(16, 8))
+    fig, axes = plt.subplots(1, 3, figsize=(24, 8))
 
-    before_x, before_y = _draw_plan(axes[0], before_rooms, "Before Refine")
-    after_x, after_y = _draw_plan(axes[1], after_rooms, "After Refine")
+    before_x, before_y = _draw_plan(axes[0], before_rooms, "Stage 1 (initial)")
+    middle_x, middle_y = _draw_plan(axes[1], middle_rooms, "Stage 2 (refine 1)")
+    after_x, after_y = _draw_plan(axes[2], after_rooms, "Stage 3 (refine 2)")
 
-    all_x = before_x + after_x
-    all_y = before_y + after_y
+    all_x = before_x + middle_x + after_x
+    all_y = before_y + middle_y + after_y
 
     if not all_x or not all_y:
         plt.close(fig)
@@ -133,3 +135,17 @@ def plot_refine_before_after(
 
     plt.close(fig)
     return str(output_path)
+
+
+def plot_refine_before_after(
+    before_rooms: list[dict[str, Any]],
+    after_rooms: list[dict[str, Any]],
+    show: bool = False,
+) -> str | None:
+    """Backward-compatibility wrapper for existing 2-stage usage."""
+    return plot_refine_three_generations(
+        before_rooms=before_rooms,
+        middle_rooms=[],
+        after_rooms=after_rooms,
+        show=show,
+    )

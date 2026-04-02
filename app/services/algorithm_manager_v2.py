@@ -73,8 +73,9 @@ EMPTY_OPENING_LAYOUT = {
 
 
 def _plot_refine_before_after_dev(
-    before_rooms: list[dict[str, Any]],
-    after_rooms: list[dict[str, Any]],
+    stage1_rooms: list[dict[str, Any]],
+    stage2_rooms: list[dict[str, Any]],
+    stage3_rooms: list[dict[str, Any]],
 ) -> str | None:
     """Best-effort dev-only plotting hook with zero impact on pipeline outcomes."""
     try:
@@ -89,11 +90,22 @@ def _plot_refine_before_after_dev(
 
         module = module_from_spec(spec)
         spec.loader.exec_module(module)
-        plot_fn = getattr(module, "plot_refine_before_after", None)
+        plot_fn = getattr(module, "plot_refine_three_generations", None)
+        if not callable(plot_fn):
+            plot_fn = getattr(module, "plot_refine_before_after", None)
         if not callable(plot_fn):
             return None
 
-        return plot_fn(before_rooms=before_rooms, after_rooms=after_rooms, show=False)
+        # Prefer 3-stage plotting if available, otherwise fallback to 2-stage
+        if plot_fn.__name__ == "plot_refine_three_generations":
+            return plot_fn(
+                before_rooms=stage1_rooms,
+                middle_rooms=stage2_rooms,
+                after_rooms=stage3_rooms,
+                show=False,
+            )
+
+        return plot_fn(before_rooms=stage1_rooms, after_rooms=stage3_rooms, show=False)
     except Exception:
         return None
 
@@ -258,18 +270,37 @@ def _run_single_fpg_solve(
     solution = generator.get_solution()
     quick_post_process_result = run_quick_post_process({"rooms": solution, "openings": []})
 
-    refine_result = run_refine_profile_1(
+    stage1_rooms = quick_post_process_result["rooms"]
+
+    refine_result1 = run_refine_profile_1(
         requirements=requirements,
-        initial_rooms=quick_post_process_result["rooms"],
+        initial_rooms=stage1_rooms,
         wiggle_room=WIGGLE_ROOM,
         verbose=False,
     )
+    stage2_rooms = refine_result1.rooms if refine_result1.rooms else stage1_rooms
 
-    final_rooms = refine_result.rooms if refine_result.rooms else quick_post_process_result["rooms"]
+    refine_result2 = run_refine_profile_1(
+        requirements=requirements,
+        initial_rooms=stage2_rooms,
+        wiggle_room=WIGGLE_ROOM,
+        verbose=False,
+    )
+    stage3_rooms = refine_result2.rooms if refine_result2.rooms else stage2_rooms
+
+    final_rooms = stage3_rooms
 
     _plot_refine_before_after_dev(
-        before_rooms=quick_post_process_result["rooms"],
-        after_rooms=final_rooms,
+        stage1_rooms=stage1_rooms,
+        stage2_rooms=stage2_rooms,
+        stage3_rooms=stage3_rooms,
+    )
+
+    # Combined status/message from two refine passes for diagnostics
+    refine_status = f"{refine_result1.status} -> {refine_result2.status}"
+    refine_message = (
+        f"Refine pass 1: {refine_result1.message}; "
+        f"Refine pass 2: {refine_result2.message}"
     )
 
     final_quick_post_process_result = run_quick_post_process({"rooms": final_rooms, "openings": []})
@@ -288,8 +319,8 @@ def _run_single_fpg_solve(
         message="Solver found a layout",
     )
     result.quick_post_process_result = final_quick_post_process_result
-    result.refine_status = refine_result.status
-    result.refine_message = refine_result.message
+    result.refine_status = refine_status
+    result.refine_message = refine_message
     return result
 
 
