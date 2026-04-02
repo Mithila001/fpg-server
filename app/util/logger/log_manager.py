@@ -10,6 +10,8 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any
 
+from app.util.tracking import get_tracking_ids
+
 
 class _JsonlFormatter(logging.Formatter):
     """Serialize log records as JSON lines for easy filtering and parsing."""
@@ -32,6 +34,12 @@ class _JsonlFormatter(logging.Formatter):
         }
         if event is not None:
             entry["event"] = str(event)
+
+        request_id, trial_id = get_tracking_ids()
+        if request_id is not None:
+            entry["request_id"] = request_id
+        if trial_id is not None:
+            entry["trial_id"] = trial_id
 
         entry["data"] = payload
 

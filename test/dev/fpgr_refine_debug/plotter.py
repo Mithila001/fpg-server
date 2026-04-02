@@ -7,6 +7,8 @@ from typing import Any
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
+from app.util.tracking import get_tracking_label
+
 
 def _safe_float(value: Any) -> float | None:
     try:
@@ -104,8 +106,23 @@ def plot_refine_before_after(
         ax.set_xlim(x_min, x_max)
         ax.set_ylim(y_min, y_max)
 
-    fig.suptitle("FPGR Refine Debug Plot", fontsize=12)
-    fig.tight_layout()
+    tracking_label = get_tracking_label()
+    if tracking_label:
+        fig.suptitle(f"FPGR Refine Debug Plot\n{tracking_label}", fontsize=12)
+        fig.text(
+            0.01,
+            0.01,
+            tracking_label,
+            ha="left",
+            va="bottom",
+            fontsize=9,
+            family="monospace",
+            bbox={"facecolor": "white", "alpha": 0.75, "edgecolor": "none"},
+        )
+        fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.92))
+    else:
+        fig.suptitle("FPGR Refine Debug Plot", fontsize=12)
+        fig.tight_layout()
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_path = output_dir / f"fpgr_refine_{timestamp}.png"
