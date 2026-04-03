@@ -58,6 +58,7 @@ from app.util.dev_use_mock_db import (
     load_room_size_constraints,
 )
 from app.util.logger import SystemLogger
+from app.util.constraint_pruner import prune_room_relations_constraints_by_template
 from app.util.room_requirements import (
     compute_floor_plan_dimension_bounds,
     normalize_db_data_requirements,
@@ -450,6 +451,13 @@ def run_fpg_pipeline_internal(
             )
 
         template = templates[0]
+        relation_constraints, prune_error = prune_room_relations_constraints_by_template(
+            room_template=template,
+            room_relations_constraints=relation_constraints,
+        )
+        if prune_error:
+            return _error_payload(prune_error)
+
         is_valid, validation_message = pre_validation(
             room_template=template,
             room_size_constraints=size_constraints,
@@ -523,6 +531,13 @@ def run_fpg_pipeline_api(
     # WARNING: Its highly important to change `should_bypass` value to False when deploying
     try:
         _, size_constraints, relation_constraints = _load_server_side_data()
+        relation_constraints, prune_error = prune_room_relations_constraints_by_template(
+            room_template=room_template,
+            room_relations_constraints=relation_constraints,
+        )
+        if prune_error:
+            return _error_payload(prune_error)
+
         is_valid, validation_message = pre_validation(
             room_template=room_template,
             room_size_constraints=size_constraints,

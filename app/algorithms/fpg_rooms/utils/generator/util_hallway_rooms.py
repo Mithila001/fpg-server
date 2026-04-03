@@ -17,6 +17,7 @@ def prepare_requirements_for_hallway_rules(requirements: FpgRequirements) -> Fpg
         return updated_requirements
 
     relation_constraints = updated_requirements.relation_constraints or []
+    # TODO : Move these to CONFIG
     target_room_types = {"bedroom", "kitchen", "bathroom"}
     for relation in relation_constraints:
         room_type = None
