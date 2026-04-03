@@ -8,6 +8,7 @@ from app.core.fpg_rooms.config_fpg import (
     CONSTRAINT_HARD_HALLWAY_RULES,
     CONSTRAINT_HARD_LIVING_ROOM_LOCATION,
     CONSTRAINT_HARD_MINIMUM_AREA_COVERAGE,
+    CONSTRAINT_HARD_OPEN_AREA_PLACEMENT,
     CONSTRAINT_HARD_ROOM_ADJACENCY,
     CONSTRAINT_HARD_ROOM_SHARED_WALLS,
     CONSTRAINT_HARD_ROOM_SIZE_HIERARCHY,
@@ -32,6 +33,7 @@ class ConstraintControlPanel:
     hard_minimum_area_coverage: bool = CONSTRAINT_HARD_MINIMUM_AREA_COVERAGE
     hard_room_size_hierarchy: bool = CONSTRAINT_HARD_ROOM_SIZE_HIERARCHY
     hard_living_room_location: bool = CONSTRAINT_HARD_LIVING_ROOM_LOCATION
+    hard_open_area_placement: bool = CONSTRAINT_HARD_OPEN_AREA_PLACEMENT
     hard_envelope_staircase: bool = CONSTRAINT_HARD_ENVELOPE_STAIRCASE
 
     soft_seed_layout_hints: bool = CONSTRAINT_SOFT_SEED_LAYOUT_HINTS
