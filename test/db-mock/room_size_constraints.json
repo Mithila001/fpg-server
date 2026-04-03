@@ -2,41 +2,51 @@
   {
     "type": "bedroom",
     "min_w": 30,
-    "max_w": null,
-    "min_h": null,
-    "max_h": null,
-    "max_area": null,
+    "max_w": 42,
+    "min_h": 30,
+    "max_h": 42,
+    "max_area": 1800,
     "min_area": 900,
-    "preset_id": null
+    "preset_id": "standard_bed"
   },
   {
     "type": "kitchen",
     "min_w": 24,
-    "max_w": null,
-    "min_h": null,
-    "max_h": null,
-    "max_area": null,
-    "min_area": 600,
-    "preset_id": null
+    "max_w": 36,
+    "min_h": 30,
+    "max_h": 45,
+    "max_area": 1600,
+    "min_area": 720,
+    "preset_id": "standard_kitchen"
   },
   {
     "type": "bathroom",
     "min_w": 12,
-    "max_w": null,
-    "min_h": null,
-    "max_h": null,
-    "max_area": null,
-    "min_area": 150,
-    "preset_id": null
+    "max_w": 18,
+    "min_h": 21,
+    "max_h": 30,
+    "max_area": 540,
+    "min_area": 252,
+    "preset_id": "standard_bath"
   },
   {
     "type": "livingRoom",
     "min_w": 35,
-    "max_w": null,
-    "min_h": null,
-    "max_h": null,
-    "max_area": null,
-    "min_area": 1225,
-    "preset_id": null
+    "max_w": 55,
+    "min_h": 40,
+    "max_h": 70,
+    "max_area": 3850,
+    "min_area": 1400,
+    "preset_id": "standard_living"
+  },
+  {
+    "type": "attachedBathroom",
+    "min_w": 12,
+    "max_w": 18,
+    "min_h": 21,
+    "max_h": 30,
+    "max_area": 540,
+    "min_area": 252,
+    "preset_id": "standard_attached_bath"
   }
 ]

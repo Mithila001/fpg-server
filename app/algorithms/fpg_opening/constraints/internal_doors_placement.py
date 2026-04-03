@@ -11,7 +11,7 @@ _NON_HALLWAY_ALLOWED_PAIRS = {
     frozenset(("bedroom", "livingroom")),
     frozenset(("kitchen", "livingroom")),
     frozenset(("bathroom", "livingroom")),
-    frozenset(("bedroom", "bathroom")),
+    frozenset(("bedroom", "attachedBathroom")),
 }
 
 _MAX_INTERNAL_DOORS_PER_ROOM_TYPE = {
@@ -20,6 +20,7 @@ _MAX_INTERNAL_DOORS_PER_ROOM_TYPE = {
     "livingroom": 10,
     "hallway": 10,
     "kitchen": 2,
+    "attachedBathroom":1
 }
 
 

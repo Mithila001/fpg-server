@@ -1,6 +1,7 @@
 import contextlib
 import io
-from datetime import datetime
+from importlib.util import module_from_spec, spec_from_file_location
+from pathlib import Path
 from time import perf_counter
 from typing import Any, Sequence
 
@@ -18,6 +19,7 @@ from app.algorithms.fpg_rooms.fpg_post_process import (
     run_quick_post_process,
 )
 from app.algorithms.fpg_rooms.fpg_score import score_layout
+from app.algorithms.fpg_rooms.fpgr_p_refine_1 import run_refine_profile_1
 from app.algorithms.fpg_rooms.types.room import ConfigData, FpgRequirements, RoomData
 from app.core.database import engine
 from app.core.fpg_rooms.config_fpg import (
@@ -39,6 +41,9 @@ from app.core.fpg_rooms.config_fpg import (
     FLOOR_HEIGHT,
     FLOOR_WIDTH,
     MIN_COVERAGE,
+    SAFETY_BUFFER,
+    WIGGLE_ROOM,
+    DEFAULT_OPTUNA_STUDY_NAME
 )
 from app.crud import (
     room_relations_constraint as room_relations_constraint_crud,
@@ -53,7 +58,11 @@ from app.util.dev_use_mock_db import (
     load_room_size_constraints,
 )
 from app.util.logger import SystemLogger
-from app.util.room_requirements import normalize_db_data_requirements
+from app.util.constraint_pruner import prune_room_relations_constraints_by_template
+from app.util.room_requirements import (
+    compute_floor_plan_dimension_bounds,
+    normalize_db_data_requirements,
+)
 
 EMPTY_POST_PROCESS_LAYOUT = {"walls": [], "compact_by_room": {}}
 EMPTY_OPENING_LAYOUT = {
@@ -62,6 +71,44 @@ EMPTY_OPENING_LAYOUT = {
     "status": "NOT_RUN",
     "message": "Not run",
 }
+
+
+def _plot_refine_before_after_dev(
+    stage1_rooms: list[dict[str, Any]],
+    stage2_rooms: list[dict[str, Any]],
+    stage3_rooms: list[dict[str, Any]],
+) -> str | None:
+    """Best-effort dev-only plotting hook with zero impact on pipeline outcomes."""
+    try:
+        project_root = Path(__file__).resolve().parents[2]
+        plotter_path = project_root / "test" / "dev" / "fpgr_refine_debug" / "plotter.py"
+        if not plotter_path.exists():
+            return None
+
+        spec = spec_from_file_location("fpgr_refine_debug_plotter", plotter_path)
+        if not spec or not spec.loader:
+            return None
+
+        module = module_from_spec(spec)
+        spec.loader.exec_module(module)
+        plot_fn = getattr(module, "plot_refine_three_generations", None)
+        if not callable(plot_fn):
+            plot_fn = getattr(module, "plot_refine_before_after", None)
+        if not callable(plot_fn):
+            return None
+
+        # Prefer 3-stage plotting if available, otherwise fallback to 2-stage
+        if plot_fn.__name__ == "plot_refine_three_generations":
+            return plot_fn(
+                before_rooms=stage1_rooms,
+                middle_rooms=stage2_rooms,
+                after_rooms=stage3_rooms,
+                show=False,
+            )
+
+        return plot_fn(before_rooms=stage1_rooms, after_rooms=stage3_rooms, show=False)
+    except Exception:
+        return None
 
 
 def _error_payload(message: str, status: str = "ERROR") -> dict[str, Any]:
@@ -153,15 +200,14 @@ def pre_validation(
         total_min_area += min_area
 
     floor_area = float(floor_width) * float(floor_height)
-    safety_buffer = 100.0
-    required_min_area = total_min_area + safety_buffer
+    required_min_area = total_min_area + SAFETY_BUFFER
 
     if required_min_area > floor_area:
         shortage = required_min_area - floor_area
         return (
             False,
             "Impossible Requirements For the given floor area. "
-            f"Required min area + buffer = {total_min_area:.2f} + {safety_buffer:.2f} "
+            f"Required min area + buffer = {total_min_area:.2f} + {SAFETY_BUFFER:.2f} "
             f"= {required_min_area:.2f}, floor area = {floor_width:.2f} * {floor_height:.2f} "
             f"= {floor_area:.2f}, shortage = {shortage:.2f}.",
         )
@@ -224,20 +270,58 @@ def _run_single_fpg_solve(
 
     solution = generator.get_solution()
     quick_post_process_result = run_quick_post_process({"rooms": solution, "openings": []})
+
+    stage1_rooms = quick_post_process_result["rooms"]
+
+    refine_result1 = run_refine_profile_1(
+        requirements=requirements,
+        initial_rooms=stage1_rooms,
+        wiggle_room=WIGGLE_ROOM,
+        verbose=False,
+    )
+    stage2_rooms = refine_result1.rooms if refine_result1.rooms else stage1_rooms
+
+    refine_result2 = run_refine_profile_1(
+        requirements=requirements,
+        initial_rooms=stage2_rooms,
+        wiggle_room=WIGGLE_ROOM,
+        verbose=False,
+    )
+    stage3_rooms = refine_result2.rooms if refine_result2.rooms else stage2_rooms
+
+    final_rooms = stage3_rooms
+
+    _plot_refine_before_after_dev(
+        stage1_rooms=stage1_rooms,
+        stage2_rooms=stage2_rooms,
+        stage3_rooms=stage3_rooms,
+    )
+
+    # Combined status/message from two refine passes for diagnostics
+    refine_status = f"{refine_result1.status} -> {refine_result2.status}"
+    refine_message = (
+        f"Refine pass 1: {refine_result1.message}; "
+        f"Refine pass 2: {refine_result2.message}"
+    )
+
+    final_quick_post_process_result = run_quick_post_process({"rooms": final_rooms, "openings": []})
+
     score_report = score_layout(
-        solution=solution,
-        quick_post_process_result=quick_post_process_result,
+        solution=final_rooms,
+        quick_post_process_result=final_quick_post_process_result,
         requirements=requirements,
     )
 
     result = FpgEvaluationResult(
         solved=True,
-        solution=solution,
+        solution=final_rooms,
         score_report=score_report,
         status=status,
         message="Solver found a layout",
     )
-    result.quick_post_process_result = quick_post_process_result
+    result.quick_post_process_result = final_quick_post_process_result
+    result.refine_status = refine_status
+    result.refine_message = refine_message
     return result
 
 
@@ -247,7 +331,34 @@ def _run_optuna_entry(
     study_name: str = "fpg_layout_optimization",
 ) -> OptunaOptimizationResult:
     storage = DEFAULT_OPTUNA_STORAGE_URL if DEFAULT_OPTUNA_STORAGE_ENABLED else None
-    run_study_name = f"{study_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    # run_study_name = f"{study_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    run_study_name = DEFAULT_OPTUNA_STUDY_NAME
+
+    bounds_result = compute_floor_plan_dimension_bounds(requirements)
+    if bounds_result.get("status") != "OK":
+        message = str(bounds_result.get("message") or "Failed to compute floor bounds")
+        return OptunaOptimizationResult(
+            study_name=run_study_name,
+            best_value=0.0,
+            best_trial_number=-1,
+            best_params={},
+            completed_trials=0,
+            failed_trials=0,
+            best_run=FpgEvaluationResult(
+                solved=False,
+                solution=[],
+                score_report=None,
+                status="INVALID_FLOOR_DIMENSION_BOUNDS",
+                message=message,
+            ),
+        )
+
+    floor_dimension_bounds = {
+        "min_floor_width": int(float(bounds_result["min_floor_width"])),
+        "min_floor_height": int(float(bounds_result["min_floor_height"])),
+        "max_floor_width": int(float(bounds_result["max_floor_width"])),
+        "max_floor_height": int(float(bounds_result["max_floor_height"])),
+    }
 
     return run_optuna_optimization(
         base_requirements=requirements,
@@ -255,6 +366,7 @@ def _run_optuna_entry(
         n_trials=optuna_trial_count,
         study_name=run_study_name,
         storage=storage,
+        floor_dimension_bounds=floor_dimension_bounds,
     )
 
 
@@ -339,6 +451,13 @@ def run_fpg_pipeline_internal(
             )
 
         template = templates[0]
+        relation_constraints, prune_error = prune_room_relations_constraints_by_template(
+            room_template=template,
+            room_relations_constraints=relation_constraints,
+        )
+        if prune_error:
+            return _error_payload(prune_error)
+
         is_valid, validation_message = pre_validation(
             room_template=template,
             room_size_constraints=size_constraints,
@@ -409,8 +528,16 @@ def run_fpg_pipeline_api(
         },
     )
 
+    # WARNING: Its highly important to change `should_bypass` value to False when deploying
     try:
         _, size_constraints, relation_constraints = _load_server_side_data()
+        relation_constraints, prune_error = prune_room_relations_constraints_by_template(
+            room_template=room_template,
+            room_relations_constraints=relation_constraints,
+        )
+        if prune_error:
+            return _error_payload(prune_error)
+
         is_valid, validation_message = pre_validation(
             room_template=room_template,
             room_size_constraints=size_constraints,

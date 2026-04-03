@@ -24,30 +24,31 @@ class FPBoundaryFinder:
     def fp_boundary_finder(
         self,
         polygon_coordinates: list,
-        min_width: float,
-        min_height: float,
+        TA_line: tuple,
+        min_width: float = 100,
+        min_height: float = 100,
     ):
         """
         Finds the largest valid buildable rectangles inside the given polygon.
 
         Args:
             polygon_coordinates: Ordered list of (x, y) vertices.
+            TA_line: Orientation line segment ((x1, y1), (x2, y2)) or
+                     (x1, y1, x2, y2).
             min_width:  Minimum acceptable rectangle width.
             min_height: Minimum acceptable rectangle height.
 
         Returns:
-            Tuple: (final_polygon, final_rect_parallel, final_rect_perpendicular)
+            List of 4 (x, y) points for the largest candidate rectangle.
         """
-        return self._run(polygon_coordinates, min_width, min_height)
+        return self._run(polygon_coordinates, TA_line, min_width, min_height)
 
     # ------------------------------------------------------------------ #
     #  Private Pipeline Steps                                              #
     # ------------------------------------------------------------------ #
 
-    def _run(self, polygon_coordinates, min_width, min_height):
-        point_A = 0
-        point_B = point_A + 1
-        TA_line = (polygon_coordinates[point_A], polygon_coordinates[point_B])
+    def _run(self, polygon_coordinates, TA_line, min_width, min_height):
+        TA_line = self._normalize_ta_line(TA_line)
 
         zeroed_polygon, TA_zeroed = self._translate_and_reorder_polygon(
             polygon_coordinates, TA_line
@@ -71,9 +72,6 @@ class FPBoundaryFinder:
             largest_rect_perp_raw
         )
 
-        repositioned_polygon = PolygonGeomUtils._reset_polygon_position(
-            positive_polygon, moved_axis_values
-        )
         rect_parallel_repositioned = PolygonGeomUtils._reset_polygon_position(
             largest_rect_parallel, moved_axis_values
         )
@@ -81,9 +79,6 @@ class FPBoundaryFinder:
             largest_rect_perpendicular, moved_axis_values
         )
 
-        original_oriented_polygon = PolygonGeomUtils._inverse_rotate_polygon(
-            repositioned_polygon, angle
-        )
         rect_parallel_oriented = PolygonGeomUtils._inverse_rotate_polygon(
             rect_parallel_repositioned, angle
         )
@@ -91,9 +86,6 @@ class FPBoundaryFinder:
             rect_perp_repositioned, angle
         )
 
-        final_polygon = PolygonGeomUtils._inverse_translate_polygon(
-            original_oriented_polygon, TA_line
-        )
         final_rect_parallel = PolygonGeomUtils._inverse_translate_polygon(
             rect_parallel_oriented, TA_line
         )
@@ -101,7 +93,38 @@ class FPBoundaryFinder:
             rect_perp_oriented, TA_line
         )
 
-        return final_polygon, final_rect_parallel, final_rect_perpendicular
+        parallel_area = self._rectangle_area(final_rect_parallel)
+        perpendicular_area = self._rectangle_area(final_rect_perpendicular)
+
+        if perpendicular_area > parallel_area:
+            return final_rect_perpendicular
+        return final_rect_parallel
+
+    def _normalize_ta_line(self, TA_line):
+        if isinstance(TA_line, (list, tuple)) and len(TA_line) == 4:
+            x1, y1, x2, y2 = TA_line
+            return ((x1, y1), (x2, y2))
+
+        if (
+            isinstance(TA_line, (list, tuple))
+            and len(TA_line) == 2
+            and all(isinstance(pt, (list, tuple)) and len(pt) == 2 for pt in TA_line)
+        ):
+            return (tuple(TA_line[0]), tuple(TA_line[1]))
+
+        raise ValueError(
+            "TA_line must be ((x1, y1), (x2, y2)) or (x1, y1, x2, y2)."
+        )
+
+    def _rectangle_area(self, rectangle):
+        if not rectangle:
+            return 0.0
+
+        xs = [p[0] for p in rectangle]
+        ys = [p[1] for p in rectangle]
+        width = max(xs) - min(xs)
+        height = max(ys) - min(ys)
+        return max(width, 0.0) * max(height, 0.0)
 
     def _translate_and_reorder_polygon(self, polygon_coordinates, TA):
         point_A = TA[0]
@@ -266,8 +289,14 @@ class FPBoundaryFinder:
         return best_result
 
     def _get_rectangle_coordinates(self, best_result, sweep_marks):
+        if not sweep_marks:
+            return []
+
         y_bottom_index = best_result["y_bottom_index"]
         y_top_index = best_result["y_top_index"]
+
+        if y_bottom_index < 0 or y_top_index < 0:
+            return []
 
         y_bottom = sweep_marks[y_bottom_index]["y"]
         y_top = sweep_marks[y_top_index]["y"]
@@ -294,6 +323,9 @@ class FPBoundaryFinder:
         cross_section_data = self._sweep_line_width_profile(
             left_chain, right_chain, min_y=y_min, max_y=y_max, min_width=min_width
         )
+        if not cross_section_data:
+            return []
+
         best_rectangle = self._find_max_area_rectangle(
             cross_section_data, min_height=min_height, min_width=min_width
         )

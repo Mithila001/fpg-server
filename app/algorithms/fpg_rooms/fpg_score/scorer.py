@@ -13,17 +13,16 @@ from app.core.fpg_rooms.config_fpg import (
     SCORE_WEIGHTS,
 )
 from app.util.logger import ScoreLogger
-from .metrics_coverage import score_coverage
-from .metrics_empty_space import score_empty_space
-from .metrics_inward_pocket import detect_inward_pocket_violation
-from .metrics_rectangularity import score_rectangularity
-from .types import ScoreReport
-from .validators import (
+from .binary_scoring import (
+    detect_inward_pocket_violation,
     validate_adjacency_relations,
+    validate_empty_space,
     validate_envelope_staircase_bounds,
     validate_no_overlap,
     validate_room_geometry,
 )
+from .range_scoring import score_coverage, score_rectangularity
+from .types import ScoreReport
 
 DEFAULT_WEIGHTS = SCORE_WEIGHTS.copy()
 
@@ -84,6 +83,24 @@ def _resolve_scoring_inputs(
     return normalized_rooms, wall_union
 
 
+def _log_score_run(
+    component_scores: Dict[str, Any],
+    diagnostics: Dict[str, Any],
+    stage: str,
+    total_score: float,
+    valid: bool,
+    hard_violation_count: int,
+) -> None:
+    ScoreLogger.score_run(
+        component_scores=component_scores,
+        total_score=total_score,
+        valid=valid,
+        hard_violation_count=hard_violation_count,
+        diagnostics=diagnostics,
+        stage=stage,
+    )
+
+
 def score_layout(
     solution: Sequence[Dict[str, Any]],
     quick_post_process_result: QuickPostProcessOutputPayload | Mapping[str, Any] | None,
@@ -139,13 +156,15 @@ def score_layout(
     hard_violations.extend(adjacency_violations)
     hard_violations.extend(envelope_violations)
 
-    empty_space_score, empty_space_diag = score_empty_space(
+    empty_space_violations, empty_space_diag = validate_empty_space(
         scoring_rooms,
         floor_width,
         floor_height,
         wall_union=wall_union,
         tolerance=geometry_tolerance,
     )
+    hard_violations.extend(empty_space_violations)
+
     pocket_violation, inward_pocket_diag = detect_inward_pocket_violation(
         scoring_rooms,
         max_inward_length=inward_pocket_max_length,
@@ -153,10 +172,6 @@ def score_layout(
     )
 
     geometric_gate_violations: list[str] = []
-    if bool(empty_space_diag.get("has_air_gap", 0.0)):
-        geometric_gate_violations.append(
-            f"Air-gap detected (area={float(empty_space_diag.get('air_gap_area', 0.0)):.4f})"
-        )
     if pocket_violation:
         max_segment = float(inward_pocket_diag.get("max_inward_segment_length", 0.0))
         geometric_gate_violations.append(
@@ -176,6 +191,7 @@ def score_layout(
     adjacency_score = not bool(adjacency_violations)
     envelope_score = not bool(envelope_violations)
     inward_pocket_score = not bool(pocket_violation)
+    empty_space_score = 100.0 if not empty_space_violations else 0.0
 
     if not valid:
         component_scores = {
@@ -188,8 +204,10 @@ def score_layout(
             "envelope": envelope_score,
             "inward_pocket": inward_pocket_score,
         }
-        ScoreLogger.score_breakdown(
+        _log_score_run(
             component_scores=component_scores,
+            diagnostics=diagnostics,
+            stage="hard-gate-failed",
             total_score=0.0,
             valid=False,
             hard_violation_count=len(hard_violations),
@@ -213,8 +231,10 @@ def score_layout(
             "envelope": envelope_score,
             "inward_pocket": inward_pocket_score,
         }
-        ScoreLogger.score_breakdown(
+        _log_score_run(
             component_scores=component_scores,
+            diagnostics=diagnostics,
+            stage="geometric-gate-failed",
             total_score=1.0,
             valid=True,
             hard_violation_count=0,
@@ -254,8 +274,10 @@ def score_layout(
         + component_scores["empty_space"] * float(weights.get("empty_space", SCORE_WEIGHTS["empty_space"]))
     )
 
-    ScoreLogger.score_breakdown(
+    _log_score_run(
         component_scores=component_scores,
+        diagnostics=diagnostics,
+        stage="final",
         total_score=total_score,
         valid=True,
         hard_violation_count=0,

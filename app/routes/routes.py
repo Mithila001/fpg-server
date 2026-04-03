@@ -9,6 +9,8 @@ from time import time
 from app.services.algorithm_manager import run_layout_pipeline
 from app.services.algorithm_manager_v2 import run_fpg_pipeline_api
 from app.schemas.db.room_setup_template import RoomSetupTemplateBase
+from app.util.tracking import use_tracking_context
+from app.util.unit_converter import converter_cm_to_unit, converter_unit_to_meters
 from test.dev.plotter_loader import plot_floor_plan_payload
 # from app.util.logger import SystemLogger
 
@@ -83,6 +85,7 @@ def get_formatted_layout(request: Request):
     _last_format_request[client_ip] = now
 
     payload = run_layout_pipeline(use_optuna=True, verbose=False)
+    payload = converter_unit_to_meters(payload)
 
     # Simple call at endpoint layer:
     if plot_floor_plan_payload:
@@ -107,13 +110,15 @@ def get_formatted_layout_v2(request: Request, body: FormatterV2ApiRequest):
         )
     _last_format_v2_request[client_ip] = now
 
-    payload = run_fpg_pipeline_api(
-        floor_width=body.floor_width,
-        floor_height=body.floor_height,
-        room_template=body.room_template,
-        should_optuna_run=body.should_optuna_run,
-        optuna_trial_count=body.optuna_trial_count,
-    )
+    with use_tracking_context():
+        payload = run_fpg_pipeline_api(
+            floor_width=converter_cm_to_unit(body.floor_width),
+            floor_height=converter_cm_to_unit(body.floor_height),
+            room_template=body.room_template,
+            should_optuna_run=body.should_optuna_run,
+            optuna_trial_count=body.optuna_trial_count,
+        )
+    payload = converter_unit_to_meters(payload)
 
     if plot_floor_plan_payload:
         plot_floor_plan_payload(payload)

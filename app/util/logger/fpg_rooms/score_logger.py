@@ -64,3 +64,80 @@ class ScoreLogger:
             "hard_violation_count": int(hard_violation_count),
         }
         LogManager.log_event(ScoreLogger.USE_CASE, "score_breakdown", payload)
+
+    @staticmethod
+    def score_component_evaluations(
+        component_scores: dict[str, Any] | None,
+        diagnostics: dict[str, Any] | None = None,
+        stage: str = "final",
+    ) -> None:
+        source_scores = component_scores if isinstance(component_scores, dict) else {}
+        source_diagnostics = diagnostics if isinstance(diagnostics, dict) else {}
+
+        for key in ScoreLogger.SCORE_FIELDS:
+            raw_score = ScoreLogger._as_float(source_scores.get(key, 0.0))
+            payload: dict[str, Any] = {
+                "component": key,
+                "score_type": "range",
+                "score": ScoreLogger._format_score(raw_score),
+                "raw_score": round(raw_score, 6),
+                "stage": stage,
+                "diagnostic": source_diagnostics.get(key),
+            }
+            LogManager.log_event(ScoreLogger.USE_CASE, "score_component", payload)
+
+        for key in ScoreLogger.BINARY_FIELDS:
+            passed = bool(source_scores.get(key, False))
+            payload = {
+                "component": key,
+                "score_type": "binary",
+                "passed": passed,
+                "score": ScoreLogger._format_score(1.0 if passed else 0.0),
+                "raw_score": 1.0 if passed else 0.0,
+                "stage": stage,
+            }
+            LogManager.log_event(ScoreLogger.USE_CASE, "score_component", payload)
+
+    @staticmethod
+    def score_run(
+        component_scores: dict[str, Any] | None,
+        total_score: float,
+        valid: bool,
+        hard_violation_count: int = 0,
+        diagnostics: dict[str, Any] | None = None,
+        stage: str = "final",
+    ) -> None:
+        source_scores = component_scores if isinstance(component_scores, dict) else {}
+        source_diagnostics = diagnostics if isinstance(diagnostics, dict) else {}
+
+        range_scores: dict[str, Any] = {}
+        for key in ScoreLogger.SCORE_FIELDS:
+            raw_score = ScoreLogger._as_float(source_scores.get(key, 0.0))
+            range_scores[key] = {
+                "score": ScoreLogger._format_score(raw_score),
+                "raw_score": round(raw_score, 6),
+                "diagnostic": source_diagnostics.get(key),
+            }
+
+        binary_scores: dict[str, Any] = {}
+        for key in ScoreLogger.BINARY_FIELDS:
+            passed = bool(source_scores.get(key, False))
+            binary_scores[key] = {
+                "passed": passed,
+                "score": ScoreLogger._format_score(1.0 if passed else 0.0),
+                "raw_score": 1.0 if passed else 0.0,
+            }
+
+        payload: dict[str, Any] = {
+            "stage": stage,
+            "range_scores": range_scores,
+            "binary_scores": binary_scores,
+            "total_score": ScoreLogger._format_score(total_score),
+            "total_raw_score": round(ScoreLogger._as_float(total_score), 6),
+            "valid": bool(valid),
+            "hard_violation_count": int(hard_violation_count),
+            "geometric_gate_violations": source_diagnostics.get("geometric_gate_violations", []),
+            "weights": source_diagnostics.get("weights", {}),
+        }
+
+        LogManager.log_event(ScoreLogger.USE_CASE, "score_run", payload)

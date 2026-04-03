@@ -21,3 +21,9 @@ python -c "from app.services.algorithm_manager import DEV_RUN; DEV_RUN()"
 
 
 optuna-dashboard sqlite:///optuna_fpg.db
+
+
+
+10 units = 1 m
+100 units = 10 m 
+

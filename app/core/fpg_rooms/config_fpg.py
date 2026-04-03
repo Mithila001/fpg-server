@@ -11,6 +11,9 @@ MAX_ASPECT_RATIO_WIDTH = 16
 # Minimum floor area coverage (50%)
 MIN_COVERAGE = 0.5
 
+# Safety buffer used in pre-validation feasibility checks
+SAFETY_BUFFER = 100.0
+
 # Floor-plan scoring weights
 SCORE_WEIGHTS = {
     "coverage": 0.40,
@@ -26,7 +29,7 @@ INWARD_POCKET_MAX_LENGTH = 20.0
 ENVELOPE_ENABLED = True
 ENVELOPE_MIN_GAP = 5
 ENVELOPE_MAX_GAP = 20
-ENVELOPE_EXCLUDE_TYPES = ["hallway"]
+ENVELOPE_EXCLUDE_TYPES = []
 ENVELOPE_APPLY_SIDES = ["left", "right", "top", "bottom"]
 
 # Adjacency constraint settings
@@ -35,6 +38,41 @@ GENERATOR_ADJACENCY_MIN_OVERLAP = 20
 
 # Room location/bathroom preferences
 BATHROOM_LOCATION_WEIGHT = 1
+
+# Constraint toggles (hard)
+CONSTRAINT_HARD_BASIC_GEOMETRY = True
+CONSTRAINT_HARD_HALLWAY_RULES = True
+CONSTRAINT_HARD_ROOM_SHARED_WALLS = True
+CONSTRAINT_HARD_ROOM_ADJACENCY = True
+CONSTRAINT_HARD_MINIMUM_AREA_COVERAGE = True
+CONSTRAINT_HARD_ROOM_SIZE_HIERARCHY = True
+CONSTRAINT_HARD_LIVING_ROOM_LOCATION = True
+CONSTRAINT_HARD_ENVELOPE_STAIRCASE = True
+
+# Constraint toggles (soft)
+CONSTRAINT_SOFT_SEED_LAYOUT_HINTS = True
+CONSTRAINT_SOFT_ROOM_ADJACENCY_PREFERENCE = True
+CONSTRAINT_SOFT_COMPACT_LAYOUT_CENTER_PROXIMITY = True
+CONSTRAINT_SOFT_BATHROOM_LOCATION_PREFERENCE = True
+CONSTRAINT_SOFT_LAYOUT_DEAD_SPACE_PENALTY = True
+CONSTRAINT_SOFT_SEED_FACADE_DEPTH_PENALTY = True
+CONSTRAINT_SOFT_SEED_FACADE_ALIGNMENT_PENALTY = True
+CONSTRAINT_SOFT_RECESSED_FACADE_PENALTY = True
+CONSTRAINT_SOFT_ROOM_SHARED_WALL_REFINE = True
+
+# Soft-constraint tuning constants
+SOFT_LAYOUT_DEAD_SPACE_WEIGHT = 12
+SOFT_SEED_FACADE_DEPTH_WEIGHT = 25
+SOFT_SEED_FACADE_ALIGNMENT_WEIGHT = 8
+SOFT_SEED_FACADE_ALIGNMENT_THRESHOLD = 10
+SOFT_RECESSED_FACADE_NEAR_BAND = 45
+SOFT_RECESSED_FACADE_BASE_THRESHOLD = 10
+SOFT_RECESSED_FACADE_SEVERE_THRESHOLD = 20
+SOFT_RECESSED_FACADE_BASE_WEIGHT = 45
+SOFT_RECESSED_FACADE_SEVERE_WEIGHT = 140
+SOFT_RECESSED_FACADE_ATTACH_WEIGHT = 14
+SOFT_RECESSED_FACADE_SIDE_GAP_THRESHOLD = 40
+SOFT_ROOM_SHARED_WALL_REFINE_WEIGHT = 50
 
 # Default room size bounds used in normalization/fallback payloads
 DEFAULT_MIN_W = 12
@@ -47,19 +85,22 @@ ROOM_SIZE_HIERARCHY = {
     "bedroom": (50, 70),
     "kitchen": (40, 50),
     "bathroom": (15, 30),
+    "attachedBathroom":(15,30)
 }
 
 # Default solver/optuna execution settings
 DEFAULT_ROOM_DIMENSION = 70
 DEFAULT_OPTUNA_TRIALS = 20
 DEFAULT_OPTUNA_STORAGE_ENABLED = False
+DEFAULT_OPTUNA_STUDY_NAME = "FPG_study"
 DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
 
 # Default generator config
 DEFAULT_ASPECT_RATIO_MAX = 16.0
 DEFAULT_ASPECT_RATIO_MIN = 0.0
 DEFAULT_HALLWAY_COUNT = 1
-DEFAULT_SOLVER_MAX_TIME_SECONDS = 1
+DEFAULT_SOLVER_MAX_TIME_SECONDS = 5
+WIGGLE_ROOM = 10
 
 # Hallway dimensions
 # Fixed narrow dimension — the solver enforces exactly this value for
@@ -76,10 +117,20 @@ HALLWAY_REQUIRED_SHARED_WALLS = 3
 # - wiggle_pct relaxes minimum shared coverage length across the selected
 #   min_walls sides; e.g. 30 means up to 30% uncovered is allowed.
 ROOM_SHARED_WALL_RULES = {
-    "livingRoom": {"min_walls": 1, "max_walls": 3, "wiggle_pct": 30},
-    "bathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
+    "livingRoom": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 30},
+    "bathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 0},
     "bedroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
-    "kitchen": {"min_walls": 1, "max_walls": 4, "wiggle_pct": 30},
+    "kitchen": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 30},
+    "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
+}
+# Refinement phase shared-wall rules (tighter minimum requirements for refine_1).
+# Applied as soft constraint with penalties for violations.
+ROOM_SHARED_WALL_RULES_REFINE = {
+    "livingRoom": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 30},
+    "bathroom": {"min_walls": 3, "max_walls": 4, "wiggle_pct": 0},
+    "bedroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
+    "kitchen": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 30},
+    "attachedBathroom": {"min_walls": 3, "max_walls": 5, "wiggle_pct": 20},
 }
 
 __all__ = [
@@ -99,6 +150,35 @@ __all__ = [
     "ENVELOPE_EXCLUDE_TYPES",
     "ENVELOPE_APPLY_SIDES",
     "BATHROOM_LOCATION_WEIGHT",
+    "CONSTRAINT_HARD_BASIC_GEOMETRY",
+    "CONSTRAINT_HARD_HALLWAY_RULES",
+    "CONSTRAINT_HARD_ROOM_SHARED_WALLS",
+    "CONSTRAINT_HARD_ROOM_ADJACENCY",
+    "CONSTRAINT_HARD_MINIMUM_AREA_COVERAGE",
+    "CONSTRAINT_HARD_ROOM_SIZE_HIERARCHY",
+    "CONSTRAINT_HARD_LIVING_ROOM_LOCATION",
+    "CONSTRAINT_HARD_ENVELOPE_STAIRCASE",
+    "CONSTRAINT_SOFT_SEED_LAYOUT_HINTS",
+    "CONSTRAINT_SOFT_ROOM_ADJACENCY_PREFERENCE",
+    "CONSTRAINT_SOFT_COMPACT_LAYOUT_CENTER_PROXIMITY",
+    "CONSTRAINT_SOFT_BATHROOM_LOCATION_PREFERENCE",
+    "CONSTRAINT_SOFT_LAYOUT_DEAD_SPACE_PENALTY",
+    "CONSTRAINT_SOFT_SEED_FACADE_DEPTH_PENALTY",
+    "CONSTRAINT_SOFT_SEED_FACADE_ALIGNMENT_PENALTY",
+    "CONSTRAINT_SOFT_RECESSED_FACADE_PENALTY",
+    "CONSTRAINT_SOFT_ROOM_SHARED_WALL_REFINE",
+    "SOFT_LAYOUT_DEAD_SPACE_WEIGHT",
+    "SOFT_SEED_FACADE_DEPTH_WEIGHT",
+    "SOFT_SEED_FACADE_ALIGNMENT_WEIGHT",
+    "SOFT_SEED_FACADE_ALIGNMENT_THRESHOLD",
+    "SOFT_RECESSED_FACADE_NEAR_BAND",
+    "SOFT_RECESSED_FACADE_BASE_THRESHOLD",
+    "SOFT_RECESSED_FACADE_SEVERE_THRESHOLD",
+    "SOFT_RECESSED_FACADE_BASE_WEIGHT",
+    "SOFT_RECESSED_FACADE_SEVERE_WEIGHT",
+    "SOFT_RECESSED_FACADE_ATTACH_WEIGHT",
+    "SOFT_RECESSED_FACADE_SIDE_GAP_THRESHOLD",
+    "SOFT_ROOM_SHARED_WALL_REFINE_WEIGHT",
     "DEFAULT_MIN_W",
     "DEFAULT_MIN_H",
     "DEFAULT_MAX_W",
@@ -112,8 +192,11 @@ __all__ = [
     "DEFAULT_ASPECT_RATIO_MIN",
     "DEFAULT_HALLWAY_COUNT",
     "DEFAULT_SOLVER_MAX_TIME_SECONDS",
+    "WIGGLE_ROOM",
+    "SAFETY_BUFFER",
     "HALLWAY_WIDTH",
     "HALLWAY_MIN_LENGTH",
     "HALLWAY_REQUIRED_SHARED_WALLS",
     "ROOM_SHARED_WALL_RULES",
+    "ROOM_SHARED_WALL_RULES_REFINE",
 ]

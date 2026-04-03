@@ -1,6 +1,22 @@
 from dataclasses import dataclass, field
 from typing import Any
 from app.core.fpg_rooms.config_fpg import (
+    CONSTRAINT_HARD_BASIC_GEOMETRY,
+    CONSTRAINT_HARD_ENVELOPE_STAIRCASE,
+    CONSTRAINT_HARD_HALLWAY_RULES,
+    CONSTRAINT_HARD_LIVING_ROOM_LOCATION,
+    CONSTRAINT_HARD_MINIMUM_AREA_COVERAGE,
+    CONSTRAINT_HARD_ROOM_ADJACENCY,
+    CONSTRAINT_HARD_ROOM_SHARED_WALLS,
+    CONSTRAINT_HARD_ROOM_SIZE_HIERARCHY,
+    CONSTRAINT_SOFT_BATHROOM_LOCATION_PREFERENCE,
+    CONSTRAINT_SOFT_COMPACT_LAYOUT_CENTER_PROXIMITY,
+    CONSTRAINT_SOFT_LAYOUT_DEAD_SPACE_PENALTY,
+    CONSTRAINT_SOFT_RECESSED_FACADE_PENALTY,
+    CONSTRAINT_SOFT_ROOM_ADJACENCY_PREFERENCE,
+    CONSTRAINT_SOFT_SEED_FACADE_ALIGNMENT_PENALTY,
+    CONSTRAINT_SOFT_SEED_FACADE_DEPTH_PENALTY,
+    CONSTRAINT_SOFT_SEED_LAYOUT_HINTS,
     ENVELOPE_ENABLED,
     ENVELOPE_MIN_GAP,
     ENVELOPE_MAX_GAP,
@@ -36,6 +52,22 @@ class ConfigData:
     )
     score_geometry_tolerance: float = SCORE_GEOMETRY_TOLERANCE
     inward_pocket_max_length: float = INWARD_POCKET_MAX_LENGTH
+    constraint_hard_basic_geometry: bool = CONSTRAINT_HARD_BASIC_GEOMETRY
+    constraint_hard_hallway_rules: bool = CONSTRAINT_HARD_HALLWAY_RULES
+    constraint_hard_room_shared_walls: bool = CONSTRAINT_HARD_ROOM_SHARED_WALLS
+    constraint_hard_room_adjacency: bool = CONSTRAINT_HARD_ROOM_ADJACENCY
+    constraint_hard_minimum_area_coverage: bool = CONSTRAINT_HARD_MINIMUM_AREA_COVERAGE
+    constraint_hard_room_size_hierarchy: bool = CONSTRAINT_HARD_ROOM_SIZE_HIERARCHY
+    constraint_hard_living_room_location: bool = CONSTRAINT_HARD_LIVING_ROOM_LOCATION
+    constraint_hard_envelope_staircase: bool = CONSTRAINT_HARD_ENVELOPE_STAIRCASE
+    constraint_soft_seed_layout_hints: bool = CONSTRAINT_SOFT_SEED_LAYOUT_HINTS
+    constraint_soft_room_adjacency_preference: bool = CONSTRAINT_SOFT_ROOM_ADJACENCY_PREFERENCE
+    constraint_soft_compact_layout_center_proximity: bool = CONSTRAINT_SOFT_COMPACT_LAYOUT_CENTER_PROXIMITY
+    constraint_soft_bathroom_location_preference: bool = CONSTRAINT_SOFT_BATHROOM_LOCATION_PREFERENCE
+    constraint_soft_layout_dead_space_penalty: bool = CONSTRAINT_SOFT_LAYOUT_DEAD_SPACE_PENALTY
+    constraint_soft_seed_facade_depth_penalty: bool = CONSTRAINT_SOFT_SEED_FACADE_DEPTH_PENALTY
+    constraint_soft_seed_facade_alignment_penalty: bool = CONSTRAINT_SOFT_SEED_FACADE_ALIGNMENT_PENALTY
+    constraint_soft_recessed_facade_penalty: bool = CONSTRAINT_SOFT_RECESSED_FACADE_PENALTY
 
 
 # Main Param Type

@@ -1,7 +1,12 @@
 # uvicorn app.main:app --reload
 
+from time import perf_counter
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import Response
+
+from app.util.logger.fpg_rooms.api_logger import ApiLogger
 
 app = FastAPI(title="House Plan Generator API")
 
@@ -23,9 +28,58 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def log_api_requests(request, call_next):
+    start = perf_counter()
+    request_body = await request.body()
+
+    async def receive() -> dict[str, object]:
+        return {"type": "http.request", "body": request_body, "more_body": False}
+
+    request._receive = receive  # Re-inject consumed request body for downstream handlers.
+
+    try:
+        response = await call_next(request)
+        response_body = b""
+        async for chunk in response.body_iterator:
+            response_body += chunk
+
+        duration_ms = (perf_counter() - start) * 1000
+        ApiLogger.request_response(
+            request=request,
+            request_body=request_body,
+            response_body=response_body,
+            status_code=response.status_code,
+            duration_ms=duration_ms,
+        )
+
+        response_headers = dict(response.headers)
+        response_headers.pop("content-length", None)
+        return Response(
+            content=response_body,
+            status_code=response.status_code,
+            headers=response_headers,
+            media_type=response.media_type,
+            background=response.background,
+        )
+    except Exception as exc:
+        duration_ms = (perf_counter() - start) * 1000
+        ApiLogger.request_response(
+            request=request,
+            request_body=request_body,
+            response_body=b"",
+            status_code=500,
+            duration_ms=duration_ms,
+            error=str(exc),
+        )
+        raise
+
 # Algorithm routers
 
 # include the algorithm-related endpoints we just added
 from app.routes.routes import router as algorithms_router  # noqa: E402
+from app.routes.buildable_space_route import router as buildable_space_router  # noqa: E402
 
 app.include_router(algorithms_router)
+app.include_router(buildable_space_router)
