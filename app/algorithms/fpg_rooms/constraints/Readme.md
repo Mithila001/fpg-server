@@ -1,0 +1,3 @@
+- Everything at `app/algorithms/fpg_rooms/constraints/soft` will have `soft_` file name prefix. 
+- Everything at `app/algorithms/fpg_rooms/constraints/hard` will have `hard_` file name prefix. 
+- If the constraint relay on seeding, then additional `seed_` prefix wil be added to that file.
