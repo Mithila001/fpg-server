@@ -63,6 +63,7 @@ from app.util.room_requirements import (
     compute_floor_plan_dimension_bounds,
     normalize_db_data_requirements,
 )
+from test.dev.final_result_plotter import plot_final_solver_result
 
 EMPTY_POST_PROCESS_LAYOUT = {"walls": [], "compact_by_room": {}}
 EMPTY_OPENING_LAYOUT = {
@@ -480,6 +481,11 @@ def run_fpg_pipeline_internal(
             optuna_trial_count=optuna_trial_count,
             verbose=verbose,
         )
+        # Plot the final solver result via public plotter API before payload construction
+        try:
+            plot_final_solver_result(run_result, show=False)
+        except Exception:
+            pass
         payload = _build_payload_from_solver_result(run_result)
         SystemLogger.info(
             sector=1,
@@ -560,6 +566,11 @@ def run_fpg_pipeline_api(
             optuna_trial_count=optuna_trial_count,
             verbose=verbose,
         )
+        # Plot the final solver result via public plotter API before payload construction
+        try:
+            plot_final_solver_result(run_result, show=False)
+        except Exception:
+            pass
         payload = _build_payload_from_solver_result(run_result)
         SystemLogger.info(
             sector=1,

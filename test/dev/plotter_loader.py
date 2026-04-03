@@ -7,7 +7,7 @@ from typing import Callable
 
 def _load_plotter_from_path() -> Callable | None:
     base_dir = Path(__file__).resolve().parents[2] if len(Path(__file__).resolve().parents) > 2 else Path(__file__).resolve().parents[-1]
-    plotter_path = base_dir / "test" / "dev" / "api_result_plotter.py"
+    plotter_path = base_dir / "test" / "dev" / "final_result_plotter.py"
     if not plotter_path.exists():
         return None
 
