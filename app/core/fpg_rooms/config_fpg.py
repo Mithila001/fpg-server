@@ -117,17 +117,17 @@ HALLWAY_REQUIRED_SHARED_WALLS = 3
 # - wiggle_pct relaxes minimum shared coverage length across the selected
 #   min_walls sides; e.g. 30 means up to 30% uncovered is allowed.
 ROOM_SHARED_WALL_RULES = {
-    "livingRoom": {"min_walls": 1, "max_walls": 3, "wiggle_pct": 30},
-    "bathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
+    "livingRoom": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 30},
+    "bathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 0},
     "bedroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
-    "kitchen": {"min_walls": 1, "max_walls": 4, "wiggle_pct": 30},
+    "kitchen": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 30},
     "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
 }
 # Refinement phase shared-wall rules (tighter minimum requirements for refine_1).
 # Applied as soft constraint with penalties for violations.
 ROOM_SHARED_WALL_RULES_REFINE = {
     "livingRoom": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 30},
-    "bathroom": {"min_walls": 3, "max_walls": 4, "wiggle_pct": 20},
+    "bathroom": {"min_walls": 3, "max_walls": 4, "wiggle_pct": 0},
     "bedroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
     "kitchen": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 30},
     "attachedBathroom": {"min_walls": 3, "max_walls": 5, "wiggle_pct": 20},

@@ -16,11 +16,12 @@ from app.util.logger import ScoreLogger
 from .binary_scoring import (
     detect_inward_pocket_violation,
     validate_adjacency_relations,
+    validate_empty_space,
     validate_envelope_staircase_bounds,
     validate_no_overlap,
     validate_room_geometry,
 )
-from .range_scoring import score_coverage, score_empty_space, score_rectangularity
+from .range_scoring import score_coverage, score_rectangularity
 from .types import ScoreReport
 
 DEFAULT_WEIGHTS = SCORE_WEIGHTS.copy()
@@ -155,13 +156,15 @@ def score_layout(
     hard_violations.extend(adjacency_violations)
     hard_violations.extend(envelope_violations)
 
-    empty_space_score, empty_space_diag = score_empty_space(
+    empty_space_violations, empty_space_diag = validate_empty_space(
         scoring_rooms,
         floor_width,
         floor_height,
         wall_union=wall_union,
         tolerance=geometry_tolerance,
     )
+    hard_violations.extend(empty_space_violations)
+
     pocket_violation, inward_pocket_diag = detect_inward_pocket_violation(
         scoring_rooms,
         max_inward_length=inward_pocket_max_length,
@@ -169,10 +172,6 @@ def score_layout(
     )
 
     geometric_gate_violations: list[str] = []
-    if bool(empty_space_diag.get("has_air_gap", 0.0)):
-        geometric_gate_violations.append(
-            f"Air-gap detected (area={float(empty_space_diag.get('air_gap_area', 0.0)):.4f})"
-        )
     if pocket_violation:
         max_segment = float(inward_pocket_diag.get("max_inward_segment_length", 0.0))
         geometric_gate_violations.append(
@@ -192,6 +191,7 @@ def score_layout(
     adjacency_score = not bool(adjacency_violations)
     envelope_score = not bool(envelope_violations)
     inward_pocket_score = not bool(pocket_violation)
+    empty_space_score = 100.0 if not empty_space_violations else 0.0
 
     if not valid:
         component_scores = {
