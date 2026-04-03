@@ -85,7 +85,8 @@ ROOM_SIZE_HIERARCHY = {
     "bedroom": (50, 70),
     "kitchen": (40, 50),
     "bathroom": (15, 30),
-    "attachedBathroom":(15,30)
+    "attachedBathroom":(15,30),
+    "veranda":(40,70)
 }
 
 # Default solver/optuna execution settings
@@ -122,6 +123,7 @@ ROOM_SHARED_WALL_RULES = {
     "bedroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
     "kitchen": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 30},
     "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
+    "veranda": {"min_walls": 1, "max_walls": 2, "wiggle_pct": 20},
 }
 # Refinement phase shared-wall rules (tighter minimum requirements for refine_1).
 # Applied as soft constraint with penalties for violations.
@@ -131,6 +133,7 @@ ROOM_SHARED_WALL_RULES_REFINE = {
     "bedroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
     "kitchen": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 30},
     "attachedBathroom": {"min_walls": 3, "max_walls": 5, "wiggle_pct": 20},
+    "veranda": {"min_walls": 1, "max_walls": 2, "wiggle_pct": 20},
 }
 
 __all__ = [

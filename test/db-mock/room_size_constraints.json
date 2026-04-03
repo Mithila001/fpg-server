@@ -48,5 +48,15 @@
     "max_area": 540,
     "min_area": 252,
     "preset_id": "standard_attached_bath"
+  },
+   {
+    "type": "veranda",
+    "min_w": 12,
+    "max_w": 18,
+    "min_h": 21,
+    "max_h": 30,
+    "max_area": 540,
+    "min_area": 252,
+    "preset_id": "standard_veranda"
   }
 ]

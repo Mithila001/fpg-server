@@ -33,7 +33,8 @@ Content-Type: application/json
 			{ "id": "bedroom2", "type": "bedroom" },
 			{ "id": "bathroom1", "type": "bathroom" },
 			{ "id": "kitchen1", "type": "kitchen" },
-			{ "id": "attachedBathroom1", "type": "attachedBathroom" }
+			{ "id": "attachedBathroom1", "type": "attachedBathroom" },
+			{ "id": "veranda1", "type": "veranda" }
 			
 		]
 	},

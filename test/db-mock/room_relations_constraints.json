@@ -22,5 +22,11 @@
       "related_room": ["bedroom"],
       "constraint_level": "hard_AND",
       "last_updated": "2026-03-25"
+    },
+    {
+      "room_type": "veranda",
+      "related_room": ["livingRoom"],
+      "constraint_level": "hard_AND",
+      "last_updated": "2026-03-25"
     }
 ]
