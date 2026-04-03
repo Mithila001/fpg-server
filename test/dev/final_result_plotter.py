@@ -6,6 +6,9 @@ from typing import Any, Mapping
 
 import matplotlib.pyplot as plt
 
+from app.algorithms.fpg_opening import generate_openings
+from app.algorithms.fpg_rooms.fpg_post_process import run_final_post_process
+
 
 def _to_dict(value: Any) -> dict[str, Any]:
     """Normalize pydantic models or objects into plain dictionaries."""
@@ -141,4 +144,48 @@ def plot_floor_plan_payload(payload: Mapping[str, Any], show: bool = False) -> s
         plt.show()
     plt.close(fig)
     return str(output_path)
+
+
+def plot_final_floor_plan(payload: Mapping[str, Any], show: bool = False) -> str | None:
+    """Public-facing plotter for final API results."""
+    return plot_floor_plan_payload(payload, show=show)
+
+
+def _build_payload_from_solver_result(run_result: Any) -> dict[str, Any]:
+    """Reconstruct payload format used by API from an FpgEvaluationResult."""
+    if not run_result or not getattr(run_result, "solved", False):
+        return {"status": getattr(run_result, "status", "ERROR"), "message": getattr(run_result, "message", ""), "walls": [], "compact_by_room": {}}
+
+    quick_post_process_result = getattr(run_result, "quick_post_process_result", None)
+    if quick_post_process_result is not None:
+        post_processed_layout = quick_post_process_result.get("rooms", [])
+        wall_union_result = quick_post_process_result.get("wall_union", {
+            "walls": [],
+            "room_walls": {},
+        })
+    else:
+        post_processed_layout = getattr(run_result, "solution", [])
+        wall_union_result = {"walls": [], "room_walls": {}}
+
+    opening_result = generate_openings(post_processed_layout)
+    post_process_result = run_final_post_process(
+        {
+            "rooms": post_processed_layout,
+            "openings": opening_result.get("openings", []),
+            "wall_union": wall_union_result,
+        }
+    )
+
+    return {
+        "status": run_result.status,
+        "message": run_result.message,
+        "walls": post_process_result.get("walls", []),
+        "compact_by_room": post_process_result.get("compact_by_room", {}),
+    }
+
+
+def plot_final_solver_result(run_result: Any, show: bool = False) -> str | None:
+    """Builds final payload from solver result and renders it with final plotter."""
+    payload = _build_payload_from_solver_result(run_result)
+    return plot_final_floor_plan(payload, show=show)
 
