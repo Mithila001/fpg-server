@@ -1,7 +1,7 @@
 from ortools.sat.python import cp_model
 
-from app.algorithms.fpg_rooms.constraints.hard.open_area_placement import (
-    add_open_area_placement_constraints,
+from app.algorithms.fpg_rooms.constraints.hard.hard_veranda_placement import (
+    add_veranda_placement_constraints,
 )
 from app.algorithms.fpg_rooms.solver_models.room import Room
 
@@ -25,90 +25,138 @@ def _fixed_room(
     return room
 
 
-def test_open_area_placement_veranda_feasible_when_front_open_and_one_side_open() -> None:
+def test_open_area_placement_veranda_feasible_when_front_is_y_zero_and_one_side_available() -> None:
     model = cp_model.CpModel()
 
     veranda = _fixed_room(
         model,
         name="veranda_1",
         room_type="veranda",
-        x=20,
-        y=20,
-        w=20,
-        h=20,
+        x=5,
+        y=0,
+        w=10,
+        h=10,
     )
     # Back attachment is allowed.
     living = _fixed_room(
         model,
         name="living_1",
         room_type="livingRoom",
-        x=20,
-        y=0,
-        w=20,
-        h=20,
-    )
-    # One side can be attached while the opposite side remains open.
-    side_room = _fixed_room(
-        model,
-        name="side_1",
-        room_type="bedroom",
-        x=40,
-        y=20,
+        x=5,
+        y=10,
         w=10,
-        h=20,
+        h=10,
+    )
+    # Block left expansion branch, forcing right-side verandaOutdoorSpace attachment.
+    left_blocker = _fixed_room(
+        model,
+        name="left_blocker",
+        room_type="bedroom",
+        x=0,
+        y=0,
+        w=5,
+        h=10,
     )
 
-    add_open_area_placement_constraints(model, [veranda, living, side_room])
+    add_veranda_placement_constraints(model, [veranda, living, left_blocker])
 
     solver = cp_model.CpSolver()
     status = solver.Solve(model)
     assert status in (cp_model.OPTIMAL, cp_model.FEASIBLE)
 
 
-def test_open_area_placement_veranda_infeasible_when_front_and_both_sides_closed() -> None:
+def test_open_area_placement_veranda_infeasible_when_front_is_not_y_zero() -> None:
     model = cp_model.CpModel()
 
     veranda = _fixed_room(
         model,
         name="veranda_1",
         room_type="veranda",
-        x=20,
-        y=20,
-        w=20,
-        h=20,
-    )
-    # Closes veranda front side (bottom side in this coordinate system).
-    front_block = _fixed_room(
-        model,
-        name="front_block",
-        room_type="livingRoom",
-        x=20,
-        y=40,
-        w=20,
+        x=5,
+        y=5,
+        w=10,
         h=10,
     )
-    # Closes one lateral side.
-    side_a = _fixed_room(
+
+    add_veranda_placement_constraints(model, [veranda])
+
+    solver = cp_model.CpSolver()
+    status = solver.Solve(model)
+    assert status == cp_model.INFEASIBLE
+
+
+def test_open_area_placement_veranda_feasible_when_left_attachment_branch_is_available() -> None:
+    model = cp_model.CpModel()
+
+    veranda = _fixed_room(
         model,
-        name="side_a",
-        room_type="bedroom",
-        x=40,
-        y=20,
+        name="veranda_1",
+        room_type="veranda",
+        x=5,
+        y=0,
         w=10,
-        h=20,
+        h=10,
     )
-    # Closes the opposite lateral side.
-    side_b = _fixed_room(
+    # Block right expansion branch, forcing left-side verandaOutdoorSpace attachment.
+    right_blocker = _fixed_room(
         model,
-        name="side_b",
-        room_type="kitchen",
-        x=0,
-        y=20,
-        w=20,
-        h=20,
+        name="right_blocker",
+        room_type="bedroom",
+        x=15,
+        y=0,
+        w=15,
+        h=10,
+    )
+    # Back attachment remains allowed.
+    back_room = _fixed_room(
+        model,
+        name="back_room",
+        room_type="livingRoom",
+        x=5,
+        y=10,
+        w=10,
+        h=10,
     )
 
-    add_open_area_placement_constraints(model, [veranda, front_block, side_a, side_b])
+    add_veranda_placement_constraints(model, [veranda, right_blocker, back_room])
+
+    solver = cp_model.CpSolver()
+    status = solver.Solve(model)
+    assert status in (cp_model.OPTIMAL, cp_model.FEASIBLE)
+
+
+def test_open_area_placement_veranda_infeasible_when_both_side_expansions_are_blocked() -> None:
+    model = cp_model.CpModel()
+
+    veranda = _fixed_room(
+        model,
+        name="veranda_1",
+        room_type="veranda",
+        x=5,
+        y=0,
+        w=10,
+        h=10,
+    )
+    left_blocker = _fixed_room(
+        model,
+        name="left_blocker",
+        room_type="bedroom",
+        x=0,
+        y=0,
+        w=5,
+        h=10,
+    )
+    right_blocker = _fixed_room(
+        model,
+        name="right_blocker",
+        room_type="kitchen",
+        x=15,
+        y=0,
+        w=15,
+        h=10,
+    )
+
+    add_veranda_placement_constraints(model, [veranda, left_blocker, right_blocker])
 
     solver = cp_model.CpSolver()
     status = solver.Solve(model)
@@ -137,7 +185,7 @@ def test_open_area_placement_no_veranda_is_noop() -> None:
         h=20,
     )
 
-    add_open_area_placement_constraints(model, [living, bed])
+    add_veranda_placement_constraints(model, [living, bed])
 
     solver = cp_model.CpSolver()
     status = solver.Solve(model)

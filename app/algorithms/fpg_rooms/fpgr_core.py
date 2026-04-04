@@ -33,7 +33,8 @@ from .constraints.hard.basic_constraints import add_basic_constraints
 from .constraints.hard.envelope_staircase import add_envelope_staircase_constraints
 from .constraints.hard.floor_area_coverage import add_minimum_area_coverage
 from .constraints.hard.hallway_constraints import add_hallway_constraints
-from .constraints.hard.open_area_placement import add_open_area_placement_constraints
+from .constraints.hard.hard_veranda_placement import add_veranda_placement_constraints
+from .constraints.hard.hard_garage_placement import add_garage_placement_constraints
 from .constraints.hard.room_adjacency_hard import apply_hard_room_adjacency_constraints
 from .constraints.hard.room_location_hard import add_living_room_bottom_most_constraint
 from .constraints.hard.room_shared_wall_constraints import add_room_shared_wall_constraints
@@ -192,8 +193,14 @@ class FpgrCore:
         if panel.hard_living_room_location:
             add_living_room_bottom_most_constraint(self.model, self.rooms)
 
-        if panel.hard_open_area_placement:
-            add_open_area_placement_constraints(self.model, self.rooms)
+        if panel.hard_veranda_placement:
+            auxiliary_rooms = add_veranda_placement_constraints(self.model, self.rooms)
+            # Add any created verandaOutdoorSpace rooms to the main room list so they
+            # are included in the solution and can be used for scoring.
+            self.rooms.extend(auxiliary_rooms)
+
+        if panel.hard_garage_placement:
+            add_garage_placement_constraints(self.model, self.rooms)
 
         if panel.hard_envelope_staircase and self.envelope_enabled:
             add_envelope_staircase_constraints(
