@@ -18,6 +18,7 @@ from typing import List
 
 from ortools.sat.python import cp_model
 
+from app.core.fpg_rooms.config_fpg import GARAGE_SIDE_ANCHOR_THRESHOLD
 from ...solver_models.room import Room
 
 
@@ -59,11 +60,11 @@ def add_garage_placement_constraints(
         garage_at_left = model.NewBoolVar(f"{garage.name}_at_left_side")  # type: ignore
         garage_at_right = model.NewBoolVar(f"{garage.name}_at_right_side")  # type: ignore
 
-        model.Add(garage.x <= 20).OnlyEnforceIf(garage_at_left)
-        model.Add(garage.x > 20).OnlyEnforceIf(garage_at_left.Not())
+        model.Add(garage.x <= GARAGE_SIDE_ANCHOR_THRESHOLD).OnlyEnforceIf(garage_at_left)
+        model.Add(garage.x > GARAGE_SIDE_ANCHOR_THRESHOLD).OnlyEnforceIf(garage_at_left.Not())
 
-        model.Add(garage.x_end >= land_width - 20).OnlyEnforceIf(garage_at_right)
-        model.Add(garage.x_end < land_width - 20).OnlyEnforceIf(garage_at_right.Not())
+        model.Add(garage.x_end >= land_width - GARAGE_SIDE_ANCHOR_THRESHOLD).OnlyEnforceIf(garage_at_right)
+        model.Add(garage.x_end < land_width - GARAGE_SIDE_ANCHOR_THRESHOLD).OnlyEnforceIf(garage_at_right.Not())
 
         model.Add(garage_at_left + garage_at_right == 1)
 

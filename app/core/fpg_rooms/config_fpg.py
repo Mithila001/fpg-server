@@ -32,6 +32,15 @@ ENVELOPE_MAX_GAP = 20
 ENVELOPE_EXCLUDE_TYPES = []
 ENVELOPE_APPLY_SIDES = ["left", "right", "top", "bottom"]
 
+# Garage placement settings
+GARAGE_SIDE_ANCHOR_THRESHOLD = 20
+
+# Veranda outdoor space bounds
+VERANDA_OUTDOOR_SPACE_MIN_W = 1
+VERANDA_OUTDOOR_SPACE_MIN_H = 1
+VERANDA_OUTDOOR_SPACE_MAX_W = 100
+VERANDA_OUTDOOR_SPACE_MAX_H = 100
+
 # Adjacency constraint settings
 DEFAULT_ADJACENCY_MIN_OVERLAP = 20
 GENERATOR_ADJACENCY_MIN_OVERLAP = 20
@@ -124,23 +133,23 @@ NOT_PRUNE_ROOMS = ["livingRoom"]
 # - wiggle_pct relaxes minimum shared coverage length across the selected
 #   min_walls sides; e.g. 30 means up to 30% uncovered is allowed.
 ROOM_SHARED_WALL_RULES = {
-    "livingRoom": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 30},
+    "livingRoom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 30},
     "bathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 0},
     "bedroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
     "kitchen": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 30},
     "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
-    "veranda": {"min_walls": 1, "max_walls": 2, "wiggle_pct": 20},
+    "veranda": {"min_walls": 1, "max_walls": 3, "wiggle_pct": 20},
     "garage": {"min_walls": 1, "max_walls": 2, "wiggle_pct": 20},
 }
 # Refinement phase shared-wall rules (tighter minimum requirements for refine_1).
 # Applied as soft constraint with penalties for violations.
 ROOM_SHARED_WALL_RULES_REFINE = {
-    "livingRoom": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 30},
+    "livingRoom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 30},
     "bathroom": {"min_walls": 3, "max_walls": 4, "wiggle_pct": 0},
     "bedroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
     "kitchen": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 30},
     "attachedBathroom": {"min_walls": 3, "max_walls": 5, "wiggle_pct": 20},
-    "veranda": {"min_walls": 1, "max_walls": 2, "wiggle_pct": 20},
+    "veranda": {"min_walls": 1, "max_walls": 3, "wiggle_pct": 20},
     "garage": {"min_walls": 1, "max_walls": 2, "wiggle_pct": 20},
 }
 
@@ -207,6 +216,11 @@ __all__ = [
     "DEFAULT_SOLVER_MAX_TIME_SECONDS",
     "WIGGLE_ROOM",
     "SAFETY_BUFFER",
+    "GARAGE_SIDE_ANCHOR_THRESHOLD",
+    "VERANDA_OUTDOOR_SPACE_MIN_W",
+    "VERANDA_OUTDOOR_SPACE_MIN_H",
+    "VERANDA_OUTDOOR_SPACE_MAX_W",
+    "VERANDA_OUTDOOR_SPACE_MAX_H",
     "HALLWAY_WIDTH",
     "HALLWAY_MIN_LENGTH",
     "HALLWAY_REQUIRED_SHARED_WALLS",

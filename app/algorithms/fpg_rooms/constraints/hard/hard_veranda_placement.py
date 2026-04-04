@@ -16,6 +16,12 @@ from typing import Dict, List
 
 from ortools.sat.python import cp_model
 
+from app.core.fpg_rooms.config_fpg import (
+    VERANDA_OUTDOOR_SPACE_MAX_H,
+    VERANDA_OUTDOOR_SPACE_MAX_W,
+    VERANDA_OUTDOOR_SPACE_MIN_H,
+    VERANDA_OUTDOOR_SPACE_MIN_W,
+)
 from ...solver_models.room import Room
 
 
@@ -91,10 +97,10 @@ def _create_veranda_outdoor_space(
     """Create a verandaOutdoorSpace room for the given veranda."""
     vos = Room(
         name=f"verandaOutdoorSpace_for_{veranda.name}",
-        min_w=1,
-        min_h=1,
-        max_w=100,
-        max_h=100,
+        min_w=VERANDA_OUTDOOR_SPACE_MIN_W,
+        min_h=VERANDA_OUTDOOR_SPACE_MIN_H,
+        max_w=VERANDA_OUTDOOR_SPACE_MAX_W,
+        max_h=VERANDA_OUTDOOR_SPACE_MAX_H,
         type="verandaOutdoorSpace",
     )
     vos.create_variables(model, land_width, land_height)
