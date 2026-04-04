@@ -59,8 +59,8 @@ def add_open_area_placement_constraints(
     model: cp_model.CpModel,
     rooms: List[Room],
 ) -> None:
-    """Keep veranda front open (bottom) and at least one lateral side open."""
-    target_rooms = [room for room in rooms if room.type == "veranda"]
+    """Keep veranda/garage front open (bottom) and at least one lateral side open."""
+    target_rooms = [room for room in rooms if room.type in {"veranda", "garage"}]
     if not target_rooms:
         return
 

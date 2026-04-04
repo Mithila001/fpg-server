@@ -87,7 +87,8 @@ ROOM_SIZE_HIERARCHY = {
     "kitchen": (40, 50),
     "bathroom": (15, 30),
     "attachedBathroom":(15,30),
-    "veranda":(40,70)
+    "veranda":(40,70),
+    "garage":(50,70)
 }
 
 # Default solver/optuna execution settings
@@ -114,6 +115,9 @@ HALLWAY_MIN_LENGTH = 10
 # Default 3 means only one hallway wall may remain as an exterior wall.
 HALLWAY_REQUIRED_SHARED_WALLS = 3
 
+# Room types whose relation constraints should not be pruned by template.
+NOT_PRUNE_ROOMS = ["livingRoom"]
+
 # Per-type room shared-wall requirements.
 # - min_walls/max_walls count fully shared sides.
 # - wiggle_pct relaxes minimum shared coverage length across the selected
@@ -125,6 +129,7 @@ ROOM_SHARED_WALL_RULES = {
     "kitchen": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 30},
     "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
     "veranda": {"min_walls": 1, "max_walls": 2, "wiggle_pct": 20},
+    "garage": {"min_walls": 1, "max_walls": 2, "wiggle_pct": 20},
 }
 # Refinement phase shared-wall rules (tighter minimum requirements for refine_1).
 # Applied as soft constraint with penalties for violations.
@@ -135,6 +140,7 @@ ROOM_SHARED_WALL_RULES_REFINE = {
     "kitchen": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 30},
     "attachedBathroom": {"min_walls": 3, "max_walls": 5, "wiggle_pct": 20},
     "veranda": {"min_walls": 1, "max_walls": 2, "wiggle_pct": 20},
+    "garage": {"min_walls": 1, "max_walls": 2, "wiggle_pct": 20},
 }
 
 __all__ = [
@@ -202,6 +208,7 @@ __all__ = [
     "HALLWAY_WIDTH",
     "HALLWAY_MIN_LENGTH",
     "HALLWAY_REQUIRED_SHARED_WALLS",
+    "NOT_PRUNE_ROOMS",
     "ROOM_SHARED_WALL_RULES",
     "ROOM_SHARED_WALL_RULES_REFINE",
 ]
