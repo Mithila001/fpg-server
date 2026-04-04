@@ -33,26 +33,22 @@ def add_living_room_bottom_most_constraint(
       - Result: Veranda stays nearest to front; other rooms extend deeper (toward back).
 
     Without veranda (fallback):
-      - LivingRoom serves as interior anchor.
-      - Center-y constraint: living_room.center_y >= all_other_rooms.center_y
-      - Result: Legacy behavior where living room is positioned toward back.
+      - LivingRoom serves as front anchor.
+      - Center-y constraint: living_room.center_y <= all_other_rooms.center_y
+      - Result: Living room stays nearest to front; other rooms extend deeper.
       - Prevents broad regressions in non-veranda layouts.
     """
     veranda_rooms = [room for room in rooms if room.type == "veranda"]
     if veranda_rooms:
         bottom_room = veranda_rooms[0]
-        anchor_is_veranda = True
     else:
         living_rooms = [room for room in rooms if room.type == "livingRoom"]
         if not living_rooms:
             return
         bottom_room = living_rooms[0]
-        anchor_is_veranda = False
+
 
     for room in rooms:
         if room is bottom_room:
             continue
-        if anchor_is_veranda:
-            model.Add(bottom_room.y + bottom_room.y_end <= room.y + room.y_end)  # type: ignore
-        else:
-            model.Add(bottom_room.y + bottom_room.y_end >= room.y + room.y_end)  # type: ignore
+        model.Add(bottom_room.y + bottom_room.y_end <= room.y + room.y_end)  # type: ignore

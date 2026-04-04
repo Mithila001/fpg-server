@@ -54,7 +54,7 @@ def test_room_location_hard_veranda_anchor_allows_taller_rooms() -> None:
     assert status in (cp_model.OPTIMAL, cp_model.FEASIBLE)
 
 
-def test_room_location_hard_living_fallback_keeps_legacy_direction() -> None:
+def test_room_location_hard_living_fallback_keeps_living_room_frontmost() -> None:
     model = cp_model.CpModel()
 
     living = _fixed_room(
@@ -62,7 +62,7 @@ def test_room_location_hard_living_fallback_keeps_legacy_direction() -> None:
         name="living_1",
         room_type="livingRoom",
         x=0,
-        y=10,
+        y=0,
         w=20,
         h=20,
     )
@@ -71,7 +71,7 @@ def test_room_location_hard_living_fallback_keeps_legacy_direction() -> None:
         name="bedroom_1",
         room_type="bedroom",
         x=0,
-        y=0,
+        y=10,
         w=20,
         h=10,
     )
