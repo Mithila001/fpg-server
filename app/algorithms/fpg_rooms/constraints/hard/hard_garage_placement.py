@@ -1,4 +1,4 @@
-"""Hard constraints for garage positioning at front corners.
+"""Hard constraints for garage side anchoring and frontage access.
 
 Coordinate System Reference (see docs/COORDINATE_SYSTEM.md):
   - Front = y=0 (bottom of screen, street-facing)
@@ -6,8 +6,10 @@ Coordinate System Reference (see docs/COORDINATE_SYSTEM.md):
   - Left  = x=0 (viewer's left)
   - Right = x=max (viewer's right)
 
-This module enforces garage placement at the front boundary (y=0) with positioning
-constraints to ensure garages are at front-left or front-right corners (not center).
+This module enforces garage placement so each garage:
+  - Anchors near exactly one vertical floor boundary (left XOR right), and
+  - Maintains vehicle access via direct front placement or full overlap with a
+    verandaOutdoorSpace front wall segment.
 """
 
 from __future__ import annotations
@@ -22,48 +24,70 @@ from ...solver_models.room import Room
 def add_garage_placement_constraints(
     model: cp_model.CpModel,
     rooms: List[Room],
+  floor_width: int,
+  floor_height: int,
 ) -> None:
-    """Apply hard garage frontage and corner positioning rules.
+    """Apply refined hard garage placement rules.
 
     Hard Rules:
-      1. Garage front wall is always on y=0 (front/street-facing, vehicle access).
-      2. Garage must be positioned at front-left corner (x ≤ 10) 
-         OR front-right corner (x_end ≥ land_width - 10).
-      3. Garage cannot be positioned at both corners simultaneously (mutually exclusive).
+      1. Side anchoring (XOR):
+         - Left anchored:  garage.x <= 20
+         - Right anchored: garage.x_end >= (land_width - 20)
+         Exactly one must hold.
+      2. Vehicle access path (OR):
+         - Garage front wall is on y=0, OR
+         - Garage front wall fully overlaps at least one verandaOutdoorSpace
+           horizontal wall segment (same y, full garage width covered).
     """
-    real_rooms = [room for room in rooms if room.type != "verandaOutdoorSpace"]
-    garages = [room for room in real_rooms if room.type == "garage"]
+    solver_rooms = list(rooms)
+    garages = [room for room in solver_rooms if room.type == "garage"]
+    veranda_open_spaces = [room for room in rooms if room.type == "verandaOutdoorSpace"]
 
     if not garages:
         return
 
-    # Keep bounds finite without relying on solver proto domains.
-    land_width = max(30, sum(max(1, room.max_w) for room in real_rooms))
+    # Use authoritative floor bounds from parent solver context.
+    land_width = max(1, int(round(floor_width)))
+    _land_height = max(1, int(round(floor_height)))
 
-    # Constrain all garage rooms to the front (y=0) for street-facing access.
+    # Apply constraints garage-by-garage (single-garage scenarios are the primary target).
     for garage in garages:
         assert garage.x is not None and garage.y is not None
         assert garage.x_end is not None and garage.y_end is not None
 
-        # Front wall of garage is always on y=0 (street-facing, vehicle access).
-        # y=0 is the minimum y value, anchoring garage at the front boundary.
-        model.Add(garage.y == 0)
+        # Side anchoring within 20 units of exactly one vertical floor boundary.
+        garage_at_left = model.NewBoolVar(f"{garage.name}_at_left_side")  # type: ignore
+        garage_at_right = model.NewBoolVar(f"{garage.name}_at_right_side")  # type: ignore
 
-        # Garage must be positioned at front-left corner or front-right corner (not center).
-        # Create two boolean variables: one for each corner option.
-        garage_at_left = model.NewBoolVar(f"{garage.name}_at_left_corner")  # type: ignore
-        garage_at_right = model.NewBoolVar(f"{garage.name}_at_right_corner")  # type: ignore
+        model.Add(garage.x <= 20).OnlyEnforceIf(garage_at_left)
+        model.Add(garage.x > 20).OnlyEnforceIf(garage_at_left.Not())
 
-        # Define what each condition means with bidirectional constraints.
-        # Left: garage.x near 0 (within first 10 units)
-        model.Add(garage.x <= 10).OnlyEnforceIf(garage_at_left)
-        model.Add(garage.x > 10).OnlyEnforceIf(garage_at_left.Not())
+        model.Add(garage.x_end >= land_width - 20).OnlyEnforceIf(garage_at_right)
+        model.Add(garage.x_end < land_width - 20).OnlyEnforceIf(garage_at_right.Not())
 
-        # Right: garage.x_end near land_width (within last 10 units)
-        model.Add(garage.x_end >= land_width - 10).OnlyEnforceIf(garage_at_right)
-        model.Add(garage.x_end < land_width - 10).OnlyEnforceIf(garage_at_right.Not())
+        model.Add(garage_at_left + garage_at_right == 1)
 
-        # Force EXACTLY one corner (mutually exclusive: left XOR right)
-        # This means: (left AND NOT right) OR (NOT left AND right)
-        model.AddBoolOr([garage_at_left, garage_at_right])  # At least one
-        model.Add(garage_at_left + garage_at_right == 1)    # Exactly one
+        # Access path: y == 0 OR fully overlaps at least one verandaOutdoorSpace front wall.
+        garage_front_on_boundary = model.NewBoolVar(f"{garage.name}_front_on_boundary")  # type: ignore
+        model.Add(garage.y == 0).OnlyEnforceIf(garage_front_on_boundary)
+        model.Add(garage.y > 0).OnlyEnforceIf(garage_front_on_boundary.Not())
+
+        full_overlap_options: List[cp_model.IntVar] = [garage_front_on_boundary]
+
+        for vos in veranda_open_spaces:
+            assert vos.x is not None and vos.y is not None
+            assert vos.x_end is not None and vos.y_end is not None
+
+            overlap_with_vos = model.NewBoolVar(
+                f"{garage.name}_front_fully_overlaps_{vos.name}"
+            )  # type: ignore
+
+            # Entire garage front segment [x, x_end] must lie on the same front wall segment.
+            model.Add(vos.y == 0).OnlyEnforceIf(overlap_with_vos)
+            model.Add(garage.y == vos.y).OnlyEnforceIf(overlap_with_vos)
+            model.Add(garage.x >= vos.x).OnlyEnforceIf(overlap_with_vos)
+            model.Add(garage.x_end <= vos.x_end).OnlyEnforceIf(overlap_with_vos)
+
+            full_overlap_options.append(overlap_with_vos)
+
+        model.AddBoolOr(full_overlap_options)

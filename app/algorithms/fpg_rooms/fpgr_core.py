@@ -200,7 +200,12 @@ class FpgrCore:
             self.rooms.extend(auxiliary_rooms)
 
         if panel.hard_garage_placement:
-            add_garage_placement_constraints(self.model, self.rooms)
+            add_garage_placement_constraints(
+                self.model,
+                self.rooms,
+                floor_width=int(round(self.floor_plan_width)),
+                floor_height=int(round(self.floor_plan_height)),
+            )
 
         if panel.hard_envelope_staircase and self.envelope_enabled:
             add_envelope_staircase_constraints(
