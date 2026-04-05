@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Sequence
 
+from app.core.fpg_rooms.config_fpg import NOT_PRUNE_ROOMS
 from app.schemas.db.room_setup_template import RoomSetupTemplateBase
 
 
@@ -75,6 +76,10 @@ def prune_room_relations_constraints_by_template(
             if not room_type:
                 return [], f"Missing room_type in room relations constraint at index {index}."
 
+            if room_type in NOT_PRUNE_ROOMS:
+                filtered_constraints.append(constraint)
+                continue
+
             if room_type not in template_room_types:
                 continue
 
@@ -86,10 +91,11 @@ def prune_room_relations_constraints_by_template(
                         f"at index {index}: expected list."
                     )
 
+                allowed_related_room_types = template_room_types.union(NOT_PRUNE_ROOMS)
                 sanitized_related_room = [
                     related_type
                     for related_type in (_as_clean_str(value) for value in related_room_raw)
-                    if related_type and related_type in template_room_types
+                    if related_type and related_type in allowed_related_room_types
                 ]
                 _set_related_room_values(constraint, sanitized_related_room)
 

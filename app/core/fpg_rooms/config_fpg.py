@@ -32,6 +32,15 @@ ENVELOPE_MAX_GAP = 20
 ENVELOPE_EXCLUDE_TYPES = []
 ENVELOPE_APPLY_SIDES = ["left", "right", "top", "bottom"]
 
+# Garage placement settings
+GARAGE_SIDE_ANCHOR_THRESHOLD = 20
+
+# Veranda outdoor space bounds
+VERANDA_OUTDOOR_SPACE_MIN_W = 1
+VERANDA_OUTDOOR_SPACE_MIN_H = 1
+VERANDA_OUTDOOR_SPACE_MAX_W = 100
+VERANDA_OUTDOOR_SPACE_MAX_H = 100
+
 # Adjacency constraint settings
 DEFAULT_ADJACENCY_MIN_OVERLAP = 20
 GENERATOR_ADJACENCY_MIN_OVERLAP = 20
@@ -47,7 +56,14 @@ CONSTRAINT_HARD_ROOM_ADJACENCY = True
 CONSTRAINT_HARD_MINIMUM_AREA_COVERAGE = True
 CONSTRAINT_HARD_ROOM_SIZE_HIERARCHY = True
 CONSTRAINT_HARD_LIVING_ROOM_LOCATION = True
+CONSTRAINT_HARD_VERANDA_PLACEMENT = True
+CONSTRAINT_HARD_GARAGE_PLACEMENT = True
 CONSTRAINT_HARD_ENVELOPE_STAIRCASE = True
+CONSTRAINT_HARD_KITCHEN_HALLWAY_BACK_WALL_SETBACK = True
+
+# Kitchen/hallway back-wall door setback settings
+KITCHEN_HALLWAY_BACK_WALL_SETBACK_MIN_GAP = 5
+KITCHEN_HALLWAY_BACK_WALL_SETBACK_MAX_GAP = 20
 
 # Constraint toggles (soft)
 CONSTRAINT_SOFT_SEED_LAYOUT_HINTS = True
@@ -86,7 +102,8 @@ ROOM_SIZE_HIERARCHY = {
     "kitchen": (40, 50),
     "bathroom": (15, 30),
     "attachedBathroom":(15,30),
-    "veranda":(40,70)
+    "veranda":(40,70),
+    "garage":(50,70)
 }
 
 # Default solver/optuna execution settings
@@ -113,27 +130,32 @@ HALLWAY_MIN_LENGTH = 10
 # Default 3 means only one hallway wall may remain as an exterior wall.
 HALLWAY_REQUIRED_SHARED_WALLS = 3
 
+# Room types whose relation constraints should not be pruned by template.
+NOT_PRUNE_ROOMS = ["livingRoom"]
+
 # Per-type room shared-wall requirements.
 # - min_walls/max_walls count fully shared sides.
 # - wiggle_pct relaxes minimum shared coverage length across the selected
 #   min_walls sides; e.g. 30 means up to 30% uncovered is allowed.
 ROOM_SHARED_WALL_RULES = {
-    "livingRoom": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 30},
+    "livingRoom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 30},
     "bathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 0},
     "bedroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
     "kitchen": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 30},
     "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
-    "veranda": {"min_walls": 1, "max_walls": 2, "wiggle_pct": 20},
+    "veranda": {"min_walls": 1, "max_walls": 3, "wiggle_pct": 20},
+    "garage": {"min_walls": 1, "max_walls": 2, "wiggle_pct": 20},
 }
 # Refinement phase shared-wall rules (tighter minimum requirements for refine_1).
 # Applied as soft constraint with penalties for violations.
 ROOM_SHARED_WALL_RULES_REFINE = {
-    "livingRoom": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 30},
+    "livingRoom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 30},
     "bathroom": {"min_walls": 3, "max_walls": 4, "wiggle_pct": 0},
     "bedroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
     "kitchen": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 30},
     "attachedBathroom": {"min_walls": 3, "max_walls": 5, "wiggle_pct": 20},
-    "veranda": {"min_walls": 1, "max_walls": 2, "wiggle_pct": 20},
+    "veranda": {"min_walls": 1, "max_walls": 3, "wiggle_pct": 20},
+    "garage": {"min_walls": 1, "max_walls": 2, "wiggle_pct": 20},
 }
 
 __all__ = [
@@ -160,7 +182,12 @@ __all__ = [
     "CONSTRAINT_HARD_MINIMUM_AREA_COVERAGE",
     "CONSTRAINT_HARD_ROOM_SIZE_HIERARCHY",
     "CONSTRAINT_HARD_LIVING_ROOM_LOCATION",
+    "CONSTRAINT_HARD_VERANDA_PLACEMENT",
+    "CONSTRAINT_HARD_GARAGE_PLACEMENT",
     "CONSTRAINT_HARD_ENVELOPE_STAIRCASE",
+    "CONSTRAINT_HARD_KITCHEN_HALLWAY_BACK_WALL_SETBACK",
+    "KITCHEN_HALLWAY_BACK_WALL_SETBACK_MIN_GAP",
+    "KITCHEN_HALLWAY_BACK_WALL_SETBACK_MAX_GAP",
     "CONSTRAINT_SOFT_SEED_LAYOUT_HINTS",
     "CONSTRAINT_SOFT_ROOM_ADJACENCY_PREFERENCE",
     "CONSTRAINT_SOFT_COMPACT_LAYOUT_CENTER_PROXIMITY",
@@ -197,9 +224,15 @@ __all__ = [
     "DEFAULT_SOLVER_MAX_TIME_SECONDS",
     "WIGGLE_ROOM",
     "SAFETY_BUFFER",
+    "GARAGE_SIDE_ANCHOR_THRESHOLD",
+    "VERANDA_OUTDOOR_SPACE_MIN_W",
+    "VERANDA_OUTDOOR_SPACE_MIN_H",
+    "VERANDA_OUTDOOR_SPACE_MAX_W",
+    "VERANDA_OUTDOOR_SPACE_MAX_H",
     "HALLWAY_WIDTH",
     "HALLWAY_MIN_LENGTH",
     "HALLWAY_REQUIRED_SHARED_WALLS",
+    "NOT_PRUNE_ROOMS",
     "ROOM_SHARED_WALL_RULES",
     "ROOM_SHARED_WALL_RULES_REFINE",
 ]

@@ -537,10 +537,12 @@ def run_fpg_pipeline_api(
     # WARNING: Its highly important to change `should_bypass` value to False when deploying
     try:
         _, size_constraints, relation_constraints = _load_server_side_data()
+        print(f"\n\nBefore Prune: {relation_constraints}")
         relation_constraints, prune_error = prune_room_relations_constraints_by_template(
             room_template=room_template,
             room_relations_constraints=relation_constraints,
         )
+        print(f"\nAfter Prune: {relation_constraints}\n\n")
         if prune_error:
             return _error_payload(prune_error)
 

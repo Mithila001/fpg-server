@@ -7,23 +7,6 @@ from ortools.sat.python import cp_model
 
 from app.core.fpg_rooms.config_fpg import (
     BATHROOM_LOCATION_WEIGHT,
-    CONSTRAINT_HARD_BASIC_GEOMETRY,
-    CONSTRAINT_HARD_ENVELOPE_STAIRCASE,
-    CONSTRAINT_HARD_HALLWAY_RULES,
-    CONSTRAINT_HARD_LIVING_ROOM_LOCATION,
-    CONSTRAINT_HARD_MINIMUM_AREA_COVERAGE,
-    CONSTRAINT_HARD_ROOM_ADJACENCY,
-    CONSTRAINT_HARD_ROOM_SHARED_WALLS,
-    CONSTRAINT_HARD_ROOM_SIZE_HIERARCHY,
-    CONSTRAINT_SOFT_BATHROOM_LOCATION_PREFERENCE,
-    CONSTRAINT_SOFT_COMPACT_LAYOUT_CENTER_PROXIMITY,
-    CONSTRAINT_SOFT_LAYOUT_DEAD_SPACE_PENALTY,
-    CONSTRAINT_SOFT_RECESSED_FACADE_PENALTY,
-    CONSTRAINT_SOFT_ROOM_ADJACENCY_PREFERENCE,
-    CONSTRAINT_SOFT_ROOM_SHARED_WALL_REFINE,
-    CONSTRAINT_SOFT_SEED_FACADE_ALIGNMENT_PENALTY,
-    CONSTRAINT_SOFT_SEED_FACADE_DEPTH_PENALTY,
-    CONSTRAINT_SOFT_SEED_LAYOUT_HINTS,
     DEFAULT_SOLVER_MAX_TIME_SECONDS,
     ENVELOPE_APPLY_SIDES,
     ENVELOPE_ENABLED,
@@ -31,6 +14,8 @@ from app.core.fpg_rooms.config_fpg import (
     ENVELOPE_MAX_GAP,
     ENVELOPE_MIN_GAP,
     GENERATOR_ADJACENCY_MIN_OVERLAP,
+    KITCHEN_HALLWAY_BACK_WALL_SETBACK_MAX_GAP,
+    KITCHEN_HALLWAY_BACK_WALL_SETBACK_MIN_GAP,
     SOFT_LAYOUT_DEAD_SPACE_WEIGHT,
     SOFT_RECESSED_FACADE_ATTACH_WEIGHT,
     SOFT_RECESSED_FACADE_BASE_THRESHOLD,
@@ -45,10 +30,16 @@ from app.core.fpg_rooms.config_fpg import (
     SOFT_SEED_FACADE_DEPTH_WEIGHT,
 )
 
+from .constraint_control_panel import ConstraintControlPanel
 from .constraints.hard.basic_constraints import add_basic_constraints
 from .constraints.hard.envelope_staircase import add_envelope_staircase_constraints
 from .constraints.hard.floor_area_coverage import add_minimum_area_coverage
 from .constraints.hard.hallway_constraints import add_hallway_constraints
+from .constraints.hard.hard_veranda_placement import add_veranda_placement_constraints
+from .constraints.hard.hard_garage_placement import add_garage_placement_constraints
+from .constraints.hard.kitchen_hallway_back_wall_setback import (
+    add_kitchen_hallway_back_wall_setback_constraint,
+)
 from .constraints.hard.room_adjacency_hard import apply_hard_room_adjacency_constraints
 from .constraints.hard.room_location_hard import add_living_room_bottom_most_constraint
 from .constraints.hard.room_shared_wall_constraints import add_room_shared_wall_constraints
@@ -75,10 +66,11 @@ from .utils.seed_layout import build_seed_layout_context
 
 
 class FpgrCore:
-    def __init__(self, requirements: FpgRequirements):
+    def __init__(self, requirements: FpgRequirements, control_panel: ConstraintControlPanel | None = None):
         requirements = normalize_requirements(requirements)
         requirements = prepare_requirements_for_hallway_rules(requirements)
         self.requirements = requirements
+        self.control_panel = control_panel or ConstraintControlPanel()
 
         self.relation_constraints = self.requirements.relation_constraints
 
@@ -99,74 +91,25 @@ class FpgrCore:
         self.envelope_apply_sides: set[str] = {
             str(side).lower() for side in (getattr(cfg, "envelope_apply_sides", ENVELOPE_APPLY_SIDES) or [])
         }
-
-        self.constraint_hard_basic_geometry = bool(
-            getattr(cfg, "constraint_hard_basic_geometry", CONSTRAINT_HARD_BASIC_GEOMETRY)
+        self.kitchen_hallway_back_wall_setback_min_gap: int = max(
+            1,
+            int(
+                getattr(
+                    cfg,
+                    "kitchen_hallway_back_wall_setback_min_gap",
+                    KITCHEN_HALLWAY_BACK_WALL_SETBACK_MIN_GAP,
+                )
+            ),
         )
-        self.constraint_hard_hallway_rules = bool(
-            getattr(cfg, "constraint_hard_hallway_rules", CONSTRAINT_HARD_HALLWAY_RULES)
-        )
-        self.constraint_hard_room_shared_walls = bool(
-            getattr(cfg, "constraint_hard_room_shared_walls", CONSTRAINT_HARD_ROOM_SHARED_WALLS)
-        )
-        self.constraint_hard_room_adjacency = bool(
-            getattr(cfg, "constraint_hard_room_adjacency", CONSTRAINT_HARD_ROOM_ADJACENCY)
-        )
-        self.constraint_hard_minimum_area_coverage = bool(
-            getattr(cfg, "constraint_hard_minimum_area_coverage", CONSTRAINT_HARD_MINIMUM_AREA_COVERAGE)
-        )
-        self.constraint_hard_room_size_hierarchy = bool(
-            getattr(cfg, "constraint_hard_room_size_hierarchy", CONSTRAINT_HARD_ROOM_SIZE_HIERARCHY)
-        )
-        self.constraint_hard_living_room_location = bool(
-            getattr(cfg, "constraint_hard_living_room_location", CONSTRAINT_HARD_LIVING_ROOM_LOCATION)
-        )
-        self.constraint_hard_envelope_staircase = bool(
-            getattr(cfg, "constraint_hard_envelope_staircase", CONSTRAINT_HARD_ENVELOPE_STAIRCASE)
-        )
-
-        self.constraint_soft_seed_layout_hints = bool(
-            getattr(cfg, "constraint_soft_seed_layout_hints", CONSTRAINT_SOFT_SEED_LAYOUT_HINTS)
-        )
-        self.constraint_soft_room_adjacency_preference = bool(
-            getattr(cfg, "constraint_soft_room_adjacency_preference", CONSTRAINT_SOFT_ROOM_ADJACENCY_PREFERENCE)
-        )
-        self.constraint_soft_compact_layout_center_proximity = bool(
-            getattr(
-                cfg,
-                "constraint_soft_compact_layout_center_proximity",
-                CONSTRAINT_SOFT_COMPACT_LAYOUT_CENTER_PROXIMITY,
-            )
-        )
-        self.constraint_soft_bathroom_location_preference = bool(
-            getattr(
-                cfg,
-                "constraint_soft_bathroom_location_preference",
-                CONSTRAINT_SOFT_BATHROOM_LOCATION_PREFERENCE,
-            )
-        )
-        self.constraint_soft_layout_dead_space_penalty = bool(
-            getattr(cfg, "constraint_soft_layout_dead_space_penalty", CONSTRAINT_SOFT_LAYOUT_DEAD_SPACE_PENALTY)
-        )
-        self.constraint_soft_seed_facade_depth_penalty = bool(
-            getattr(
-                cfg,
-                "constraint_soft_seed_facade_depth_penalty",
-                CONSTRAINT_SOFT_SEED_FACADE_DEPTH_PENALTY,
-            )
-        )
-        self.constraint_soft_seed_facade_alignment_penalty = bool(
-            getattr(
-                cfg,
-                "constraint_soft_seed_facade_alignment_penalty",
-                CONSTRAINT_SOFT_SEED_FACADE_ALIGNMENT_PENALTY,
-            )
-        )
-        self.constraint_soft_recessed_facade_penalty = bool(
-            getattr(cfg, "constraint_soft_recessed_facade_penalty", CONSTRAINT_SOFT_RECESSED_FACADE_PENALTY)
-        )
-        self.constraint_soft_room_shared_wall_refine = bool(
-            getattr(cfg, "constraint_soft_room_shared_wall_refine", CONSTRAINT_SOFT_ROOM_SHARED_WALL_REFINE)
+        self.kitchen_hallway_back_wall_setback_max_gap: int = max(
+            self.kitchen_hallway_back_wall_setback_min_gap,
+            int(
+                getattr(
+                    cfg,
+                    "kitchen_hallway_back_wall_setback_max_gap",
+                    KITCHEN_HALLWAY_BACK_WALL_SETBACK_MAX_GAP,
+                )
+            ),
         )
 
         self.model = cp_model.CpModel()
@@ -199,11 +142,6 @@ class FpgrCore:
         self,
         seed_layout: list[dict[str, Any]] | None = None,
         wiggle_room: int = 0,
-        include_constraint_b_soft: bool = False,
-        include_constraint_a_soft: bool = False,
-        include_constraint_c_soft: bool = False,
-        include_constraint_d_soft: bool = False,
-        include_constraint_shared_wall_soft: bool = False,
         max_time_seconds: float = DEFAULT_SOLVER_MAX_TIME_SECONDS,
         debug_log: bool = False,
     ) -> bool:
@@ -216,13 +154,15 @@ class FpgrCore:
         if debug_log:
             self.print_dev_log()
 
-        if self.constraint_hard_basic_geometry:
+        panel = self.control_panel
+
+        if panel.hard_basic_geometry:
             add_basic_constraints(self.model, self.rooms)
 
-        if self.constraint_hard_hallway_rules and self.hallway_count > 0:
+        if panel.hard_hallway_rules and self.hallway_count > 0:
             add_hallway_constraints(self.model, self.rooms)
 
-        if self.constraint_hard_room_shared_walls:
+        if panel.hard_room_shared_walls:
             add_room_shared_wall_constraints(self.model, self.rooms)
 
         soft_relation_constraints: list[RoomRelationsConstraint] = []
@@ -240,8 +180,13 @@ class FpgrCore:
                 soft_relation_constraints.append(relation_obj)
 
         hard_and_relation_constraints = self.mandatory_relations + hard_and_relation_constraints
+        
+        print("\n\n ====== Print Relations ======")
+        print(f"\nMandatory Relations: {self.mandatory_relations}")
+        print(f"\nH AND Relations: {hard_and_relation_constraints}")
+        print(f"\nH OR Relations: {hard_or_relation_constraints}\n\n")
 
-        if self.constraint_hard_room_adjacency:
+        if panel.hard_room_adjacency:
             apply_hard_room_adjacency_constraints(
                 self.model,
                 self.rooms,
@@ -250,7 +195,7 @@ class FpgrCore:
                 min_overlap=GENERATOR_ADJACENCY_MIN_OVERLAP,
             )
 
-        if self.constraint_soft_room_adjacency_preference:
+        if panel.soft_room_adjacency_preference:
             build_soft_room_adjacency_preference_vars(
                 self.model,
                 self.rooms,
@@ -258,7 +203,7 @@ class FpgrCore:
                 min_overlap=GENERATOR_ADJACENCY_MIN_OVERLAP,
             )
 
-        if self.constraint_hard_minimum_area_coverage:
+        if panel.hard_minimum_area_coverage:
             add_minimum_area_coverage(
                 self.model,
                 self.rooms,
@@ -267,13 +212,27 @@ class FpgrCore:
                 self.min_coverage,
             )
 
-        if self.constraint_hard_room_size_hierarchy:
+        if panel.hard_room_size_hierarchy:
             add_room_size_hierarchy(self.model, self.rooms)
 
-        if self.constraint_hard_living_room_location:
+        if panel.hard_living_room_location:
             add_living_room_bottom_most_constraint(self.model, self.rooms)
 
-        if self.constraint_hard_envelope_staircase and self.envelope_enabled:
+        if panel.hard_veranda_placement:
+            auxiliary_rooms = add_veranda_placement_constraints(self.model, self.rooms)
+            # Add any created verandaOutdoorSpace rooms to the main room list so they
+            # are included in the solution and can be used for scoring.
+            self.rooms.extend(auxiliary_rooms)
+
+        if panel.hard_garage_placement:
+            add_garage_placement_constraints(
+                self.model,
+                self.rooms,
+                floor_width=int(round(self.floor_plan_width)),
+                floor_height=int(round(self.floor_plan_height)),
+            )
+
+        if panel.hard_envelope_staircase and self.envelope_enabled:
             add_envelope_staircase_constraints(
                 self.model,
                 self.rooms,
@@ -285,10 +244,19 @@ class FpgrCore:
                 apply_sides=self.envelope_apply_sides,
             )
 
+        if panel.hard_kitchen_hallway_back_wall_setback:
+            add_kitchen_hallway_back_wall_setback_constraint(
+                self.model,
+                self.rooms,
+                floor_height=h_int,
+                min_gap=self.kitchen_hallway_back_wall_setback_min_gap,
+                max_gap=self.kitchen_hallway_back_wall_setback_max_gap,
+            )
+
         seed_context = None
         if seed_layout:
             seed_context = build_seed_layout_context(seed_layout)
-            if self.constraint_soft_seed_layout_hints:
+            if panel.soft_seed_layout_hints:
                 apply_seed_layout_hints_with_wiggle(
                     self.model,
                     self.rooms,
@@ -300,7 +268,7 @@ class FpgrCore:
 
         objective_terms: list[cp_model.LinearExprT] = []
 
-        if self.constraint_soft_compact_layout_center_proximity:
+        if panel.soft_compact_layout_center_proximity:
             objective_terms.append(
                 add_center_proximity_objective(
                     self.model,
@@ -310,7 +278,7 @@ class FpgrCore:
                 )
             )
 
-        if self.constraint_soft_bathroom_location_preference:
+        if panel.soft_bathroom_location_preference:
             objective_terms.append(
                 build_bathroom_location_preference_penalty(
                     self.model,
@@ -320,7 +288,7 @@ class FpgrCore:
                 )
             )
 
-        if self.constraint_soft_layout_dead_space_penalty and include_constraint_a_soft:
+        if panel.soft_layout_dead_space_penalty:
             objective_terms.append(
                 build_layout_dead_space_penalty(
                     self.model,
@@ -332,8 +300,7 @@ class FpgrCore:
             )
 
         if (
-            self.constraint_soft_seed_facade_depth_penalty
-            and include_constraint_b_soft
+            panel.soft_seed_facade_depth_penalty
             and seed_context is not None
         ):
             objective_terms.append(
@@ -348,8 +315,7 @@ class FpgrCore:
             )
 
         if (
-            self.constraint_soft_seed_facade_alignment_penalty
-            and include_constraint_c_soft
+            panel.soft_seed_facade_alignment_penalty
             and seed_context is not None
         ):
             objective_terms.append(
@@ -365,8 +331,7 @@ class FpgrCore:
             )
 
         if (
-            self.constraint_soft_recessed_facade_penalty
-            and include_constraint_d_soft
+            panel.soft_recessed_facade_penalty
             and seed_context is not None
         ):
             objective_terms.append(
@@ -386,7 +351,7 @@ class FpgrCore:
                 )
             )
 
-        if self.constraint_soft_room_shared_wall_refine and include_constraint_shared_wall_soft:
+        if panel.soft_room_shared_wall_refine_penalty:
             objective_terms.append(
                 build_room_shared_wall_refine_penalty(
                     self.model,

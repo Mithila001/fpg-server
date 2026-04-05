@@ -24,8 +24,8 @@ POST http://localhost:8000/algorithms/format/v2
 Content-Type: application/json
 
 {
-	"floor_width": 150,
-	"floor_height": 180,
+	"floor_width": 180,
+	"floor_height": 200,
 	"room_template": {
 		"name": "Standard 2BHK Layout",
 		"data": [
@@ -34,7 +34,8 @@ Content-Type: application/json
 			{ "id": "bathroom1", "type": "bathroom" },
 			{ "id": "kitchen1", "type": "kitchen" },
 			{ "id": "attachedBathroom1", "type": "attachedBathroom" },
-			{ "id": "veranda1", "type": "veranda" }
+			{ "id": "veranda1", "type": "veranda" },
+			{ "id": "garage1", "type": "garage" }
 			
 		]
 	},
