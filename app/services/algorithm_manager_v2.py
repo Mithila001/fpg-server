@@ -126,6 +126,7 @@ def _load_server_side_data() -> tuple[list[Any], Sequence[Any], Sequence[Any]]:
 
     During development this mirrors existing manager behavior by using mock JSON data.
     """
+    print("\nSTART: _load_server_side_data ------")
     should_bypass = True
 
     if should_bypass:
@@ -138,6 +139,8 @@ def _load_server_side_data() -> tuple[list[Any], Sequence[Any], Sequence[Any]]:
         templates = room_setup_template_crud.get_all(session)
         size_constraints = room_size_constraint_crud.get_all(session)
         relation_constraints = room_relations_constraint_crud.get_all(session)
+    
+    print("\nEND: _load_server_side_data ------")
     return templates, size_constraints, relation_constraints
 
 
@@ -251,7 +254,8 @@ def _run_single_fpg_solve(
     verbose: bool = True,
 ) -> FpgEvaluationResult:
     generator = FloorPlanGenerator(requirements)
-
+    
+    verbose= True # TODO DEBUG FLAG Remove this 
     if verbose:
         solved = generator.generate()
     else:
@@ -261,6 +265,7 @@ def _run_single_fpg_solve(
     status = generator.last_status_name
 
     if not solved:
+        print("\nNOT solved")
         return FpgEvaluationResult(
             solved=False,
             solution=[],
@@ -517,9 +522,10 @@ def run_fpg_pipeline_api(
     room_template: RoomSetupTemplateBase,
     should_optuna_run: bool = False,
     optuna_trial_count: int = DEFAULT_OPTUNA_TRIALS,
-    verbose: bool = False,
+    verbose: bool = True,
 ) -> dict[str, Any]:
     """API pipeline: use caller dimensions/template, fetch constraints server-side, then solve."""
+    print("\nSTART: run_fpg_pipeline_api ------")
     started_at = perf_counter()
     SystemLogger.info(
         sector=1,
@@ -537,12 +543,10 @@ def run_fpg_pipeline_api(
     # WARNING: Its highly important to change `should_bypass` value to False when deploying
     try:
         _, size_constraints, relation_constraints = _load_server_side_data()
-        print(f"\n\nBefore Prune: {relation_constraints}")
         relation_constraints, prune_error = prune_room_relations_constraints_by_template(
             room_template=room_template,
             room_relations_constraints=relation_constraints,
         )
-        print(f"\nAfter Prune: {relation_constraints}\n\n")
         if prune_error:
             return _error_payload(prune_error)
 

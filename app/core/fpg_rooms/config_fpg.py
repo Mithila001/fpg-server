@@ -29,7 +29,7 @@ INWARD_POCKET_MAX_LENGTH = 20.0
 ENVELOPE_ENABLED = True
 ENVELOPE_MIN_GAP = 5
 ENVELOPE_MAX_GAP = 20
-ENVELOPE_EXCLUDE_TYPES = []
+ENVELOPE_EXCLUDE_TYPES = [] # Non eligible room types for envelope checking
 ENVELOPE_APPLY_SIDES = ["left", "right", "top", "bottom"]
 
 # Garage placement settings
