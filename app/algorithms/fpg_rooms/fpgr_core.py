@@ -28,9 +28,12 @@ from app.core.fpg_rooms.config_fpg import (
     SOFT_SEED_FACADE_ALIGNMENT_THRESHOLD,
     SOFT_SEED_FACADE_ALIGNMENT_WEIGHT,
     SOFT_SEED_FACADE_DEPTH_WEIGHT,
+    LIVING_ROOM_EXTENDER_ACTIVATION_PENALTY,
+    LIVING_ROOM_EXTENDER_INACTIVE_SIZE_CAP,
 )
 
 from .constraint_control_panel import ConstraintControlPanel
+from .constraints.extenders import add_living_room_extender_constraints
 from .constraints.hard.basic_constraints import add_basic_constraints
 from .constraints.hard.envelope_staircase import add_envelope_staircase_constraints
 from .constraints.hard.floor_area_coverage import add_minimum_area_coverage
@@ -111,11 +114,40 @@ class FpgrCore:
                 )
             ),
         )
+        self.living_room_extender_min_size: int = max(
+            1,
+            int(getattr(cfg, "living_room_extender_min_size", 10)),
+        )
+        self.living_room_extender_max_size: int = max(
+            self.living_room_extender_min_size,
+            int(getattr(cfg, "living_room_extender_max_size", 30)),
+        )
+        self.living_room_extender_inactive_size_cap: int = max(
+            0,
+            int(
+                getattr(
+                    cfg,
+                    "living_room_extender_inactive_size_cap",
+                    LIVING_ROOM_EXTENDER_INACTIVE_SIZE_CAP,
+                )
+            ),
+        )
+        self.living_room_extender_activation_penalty: int = max(
+            0,
+            int(
+                getattr(
+                    cfg,
+                    "living_room_extender_activation_penalty",
+                    LIVING_ROOM_EXTENDER_ACTIVATION_PENALTY,
+                )
+            ),
+        )
 
         self.model = cp_model.CpModel()
         self.solver = cp_model.CpSolver()
         self.last_status: int | None = None
         self.last_status_name: str = "NOT_RUN"
+        self._extender_activation_vars: dict[str, cp_model.BoolVar] = {}
 
         self.rooms: list[Room] = [
             Room(r.name, r.min_w, r.min_h, r.max_w, r.max_h, r.type)
@@ -253,6 +285,16 @@ class FpgrCore:
                 max_gap=self.kitchen_hallway_back_wall_setback_max_gap,
             )
 
+        extender_context = add_living_room_extender_constraints(
+            self.model,
+            self.rooms,
+            active_min_size=self.living_room_extender_min_size,
+            perpendicular_max_size=self.living_room_extender_max_size,
+            inactive_size_cap=self.living_room_extender_inactive_size_cap,
+            activation_penalty=self.living_room_extender_activation_penalty,
+        )
+        self._extender_activation_vars = extender_context.activation_vars
+
         seed_context = None
         if seed_layout:
             seed_context = build_seed_layout_context(seed_layout)
@@ -360,6 +402,8 @@ class FpgrCore:
                 )
             )
 
+        objective_terms.extend(extender_context.objective_terms)
+
         if objective_terms:
             total_cost = cp_model.LinearExpr.Sum(objective_terms)  # type: ignore
             self.model.Minimize(total_cost)
@@ -385,6 +429,11 @@ class FpgrCore:
                 and room.y_end is not None
                 and room.area is not None
             ), f"Room variables not initialized for {room.name}"
+
+            if room.name in self._extender_activation_vars:
+                is_active = self.solver.Value(self._extender_activation_vars[room.name])
+                if int(is_active) == 0:
+                    continue
 
             results.append(
                 {

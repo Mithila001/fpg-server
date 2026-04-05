@@ -22,6 +22,13 @@ from app.core.fpg_rooms.config_fpg import (
     ENVELOPE_MAX_GAP,
     ENVELOPE_EXCLUDE_TYPES,
     ENVELOPE_APPLY_SIDES,
+    LIVING_ROOM_EXTENDER_ACTIVATION_PENALTY,
+    LIVING_ROOM_EXTENDER_COUNT,
+    LIVING_ROOM_EXTENDER_INACTIVE_SIZE_CAP,
+    LIVING_ROOM_EXTENDER_MAX_SIZE,
+    LIVING_ROOM_EXTENDER_MIN_SIZE,
+    LIVING_ROOM_EXTENDER_REFINE_ONLY_ENABLED,
+    LIVING_ROOM_EXTENDER_SINGLE_REFINE_RUN,
     INWARD_POCKET_MAX_LENGTH,
     SCORE_GEOMETRY_TOLERANCE,
 )
@@ -68,6 +75,13 @@ class ConfigData:
     constraint_soft_seed_facade_depth_penalty: bool = CONSTRAINT_SOFT_SEED_FACADE_DEPTH_PENALTY
     constraint_soft_seed_facade_alignment_penalty: bool = CONSTRAINT_SOFT_SEED_FACADE_ALIGNMENT_PENALTY
     constraint_soft_recessed_facade_penalty: bool = CONSTRAINT_SOFT_RECESSED_FACADE_PENALTY
+    living_room_extender_refine_only_enabled: bool = LIVING_ROOM_EXTENDER_REFINE_ONLY_ENABLED
+    living_room_extender_count: int = LIVING_ROOM_EXTENDER_COUNT
+    living_room_extender_min_size: int = LIVING_ROOM_EXTENDER_MIN_SIZE
+    living_room_extender_max_size: int = LIVING_ROOM_EXTENDER_MAX_SIZE
+    living_room_extender_inactive_size_cap: int = LIVING_ROOM_EXTENDER_INACTIVE_SIZE_CAP
+    living_room_extender_activation_penalty: int = LIVING_ROOM_EXTENDER_ACTIVATION_PENALTY
+    living_room_extender_single_refine_run: bool = LIVING_ROOM_EXTENDER_SINGLE_REFINE_RUN
 
 
 # Main Param Type

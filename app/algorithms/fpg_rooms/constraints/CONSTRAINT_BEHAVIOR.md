@@ -258,6 +258,31 @@ No direct objective term, but strongly affects search trajectory.
 - Type: Soft
 - Currently Used: Partially (called when toggle is on; preference vars are not currently added to objective)
 
+# Living Room Extender Constraint (constraints/extenders/living_room_extender.py)
+- Type: Hybrid (Hard conditional rules + Soft activation penalty)
+- Currently Used: Conditional Yes (refine-only room injection enabled and extender count > 0)
+
+## Description
+Creates solver activation BoolVar per livingRoomExtender room.
+When active, extender must fully overlap exactly one wall side of livingRoom.
+If the shared wall is horizontal, the extender width may expand along the livingRoom x-span while height is capped at 30.
+If the shared wall is vertical, the extender height may expand along the livingRoom y-span while width is capped at 30.
+In both cases, active width and height must be at least 10.
+When inactive, extender is constrained to a tiny cap and is excluded from final output serialization.
+
+## Parameters
+model
+rooms
+active_min_size
+perpendicular_max_size
+inactive_size_cap
+activation_penalty
+
+## Constraint Impact
+Adds optional patch-room behavior without requiring manual on/off per solve.
+Preserves baseline behavior by penalizing activation so solver uses extender only when helpful.
+Keeps implementation isolated from existing hard/soft modules.
+
 ## Description
 Creates adjacency preference boolean vars for soft relation pairs.
 Reuses conditional touch logic with minimum overlap rules.

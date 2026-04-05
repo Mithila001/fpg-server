@@ -282,13 +282,23 @@ def _run_single_fpg_solve(
     )
     stage2_rooms = refine_result1.rooms if refine_result1.rooms else stage1_rooms
 
-    refine_result2 = run_refine_profile_1(
-        requirements=requirements,
-        initial_rooms=stage2_rooms,
-        wiggle_room=WIGGLE_ROOM,
-        verbose=False,
+    single_refine_mode = bool(
+        getattr(requirements.config, "living_room_extender_single_refine_run", False)
+    ) and bool(
+        getattr(requirements.config, "living_room_extender_refine_only_enabled", False)
     )
-    stage3_rooms = refine_result2.rooms if refine_result2.rooms else stage2_rooms
+
+    if single_refine_mode:
+        refine_result2 = refine_result1
+        stage3_rooms = stage2_rooms
+    else:
+        refine_result2 = run_refine_profile_1(
+            requirements=requirements,
+            initial_rooms=stage2_rooms,
+            wiggle_room=WIGGLE_ROOM,
+            verbose=False,
+        )
+        stage3_rooms = refine_result2.rooms if refine_result2.rooms else stage2_rooms
 
     final_rooms = stage3_rooms
 
