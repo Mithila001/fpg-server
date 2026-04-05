@@ -13,7 +13,7 @@
     },
     {
       "room_type": "bathroom",
-      "related_room": ["livingRoom"],
+      "related_room": ["hallway"],
       "constraint_level": "hard_OR",
       "last_updated": "2026-03-25"
     },
