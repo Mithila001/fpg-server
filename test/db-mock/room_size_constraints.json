@@ -23,7 +23,7 @@
     "type": "bathroom",
     "min_w": 15,
     "max_w": 20,
-    "min_h": 24,
+    "min_h": 25,
     "max_h": 32,
     "min_area": 360,
     "max_area": 640,
