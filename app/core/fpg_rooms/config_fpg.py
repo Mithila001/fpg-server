@@ -101,10 +101,13 @@ ROOM_SIZE_HIERARCHY = {
     "bedroom": (50, 70),
     "kitchen": (40, 50),
     "bathroom": (15, 30),
-    "attachedBathroom":(15,30),
-    "veranda":(40,70),
-    "garage":(50,70)
+    "attachedBathroom": (15, 30),
+    "veranda": (40, 70),
+    "garage": (50, 70),
 }
+
+# Room types used by hallway-related generation rules.
+HALLWAY_RULE_TARGET_ROOM_TYPES = {"bedroom", "kitchen", "bathroom"}
 
 # Default solver/optuna execution settings
 DEFAULT_ROOM_DIMENSION = 70
@@ -120,10 +123,14 @@ DEFAULT_HALLWAY_COUNT = 1
 DEFAULT_SOLVER_MAX_TIME_SECONDS = 5
 WIGGLE_ROOM = 10
 
+# TODO Fix hallway config value duplication
 # Hallway dimensions
 # Fixed narrow dimension — the solver enforces exactly this value for
 # whichever of width/height is the "short" side.
 HALLWAY_WIDTH = 10
+# Minimum width/height used when creating hallway rooms.
+HALLWAY_MIN_WIDTH = 10
+HALLWAY_MIN_HEIGHT = 10
 # Minimum length of the long side (the solver may extend it further).
 HALLWAY_MIN_LENGTH = 10
 # Number of hallway walls that must be fully shared with other rooms.
@@ -225,11 +232,14 @@ __all__ = [
     "WIGGLE_ROOM",
     "SAFETY_BUFFER",
     "GARAGE_SIDE_ANCHOR_THRESHOLD",
+    "HALLWAY_RULE_TARGET_ROOM_TYPES",
     "VERANDA_OUTDOOR_SPACE_MIN_W",
     "VERANDA_OUTDOOR_SPACE_MIN_H",
     "VERANDA_OUTDOOR_SPACE_MAX_W",
     "VERANDA_OUTDOOR_SPACE_MAX_H",
     "HALLWAY_WIDTH",
+    "HALLWAY_MIN_WIDTH",
+    "HALLWAY_MIN_HEIGHT",
     "HALLWAY_MIN_LENGTH",
     "HALLWAY_REQUIRED_SHARED_WALLS",
     "NOT_PRUNE_ROOMS",
