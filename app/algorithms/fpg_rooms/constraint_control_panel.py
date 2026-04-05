@@ -7,6 +7,7 @@ from app.core.fpg_rooms.config_fpg import (
     CONSTRAINT_HARD_ENVELOPE_STAIRCASE,
     CONSTRAINT_HARD_GARAGE_PLACEMENT,
     CONSTRAINT_HARD_HALLWAY_RULES,
+    CONSTRAINT_HARD_KITCHEN_HALLWAY_BACK_WALL_SETBACK,
     CONSTRAINT_HARD_LIVING_ROOM_LOCATION,
     CONSTRAINT_HARD_MINIMUM_AREA_COVERAGE,
     CONSTRAINT_HARD_ROOM_ADJACENCY,
@@ -37,6 +38,7 @@ class ConstraintControlPanel:
     hard_veranda_placement: bool = CONSTRAINT_HARD_VERANDA_PLACEMENT
     hard_garage_placement: bool = CONSTRAINT_HARD_GARAGE_PLACEMENT
     hard_envelope_staircase: bool = CONSTRAINT_HARD_ENVELOPE_STAIRCASE
+    hard_kitchen_hallway_back_wall_setback: bool = CONSTRAINT_HARD_KITCHEN_HALLWAY_BACK_WALL_SETBACK
 
     soft_seed_layout_hints: bool = CONSTRAINT_SOFT_SEED_LAYOUT_HINTS
     soft_room_adjacency_preference: bool = CONSTRAINT_SOFT_ROOM_ADJACENCY_PREFERENCE

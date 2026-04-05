@@ -14,6 +14,8 @@ from app.core.fpg_rooms.config_fpg import (
     ENVELOPE_MAX_GAP,
     ENVELOPE_MIN_GAP,
     GENERATOR_ADJACENCY_MIN_OVERLAP,
+    KITCHEN_HALLWAY_BACK_WALL_SETBACK_MAX_GAP,
+    KITCHEN_HALLWAY_BACK_WALL_SETBACK_MIN_GAP,
     SOFT_LAYOUT_DEAD_SPACE_WEIGHT,
     SOFT_RECESSED_FACADE_ATTACH_WEIGHT,
     SOFT_RECESSED_FACADE_BASE_THRESHOLD,
@@ -35,6 +37,9 @@ from .constraints.hard.floor_area_coverage import add_minimum_area_coverage
 from .constraints.hard.hallway_constraints import add_hallway_constraints
 from .constraints.hard.hard_veranda_placement import add_veranda_placement_constraints
 from .constraints.hard.hard_garage_placement import add_garage_placement_constraints
+from .constraints.hard.kitchen_hallway_back_wall_setback import (
+    add_kitchen_hallway_back_wall_setback_constraint,
+)
 from .constraints.hard.room_adjacency_hard import apply_hard_room_adjacency_constraints
 from .constraints.hard.room_location_hard import add_living_room_bottom_most_constraint
 from .constraints.hard.room_shared_wall_constraints import add_room_shared_wall_constraints
@@ -86,6 +91,26 @@ class FpgrCore:
         self.envelope_apply_sides: set[str] = {
             str(side).lower() for side in (getattr(cfg, "envelope_apply_sides", ENVELOPE_APPLY_SIDES) or [])
         }
+        self.kitchen_hallway_back_wall_setback_min_gap: int = max(
+            1,
+            int(
+                getattr(
+                    cfg,
+                    "kitchen_hallway_back_wall_setback_min_gap",
+                    KITCHEN_HALLWAY_BACK_WALL_SETBACK_MIN_GAP,
+                )
+            ),
+        )
+        self.kitchen_hallway_back_wall_setback_max_gap: int = max(
+            self.kitchen_hallway_back_wall_setback_min_gap,
+            int(
+                getattr(
+                    cfg,
+                    "kitchen_hallway_back_wall_setback_max_gap",
+                    KITCHEN_HALLWAY_BACK_WALL_SETBACK_MAX_GAP,
+                )
+            ),
+        )
 
         self.model = cp_model.CpModel()
         self.solver = cp_model.CpSolver()
@@ -217,6 +242,15 @@ class FpgrCore:
                 max_gap=self.envelope_max_gap,
                 exclude_types=self.envelope_exclude_types,
                 apply_sides=self.envelope_apply_sides,
+            )
+
+        if panel.hard_kitchen_hallway_back_wall_setback:
+            add_kitchen_hallway_back_wall_setback_constraint(
+                self.model,
+                self.rooms,
+                floor_height=h_int,
+                min_gap=self.kitchen_hallway_back_wall_setback_min_gap,
+                max_gap=self.kitchen_hallway_back_wall_setback_max_gap,
             )
 
         seed_context = None
