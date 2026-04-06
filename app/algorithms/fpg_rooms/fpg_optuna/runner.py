@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import time
 from typing import Callable
 
 import optuna
@@ -9,6 +10,10 @@ from app.algorithms.fpg_rooms.types.room import (
     ConfigData,
     FpgRequirements,
     RoomData,
+)
+from app.core.fpg_rooms.config_fpg import (
+    TRIAL_EARLY_STOP_SCORE_THRESHOLD,
+    TRIAL_OPTIMIZATION_TIMEOUT_SECONDS,
 )
 from app.core.fpg_rooms.config_optuna import (
     OPTUNA_DEFAULT_STUDY_NAME,
@@ -30,8 +35,10 @@ from app.core.fpg_rooms.config_optuna import (
     OPTUNA_PARAM_KEY_MIN_COVERAGE,
 )
 from app.util.logger.fpg_rooms.optuna_logger import OptunaLogger
+from app.util.logger.system_logger import SystemLogger
 from app.util.tracking import get_tracking_context
 
+from .exceptions import TrialTimeoutError
 from .types import FpgEvaluationResult, OptunaOptimizationResult
 
 EVALUATION_FN = Callable[[FpgRequirements, bool], FpgEvaluationResult]
@@ -41,6 +48,58 @@ OPTUNA_PARAM_KEY_FLOOR_PLAN_WIDTH = "floor_plan_width"
 OPTUNA_PARAM_KEY_FLOOR_PLAN_HEIGHT = "floor_plan_height"
 
 
+class OptunaOptimizationController:
+    """Controller to manage trial optimization early stopping and timeout logic."""
+
+    def __init__(self, timeout_seconds: int = TRIAL_OPTIMIZATION_TIMEOUT_SECONDS, score_threshold: float = TRIAL_EARLY_STOP_SCORE_THRESHOLD):
+        """
+        Initialize the optimization controller.
+
+        Args:
+            timeout_seconds: Maximum time allowed for all trials (seconds)
+            score_threshold: Score threshold for early stopping (0-100)
+        """
+        self.timeout_seconds = timeout_seconds
+        self.score_threshold = score_threshold
+        self.start_time = time.time()
+        self.best_score: float | None = None
+        self.feasible_found = False
+
+    def get_elapsed_time(self) -> float:
+        """Get elapsed time since controller creation (seconds)."""
+        return time.time() - self.start_time
+
+    def check_timeout_and_raise(self) -> None:
+        """Raise TrialTimeoutError if timeout exceeded."""
+        elapsed = self.get_elapsed_time()
+        if elapsed > self.timeout_seconds:
+            raise TrialTimeoutError(elapsed_time=elapsed, timeout_seconds=self.timeout_seconds)
+
+    def should_stop_optimization(self, score: float) -> bool:
+        """
+        Check if optimization should stop (early stopping condition).
+
+        Args:
+            score: The score from the current trial
+
+        Returns:
+            True if optimization should stop, False otherwise
+        """
+        # Update best score
+        if self.best_score is None or score > self.best_score:
+            self.best_score = score
+
+        # Check if score exceeds threshold
+        if score >= self.score_threshold:
+            self.feasible_found = True
+            return True
+
+        # Check if timeout exceeded
+        if self.get_elapsed_time() > self.timeout_seconds:
+            # Don't raise here; let caller decide how to handle
+            return False
+
+        return False
 
 
 def _trial_param_key(room: RoomData, index: int, suffix: str) -> str:
@@ -362,10 +421,14 @@ def run_optuna_optimization(
     """Run Optuna optimization for floor-plan requirements."""
 
     best_run_by_trial: dict[int, FpgEvaluationResult] = {}
+    controller = OptunaOptimizationController()
 
     optuna.logging.set_verbosity(optuna.logging.INFO)
 
     def objective(trial: optuna.Trial) -> float:
+        # Check timeout before starting trial evaluation
+        controller.check_timeout_and_raise()
+
         tracking_context = get_tracking_context()
         if tracking_context is not None:
             tracking_context.next_trial_id()
@@ -435,6 +498,34 @@ def run_optuna_optimization(
             if tracking_context is not None:
                 tracking_context.clear_trial_id()
 
+    def optimization_callback(study: optuna.Study, trial: optuna.Trial) -> None:
+        """Callback to check early stopping and timeout conditions after each trial."""
+        if trial.value is None:
+            return
+
+        score = float(trial.value)
+
+        # Check if score threshold reached (early stop condition)
+        if controller.should_stop_optimization(score):
+            elapsed_time = controller.get_elapsed_time()
+            message = (
+                f"Early stop: score {score:.2f} >= threshold {controller.score_threshold}, "
+                f"stopping trials after {elapsed_time:.2f}s"
+            )
+            SystemLogger.info(sector=3, message=message, data={"trial": trial.number, "score": score, "elapsed_time": elapsed_time})
+            study.stop()
+            return
+
+        # Check timeout
+        try:
+            controller.check_timeout_and_raise()
+        except TrialTimeoutError:
+            elapsed_time = controller.get_elapsed_time()
+            message = f"Trial optimization timeout after {elapsed_time:.2f}s without feasible result"
+            SystemLogger.warning(sector=3, message=message, data={"elapsed_time": elapsed_time})
+            study.stop()
+            raise
+
     sampler = optuna.samplers.TPESampler()
 
     study = optuna.create_study(
@@ -445,7 +536,7 @@ def run_optuna_optimization(
         load_if_exists=True,
     )
 
-    study.optimize(objective, n_trials=n_trials)
+    study.optimize(objective, n_trials=n_trials, callbacks=[optimization_callback])
 
     failed_trials = 0
     for trial in study.trials[-n_trials:]:

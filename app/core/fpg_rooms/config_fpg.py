@@ -116,6 +116,10 @@ DEFAULT_OPTUNA_STORAGE_ENABLED = False
 DEFAULT_OPTUNA_STUDY_NAME = "FPG_study"
 DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
 
+# Trial optimization control
+TRIAL_EARLY_STOP_SCORE_THRESHOLD = 90  # Stop trials if score exceeds this
+TRIAL_OPTIMIZATION_TIMEOUT_SECONDS = 30  # Hard deadline for all trials
+
 # Default generator config
 DEFAULT_ASPECT_RATIO_MAX = 16.0
 DEFAULT_ASPECT_RATIO_MIN = 0.0

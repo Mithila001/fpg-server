@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from time import time
 
+from app.algorithms.fpg_rooms.fpg_optuna.exceptions import TrialTimeoutError
 from app.services.algorithm_manager import run_layout_pipeline
 from app.services.algorithm_manager_v2 import run_fpg_pipeline_api
 from app.schemas.db.room_setup_template import RoomSetupTemplateBase
@@ -108,15 +109,26 @@ def get_formatted_layout_v2(request: Request, body: FormatterV2ApiRequest):
         )
     _last_format_v2_request[client_ip] = now
 
-    with use_tracking_context():
-        payload = run_fpg_pipeline_api(
-            floor_width=converter_cm_to_unit(body.floor_width),
-            floor_height=converter_cm_to_unit(body.floor_height),
-            room_template=body.room_template,
-            should_optuna_run=body.should_optuna_run,
-            optuna_trial_count=body.optuna_trial_count,
-        )
-    payload = converter_unit_to_meters(payload)
+    try:
+        with use_tracking_context():
+            payload = run_fpg_pipeline_api(
+                floor_width=converter_cm_to_unit(body.floor_width),
+                floor_height=converter_cm_to_unit(body.floor_height),
+                room_template=body.room_template,
+                should_optuna_run=body.should_optuna_run,
+                optuna_trial_count=body.optuna_trial_count,
+            )
+        payload = converter_unit_to_meters(payload)
 
-    # Plotting is disabled in this branch to keep api_result_plotter isolated.
-    return FormatterResponse(**payload)
+        # Plotting is disabled in this branch to keep api_result_plotter isolated.
+        return FormatterResponse(**payload)
+    except TrialTimeoutError as e:
+        raise HTTPException(
+            status_code=408,
+            detail={
+                "error": "trial_timeout",
+                "message": str(e),
+                "elapsed_time": e.elapsed_time,
+                "timeout_seconds": e.timeout_seconds,
+            },
+        )
