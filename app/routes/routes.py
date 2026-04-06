@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import List
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from time import time
 
 from app.algorithms.fpg_rooms.fpg_optuna.exceptions import TrialTimeoutError
@@ -52,11 +52,26 @@ class CompactRoomResponse(BaseModel):
     openings: List[OpeningSegmentResponse]
 
 
+class VerandaMetadataResponse(BaseModel):
+    room_name: str
+    l_veranda_pillar: PointResponse
+    r_veranda_pillar: PointResponse
+    veranda_back_points: List[PointResponse]
+
+
+class PostProcessMetadataResponse(BaseModel):
+    veranda: VerandaMetadataResponse | None = None
+    garage_shared_horizontal_overlap_segment: WallSegmentResponse | None = None
+    hallway_living_shared_walls: List[WallSegmentResponse] = Field(default_factory=list)
+    converted_hallway_living_openings: int = 0
+
+
 class FormatterResponse(BaseModel):
     status: str
     message: str
     walls: List[WallSegmentResponse]
     compact_by_room: dict[str, CompactRoomResponse]
+    metadata: PostProcessMetadataResponse | None = None
 
 
 class FormatterV2ApiRequest(BaseModel):

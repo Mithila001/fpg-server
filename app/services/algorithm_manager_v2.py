@@ -65,7 +65,16 @@ from app.util.room_requirements import (
 )
 from test.dev.final_result_plotter import plot_final_solver_result
 
-EMPTY_POST_PROCESS_LAYOUT = {"walls": [], "compact_by_room": {}}
+EMPTY_POST_PROCESS_LAYOUT = {
+    "walls": [],
+    "compact_by_room": {},
+    "metadata": {
+        "veranda": None,
+        "garage_shared_horizontal_overlap_segment": None,
+        "hallway_living_shared_walls": [],
+        "converted_hallway_living_openings": 0,
+    },
+}
 EMPTY_OPENING_LAYOUT = {
     "openings": [],
     "warnings": [],
@@ -118,6 +127,7 @@ def _error_payload(message: str, status: str = "ERROR") -> dict[str, Any]:
         "message": message,
         "walls": [],
         "compact_by_room": {},
+        "metadata": EMPTY_POST_PROCESS_LAYOUT["metadata"],
     }
 
 
@@ -427,6 +437,7 @@ def _build_payload_from_solver_result(run_result: FpgEvaluationResult) -> dict[s
         "message": run_result.message,
         "walls": post_process_result["walls"],
         "compact_by_room": post_process_result["compact_by_room"],
+        "metadata": post_process_result.get("metadata", EMPTY_POST_PROCESS_LAYOUT["metadata"]),
     }
 
 
