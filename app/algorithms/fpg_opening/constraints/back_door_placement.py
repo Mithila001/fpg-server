@@ -176,6 +176,7 @@ def build_back_door_candidates(
     Priority order:
     1) Furthest-back horizontal exterior wall segments (north side).
     2) Fallback to outer-most exterior vertical segments (west/east).
+    3) Fallback to any available exterior segments if preferred options are too constrained.
     """
     horizontal_candidates = _build_horizontal_back_candidates(
         all_rooms=all_rooms,
@@ -185,11 +186,79 @@ def build_back_door_candidates(
     if horizontal_candidates:
         return horizontal_candidates
 
-    return _build_vertical_outermost_candidates(
+    vertical_candidates = _build_vertical_outermost_candidates(
         all_rooms=all_rooms,
         preferred_door_length=preferred_door_length,
         tolerance=tolerance,
     )
+    if vertical_candidates:
+        return vertical_candidates
+
+    # Final fallback: try any exterior wall segment on kitchen or hallway.
+    all_fallback_candidates: list[BackDoorCandidate] = []
+    for room in all_rooms:
+        if not _is_eligible_room_type(room["type"]):
+            continue
+
+        exterior_sides = get_exterior_sides(
+            target_room=room,
+            all_rooms=all_rooms,
+            tolerance=tolerance,
+        )
+        if not exterior_sides:
+            continue
+
+        for side in exterior_sides:
+            if side in ("south", "north"):
+                span_start = room["x"]
+                span_end = room["x_end"]
+            else:
+                span_start = room["y"]
+                span_end = room["y_end"]
+
+            span_length = span_end - span_start
+            if span_length <= tolerance:
+                continue
+
+            door_length = min(preferred_door_length, span_length)
+            mid = (span_start + span_end) / 2.0
+            coord1 = mid - (door_length / 2.0)
+            coord2 = mid + (door_length / 2.0)
+
+            if side in ("south", "north"):
+                candidate: BackDoorCandidate = {
+                    "room_name": room["name"],
+                    "room_type": room["type"],
+                    "side": side,
+                    "x1": coord1,
+                    "y1": room["y"] if side == "south" else room["y_end"],
+                    "x2": coord2,
+                    "y2": room["y"] if side == "south" else room["y_end"],
+                }
+            else:
+                candidate = {
+                    "room_name": room["name"],
+                    "room_type": room["type"],
+                    "side": side,
+                    "x1": room["x"] if side == "west" else room["x_end"],
+                    "y1": coord1,
+                    "x2": room["x"] if side == "west" else room["x_end"],
+                    "y2": coord2,
+                }
+
+            all_fallback_candidates.append(candidate)
+
+    if all_fallback_candidates:
+        all_fallback_candidates.sort(
+            key=lambda c: (
+                _room_type_priority(c["room_type"]),
+                c["room_name"],
+                0 if c["side"] in ("south", "north") else (1 if c["side"] == "west" else 2),
+            )
+        )
+        return all_fallback_candidates
+
+    return []
 
 
 def add_back_door_placement_constraint(

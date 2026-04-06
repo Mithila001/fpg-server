@@ -230,6 +230,19 @@ class OpeningGenerator:
 				tolerance=self.tolerance,
 			)
 
+			# For kitchen, also try smaller window width to preserve back-door placement space.
+			is_kitchen = room["type"].strip().lower() == "kitchen"
+			if is_kitchen and self.window_width > 8.0:
+				room_candidates_compact = build_window_candidates_for_room(
+					room=room,
+					exterior_sides=exterior_sides,
+					existing_openings=openings,
+					window_width=8.0,
+					door_clearance=self.window_door_clearance,
+					tolerance=self.tolerance,
+				)
+				room_candidates.extend(room_candidates_compact)
+
 			if not room_candidates:
 				warnings.append(
 					f"No valid exterior window for {room['type']} '{room['name']}'"
