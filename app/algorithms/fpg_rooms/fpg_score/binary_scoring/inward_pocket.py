@@ -211,14 +211,14 @@ def detect_inward_pocket_violation(
                     }
                 )
 
-    _plot_inward_pocket_debug(
-        rooms=rooms,
-        hull=hull,
-        pockets=pockets,
-        tracked_segments=tracked_segments,
-        bad_segments=bad_segments,
-        output_dir=os.path.join(os.path.dirname(__file__), "temp"),
-    )
+    # _plot_inward_pocket_debug(
+    #     rooms=rooms,
+    #     hull=hull,
+    #     pockets=pockets,
+    #     tracked_segments=tracked_segments,
+    #     bad_segments=bad_segments,
+    #     output_dir=os.path.join(os.path.dirname(__file__), "temp"),
+    # )
 
     diagnostics["violating_segments"] = violating_segments
     return len(violating_segments) > 0, diagnostics

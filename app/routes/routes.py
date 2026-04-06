@@ -11,7 +11,11 @@ from app.services.algorithm_manager import run_layout_pipeline
 from app.services.algorithm_manager_v2 import run_fpg_pipeline_api
 from app.schemas.db.room_setup_template import RoomSetupTemplateBase
 from app.util.tracking import use_tracking_context
-from app.util.unit_converter import converter_cm_to_unit, converter_unit_to_meters
+from app.util.unit_converter import (
+    converter_cm_to_unit,
+    converter_unit_to_centimeters,
+    converter_unit_to_meters,
+)
 # Plotting hook removed so api_result_plotter is isolated and unused by default
 # from test.dev.plotter_loader import plot_floor_plan_payload
 # from app.util.logger import SystemLogger
@@ -133,7 +137,7 @@ def get_formatted_layout_v2(request: Request, body: FormatterV2ApiRequest):
                 should_optuna_run=body.should_optuna_run,
                 optuna_trial_count=body.optuna_trial_count,
             )
-        payload = converter_unit_to_meters(payload)
+        payload = converter_unit_to_centimeters(payload)
 
         # Plotting is disabled in this branch to keep api_result_plotter isolated.
         return FormatterResponse(**payload)
