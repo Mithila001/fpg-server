@@ -363,7 +363,7 @@ def run_optuna_optimization(
 
     best_run_by_trial: dict[int, FpgEvaluationResult] = {}
 
-    optuna.logging.set_verbosity(optuna.logging.WARNING)
+    optuna.logging.set_verbosity(optuna.logging.INFO)
 
     def objective(trial: optuna.Trial) -> float:
         tracking_context = get_tracking_context()

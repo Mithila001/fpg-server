@@ -4,9 +4,11 @@ from typing import Any
 from ortools.sat.python import cp_model
 
 from .constraints import (
+	add_back_door_placement_constraint,
 	add_internal_doors_placement_constraint,
 	add_main_door_to_outside_constraint,
 	add_windows_placement_constraint,
+	build_back_door_candidates,
 )
 from .constraints.windows_placement import build_window_candidates_for_room, is_window_eligible_room
 from .solver_models import from_scaled_int, to_scaled_int
@@ -169,6 +171,45 @@ class OpeningGenerator:
 					)
 			else:
 				warnings.append("Internal door constraint solve failed")
+
+		back_door_candidates = build_back_door_candidates(
+			all_rooms=normalized_rooms,
+			preferred_door_length=self.preferred_door_length,
+			tolerance=self.tolerance,
+		)
+		if back_door_candidates:
+			back_door_model = cp_model.CpModel()
+			back_door_decisions = add_back_door_placement_constraint(
+				model=back_door_model,
+				candidates=back_door_candidates,
+			)
+
+			back_door_solver = cp_model.CpSolver()
+			back_door_solver.parameters.max_time_in_seconds = 1.0
+			back_door_solver.parameters.num_search_workers = 1
+			back_door_status = back_door_solver.Solve(back_door_model)
+
+			if back_door_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+				for index, selected_var in enumerate(back_door_decisions["selected"]):
+					if back_door_solver.Value(selected_var) != 1:
+						continue
+
+					candidate = back_door_candidates[index]
+					openings.append(
+						{
+							"room_name": candidate["room_name"],
+							"room_type": candidate["room_type"],
+							"opening_type": "backDoor",
+							"side": candidate["side"],  # type: ignore[typeddict-item]
+							"x1": candidate["x1"],
+							"y1": candidate["y1"],
+							"x2": candidate["x2"],
+							"y2": candidate["y2"],
+						}
+					)
+					break
+			else:
+				warnings.append("Back door constraint solve failed")
 
 		window_candidates = []
 		for room in normalized_rooms:

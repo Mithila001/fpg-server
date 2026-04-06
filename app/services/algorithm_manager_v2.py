@@ -255,7 +255,7 @@ def _run_single_fpg_solve(
 ) -> FpgEvaluationResult:
     generator = FloorPlanGenerator(requirements)
     
-    verbose= True # TODO DEBUG FLAG Remove this 
+    verbose= False # TODO DEBUG FLAG Remove this 
     if verbose:
         solved = generator.generate()
     else:

@@ -21,7 +21,7 @@ _MAX_INTERNAL_DOORS_PER_ROOM_TYPE = {
     "livingroom": 10,
     "hallway": 10,
     "kitchen": 2,
-    "attachedBathroom":1,
+    "attachedbathroom":1,
     "veranda":1
 }
 
