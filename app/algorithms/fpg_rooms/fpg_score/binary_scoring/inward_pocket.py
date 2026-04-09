@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import os
 from typing import Any, Dict, Sequence, Tuple
 
-from shapely.geometry import box
+from shapely.geometry import box, LineString
 from shapely.ops import unary_union
 
 from ..utils import (
@@ -12,6 +13,93 @@ from ..utils import (
     iter_segments,
     segment_orientation,
 )
+
+
+def _plot_inward_pocket_debug(
+    rooms: Sequence[Dict[str, Any]],
+    hull: Any,
+    pockets: Any,
+    tracked_segments: Sequence[LineString],
+    bad_segments: Sequence[LineString],
+    output_dir: str,
+) -> None:
+    try:
+        import matplotlib.pyplot as plt
+        from matplotlib.patches import Polygon as MplPolygon
+    except ImportError:
+        return
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    def _draw_rooms(ax: Any) -> None:
+        for room in rooms:
+            x = float(room["x"])
+            y = float(room["y"])
+            w = float(room["x_end"]) - x
+            h = float(room["y_end"]) - y
+            rect = plt.Rectangle((x, y), w, h, facecolor="lightblue", edgecolor="black", alpha=0.3)
+            ax.add_patch(rect)
+
+    def _draw_polygon(ax: Any, polygon: Any, **kwargs: Any) -> None:
+        if polygon.is_empty:
+            return
+        if polygon.geom_type == "Polygon":
+            patch = MplPolygon(list(polygon.exterior.coords), closed=True, **kwargs)
+            ax.add_patch(patch)
+        else:
+            for poly in getattr(polygon, "geoms", []):
+                patch = MplPolygon(list(poly.exterior.coords), closed=True, **kwargs)
+                ax.add_patch(patch)
+
+    def _draw_segments(ax: Any, segments: Sequence[LineString], **kwargs: Any) -> None:
+        for segment in segments:
+            xs, ys = segment.xy
+            ax.plot(xs, ys, **kwargs)
+
+    all_x = [float(room["x"]) for room in rooms] + [float(room["x_end"]) for room in rooms]
+    all_y = [float(room["y"]) for room in rooms] + [float(room["y_end"]) for room in rooms]
+    padding = max(1.0, max(all_x) - min(all_x), max(all_y) - min(all_y))
+    x_min = min(all_x) - padding * 0.05
+    x_max = max(all_x) + padding * 0.05
+    y_min = min(all_y) - padding * 0.05
+    y_max = max(all_y) + padding * 0.05
+
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+    titles = [
+        "Union + detected pockets",
+        "Tracked pocket boundary segments",
+        "Violating inward pocket segments",
+    ]
+
+    for ax, title in zip(axes, titles):
+        _draw_rooms(ax)
+        if hull is not None and hasattr(hull, "exterior"):
+            xs, ys = hull.exterior.xy
+            ax.plot(xs, ys, color="gray", linestyle="--", linewidth=1)
+        ax.set_title(title)
+        ax.set_aspect("equal", adjustable="box")
+        ax.set_xlim(x_min, x_max)
+        ax.set_ylim(y_min, y_max)
+        ax.set_xticks([x_min + i * 10 for i in range(int((x_max - x_min) / 10) + 2)])
+        ax.set_yticks([y_min + i * 10 for i in range(int((y_max - y_min) / 10) + 2)])
+        ax.grid(True, which="major", color="lightgray", linestyle="--", linewidth=0.5)
+
+    _draw_polygon(axes[0], pockets, facecolor="red", edgecolor="darkred", alpha=0.35)
+    _draw_segments(axes[1], tracked_segments, color="orange", linewidth=2)
+    _draw_segments(axes[2], bad_segments, color="red", linewidth=3)
+
+    axes[0].legend([plt.Line2D([0], [0], color="lightblue", lw=10, alpha=0.3), plt.Line2D([0], [0], color="red", lw=10, alpha=0.35)], ["rooms", "pockets"], frameon=False)
+
+    import uuid
+    from datetime import datetime
+
+    output_path = os.path.join(
+        output_dir,
+        f"inward_pocket_debug_{datetime.utcnow():%Y%m%d_%H%M%S_%f}_{uuid.uuid4().hex}.png",
+    )
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150)
+    plt.close(fig)
 
 
 def detect_inward_pocket_violation(
@@ -59,6 +147,8 @@ def detect_inward_pocket_violation(
     hull_boundary = hull.boundary
 
     violating_segments: list[Dict[str, Any]] = []
+    tracked_segments: list[LineString] = []
+    bad_segments: list[LineString] = []
 
     for pocket_index, pocket in enumerate(iter_polygons(pockets)):
         diagnostics["pocket_count"] += 1
@@ -101,12 +191,14 @@ def detect_inward_pocket_violation(
             if hull_segment_orientations and current_orientation in hull_segment_orientations:
                 continue
 
+            tracked_segments.append(segment)
             diagnostics["max_inward_segment_length"] = max(
                 float(diagnostics["max_inward_segment_length"]),
                 seg_length,
             )
 
             if seg_length > float(max_inward_length):
+                bad_segments.append(segment)
                 violating_segments.append(
                     {
                         "pocket_index": int(pocket_index),
@@ -118,6 +210,15 @@ def detect_inward_pocket_violation(
                         "y2": end[1],
                     }
                 )
+
+    # _plot_inward_pocket_debug(
+    #     rooms=rooms,
+    #     hull=hull,
+    #     pockets=pockets,
+    #     tracked_segments=tracked_segments,
+    #     bad_segments=bad_segments,
+    #     output_dir=os.path.join(os.path.dirname(__file__), "temp"),
+    # )
 
     diagnostics["violating_segments"] = violating_segments
     return len(violating_segments) > 0, diagnostics

@@ -76,6 +76,13 @@ def converter_cm_to_unit(data: Any) -> Any:
     return _convert_payload(data, linear_factor=linear_factor, area_factor=area_factor)
 
 
+def converter_unit_to_centimeters(data: Any) -> Any:
+    """Convert internal solver-unit payload values into centimeter-based API values."""
+    linear_factor = 1.0
+    area_factor = 1.0
+    return _convert_payload(data, linear_factor=linear_factor, area_factor=area_factor)
+
+
 def converter_unit_to_meters(data: Any) -> Any:
     """Convert internal solver-unit payload values into meter-based API values."""
     linear_factor = SERVER_UNIT_IN_CM / CM_PER_METER

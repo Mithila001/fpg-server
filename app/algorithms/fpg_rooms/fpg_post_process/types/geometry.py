@@ -3,6 +3,11 @@ from __future__ import annotations
 from typing import NotRequired, TypedDict
 
 
+class PointPayload(TypedDict):
+    x: float
+    y: float
+
+
 class WallSegmentPayload(TypedDict):
     x1: float
     y1: float

@@ -1,10 +1,12 @@
-from .geometry import OpeningPayload, RoomBoundaryPayload, WallSegmentPayload
+from .geometry import OpeningPayload, PointPayload, RoomBoundaryPayload, WallSegmentPayload
 from .pipeline import ProcessContextPayload
 from .processor_outputs import CompactRoomPayload, RoomWallsPayload, WallUnionResultPayload
 from .public import (
+    PostProcessMetadataPayload,
     PostProcessInputPayload,
     PostProcessOutputPayload,
     QuickPostProcessOutputPayload,
+    VerandaMetadataPayload,
 )
 
 __all__ = [
@@ -14,8 +16,11 @@ __all__ = [
     "ProcessContextPayload",
     "RoomBoundaryPayload",
     "OpeningPayload",
+    "PointPayload",
     "WallSegmentPayload",
     "RoomWallsPayload",
     "WallUnionResultPayload",
     "CompactRoomPayload",
+    "PostProcessMetadataPayload",
+    "VerandaMetadataPayload",
 ]

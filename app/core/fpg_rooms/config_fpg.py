@@ -29,7 +29,7 @@ INWARD_POCKET_MAX_LENGTH = 20.0
 ENVELOPE_ENABLED = True
 ENVELOPE_MIN_GAP = 5
 ENVELOPE_MAX_GAP = 20
-ENVELOPE_EXCLUDE_TYPES = []
+ENVELOPE_EXCLUDE_TYPES = [] # Non eligible room types for envelope checking
 ENVELOPE_APPLY_SIDES = ["left", "right", "top", "bottom"]
 
 # Garage placement settings
@@ -42,7 +42,7 @@ VERANDA_OUTDOOR_SPACE_MAX_W = 100
 VERANDA_OUTDOOR_SPACE_MAX_H = 100
 
 # Adjacency constraint settings
-DEFAULT_ADJACENCY_MIN_OVERLAP = 20
+DEFAULT_ADJACENCY_MIN_OVERLAP = 10
 GENERATOR_ADJACENCY_MIN_OVERLAP = 20
 
 # Room location/bathroom preferences
@@ -115,6 +115,10 @@ DEFAULT_OPTUNA_TRIALS = 20
 DEFAULT_OPTUNA_STORAGE_ENABLED = False
 DEFAULT_OPTUNA_STUDY_NAME = "FPG_study"
 DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
+
+# Trial optimization control
+TRIAL_EARLY_STOP_SCORE_THRESHOLD = 90  # Stop trials if score exceeds this
+TRIAL_OPTIMIZATION_TIMEOUT_SECONDS = 60  # Hard deadline for all trials
 
 # Default generator config
 DEFAULT_ASPECT_RATIO_MAX = 16.0

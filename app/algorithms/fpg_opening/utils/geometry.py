@@ -6,6 +6,9 @@ from app.algorithms.fpg_opening.types.opening import NormalizedRoom
 from app.algorithms.fpg_opening.types.opening_solver import InternalDoorCandidate
 
 
+_MIN_INTERNAL_DOOR_SHARED_WALL_OVERLAP = 10.0
+
+
 def _to_float(value: Any) -> float:
     if isinstance(value, (int, float)):
         return float(value)
@@ -122,6 +125,8 @@ def get_internal_door_candidates(
                 span_start = max(room_a["y"], room_b["y"])
                 span_end = min(room_a["y_end"], room_b["y_end"])
                 span_length = span_end - span_start
+                if span_length < _MIN_INTERNAL_DOOR_SHARED_WALL_OVERLAP:
+                    continue
                 door_length = min(preferred_door_length, span_length)
                 mid = (span_start + span_end) / 2.0
                 y1 = mid - (door_length / 2.0)
@@ -146,6 +151,8 @@ def get_internal_door_candidates(
                 span_start = max(room_a["y"], room_b["y"])
                 span_end = min(room_a["y_end"], room_b["y_end"])
                 span_length = span_end - span_start
+                if span_length < _MIN_INTERNAL_DOOR_SHARED_WALL_OVERLAP:
+                    continue
                 door_length = min(preferred_door_length, span_length)
                 mid = (span_start + span_end) / 2.0
                 y1 = mid - (door_length / 2.0)
@@ -171,6 +178,8 @@ def get_internal_door_candidates(
                 span_start = max(room_a["x"], room_b["x"])
                 span_end = min(room_a["x_end"], room_b["x_end"])
                 span_length = span_end - span_start
+                if span_length < _MIN_INTERNAL_DOOR_SHARED_WALL_OVERLAP:
+                    continue
                 door_length = min(preferred_door_length, span_length)
                 mid = (span_start + span_end) / 2.0
                 x1 = mid - (door_length / 2.0)
@@ -195,6 +204,8 @@ def get_internal_door_candidates(
                 span_start = max(room_a["x"], room_b["x"])
                 span_end = min(room_a["x_end"], room_b["x_end"])
                 span_length = span_end - span_start
+                if span_length < _MIN_INTERNAL_DOOR_SHARED_WALL_OVERLAP:
+                    continue
                 door_length = min(preferred_door_length, span_length)
                 mid = (span_start + span_end) / 2.0
                 x1 = mid - (door_length / 2.0)
