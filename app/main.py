@@ -6,7 +6,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 
-from app.util.logger.fpg_rooms.api_logger import ApiLogger
 
 app = FastAPI(title="House Plan Generator API")
 
@@ -46,13 +45,6 @@ async def log_api_requests(request, call_next):
             response_body += chunk
 
         duration_ms = (perf_counter() - start) * 1000
-        ApiLogger.request_response(
-            request=request,
-            request_body=request_body,
-            response_body=response_body,
-            status_code=response.status_code,
-            duration_ms=duration_ms,
-        )
 
         response_headers = dict(response.headers)
         response_headers.pop("content-length", None)
@@ -65,14 +57,7 @@ async def log_api_requests(request, call_next):
         )
     except Exception as exc:
         duration_ms = (perf_counter() - start) * 1000
-        ApiLogger.request_response(
-            request=request,
-            request_body=request_body,
-            response_body=b"",
-            status_code=500,
-            duration_ms=duration_ms,
-            error=str(exc),
-        )
+        print(f"duration: {duration_ms}, Exception: {exc}")
         raise
 
 # Algorithm routers

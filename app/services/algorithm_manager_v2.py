@@ -18,6 +18,8 @@ from app.algorithms.fpg_rooms.fpg_post_process import (
     run_final_post_process,
     run_quick_post_process,
 )
+from app.util.logger.system_logger import SystemLogger
+
 from app.algorithms.fpg_rooms.fpg_score import score_layout
 from app.algorithms.fpg_rooms.fpgr_p_refine_1 import run_refine_profile_1
 from app.algorithms.fpg_rooms.types.room import ConfigData, FpgRequirements, RoomData
@@ -57,7 +59,6 @@ from app.util.dev_use_mock_db import (
     load_room_setup_templates,
     load_room_size_constraints,
 )
-from app.util.logger import SystemLogger
 from app.util.constraint_pruner import prune_room_relations_constraints_by_template
 from app.util.room_requirements import (
     compute_floor_plan_dimension_bounds,
@@ -464,16 +465,7 @@ def run_fpg_pipeline_internal(
     """Internal pipeline: load server-side data, validate, solve and format payload."""
     
     started_at = perf_counter()
-    SystemLogger.info(
-        sector=1,
-        message="v2 internal layout pipeline started",
-        filename="algorithm_manager_v2.py",
-        data={
-            "should_optuna_run": bool(should_optuna_run),
-            "optuna_trial_count": int(optuna_trial_count),
-            "verbose": bool(verbose),
-        },
-    )
+
 
     try:
         templates, size_constraints, relation_constraints = _load_server_side_data()
@@ -519,27 +511,10 @@ def run_fpg_pipeline_internal(
         except Exception:
             pass
         payload = _build_payload_from_solver_result(run_result)
-        SystemLogger.info(
-            sector=1,
-            message="v2 internal layout pipeline completed",
-            filename="algorithm_manager_v2.py",
-            data={
-                "status": payload.get("status", "UNKNOWN"),
-                "solved": bool(run_result.solved),
-                "duration_ms": round((perf_counter() - started_at) * 1000.0, 2),
-            },
-        )
+
         return payload
     except Exception as exc:
-        SystemLogger.error(
-            sector=1,
-            message="v2 internal layout pipeline failed",
-            filename="algorithm_manager_v2.py",
-            data={
-                "error": str(exc),
-                "duration_ms": round((perf_counter() - started_at) * 1000.0, 2),
-            },
-        )
+
         return _error_payload(f"Failed to generate layout: {exc}")
 
 
@@ -554,18 +529,13 @@ def run_fpg_pipeline_api(
     """API pipeline: use caller dimensions/template, fetch constraints server-side, then solve."""
     print("\nSTART: run_fpg_pipeline_api() ------")
     started_at = perf_counter()
-    SystemLogger.info(
-        sector=1,
-        message="v2 api layout pipeline started",
-        filename="algorithm_manager_v2.py",
-        data={
-            "floor_width": float(floor_width),
-            "floor_height": float(floor_height),
-            "should_optuna_run": bool(should_optuna_run),
-            "optuna_trial_count": int(optuna_trial_count),
-            "verbose": bool(verbose),
-        },
+    SystemLogger.log_event(
+    tag="TEST",
+    event="test_logs",
+    level="INFO",
+    data={"status": "working"},
     )
+
 
     # WARNING: Its highly important to change `should_bypass` value to False when deploying
     try:
@@ -605,25 +575,8 @@ def run_fpg_pipeline_api(
         except Exception:
             pass
         payload = _build_payload_from_solver_result(run_result)
-        SystemLogger.info(
-            sector=1,
-            message="v2 api layout pipeline completed",
-            filename="algorithm_manager_v2.py",
-            data={
-                "status": payload.get("status", "UNKNOWN"),
-                "solved": bool(run_result.solved),
-                "duration_ms": round((perf_counter() - started_at) * 1000.0, 2),
-            },
-        )
+
         return payload
     except Exception as exc:
-        SystemLogger.error(
-            sector=1,
-            message="v2 api layout pipeline failed",
-            filename="algorithm_manager_v2.py",
-            data={
-                "error": str(exc),
-                "duration_ms": round((perf_counter() - started_at) * 1000.0, 2),
-            },
-        )
+
         return _error_payload(f"Failed to generate layout: {exc}")

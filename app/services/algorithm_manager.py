@@ -55,7 +55,6 @@ from app.util.dev_use_mock_db import (
     load_room_setup_templates,
     load_room_size_constraints,
 )
-from app.util.logger import SystemLogger
 
 
 # Fallback room dimension used when a room_size_constraints column is NULL.
@@ -299,12 +298,7 @@ def _select_solver_result(
     verbose: bool,
 ) -> FpgEvaluationResult:
     """Return a single solver result selected from one-shot or Optuna flow."""
-    SystemLogger.info(
-        sector=1,
-        message="solver selection",
-        filename="algorithm_manager.py",
-        data={"use_optuna": bool(use_optuna), "n_trials": int(n_trials)},
-    )
+
 
     if not use_optuna:
         return _RunFPG(requirements, verbose=verbose)
@@ -364,26 +358,12 @@ def run_layout_pipeline(
 ) -> dict[str, Any]:
     """Main orchestrator: DB requirements -> solve -> post-process -> payload."""
     started_at = perf_counter()
-    SystemLogger.info(
-        sector=1,
-        message="layout pipeline started",
-        filename="algorithm_manager.py",
-        data={
-            "use_optuna": bool(use_optuna),
-            "n_trials": int(n_trials),
-            "verbose": bool(verbose),
-        },
-    )
+
 
     try:
         requirements = _build_requirements_from_database()
         if requirements is None:
-            SystemLogger.warning(
-                sector=1,
-                message="layout pipeline ended without template",
-                filename="algorithm_manager.py",
-                data={"status": "NO_TEMPLATE"},
-            )
+
             return {
                 "status": "NO_TEMPLATE",
                 "message": "No room template available in database",
@@ -398,27 +378,10 @@ def run_layout_pipeline(
             verbose=verbose,
         )
         payload = _build_payload_from_solver_result(run_result)
-        SystemLogger.info(
-            sector=1,
-            message="layout pipeline completed",
-            filename="algorithm_manager.py",
-            data={
-                "status": payload.get("status", "UNKNOWN"),
-                "solved": bool(run_result.solved),
-                "duration_ms": round((perf_counter() - started_at) * 1000.0, 2),
-            },
-        )
+
         return payload
     except Exception as exc:
-        SystemLogger.error(
-            sector=1,
-            message="layout pipeline failed",
-            filename="algorithm_manager.py",
-            data={
-                "error": str(exc),
-                "duration_ms": round((perf_counter() - started_at) * 1000.0, 2),
-            },
-        )
+
         return {
             "status": "ERROR",
             "message": f"Failed to generate layout: {exc}",

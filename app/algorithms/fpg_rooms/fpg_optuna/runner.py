@@ -34,8 +34,6 @@ from app.core.fpg_rooms.config_optuna import (
     OPTUNA_PARAM_KEY_HALLWAY_COUNT,
     OPTUNA_PARAM_KEY_MIN_COVERAGE,
 )
-from app.util.logger.fpg_rooms.optuna_logger import OptunaLogger
-from app.util.logger.system_logger import SystemLogger
 from app.util.tracking import get_tracking_context
 
 from .exceptions import TrialTimeoutError
@@ -439,12 +437,11 @@ def run_optuna_optimization(
                 floor_dimension_bounds=floor_dimension_bounds,
             )
 
-            # --- Optuna logging block start ---
-            OptunaLogger.trial_start(trial.number, trial_requirements)
+
 
             ok, reason = _precheck(trial_requirements)
             if not ok:
-                OptunaLogger.precheck_failed(trial.number, trial_requirements, reason)
+                
                 trial.set_user_attr("status", "precheck_failed")
                 trial.set_user_attr("reason", reason)
                 trial.set_user_attr("valid", False)
@@ -453,30 +450,7 @@ def run_optuna_optimization(
 
             result = evaluator(trial_requirements, False)
 
-            score = (
-                float(result.score_report.total_score)
-                if result.score_report is not None and result.score_report.total_score is not None
-                else None
-            )
-            is_valid = bool(result.score_report.valid) if result.score_report is not None else False
-            hard_violation_count = (
-                len(result.score_report.hard_violations)
-                if result.score_report is not None
-                else 0
-            )
 
-            # --- Optuna evaluation log start ---
-            OptunaLogger.evaluation_done(
-                trial_number=trial.number,
-                requirements=trial_requirements,
-                status=result.status,
-                solved=result.solved,
-                valid=is_valid,
-                score=score,
-                hard_violation_count=hard_violation_count,
-                message=result.message,
-            )
-            # --- Optuna evaluation log end ---
 
             best_run_by_trial[trial.number] = result
 
@@ -512,7 +486,6 @@ def run_optuna_optimization(
                 f"Early stop: score {score:.2f} >= threshold {controller.score_threshold}, "
                 f"stopping trials after {elapsed_time:.2f}s"
             )
-            SystemLogger.info(sector=3, message=message, data={"trial": trial.number, "score": score, "elapsed_time": elapsed_time})
             study.stop()
             return
 
@@ -522,7 +495,6 @@ def run_optuna_optimization(
         except TrialTimeoutError:
             elapsed_time = controller.get_elapsed_time()
             message = f"Trial optimization timeout after {elapsed_time:.2f}s without feasible result"
-            SystemLogger.warning(sector=3, message=message, data={"elapsed_time": elapsed_time})
             study.stop()
             raise
 
@@ -563,19 +535,6 @@ def run_optuna_optimization(
                 status="precheck_failed",
                 message=reason,
             )
-
-    # --- Optuna summary log start ---
-    OptunaLogger.optimization_summary(
-        study_name=study.study_name,
-        best_trial_number=int(study.best_trial.number),
-        best_value=float(study.best_value),
-        completed_trials=len(study.trials),
-        failed_trials=failed_trials,
-        best_params=dict(study.best_params),
-        best_status=best_run.status,
-        best_solved=best_run.solved,
-    )
-    # --- Optuna summary log end ---
 
     return OptunaOptimizationResult(
         study_name=study.study_name,

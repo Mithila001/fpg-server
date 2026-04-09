@@ -12,7 +12,6 @@ from app.core.fpg_rooms.config_fpg import (
     ENVELOPE_MIN_GAP,
     SCORE_WEIGHTS,
 )
-from app.util.logger import ScoreLogger
 from .binary_scoring import (
     detect_inward_pocket_violation,
     validate_adjacency_relations,
@@ -83,22 +82,6 @@ def _resolve_scoring_inputs(
     return normalized_rooms, wall_union
 
 
-def _log_score_run(
-    component_scores: Dict[str, Any],
-    diagnostics: Dict[str, Any],
-    stage: str,
-    total_score: float,
-    valid: bool,
-    hard_violation_count: int,
-) -> None:
-    ScoreLogger.score_run(
-        component_scores=component_scores,
-        total_score=total_score,
-        valid=valid,
-        hard_violation_count=hard_violation_count,
-        diagnostics=diagnostics,
-        stage=stage,
-    )
 
 
 def score_layout(
@@ -204,14 +187,7 @@ def score_layout(
             "envelope": envelope_score,
             "inward_pocket": inward_pocket_score,
         }
-        _log_score_run(
-            component_scores=component_scores,
-            diagnostics=diagnostics,
-            stage="hard-gate-failed",
-            total_score=0.0,
-            valid=False,
-            hard_violation_count=len(hard_violations),
-        )
+
         return ScoreReport(
             valid=False,
             total_score=0.0,
@@ -231,14 +207,6 @@ def score_layout(
             "envelope": envelope_score,
             "inward_pocket": inward_pocket_score,
         }
-        _log_score_run(
-            component_scores=component_scores,
-            diagnostics=diagnostics,
-            stage="geometric-gate-failed",
-            total_score=1.0,
-            valid=True,
-            hard_violation_count=0,
-        )
         return ScoreReport(
             valid=True,
             total_score=1.0,
@@ -272,15 +240,6 @@ def score_layout(
         component_scores["coverage"] * float(weights.get("coverage", SCORE_WEIGHTS["coverage"]))
         + component_scores["rectangularity"] * float(weights.get("rectangularity", SCORE_WEIGHTS["rectangularity"]))
         + component_scores["empty_space"] * float(weights.get("empty_space", SCORE_WEIGHTS["empty_space"]))
-    )
-
-    _log_score_run(
-        component_scores=component_scores,
-        diagnostics=diagnostics,
-        stage="final",
-        total_score=total_score,
-        valid=True,
-        hard_violation_count=0,
     )
 
     return ScoreReport(
