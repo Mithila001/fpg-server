@@ -9,7 +9,7 @@ class FPBoundaryFinder:
     perpendicular to the first edge) within a given polygon.
     """
 
-    def __init__(self, y_resolution: float = 0.1):
+    def __init__(self, y_resolution: float = 5):
         """
         Args:
             y_resolution: Step size for the horizontal sweep line. Smaller values

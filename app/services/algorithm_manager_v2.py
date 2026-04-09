@@ -183,10 +183,13 @@ def pre_validation(
     Rule: if total minimum room area + 100 exceeds floor area,
     the request is treated as impossible for the given floor size.
     """
+    print("\n pre_validation ()")
     if floor_width <= 0 or floor_height <= 0:
+        print("\n pvs")
         return False, "Floor width and height must be positive values."
 
     if room_template is None or not room_template.data:
+        print("\n pvs")
         return False, "Room template data is empty."
 
     constraints_by_type = {c.type: c for c in room_size_constraints}
@@ -195,10 +198,12 @@ def pre_validation(
     for entry in room_template.data:
         room_type = entry.get("type")
         if not room_type:
+            print("\n pvs")
             return False, "Room template contains an entry without room type."
 
         constraint = constraints_by_type.get(room_type)
         if constraint is None:
+            print("\n pvs")
             return False, f"Missing room size constraint for room type: {room_type}"
 
         if constraint.min_area is not None:
@@ -206,6 +211,7 @@ def pre_validation(
         elif constraint.min_w is not None and constraint.min_h is not None:
             min_area = float(constraint.min_w) * float(constraint.min_h)
         else:
+            print("\n pvs")
             return (
                 False,
                 f"Missing min area definition for room type: {room_type}",
@@ -218,6 +224,7 @@ def pre_validation(
 
     if required_min_area > floor_area:
         shortage = required_min_area - floor_area
+        print("\n pvs : impossible requirements")
         return (
             False,
             "Impossible Requirements For the given floor area. "
@@ -225,7 +232,7 @@ def pre_validation(
             f"= {required_min_area:.2f}, floor area = {floor_width:.2f} * {floor_height:.2f} "
             f"= {floor_area:.2f}, shortage = {shortage:.2f}.",
         )
-
+    print("\n pre_validation Ends ")
     return True, None
 
 
@@ -238,6 +245,8 @@ def _build_requirements(
 ) -> FpgRequirements:
     rooms = _build_rooms_from_template(room_template)
     normalized_rooms = normalize_db_data_requirements(rooms, room_size_constraints)
+    
+    print("\n _build_requirements()")
 
     config = ConfigData(
         min_coverage=MIN_COVERAGE,
@@ -264,6 +273,7 @@ def _run_single_fpg_solve(
     verbose: bool = True,
 ) -> FpgEvaluationResult:
     generator = FloorPlanGenerator(requirements)
+    print("\n _run_single_fpg_solve")
     
     verbose= False # TODO DEBUG FLAG Remove this 
     if verbose:
@@ -285,28 +295,27 @@ def _run_single_fpg_solve(
         )
 
     solution = generator.get_solution()
+    print("\n get solution ")
     quick_post_process_result = run_quick_post_process({"rooms": solution, "openings": []})
-
+    print("\n run quick post process")
     stage1_rooms = quick_post_process_result["rooms"]
-
     refine_result1 = run_refine_profile_1(
         requirements=requirements,
         initial_rooms=stage1_rooms,
         wiggle_room=WIGGLE_ROOM,
         verbose=False,
     )
+    print("\n run_refine_profile_1")
     stage2_rooms = refine_result1.rooms if refine_result1.rooms else stage1_rooms
-
     refine_result2 = run_refine_profile_1(
         requirements=requirements,
         initial_rooms=stage2_rooms,
         wiggle_room=WIGGLE_ROOM,
         verbose=False,
     )
+    print("\n run_refine_profile_2")
     stage3_rooms = refine_result2.rooms if refine_result2.rooms else stage2_rooms
-
     final_rooms = stage3_rooms
-
     _plot_refine_before_after_dev(
         stage1_rooms=stage1_rooms,
         stage2_rooms=stage2_rooms,
@@ -321,12 +330,14 @@ def _run_single_fpg_solve(
     )
 
     final_quick_post_process_result = run_quick_post_process({"rooms": final_rooms, "openings": []})
+    print("\n run_quick_post_process")
 
     score_report = score_layout(
         solution=final_rooms,
         quick_post_process_result=final_quick_post_process_result,
         requirements=requirements,
     )
+    print("\n Score Layout")
 
     result = FpgEvaluationResult(
         solved=True,
@@ -349,6 +360,8 @@ def _run_optuna_entry(
     storage = DEFAULT_OPTUNA_STORAGE_URL if DEFAULT_OPTUNA_STORAGE_ENABLED else None
     # run_study_name = f"{study_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     run_study_name = DEFAULT_OPTUNA_STUDY_NAME
+    
+    print("\n _run_optuna_entry() ")
 
     bounds_result = compute_floor_plan_dimension_bounds(requirements)
     if bounds_result.get("status") != "OK":
@@ -392,6 +405,7 @@ def _select_solver_result(
     optuna_trial_count: int,
     verbose: bool,
 ) -> FpgEvaluationResult:
+    print("\n _select_solver_result()")
     if not should_optuna_run:
         return _run_single_fpg_solve(requirements, verbose=verbose)
 
@@ -412,6 +426,7 @@ def _select_solver_result(
 
 
 def _build_payload_from_solver_result(run_result: FpgEvaluationResult) -> dict[str, Any]:
+    print("\n _build_payload_from_solver_results()")
     if run_result.solved:
         quick_post_process_result = getattr(run_result, "quick_post_process_result", None)
         if quick_post_process_result is not None:
@@ -447,6 +462,7 @@ def run_fpg_pipeline_internal(
     verbose: bool = True,
 ) -> dict[str, Any]:
     """Internal pipeline: load server-side data, validate, solve and format payload."""
+    
     started_at = perf_counter()
     SystemLogger.info(
         sector=1,
@@ -536,7 +552,7 @@ def run_fpg_pipeline_api(
     verbose: bool = True,
 ) -> dict[str, Any]:
     """API pipeline: use caller dimensions/template, fetch constraints server-side, then solve."""
-    print("\nSTART: run_fpg_pipeline_api ------")
+    print("\nSTART: run_fpg_pipeline_api() ------")
     started_at = perf_counter()
     SystemLogger.info(
         sector=1,

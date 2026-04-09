@@ -1,0 +1,20 @@
+Opening Constraint Guide
+=========================
+
+This document explains the door and window placement rules used in the opening solver. It is written for non-developers and keeps the explanation short and accessible.
+
+Back Door Placement
+- What it does: Finds suitable spots for a back door on eligible rooms, such as the kitchen or hallway. It prefers walls that face the rear of the house and selects the best available exterior edge.
+- Why it matters: It ensures the back door is placed in a practical location that connects interior circulation with an exterior exit.
+
+Internal Door Placement
+- What it does: Determines which rooms may connect with internal doors and limits how many doors each room can have.
+- Why it matters: It keeps the interior layout logical by allowing only sensible room pairings, such as bedrooms connecting to hallways, and prevents too many doors from appearing in one room.
+
+Main Door to Outside
+- What it does: Chooses a single exterior wall for the main entrance and centers the front door on that wall.
+- Why it matters: It guarantees a clear, valid main entrance location and prefers the most appropriate exterior side when multiple options exist.
+
+Windows Placement
+- What it does: Selects one window position for each eligible room, using available exterior walls while avoiding clashes with doors.
+- Why it matters: It ensures each room with window potential gets a valid opening without conflicting with existing doors, supporting natural light and exterior access.
