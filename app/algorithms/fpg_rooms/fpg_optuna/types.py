@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.algorithms.fpg_rooms.fpg_score.types.score_report import ScoreReport
+from app.algorithms.fpg_rooms.fpg_score import ScoreReport
 
 
 @dataclass
