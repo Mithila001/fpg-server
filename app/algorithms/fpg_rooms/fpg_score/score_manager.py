@@ -61,9 +61,10 @@ def _coerce_room_record(raw_room: Mapping[str, Any], fallback_name: str) -> Dict
 def _resolve_scoring_inputs(
     solution: Sequence[Dict[str, Any]],
     quick_post_process_result: QuickPostProcessOutputPayload | Mapping[str, Any] | None,
-) -> tuple[list[Dict[str, Any]], Dict[str, Any]]:
+) -> tuple[list[Dict[str, Any]], Dict[str, Any], list[Dict[str, Any]]]:
     post_rooms: list[Mapping[str, Any]] = []
     wall_union: Dict[str, Any] = {"walls": [], "room_walls": {}}
+    openings: list[Dict[str, Any]] = []
 
     if isinstance(quick_post_process_result, Mapping):
         maybe_rooms = quick_post_process_result.get("rooms")
@@ -77,6 +78,10 @@ def _resolve_scoring_inputs(
                 "room_walls": dict(maybe_wall_union.get("room_walls", {})),
             }
 
+        maybe_openings = quick_post_process_result.get("openings")
+        if isinstance(maybe_openings, list):
+            openings = [opening for opening in maybe_openings if isinstance(opening, Mapping)]
+
     source_rooms: Sequence[Mapping[str, Any]] = post_rooms if post_rooms else solution
     normalized_rooms: list[Dict[str, Any]] = []
     for idx, room in enumerate(source_rooms):
@@ -84,7 +89,7 @@ def _resolve_scoring_inputs(
         if normalized is not None:
             normalized_rooms.append(normalized)
 
-    return normalized_rooms, wall_union
+    return normalized_rooms, wall_union, [dict(opening) for opening in openings]
 
 
 def _clamp_0_25(value: float) -> float:
@@ -266,7 +271,7 @@ def score_layout(
     min_touch_overlap: int = 1,
 ) -> ScoreReport:
     """Score a solved floor-plan layout using 4 sections with two gate rules."""
-    scoring_rooms, wall_union = _resolve_scoring_inputs(solution, quick_post_process_result)
+    scoring_rooms, wall_union, openings = _resolve_scoring_inputs(solution, quick_post_process_result)
     print(f"[score_manager] score_layout start: rooms={len(scoring_rooms)}")
     if not scoring_rooms:
         print("[score_manager] no scoring rooms after normalization")
@@ -327,6 +332,7 @@ def score_layout(
     diagnostics = {
         "critical": critical_result["diagnostics"],
         "critical_checks": critical_result["checks"],
+        "openings_count": len(openings),
         "gates": {
             "critical_full": critical_full,
             "critical_room_threshold_passed": False,
@@ -409,7 +415,25 @@ def score_layout(
             diagnostics=diagnostics,
         )
 
-    functional_score, functional_diag = score_functional_section(scoring_rooms)
+    functional_score, functional_diag = score_functional_section(
+        scoring_rooms,
+        openings=openings,
+    )
+    
+    SystemLogger.log_event(
+        tag="SCORE",
+        event="score_functional",
+        level="INFO",
+        data={
+            "functional_diag": functional_diag,  # sym:functional_diag
+            "opening_scores": [
+                {"name": evaluator["name"], "score": evaluator["score"]}
+                for evaluator in functional_diag.get("evaluators", [])
+            ],
+        },
+    )
+    
+    
     extra_score, extra_diag = score_extra_section(scoring_rooms)
 
     component_scores["functional"] = round(float(functional_score), 2)

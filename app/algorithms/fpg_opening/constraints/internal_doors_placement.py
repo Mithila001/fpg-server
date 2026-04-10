@@ -3,36 +3,18 @@ from __future__ import annotations
 from ortools.sat.python import cp_model
 
 from app.algorithms.fpg_opening.types.opening_solver import InternalDoorCandidate, InternalDoorDecisionVars
+from app.core.fpg_opening_config import (
+    INTERNAL_DOOR_ALLOWED_ROOM_PAIRS,
+    MAX_INTERNAL_DOORS_BY_ROOM_TYPE,
+    normalize_room_type,
+)
 
 
-# Room types are normalized to lowercase by _normalize_room_type(), so these
+# Room types are normalized to lowercase by normalize_room_type(), so these
 # canonical pairs are stored accordingly (e.g. "livingRoom" -> "livingroom").
-_NON_HALLWAY_ALLOWED_PAIRS = {
-    frozenset(("bedroom", "livingroom")),
-    frozenset(("kitchen", "livingroom")),
-    frozenset(("bathroom", "livingroom")),
-    frozenset(("bedroom", "attachedbathroom")),
-    frozenset(("veranda", "livingroom")),
-}
-
-_MAX_INTERNAL_DOORS_PER_ROOM_TYPE = {
-    "bedroom": 2,
-    "bathroom": 1,
-    "livingroom": 10,
-    "hallway": 10,
-    "kitchen": 1,
-    "attachedbathroom":1,
-    "veranda":1
-}
-
-
-def _normalize_room_type(room_type: str) -> str:
-    return room_type.strip().lower()
-
-
 def _is_allowed_connection(room_type_a: str, room_type_b: str) -> bool:
-    a = _normalize_room_type(room_type_a)
-    b = _normalize_room_type(room_type_b)
+    a = normalize_room_type(room_type_a)
+    b = normalize_room_type(room_type_b)
 
     # attachedBathroom can only have an internal door to a bedroom.
     if a == "attachedbathroom" or b == "attachedbathroom":
@@ -41,7 +23,7 @@ def _is_allowed_connection(room_type_a: str, room_type_b: str) -> bool:
     if a == "hallway" or b == "hallway":
         return True
 
-    return frozenset((a, b)) in _NON_HALLWAY_ALLOWED_PAIRS
+    return frozenset((a, b)) in INTERNAL_DOOR_ALLOWED_ROOM_PAIRS
 
 
 def add_internal_doors_placement_constraint(
@@ -66,8 +48,8 @@ def add_internal_doors_placement_constraint(
         if _is_allowed_connection(candidate["room_a_type"], candidate["room_b_type"]):
             room_a_name = candidate["room_a_name"]
             room_b_name = candidate["room_b_name"]
-            room_a_type = _normalize_room_type(candidate["room_a_type"])
-            room_b_type = _normalize_room_type(candidate["room_b_type"])
+            room_a_type = normalize_room_type(candidate["room_a_type"])
+            room_b_type = normalize_room_type(candidate["room_b_type"])
             room_incident_selection_vars.setdefault(room_a_name, []).append(selected)
             room_incident_selection_vars.setdefault(room_b_name, []).append(selected)
             room_name_to_type[room_a_name] = room_a_type
@@ -91,7 +73,7 @@ def add_internal_doors_placement_constraint(
         if room_type is None:
             continue
 
-        max_doors = _MAX_INTERNAL_DOORS_PER_ROOM_TYPE.get(room_type)
+        max_doors = MAX_INTERNAL_DOORS_BY_ROOM_TYPE.get(room_type)
         if max_doors is None:
             continue
 

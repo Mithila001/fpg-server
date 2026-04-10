@@ -3,9 +3,10 @@ from __future__ import annotations
 from ortools.sat.python import cp_model
 
 from app.algorithms.fpg_opening.types.opening_solver import MainDoorCpSatVariables, ScaledRoomBounds
+from app.core.fpg_opening_config import CARDINAL_SIDES
 
 
-_SIDES: tuple[str, ...] = ("south", "east", "north", "west")
+_SIDES: tuple[str, ...] = CARDINAL_SIDES
 
 
 def _priority_rank_map(side_priority: tuple[str, ...]) -> dict[str, int]:

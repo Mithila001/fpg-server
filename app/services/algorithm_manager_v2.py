@@ -2,7 +2,6 @@ import contextlib
 import io
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
-from time import perf_counter
 from typing import Any, Sequence
 
 from sqlmodel import Session
@@ -333,9 +332,15 @@ def _run_single_fpg_solve(
     final_quick_post_process_result = run_quick_post_process({"rooms": final_rooms, "openings": []})
     print("\n run_quick_post_process")
 
+    opening_result = generate_openings(final_rooms)
+    scoring_input = {
+        **final_quick_post_process_result,
+        "openings": opening_result.get("openings", []),
+    }
+
     score_report = score_layout(
         solution=final_rooms,
-        quick_post_process_result=final_quick_post_process_result,
+        quick_post_process_result=scoring_input,
         requirements=requirements,
     )
     print("\n Score Layout")
@@ -347,7 +352,8 @@ def _run_single_fpg_solve(
         status=status,
         message="Solver found a layout",
     )
-    result.quick_post_process_result = final_quick_post_process_result
+    result.quick_post_process_result = scoring_input
+    result.opening_result = opening_result
     result.refine_status = refine_status
     result.refine_message = refine_message
     return result
@@ -437,7 +443,19 @@ def _build_payload_from_solver_result(run_result: FpgEvaluationResult) -> dict[s
             post_processed_layout = run_result.solution
             wall_union_result = {"walls": [], "room_walls": {}}
 
-        opening_result = generate_openings(post_processed_layout)
+        opening_result = getattr(run_result, "opening_result", None)
+        if not isinstance(opening_result, dict):
+            maybe_openings = quick_post_process_result.get("openings") if quick_post_process_result else None
+            if isinstance(maybe_openings, list):
+                opening_result = {
+                    "status": "FROM_TRIAL",
+                    "message": "Openings generated during scoring trial",
+                    "openings": maybe_openings,
+                    "warnings": [],
+                }
+            else:
+                opening_result = generate_openings(post_processed_layout)
+
         post_process_result = run_final_post_process(
             {
                 "rooms": post_processed_layout,
@@ -463,9 +481,6 @@ def run_fpg_pipeline_internal(
     verbose: bool = True,
 ) -> dict[str, Any]:
     """Internal pipeline: load server-side data, validate, solve and format payload."""
-    
-    started_at = perf_counter()
-
 
     try:
         templates, size_constraints, relation_constraints = _load_server_side_data()
@@ -528,7 +543,6 @@ def run_fpg_pipeline_api(
 ) -> dict[str, Any]:
     """API pipeline: use caller dimensions/template, fetch constraints server-side, then solve."""
     print("\nSTART: run_fpg_pipeline_api() ------")
-    started_at = perf_counter()
     SystemLogger.log_event(
     tag="TEST",
     event="test_logs",

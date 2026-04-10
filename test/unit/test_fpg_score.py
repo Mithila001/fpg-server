@@ -19,11 +19,69 @@ def _base_requirements() -> FpgRequirements:
 def test_score_layout_full_flow_scores_all_sections():
     requirements = _base_requirements()
     solution = [
-        {"name": "A", "type": "room", "x": 0.0, "y": 0.0, "x_end": 5.0, "y_end": 10.0},
-        {"name": "B", "type": "room", "x": 5.0, "y": 0.0, "x_end": 10.0, "y_end": 10.0},
+        {"name": "A", "type": "livingRoom", "x": 0.0, "y": 0.0, "x_end": 5.0, "y_end": 10.0},
+        {"name": "B", "type": "kitchen", "x": 5.0, "y": 0.0, "x_end": 10.0, "y_end": 10.0},
     ]
+    quick_post_process_result = {
+        "rooms": solution,
+        "wall_union": {"walls": [], "room_walls": {}},
+        "openings": [
+            {
+                "room_name": "A",
+                "room_type": "livingRoom",
+                "opening_type": "mainDoor",
+                "side": "south",
+                "x1": 1.0,
+                "y1": 0.0,
+                "x2": 3.0,
+                "y2": 0.0,
+            },
+            {
+                "room_name": "A",
+                "room_type": "livingRoom",
+                "opening_type": "internalDoor",
+                "side": "east",
+                "x1": 5.0,
+                "y1": 4.0,
+                "x2": 5.0,
+                "y2": 6.0,
+                "connected_room_name": "B",
+                "connected_room_type": "kitchen",
+            },
+            {
+                "room_name": "B",
+                "room_type": "kitchen",
+                "opening_type": "backDoor",
+                "side": "north",
+                "x1": 6.0,
+                "y1": 10.0,
+                "x2": 8.0,
+                "y2": 10.0,
+            },
+            {
+                "room_name": "A",
+                "room_type": "livingRoom",
+                "opening_type": "window",
+                "side": "north",
+                "x1": 1.0,
+                "y1": 10.0,
+                "x2": 3.0,
+                "y2": 10.0,
+            },
+            {
+                "room_name": "B",
+                "room_type": "kitchen",
+                "opening_type": "window",
+                "side": "south",
+                "x1": 6.0,
+                "y1": 0.0,
+                "x2": 8.0,
+                "y2": 0.0,
+            },
+        ],
+    }
 
-    report = score_layout(solution, None, requirements)
+    report = score_layout(solution, quick_post_process_result, requirements)
 
     assert report.valid is True
     assert report.total_score == 100.0

@@ -2,49 +2,50 @@ from __future__ import annotations
 
 from typing import Any, Dict, Sequence, Tuple
 
-
-def _has_rooms(solution: Sequence[Dict[str, Any]]) -> Tuple[bool, Dict[str, Any]]:
-    count = len(solution)
-    return count > 0, {"room_count": count}
-
-
-def _all_rooms_have_positive_area(solution: Sequence[Dict[str, Any]]) -> Tuple[bool, Dict[str, Any]]:
-    areas = [float(room.get("area", 0.0)) for room in solution]
-    min_area = min(areas) if areas else 0.0
-    return all(area > 0.0 for area in areas), {"min_area": min_area}
+from .opening import (
+    evaluate_back_door_placement,
+    evaluate_internal_doors_placement,
+    evaluate_main_door_to_outside,
+    evaluate_windows_placement,
+)
 
 
-def _room_names_present(solution: Sequence[Dict[str, Any]]) -> Tuple[bool, Dict[str, Any]]:
-    missing_name_count = sum(1 for room in solution if not str(room.get("name", "")).strip())
-    return missing_name_count == 0, {"missing_name_count": missing_name_count}
+def _clamp_0_25(value: float) -> float:
+    return max(0.0, min(25.0, float(value)))
 
 
-def score_functional_section(solution: Sequence[Dict[str, Any]]) -> Tuple[float, Dict[str, Any]]:
-    """Score functional section in [0, 25] using executable placeholder checks."""
-    checks = [
-        ("has_rooms", _has_rooms),
-        ("positive_area", _all_rooms_have_positive_area),
-        ("room_names_present", _room_names_present),
+def score_functional_section(
+    solution: Sequence[Dict[str, Any]],
+    openings: Sequence[Dict[str, Any]] | None = None,
+) -> Tuple[float, Dict[str, Any]]:
+    """Score functional section in [0, 25] using opening-placement evaluations."""
+    opening_data = openings or []
+
+    evaluators = [
+        ("main_door_to_outside", evaluate_main_door_to_outside),
+        ("internal_doors_placement", evaluate_internal_doors_placement),
+        ("back_door_placement", evaluate_back_door_placement),
+        ("windows_placement", evaluate_windows_placement),
     ]
 
-    check_results = []
-    passed_count = 0
-    for check_name, check_fn in checks:
-        passed, check_diag = check_fn(solution)
-        if passed:
-            passed_count += 1
-        check_results.append(
+    evaluator_results: list[Dict[str, Any]] = []
+    evaluator_scores: list[float] = []
+
+    for evaluator_name, evaluator_fn in evaluators:
+        evaluator_score, evaluator_diag = evaluator_fn(solution, opening_data)
+        evaluator_scores.append(float(evaluator_score))
+        evaluator_results.append(
             {
-                "name": check_name,
-                "passed": passed,
-                "diagnostics": check_diag,
+                "name": evaluator_name,
+                "score": round(float(evaluator_score), 2),
+                "diagnostics": evaluator_diag,
             }
         )
 
-    score = 25.0 * (passed_count / len(checks)) if checks else 0.0
+    score = _clamp_0_25(sum(evaluator_scores) / len(evaluator_scores)) if evaluator_scores else 0.0
     diagnostics = {
-        "executed_checks": len(checks),
-        "passed_checks": passed_count,
-        "checks": check_results,
+        "executed_checks": len(evaluators),
+        "openings_count": len(opening_data),
+        "evaluators": evaluator_results,
     }
-    return max(0.0, min(25.0, score)), diagnostics
+    return score, diagnostics

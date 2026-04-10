@@ -40,3 +40,4 @@ class QuickPostProcessOutputPayload(TypedDict):
     message: str
     rooms: list[RoomBoundaryPayload]
     wall_union: WallUnionResultPayload
+    openings: NotRequired[list[OpeningPayload]]
