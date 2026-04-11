@@ -170,20 +170,39 @@ def mutate_requirements(
     trial: optuna.Trial,
     floor_dimension_bounds: FLOOR_DIMENSION_BOUNDS | None = None,
 ) -> FpgRequirements:
+    import math
+
     min_floor_w, min_floor_h, max_floor_w, max_floor_h = _resolve_floor_dimension_bounds(
         base_requirements,
         floor_dimension_bounds,
     )
+
+    min_aspect_ratio = 1.0
+    max_aspect_ratio = 16.0 / 9.0
 
     floor_w = trial.suggest_int(
         OPTUNA_PARAM_KEY_FLOOR_PLAN_WIDTH,
         min_floor_w,
         max_floor_w,
     )
+
+    # Derive valid height range for this width under hard aspect constraint:
+    # 1:1 <= width/height <= 16:9  =>  width/(16/9) <= height <= width
+    derived_min_h = int(math.ceil(floor_w / max_aspect_ratio))
+    derived_max_h = int(math.floor(floor_w / min_aspect_ratio))
+
+    valid_min_h = max(min_floor_h, derived_min_h)
+    valid_max_h = min(max_floor_h, derived_max_h)
+    if valid_min_h > valid_max_h:
+        raise ValueError(
+            "No valid floor height exists for selected width under 1:1..16:9 aspect ratio "
+            f"(width={floor_w}, min_h={min_floor_h}, max_h={max_floor_h})."
+        )
+
     floor_h = trial.suggest_int(
         OPTUNA_PARAM_KEY_FLOOR_PLAN_HEIGHT,
-        min_floor_h,
-        max_floor_h,
+        valid_min_h,
+        valid_max_h,
     )
 
     tuned_rooms: list[RoomData] = []

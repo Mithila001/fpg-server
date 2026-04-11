@@ -16,6 +16,7 @@ from app.util.unit_converter import (
     converter_unit_to_centimeters,
     converter_unit_to_meters,
 )
+from app.util.room_requirements import floor_values
 # Plotting hook removed so api_result_plotter is isolated and unused by default
 # from test.dev.plotter_loader import plot_floor_plan_payload
 # from app.util.logger import SystemLogger
@@ -130,9 +131,13 @@ def get_formatted_layout_v2(request: Request, body: FormatterV2ApiRequest):
 
     try:
         with use_tracking_context():
+            # Floor dimensions are converted from cm to units, then floored to integers
+            floored_width = floor_values(converter_cm_to_unit(body.floor_width))
+            floored_height = floor_values(converter_cm_to_unit(body.floor_height))
+            
             payload = run_fpg_pipeline_api(
-                floor_width=converter_cm_to_unit(body.floor_width),
-                floor_height=converter_cm_to_unit(body.floor_height),
+                floor_width=floored_width,
+                floor_height=floored_height,
                 room_template=body.room_template,
                 should_optuna_run=body.should_optuna_run,
                 optuna_trial_count=body.optuna_trial_count,

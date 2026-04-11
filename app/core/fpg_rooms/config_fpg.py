@@ -4,6 +4,13 @@
 FLOOR_WIDTH = 100
 FLOOR_HEIGHT = 150
 
+# Minimum floor dimensions constraint
+MIN_FLOOR_WIDTH = 50
+MIN_FLOOR_HEIGHT = 50
+
+# Minimum floor area buffer (added to total min room area for feasibility check)
+MIN_FLOOR_AREA_BUFFER = 1250
+
 # Maximum allowed aspect ratio for rooms
 MAX_ASPECT_RATIO_HEIGHT = 10
 MAX_ASPECT_RATIO_WIDTH = 16
@@ -172,6 +179,9 @@ ROOM_SHARED_WALL_RULES_REFINE = {
 __all__ = [
     "FLOOR_WIDTH",
     "FLOOR_HEIGHT",
+    "MIN_FLOOR_WIDTH",
+    "MIN_FLOOR_HEIGHT",
+    "MIN_FLOOR_AREA_BUFFER",
     "MAX_ASPECT_RATIO_HEIGHT",
     "MAX_ASPECT_RATIO_WIDTH",
     "MIN_COVERAGE",
