@@ -39,8 +39,6 @@ from app.core.fpg_rooms.config_fpg import (
     ENVELOPE_EXCLUDE_TYPES,
     ENVELOPE_MAX_GAP,
     ENVELOPE_MIN_GAP,
-    FLOOR_HEIGHT,
-    FLOOR_WIDTH,
     MIN_COVERAGE,
     MIN_FLOOR_WIDTH,
     MIN_FLOOR_HEIGHT,
@@ -531,60 +529,6 @@ def _build_payload_from_solver_result(run_result: FpgEvaluationResult) -> dict[s
         "compact_by_room": post_process_result["compact_by_room"],
         "metadata": post_process_result.get("metadata", EMPTY_POST_PROCESS_LAYOUT["metadata"]),
     }
-
-
-def run_fpg_pipeline_internal(
-    should_optuna_run: bool = False,
-    optuna_trial_count: int = DEFAULT_OPTUNA_TRIALS,
-    verbose: bool = True,
-) -> dict[str, Any]:
-    """Internal pipeline: load server-side data, validate, solve and format payload."""
-
-    try:
-        templates, _, _ = _load_server_side_data()
-        if not templates:
-            return _error_payload(
-                status="NO_TEMPLATE",
-                message="No room template available in database",
-            )
-
-        template = templates[0]
-        requirements = _build_requirements(
-            floor_width=FLOOR_WIDTH,
-            floor_height=FLOOR_HEIGHT,
-            room_template=template,
-        )
-        bounds_result = _validate_and_compute_floor_bounds(
-            floor_width=int(FLOOR_WIDTH),
-            floor_height=int(FLOOR_HEIGHT),
-            requirements=requirements,
-        )
-
-        floor_dimension_bounds = {
-            "min_floor_width": bounds_result["min_floor_width"],
-            "min_floor_height": bounds_result["min_floor_height"],
-            "max_floor_width": bounds_result["max_floor_width"],
-            "max_floor_height": bounds_result["max_floor_height"],
-        }
-
-        run_result = _select_solver_result(
-            requirements=requirements,
-            floor_dimension_bounds=floor_dimension_bounds,
-            should_optuna_run=should_optuna_run,
-            optuna_trial_count=optuna_trial_count,
-            verbose=verbose,
-        )
-        # Plot the final solver result via public plotter API before payload construction
-        try:
-            plot_final_solver_result(run_result, show=False)
-        except Exception:
-            pass
-        payload = _build_payload_from_solver_result(run_result)
-
-        return payload
-    except Exception as exc:
-
-        return _error_payload(f"Failed to generate layout: {exc}")
 
 
 def run_fpg_pipeline_api(
