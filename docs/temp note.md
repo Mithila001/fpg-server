@@ -12,3 +12,15 @@ This calculate_floor_bounds() will call per each Optuna trial to provide (before
 Keep in mind, this is rough plan, I might mistaken some, if you found something confusing, simply ask questions from me
 
 
+
+-------------------------
+
+
+I dont like this logic, Lets Change it. So my plan is this.
+- We already have `max_floor_area`, `max_floor_width`,`max_floor_height`, `total_min_area` 
+So what I now want is min_width = x and min_hight = y, what is the the x,y value that satisfy `x*y == total_min_area`
+Here there should also follow another two rules
+    1. The Aspect Ratio should be between 1:1 and 1:2
+    2. The Starting Width should be 50 unit (if the `max_floor_width` is lower than that, use `max_floor_width` as starting width)
+If the calculation evolved float numbers, we can do calculation in float numbers and at the end before sending the data, we can round them up to integers 
+

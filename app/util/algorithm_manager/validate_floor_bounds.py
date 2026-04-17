@@ -54,7 +54,7 @@ def validate_and_compute_floor_bounds(
         raise Exception(
             f"Insufficient floor area. Total minimum room area + buffer = "
             f"{total_min_area:.2f} + {MIN_FLOOR_AREA_BUFFER} = {total_min_area_with_buffer:.2f}, "
-            f"but floor area = {floor_width} × {floor_height} = {floor_area:.2f}. "
+            f"but floor area = {floor_width} x {floor_height} = {floor_area:.2f}. "
             f"Shortage: {shortage:.2f} square units."
         )
 
