@@ -29,12 +29,12 @@ Instead of static geometric analysis, we will simulate "Heuristic Walking Paths"
 * **Result:** A weight-map where high values = high traffic; zero values = unused space.
 
 ## 4. Heuristic Simulation Points
-To evaluate a plan, the agent must simulate at least these 5 core paths:
-1. **The Welcome:** Front Entrance $\rightarrow$ Kitchen (Groceries).
-2. **The Guest:** Front Entrance $\rightarrow$ Common Bathroom.
-3. **The Private:** Master Bedroom $\rightarrow$ Nearest Bathroom.
-4. **The Social:** Kitchen $\rightarrow$ Living Room/Dining Area.
-5. **The Maintenance:** Kitchen $\rightarrow$ Garage/Back Door.
+For initial implementation, these are will be the path we simulate
+1. Front Door to Kitchen Entrance
+2. Front Door to Every Bedroom Entrance 
+3. Front Door to Every Bathroom Entrance
+4. All Bedroom Entrance to Closest Bathroom Entrance (Can pick only closest bathroom)
+5. All Bedroom Entrance to Kitchen Entrance 
 
 ## 5. Scoring Metrics (The Evaluator)
 
@@ -50,3 +50,19 @@ To evaluate a plan, the agent must simulate at least these 5 core paths:
 * **NetworkX:** Graph-based pathfinding (A*).
 * **Numpy/Scipy:** Path smoothing and heatmap array math.
 * **Matplotlib:** (Optional) Visualizing the heatmap during debugging.
+
+
+## Other Details
+- This specific scoring logic will place at `app/algorithms/fpg_rooms/fpg_score/score_extra/path_simulation`. All the files (Including Uitl files and Type files) should be placed withing `app/algorithms/fpg_rooms/fpg_score/score_extra/path_simulation` folder. This setup should not import existing util functions from outside of  `/score_extra/path_simulation` 
+
+# Temp Dev Section
+I created `app/algorithms/fpg_rooms/fpg_score/score_extra/path_simulation/dev` for you to implement a isolated temporary dev section. Here the main goal is to visualize the path simulation for debug. 
+
+## How dev should work
+- For each Scoring, Using matplotlib, create a image of showing all the simulated pathe (color coded based on Simulation Points)
+- For the same image file, next to that path plot, create a another plot showing what hallways are unused (color them)
+- Next to that, Create a another plotter showing the traffic intensity.
+
+Overall, Single Saved png image, with 3 side by side plot (so it easier to look)
+Image wil save at `test/outputs/path_score` folder with YYYY-MM-DD-HH-MM-SS-ms File Name 
+

@@ -73,3 +73,6 @@ optuna_fpg.db
 /optuna_fpg.db
 
 *.db
+
+
+test/outputs/*

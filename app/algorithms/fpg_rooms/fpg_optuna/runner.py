@@ -440,7 +440,7 @@ def run_optuna_optimization(
     best_run_by_trial: dict[int, FpgEvaluationResult] = {}
     controller = OptunaOptimizationController()
 
-    optuna.logging.set_verbosity(optuna.logging.WARNING)
+    optuna.logging.set_verbosity(optuna.logging.INFO)
 
     def objective(trial: optuna.Trial) -> float:
         # Check timeout before starting trial evaluation
@@ -455,6 +455,7 @@ def run_optuna_optimization(
                 trial,
                 floor_dimension_bounds=floor_dimension_bounds,
             )
+            print(f"\nOptuna Trial = {trial_requirements}\n")
 
 
 

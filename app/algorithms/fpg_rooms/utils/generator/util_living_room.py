@@ -1,4 +1,8 @@
 from ...solver_models.room import Room
+from app.core.fpg_rooms.config_fpg import (
+    LIVING_ROOM_MIN_HEIGHT,
+    LIVING_ROOM_MIN_WIDTH,
+)
 from ...types.room import FpgRequirements
 
 
@@ -9,10 +13,10 @@ def generate_living_room(requirements: FpgRequirements) -> Room:
 
     living_room = Room(
         "Living Room",
-        30,
-        30,
-        int(floor_width),
-        int(floor_height),
+        LIVING_ROOM_MIN_WIDTH,
+        LIVING_ROOM_MIN_HEIGHT,
+        int(floor_width * 0.5),
+        int(floor_height * 0.5),
         "livingRoom",
     )
 

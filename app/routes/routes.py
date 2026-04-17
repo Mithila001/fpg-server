@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 from time import time
 
 from app.algorithms.fpg_rooms.fpg_optuna.exceptions import TrialTimeoutError
-from app.services.algorithm_manager import run_layout_pipeline
 from app.services.algorithm_manager_v2 import run_fpg_pipeline_api
 from app.schemas.db.room_setup_template import RoomSetupTemplateBase
 from app.util.tracking import use_tracking_context
@@ -89,28 +88,6 @@ class FormatterV2ApiRequest(BaseModel):
 
 router = APIRouter(prefix="/algorithms", tags=["algorithms"])
 
-
-@router.get("/format", response_model=FormatterResponse)
-def get_formatted_layout(request: Request):
-    """Run the DB-backed solver and return post-processed wall layout payload."""
-    client_ip = request.client.host if request.client else "unknown"
-    now = time()
-    last_call = _last_format_request.get(client_ip, 0)
-    elapsed = now - last_call
-    if elapsed < _rate_limit_seconds:
-        retry_after = _rate_limit_seconds - elapsed
-        raise HTTPException(
-            status_code=429,
-            detail=f"Rate limit exceeded. Try again in {retry_after:.1f} seconds.",
-            headers={"Retry-After": str(int(retry_after) + 1)},
-        )
-    _last_format_request[client_ip] = now
-
-    payload = run_layout_pipeline(use_optuna=True, verbose=False)
-    payload = converter_unit_to_meters(payload)
-
-    # Plotting is disabled in this branch to keep api_result_plotter isolated.
-    return FormatterResponse(**payload)
 
 
 @router.post("/format/v2", response_model=FormatterResponse)

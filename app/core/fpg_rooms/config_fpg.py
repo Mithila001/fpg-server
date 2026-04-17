@@ -138,15 +138,19 @@ WIGGLE_ROOM = 10
 # Hallway dimensions
 # Fixed narrow dimension — the solver enforces exactly this value for
 # whichever of width/height is the "short" side.
-HALLWAY_WIDTH = 10
+HALLWAY_NARROW_SIDE = 10
 # Minimum width/height used when creating hallway rooms.
-HALLWAY_MIN_WIDTH = 10
-HALLWAY_MIN_HEIGHT = 10
+HALLWAY_GENERATOR_MIN_WIDTH = 10
+HALLWAY_GENERATOR_MIN_HEIGHT = 10
 # Minimum length of the long side (the solver may extend it further).
-HALLWAY_MIN_LENGTH = 10
+HALLWAY_LONG_SIDE_MIN = 10
 # Number of hallway walls that must be fully shared with other rooms.
 # Default 3 means only one hallway wall may remain as an exterior wall.
 HALLWAY_REQUIRED_SHARED_WALLS = 3
+
+# Living room generation minimums.
+LIVING_ROOM_MIN_WIDTH = 30
+LIVING_ROOM_MIN_HEIGHT = 30
 
 # Room types whose relation constraints should not be pruned by template.
 NOT_PRUNE_ROOMS = ["livingRoom", "hallway"]
@@ -251,11 +255,13 @@ __all__ = [
     "VERANDA_OUTDOOR_SPACE_MIN_H",
     "VERANDA_OUTDOOR_SPACE_MAX_W",
     "VERANDA_OUTDOOR_SPACE_MAX_H",
-    "HALLWAY_WIDTH",
-    "HALLWAY_MIN_WIDTH",
-    "HALLWAY_MIN_HEIGHT",
-    "HALLWAY_MIN_LENGTH",
+    "HALLWAY_NARROW_SIDE",
+    "HALLWAY_GENERATOR_MIN_WIDTH",
+    "HALLWAY_GENERATOR_MIN_HEIGHT",
+    "HALLWAY_LONG_SIDE_MIN",
     "HALLWAY_REQUIRED_SHARED_WALLS",
+    "LIVING_ROOM_MIN_WIDTH",
+    "LIVING_ROOM_MIN_HEIGHT",
     "NOT_PRUNE_ROOMS",
     "ROOM_SHARED_WALL_RULES",
     "ROOM_SHARED_WALL_RULES_REFINE",
