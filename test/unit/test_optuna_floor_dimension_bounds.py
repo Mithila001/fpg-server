@@ -1,6 +1,7 @@
 import optuna
 
 from app.algorithms.fpg_rooms.fpg_optuna.runner import mutate_requirements
+from app.algorithms.fpg_rooms.fpg_optuna.util import calculate_floor_bounds
 from app.algorithms.fpg_rooms.types.room import ConfigData, FpgRequirements, RoomData
 
 
@@ -20,7 +21,7 @@ def test_mutate_requirements_uses_floor_dimension_bounds():
         relation_constraints=[],
     )
 
-    floor_bounds = {
+    floor_bounds_input = {
         "min_floor_width": 40,
         "min_floor_height": 30,
         "max_floor_width": 60,
@@ -43,14 +44,22 @@ def test_mutate_requirements_uses_floor_dimension_bounds():
     mutated = mutate_requirements(
         base_requirements=base_requirements,
         trial=trial,
-        floor_dimension_bounds=floor_bounds,
+        floor_dimension_bounds=floor_bounds_input,
     )
 
     assert mutated.config.floor_plan_width == 52
     assert mutated.config.floor_plan_height == 41
-    assert floor_bounds["min_floor_width"] <= mutated.config.floor_plan_width <= floor_bounds["max_floor_width"]
-    assert floor_bounds["min_floor_height"] <= mutated.config.floor_plan_height <= floor_bounds["max_floor_height"]
+    assert floor_bounds_input["min_floor_width"] <= mutated.config.floor_plan_width <= floor_bounds_input["max_floor_width"]
+    assert floor_bounds_input["min_floor_height"] <= mutated.config.floor_plan_height <= floor_bounds_input["max_floor_height"]
 
     room = mutated.rooms[0]
     assert 1 <= room.min_w <= room.max_w <= mutated.config.floor_plan_width
     assert 1 <= room.min_h <= room.max_h <= mutated.config.floor_plan_height
+
+    calculated_bounds = calculate_floor_bounds(
+        requirements=mutated,
+    )
+
+    assert calculated_bounds.feasible is True
+    assert calculated_bounds.min_floor_width <= calculated_bounds.max_floor_width
+    assert calculated_bounds.min_floor_height <= calculated_bounds.max_floor_height

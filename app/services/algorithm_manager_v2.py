@@ -2,15 +2,12 @@ import contextlib
 import io
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
-from typing import Any, Sequence
-
-from sqlmodel import Session
+from typing import Any
 
 from app.algorithms.fpg_opening import generate_openings
 from app.algorithms.fpg_rooms import FloorPlanGenerator
 from app.algorithms.fpg_rooms.fpg_optuna import (
     FpgEvaluationResult,
-    OptunaOptimizationResult,
     run_optuna_optimization,
 )
 from app.algorithms.fpg_rooms.fpg_post_process import (
@@ -21,45 +18,19 @@ from app.util.logger.system_logger import SystemLogger
 
 from app.algorithms.fpg_rooms.fpg_score import score_layout
 from app.algorithms.fpg_rooms.fpgr_p_refine_1 import run_refine_profile_1
-from app.algorithms.fpg_rooms.types.room import ConfigData, FpgRequirements, RoomData
-from app.core.database import engine
+from app.algorithms.fpg_rooms.types.room import FpgRequirements
 from app.core.fpg_rooms.config_fpg import (
-    DEFAULT_ASPECT_RATIO_MAX,
-    DEFAULT_ASPECT_RATIO_MIN,
-    DEFAULT_HALLWAY_COUNT,
-    DEFAULT_MAX_H,
-    DEFAULT_MAX_W,
-    DEFAULT_MIN_H,
-    DEFAULT_MIN_W,
+    DEFAULT_OPTUNA_STUDY_NAME,
     DEFAULT_OPTUNA_STORAGE_ENABLED,
     DEFAULT_OPTUNA_STORAGE_URL,
     DEFAULT_OPTUNA_TRIALS,
-    ENVELOPE_APPLY_SIDES,
-    ENVELOPE_ENABLED,
-    ENVELOPE_EXCLUDE_TYPES,
-    ENVELOPE_MAX_GAP,
-    ENVELOPE_MIN_GAP,
-    MIN_COVERAGE,
-    MIN_FLOOR_WIDTH,
-    MIN_FLOOR_HEIGHT,
-    MIN_FLOOR_AREA_BUFFER,
     WIGGLE_ROOM,
-    DEFAULT_OPTUNA_STUDY_NAME,
-)
-from app.crud import (
-    room_relations_constraint as room_relations_constraint_crud,
-    room_setup_template as room_setup_template_crud,
-    room_size_constraint as room_size_constraint_crud,
 )
 from app.schemas.db.room_setup_template import RoomSetupTemplateBase
-from app.util.dev_use_mock_db import (
-    load_room_relations_constraints,
-    load_room_setup_templates,
-    load_room_size_constraints,
-)
-from app.util.constraint_pruner import prune_room_relations_constraints_by_template
-from app.util.room_requirements import (
-    normalize_db_data_requirements,
+from app.util.algorithm_manager import (
+    build_requirements,
+    error_payload,
+    validate_and_compute_floor_bounds,
 )
 from test.dev.final_result_plotter import plot_final_solver_result
 
@@ -119,222 +90,6 @@ def _plot_refine_before_after_dev(
         return plot_fn(before_rooms=stage1_rooms, after_rooms=stage3_rooms, show=False)
     except Exception:
         return None
-
-
-def _error_payload(message: str, status: str = "ERROR") -> dict[str, Any]:
-    return {
-        "status": status,
-        "message": message,
-        "walls": [],
-        "compact_by_room": {},
-        "metadata": EMPTY_POST_PROCESS_LAYOUT["metadata"],
-    }
-
-
-def _load_server_side_data() -> tuple[list[Any], Sequence[Any], Sequence[Any]]:
-    """Load templates, size constraints and relation constraints from server side source.
-
-    During development this mirrors existing manager behavior by using mock JSON data.
-    """
-    should_bypass = True
-    print("\n\n ########## Bypass Data = TRUE ########## \n\n")
-
-    if should_bypass:
-        templates = load_room_setup_templates()
-        size_constraints = load_room_size_constraints()
-        relation_constraints = load_room_relations_constraints()
-        return templates, size_constraints, relation_constraints
-
-    with Session(engine) as session:
-        templates = room_setup_template_crud.get_all(session)
-        size_constraints = room_size_constraint_crud.get_all(session)
-        relation_constraints = room_relations_constraint_crud.get_all(session)
-
-    return templates, size_constraints, relation_constraints
-
-
-def _build_rooms_from_template(template: RoomSetupTemplateBase) -> list[RoomData]:
-    rooms: list[RoomData] = []
-    for entry in template.data:
-        room_type = entry.get("type", "")
-        room_name = entry.get("name") or entry.get("id") or room_type
-        rooms.append(
-            RoomData(
-                name=room_name,
-                type=room_type,
-                min_w=DEFAULT_MIN_W,
-                min_h=DEFAULT_MIN_H,
-                max_w=DEFAULT_MAX_W,
-                max_h=DEFAULT_MAX_H,
-            )
-        )
-    return rooms
-
-
-def _build_requirements(
-    floor_width: float,
-    floor_height: float,
-    room_template: RoomSetupTemplateBase,
-) -> FpgRequirements:
-    """Build FpgRequirements from template, loading and pruning server-side constraints.
-
-    This function now handles all data loading and constraint pruning internally.
-    Raises exceptions if any step fails (no silent defaults).
-
-    Args:
-        floor_width: Floor plan width
-        floor_height: Floor plan height
-        room_template: Room template from API request
-
-    Returns:
-        FpgRequirements with all constraints loaded and pruned
-
-    Raises:
-        Exception: If server-side data loading or pruning fails
-    """
-    print("\n _build_requirements()")
-
-    # Step 1: Load server-side data (with separate try-catch for clarity)
-    try:
-        _, size_constraints, relation_constraints = _load_server_side_data()
-    except Exception as exc:
-        raise Exception(f"Failed to load server-side constraints: {exc}") from exc
-
-    # Step 2: Prune room relations constraints by template (with separate try-catch)
-    try:
-        relation_constraints, prune_error = (
-            prune_room_relations_constraints_by_template(
-                room_template=room_template,
-                room_relations_constraints=relation_constraints,
-            )
-        )
-        if prune_error:
-            raise Exception(f"Failed to prune relation constraints: {prune_error}")
-    except Exception as exc:
-        raise Exception(f"Failed to prune room relations constraints: {exc}") from exc
-
-    # Step 3: Build and normalize rooms from template
-    rooms = _build_rooms_from_template(room_template)
-    normalized_rooms = normalize_db_data_requirements(rooms, size_constraints)
-
-    config = ConfigData(
-        min_coverage=MIN_COVERAGE,
-        max_aspect_ratio=DEFAULT_ASPECT_RATIO_MAX,
-        min_aspect_ratio=DEFAULT_ASPECT_RATIO_MIN,
-        floor_plan_width=floor_width,
-        floor_plan_height=floor_height,
-        hallway_count=DEFAULT_HALLWAY_COUNT,
-        envelope_enabled=ENVELOPE_ENABLED,
-        envelope_min_gap=ENVELOPE_MIN_GAP,
-        envelope_max_gap=ENVELOPE_MAX_GAP,
-        envelope_exclude_types=ENVELOPE_EXCLUDE_TYPES,
-        envelope_apply_sides=ENVELOPE_APPLY_SIDES,
-    )
-    return FpgRequirements(
-        rooms=normalized_rooms,
-        config=config,
-        relation_constraints=list(relation_constraints),
-    )
-
-
-def _validate_and_compute_floor_bounds(
-    floor_width: int,
-    floor_height: int,
-    requirements: FpgRequirements,
-) -> dict[str, Any]:
-    """Validate floor dimensions and compute bounds for Optuna.
-
-    Performs comprehensive validation:
-    1. Check minimum floor dimensions
-    2. Verify sufficient area for all rooms + buffer
-    3. Validate aspect ratio within supported range
-    4. Compute and return min/max floor dimension bounds
-
-    Args:
-        floor_width: Floor plan width
-        floor_height: Floor plan height
-        requirements: FpgRequirements with room constraints
-
-    Returns:
-        Dict with keys: status, message, min_floor_width, min_floor_height,
-        max_floor_width, max_floor_height, floor_aspect_ratio
-
-    Raises:
-        Exception: If validation fails at any step
-    """
-    import math
-
-    print("\n _validate_and_compute_floor_bounds()")
-
-    # Step 1: Check minimum floor dimensions
-    if floor_width < MIN_FLOOR_WIDTH or floor_height < MIN_FLOOR_HEIGHT:
-        raise Exception(
-            f"Floor dimensions are too small. "
-            f"Received: {floor_width} x {floor_height}, "
-            f"Minimum required: {MIN_FLOOR_WIDTH} x {MIN_FLOOR_HEIGHT}"
-        )
-
-    # Step 2: Verify sufficient area for all rooms + buffer
-    total_min_area = 0.0
-    for room in requirements.rooms:
-        min_w = getattr(room, "min_w", None)
-        min_h = getattr(room, "min_h", None)
-
-        if min_w is None or min_h is None:
-            raise Exception(
-                f"Room '{getattr(room, 'name', '<unknown>')}' has missing min dimensions"
-            )
-
-        try:
-            total_min_area += float(min_w) * float(min_h)
-        except (TypeError, ValueError):
-            raise Exception(
-                f"Room '{getattr(room, 'name', '<unknown>')}' has invalid dimensions"
-            )
-
-    # Add buffer to minimum required area
-    total_min_area_with_buffer = total_min_area + MIN_FLOOR_AREA_BUFFER
-    floor_area = float(floor_width) * float(floor_height)
-
-    if total_min_area_with_buffer > floor_area:
-        shortage = total_min_area_with_buffer - floor_area
-        raise Exception(
-            f"Insufficient floor area. Total minimum room area + buffer = "
-            f"{total_min_area:.2f} + {MIN_FLOOR_AREA_BUFFER} = {total_min_area_with_buffer:.2f}, "
-            f"but floor area = {floor_width} × {floor_height} = {floor_area:.2f}. "
-            f"Shortage: {shortage:.2f} square units."
-        )
-
-    # Step 3: Compute aspect ratio and bounds
-    floor_aspect_ratio = floor_width / floor_height if floor_height > 0 else 1.0
-
-    # The supported aspect ratio range is 1:1 (square) to 16:9 (wide rectangle)
-    # Compute normalized aspect ratio
-    normalized_aspect = max(1.0, floor_aspect_ratio)
-
-    # Compute floor dimension min/max bounds
-    # Min bound: based on minimum room areas
-    min_floor_area = total_min_area
-    min_floor_width = math.sqrt(min_floor_area * normalized_aspect)
-    min_floor_height = (
-        min_floor_width / normalized_aspect
-        if normalized_aspect > 0
-        else min_floor_width
-    )
-
-    # Max bound: limited by provided floor dimensions
-    max_floor_width = float(floor_width)
-    max_floor_height = float(floor_height)
-
-    return {
-        "status": "OK",
-        "message": "Floor dimensions validated successfully",
-        "min_floor_width": int(math.floor(min_floor_width)),
-        "min_floor_height": int(math.floor(min_floor_height)),
-        "max_floor_width": int(max_floor_width),
-        "max_floor_height": int(max_floor_height),
-        "floor_aspect_ratio": floor_aspect_ratio,
-    }
 
 
 def _run_single_fpg_solve(
@@ -432,42 +187,8 @@ def _run_single_fpg_solve(
     return result
 
 
-def _run_optuna_entry(
-    requirements: FpgRequirements,
-    floor_dimension_bounds: dict[str, int],
-    optuna_trial_count: int = DEFAULT_OPTUNA_TRIALS,
-    study_name: str = "fpg_layout_optimization",
-) -> OptunaOptimizationResult:
-    """Run Optuna optimization with pre-computed floor dimension bounds.
-
-    Args:
-        requirements: FpgRequirements with room and constraint data
-        floor_dimension_bounds: Pre-computed bounds dict with keys:
-            min_floor_width, min_floor_height, max_floor_width, max_floor_height
-        optuna_trial_count: Number of trials to run
-        study_name: Name for Optuna study
-
-    Returns:
-        OptunaOptimizationResult with best trial information
-    """
-    storage = DEFAULT_OPTUNA_STORAGE_URL if DEFAULT_OPTUNA_STORAGE_ENABLED else None
-    run_study_name = DEFAULT_OPTUNA_STUDY_NAME
-
-    print("\n _run_optuna_entry() ")
-
-    return run_optuna_optimization(
-        base_requirements=requirements,
-        evaluator=_run_single_fpg_solve,
-        n_trials=optuna_trial_count,
-        study_name=run_study_name,
-        storage=storage,
-        floor_dimension_bounds=floor_dimension_bounds,
-    )
-
-
 def _select_solver_result(
     requirements: FpgRequirements,
-    floor_dimension_bounds: dict[str, int],
     should_optuna_run: bool,
     optuna_trial_count: int,
     verbose: bool,
@@ -476,10 +197,12 @@ def _select_solver_result(
     if not should_optuna_run:
         return _run_single_fpg_solve(requirements, verbose=verbose)
 
-    optuna_result = _run_optuna_entry(
-        requirements=requirements,
-        floor_dimension_bounds=floor_dimension_bounds,
-        optuna_trial_count=optuna_trial_count,
+    optuna_result = run_optuna_optimization(
+        base_requirements=requirements,
+        evaluator=_run_single_fpg_solve,
+        n_trials=optuna_trial_count,
+        study_name=DEFAULT_OPTUNA_STUDY_NAME,
+        storage=DEFAULT_OPTUNA_STORAGE_URL if DEFAULT_OPTUNA_STORAGE_ENABLED else None,
     )
     if optuna_result.best_run is not None:
         return optuna_result.best_run
@@ -558,7 +281,7 @@ def run_fpg_pipeline_api(
 
     New flow:
     1. Build requirements (internally loads and prunes server-side constraints)
-    2. Validate floor dimensions and compute bounds
+    2. Validate floor dimensions
     3. Run solver (single or Optuna-based)
     4. Build and return formatted payload
 
@@ -585,34 +308,24 @@ def run_fpg_pipeline_api(
 
     try:
         # Step 1: Build requirements (loads and prunes internally)
-        requirements = _build_requirements(
+        requirements = build_requirements(
             floor_width=floor_width,
             floor_height=floor_height,
             room_template=room_template,
         )
         print(f"\n DATA DEBUG :\n After Build Requirements = {requirements}")
 
-        # Step 2: Validate floor dimensions and compute bounds
-        bounds_result = _validate_and_compute_floor_bounds(
+        # Step 2: Validate floor dimensions
+        validation_result = validate_and_compute_floor_bounds(
             floor_width=floor_width,
             floor_height=floor_height,
             requirements=requirements,
         )
-        print(f"\n DATA DEBUG :\n Validate and Compute Floor Bounds = {bounds_result} ")
+        print(f"\n DATA DEBUG :\n Floor Validation = {validation_result} ")
 
-        floor_dimension_bounds = {
-            "min_floor_width": bounds_result["min_floor_width"],
-            "min_floor_height": bounds_result["min_floor_height"],
-            "max_floor_width": bounds_result["max_floor_width"],
-            "max_floor_height": bounds_result["max_floor_height"],
-        }
-        
-        print(f"\n DATA DEBUG : Floor dimension bounds object = {floor_dimension_bounds} ")
-
-        # Step 3: Run solver with validated bounds
+        # Step 3: Run solver
         run_result = _select_solver_result(
             requirements=requirements,
-            floor_dimension_bounds=floor_dimension_bounds,
             should_optuna_run=should_optuna_run,
             optuna_trial_count=optuna_trial_count,
             verbose=verbose,
@@ -631,4 +344,4 @@ def run_fpg_pipeline_api(
     except Exception as exc:
         error_message = f"Failed to generate layout: {exc}"
         print(f"\n ERROR: {error_message}")
-        return _error_payload(error_message)
+        return error_payload(error_message)

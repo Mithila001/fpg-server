@@ -38,6 +38,7 @@ from app.util.tracking import get_tracking_context
 
 from .exceptions import TrialTimeoutError
 from .types import FpgEvaluationResult, OptunaOptimizationResult
+from .util import calculate_floor_bounds
 
 EVALUATION_FN = Callable[[FpgRequirements, bool], FpgEvaluationResult]
 FLOOR_DIMENSION_BOUNDS = dict[str, int]
@@ -150,7 +151,16 @@ def _resolve_floor_dimension_bounds(
     base_floor_h = max(1, int(base_requirements.config.floor_plan_height))
 
     if floor_dimension_bounds is None:
-        return base_floor_w, base_floor_h, base_floor_w, base_floor_h
+        computed_bounds = calculate_floor_bounds(base_requirements)
+        if not computed_bounds.feasible:
+            return base_floor_w, base_floor_h, base_floor_w, base_floor_h
+
+        return (
+            max(1, int(computed_bounds.min_floor_width)),
+            max(1, int(computed_bounds.min_floor_height)),
+            max(1, int(computed_bounds.max_floor_width)),
+            max(1, int(computed_bounds.max_floor_height)),
+        )
 
     min_floor_w = int(floor_dimension_bounds.get("min_floor_width", base_floor_w))
     min_floor_h = int(floor_dimension_bounds.get("min_floor_height", base_floor_h))
@@ -457,6 +467,13 @@ def run_optuna_optimization(
             )
             print(f"\nOptuna Trial = {trial_requirements}\n")
 
+            bounds_result = calculate_floor_bounds(trial_requirements)
+            if not bounds_result.feasible:
+                trial.set_user_attr("status", "floor_bounds_infeasible")
+                trial.set_user_attr("reason", bounds_result.reason)
+                trial.set_user_attr("valid", False)
+                return 0.0
+
 
 
             ok, reason = _precheck(trial_requirements)
@@ -501,11 +518,6 @@ def run_optuna_optimization(
 
         # Check if score threshold reached (early stop condition)
         if controller.should_stop_optimization(score):
-            elapsed_time = controller.get_elapsed_time()
-            message = (
-                f"Early stop: score {score:.2f} >= threshold {controller.score_threshold}, "
-                f"stopping trials after {elapsed_time:.2f}s"
-            )
             study.stop()
             return
 
@@ -513,8 +525,6 @@ def run_optuna_optimization(
         try:
             controller.check_timeout_and_raise()
         except TrialTimeoutError:
-            elapsed_time = controller.get_elapsed_time()
-            message = f"Trial optimization timeout after {elapsed_time:.2f}s without feasible result"
             study.stop()
             raise
 
@@ -536,6 +546,18 @@ def run_optuna_optimization(
             failed_trials += 1
 
     best_run = best_run_by_trial.get(study.best_trial.number)
+    if best_run is None:
+        best_trial_status = str(study.best_trial.user_attrs.get("status", ""))
+        if best_trial_status in {"floor_bounds_infeasible", "precheck_failed"}:
+            best_reason = str(study.best_trial.user_attrs.get("reason", best_trial_status))
+            best_run = FpgEvaluationResult(
+                solved=False,
+                solution=[],
+                score_report=None,
+                status=best_trial_status,
+                message=best_reason,
+            )
+
     if best_run is None:
         # The best trial can come from a previous run when load_if_exists=True.
         # Rebuild and evaluate it so callers always get coordinates.
