@@ -465,16 +465,17 @@ def run_optuna_optimization(
                 trial,
                 floor_dimension_bounds=floor_dimension_bounds,
             )
-            print(f"\nOptuna Trial = {trial_requirements}\n")
+            # print(f"\nOptuna Trial = {trial_requirements}\n")
 
             bounds_result = calculate_floor_bounds(trial_requirements)
             if not bounds_result.feasible:
                 trial.set_user_attr("status", "floor_bounds_infeasible")
                 trial.set_user_attr("reason", bounds_result.reason)
                 trial.set_user_attr("valid", False)
+                print(f"\n-- Invalid Bounds: {bounds_result}\n")
                 return 0.0
 
-
+            print(f"\n-- Bounds: {bounds_result}\n")
 
             ok, reason = _precheck(trial_requirements)
             if not ok:

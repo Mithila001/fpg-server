@@ -10,7 +10,7 @@ from app.core.fpg_rooms.config_fpg import (
 
 # Search space for coverage optimization.
 OPTUNA_MIN_COVERAGE_LOW = 0.30
-OPTUNA_MIN_COVERAGE_HIGH = 0.90
+OPTUNA_MIN_COVERAGE_HIGH = 0.50
 OPTUNA_MIN_COVERAGE_STEP = 0.05
 
 # Search space for hallway count optimization.

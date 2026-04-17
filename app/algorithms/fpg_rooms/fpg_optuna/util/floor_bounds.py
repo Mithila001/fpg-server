@@ -89,38 +89,68 @@ def calculate_floor_bounds(
     additional_min_area = min(available_area, float(MIN_FLOOR_AREA_BUFFER))
     required_floor_area = total_min_area + additional_min_area
 
-    aspect_ratio = (
-        float(max_floor_width) / float(max_floor_height)
-        if max_floor_height > 0
-        else 1.0
+    target_area = total_min_area
+    start_width = 50 if max_floor_width >= 50 else max_floor_width
+    min_width_float = max(
+        float(start_width),
+        math.sqrt(target_area),
+        target_area / float(max_floor_height),
     )
-    if not math.isfinite(aspect_ratio) or aspect_ratio <= 0.0:
-        aspect_ratio = 1.0
-
-    room_min_width, room_min_height = _room_min_extents(requirements)
-    min_floor_height = max(1, room_min_height)
+    max_width_float = min(
+        float(max_floor_width),
+        math.sqrt(2.0 * target_area),
+    )
 
     found_width = 0
     found_height = 0
-    for candidate_height in range(min_floor_height, max_floor_height + 1):
-        width_from_area = int(math.ceil(required_floor_area / candidate_height))
-        width_from_aspect = int(math.ceil(aspect_ratio * candidate_height))
-        candidate_width = max(room_min_width, width_from_area, width_from_aspect)
-        if candidate_width > max_floor_width:
-            continue
-        if candidate_width * candidate_height < required_floor_area:
-            continue
-        found_width = candidate_width
-        found_height = candidate_height
-        break
+    if min_width_float <= max_width_float:
+        search_start = int(math.ceil(min_width_float))
+        search_end = int(math.floor(max_width_float))
+
+        # First try to find a floor size close to the preferred 1:1.5 aspect ratio.
+        preferred_ratio = 1.5
+        preferred_tolerance = 0.05
+        best_preferred = None
+        best_distance = float("inf")
+
+        for candidate_width in range(search_start, search_end + 1):
+            candidate_height = int(math.ceil(target_area / float(candidate_width)))
+            if candidate_height > max_floor_height:
+                continue
+            candidate_ratio = float(candidate_width) / float(candidate_height)
+            if candidate_ratio < 1.0 or candidate_ratio > 2.0:
+                continue
+            if candidate_width * candidate_height < target_area:
+                continue
+
+            ratio_distance = abs(candidate_ratio - preferred_ratio)
+            if ratio_distance < best_distance:
+                best_distance = ratio_distance
+                best_preferred = (candidate_width, candidate_height)
+
+        if best_preferred is not None and best_distance <= preferred_tolerance:
+            found_width, found_height = best_preferred
+        else:
+            for candidate_width in range(search_start, search_end + 1):
+                candidate_height = int(math.ceil(target_area / float(candidate_width)))
+                if candidate_height > max_floor_height:
+                    continue
+                candidate_ratio = float(candidate_width) / float(candidate_height)
+                if candidate_ratio < 1.0 or candidate_ratio > 2.0:
+                    continue
+                if candidate_width * candidate_height < target_area:
+                    continue
+                found_width = candidate_width
+                found_height = candidate_height
+                break
 
     if found_width <= 0 or found_height <= 0:
         return FloorBoundsResult(
             feasible=False,
             reason=(
-                "Required floor bounds exceed max floor bounds "
-                f"(area={required_floor_area:.2f}, max={max_floor_width}x{max_floor_height}, "
-                f"room_min={room_min_width}x{room_min_height}, aspect={aspect_ratio:.4f})."
+                "Unable to find floor dimensions for the total min area "
+                f"({total_min_area:.2f}) within max bounds {max_floor_width}x{max_floor_height} "
+                "and aspect ratio 1:1 to 1:2."
             ),
             min_floor_width=0,
             min_floor_height=0,
