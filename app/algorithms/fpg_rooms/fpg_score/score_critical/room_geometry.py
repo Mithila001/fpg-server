@@ -38,3 +38,8 @@ def validate_room_geometry(
             )
 
     return violations
+
+
+
+    
+    
