@@ -130,6 +130,7 @@ def _score_critical_section(
     overlap_violations = validate_no_overlap(scoring_rooms)
     _append_check("no_overlap", overlap_violations)
 
+    print(f"\nScore Relation Constrains: {relation_constraints}\n")
     adjacency_violations = validate_adjacency_relations(
         scoring_rooms,
         relation_constraints,

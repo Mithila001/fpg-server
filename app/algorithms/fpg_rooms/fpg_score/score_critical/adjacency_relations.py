@@ -67,4 +67,5 @@ def validate_adjacency_relations(
                         f"must touch at least one room of type '{required_type}'"
                     )
 
+    print(f"\nAdjacency Violation: {violations}\n")
     return violations
