@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 from typing import Any, Dict, Sequence, Tuple
 
@@ -21,15 +22,34 @@ def _plot_inward_pocket_debug(
     pockets: Any,
     tracked_segments: Sequence[LineString],
     bad_segments: Sequence[LineString],
-    output_dir: str,
+    output_dir: str | None = None,
 ) -> None:
+    if output_dir is None:
+        output_dir = os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "..",
+                "..",
+                "..",
+                "test",
+                "outputs",
+                "score_inward_pockats",
+            )
+        )
+
+    os.makedirs(output_dir, exist_ok=True)
+
     try:
         import matplotlib.pyplot as plt
         from matplotlib.patches import Polygon as MplPolygon
-    except ImportError:
+    except ImportError as exc:
+        print(
+            f"Unable to save inward pocket debug plot because matplotlib is not installed: {exc}"
+        )
+        print(f"Intended output directory: {output_dir}")
         return
-
-    os.makedirs(output_dir, exist_ok=True)
 
     def _draw_rooms(ax: Any) -> None:
         for room in rooms:
@@ -64,6 +84,14 @@ def _plot_inward_pocket_debug(
     y_min = min(all_y) - padding * 0.05
     y_max = max(all_y) + padding * 0.05
 
+    x_min = math.floor(x_min / 10.0) * 10.0
+    x_max = math.ceil(x_max / 10.0) * 10.0
+    y_min = math.floor(y_min / 10.0) * 10.0
+    y_max = math.ceil(y_max / 10.0) * 10.0
+
+    x_ticks = [x_min + i * 10.0 for i in range(int((x_max - x_min) / 10.0) + 1)]
+    y_ticks = [y_min + i * 10.0 for i in range(int((y_max - y_min) / 10.0) + 1)]
+
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
     titles = [
         "Union + detected pockets",
@@ -80,8 +108,8 @@ def _plot_inward_pocket_debug(
         ax.set_aspect("equal", adjustable="box")
         ax.set_xlim(x_min, x_max)
         ax.set_ylim(y_min, y_max)
-        ax.set_xticks([x_min + i * 10 for i in range(int((x_max - x_min) / 10) + 2)])
-        ax.set_yticks([y_min + i * 10 for i in range(int((y_max - y_min) / 10) + 2)])
+        ax.set_xticks(x_ticks)
+        ax.set_yticks(y_ticks)
         ax.grid(True, which="major", color="lightgray", linestyle="--", linewidth=0.5)
 
     _draw_polygon(axes[0], pockets, facecolor="red", edgecolor="darkred", alpha=0.35)
@@ -100,6 +128,7 @@ def _plot_inward_pocket_debug(
     fig.tight_layout()
     fig.savefig(output_path, dpi=150)
     plt.close(fig)
+    print(f"Saved inward pocket debug plot to: {output_path}")
 
 
 def detect_inward_pocket_violation(
@@ -211,14 +240,15 @@ def detect_inward_pocket_violation(
                     }
                 )
 
-    # _plot_inward_pocket_debug(
-    #     rooms=rooms,
-    #     hull=hull,
-    #     pockets=pockets,
-    #     tracked_segments=tracked_segments,
-    #     bad_segments=bad_segments,
-    #     output_dir=os.path.join(os.path.dirname(__file__), "temp"),
-    # )
+    print("\n------------------ Inward Pockets\n")
+    _plot_inward_pocket_debug(
+        rooms=rooms,
+        hull=hull,
+        pockets=pockets,
+        tracked_segments=tracked_segments,
+        bad_segments=bad_segments,
+        output_dir=None,
+    )
 
     diagnostics["violating_segments"] = violating_segments
     return len(violating_segments) > 0, diagnostics

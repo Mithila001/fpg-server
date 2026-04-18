@@ -130,7 +130,6 @@ def _score_critical_section(
     overlap_violations = validate_no_overlap(scoring_rooms)
     _append_check("no_overlap", overlap_violations)
 
-    print(f"\nScore Relation Constrains: {relation_constraints}\n")
     adjacency_violations = validate_adjacency_relations(
         scoring_rooms,
         relation_constraints,
@@ -273,9 +272,8 @@ def score_layout(
 ) -> ScoreReport:
     """Score a solved floor-plan layout using 4 sections with two gate rules."""
     scoring_rooms, wall_union, openings = _resolve_scoring_inputs(solution, quick_post_process_result)
-    print(f"[score_manager] score_layout start: rooms={len(scoring_rooms)}")
     if not scoring_rooms:
-        print("[score_manager] no scoring rooms after normalization")
+        print("\n[score_manager] no scoring rooms after normalization")
         SystemLogger.log_event(
             tag="SCORE",
             event="score_no_rooms",
@@ -319,7 +317,7 @@ def score_layout(
     critical_full = math.isclose(critical_score, 25.0, abs_tol=1e-6)
 
     print(
-        f"[score_manager] critical section: score={critical_score}, "
+        f"\n[score_manager] critical section: score={critical_score}, "
         f"passed={critical_result['diagnostics']['passed_checks']}/" \
         f"{critical_result['diagnostics']['executed_checks']}"
     )
@@ -342,7 +340,7 @@ def score_layout(
 
     if not critical_full:
         print(
-            f"[score_manager] gating out remaining sections because critical < 25: "
+            f"\n[score_manager] gating out remaining sections because critical < 25: "
             f"{critical_score}"
         )
         SystemLogger.log_event(
@@ -388,13 +386,13 @@ def score_layout(
     diagnostics["gates"]["critical_room_total"] = round(critical_room_total, 2)
 
     print(
-        f"[score_manager] room section: score={room_score}, "
+        f"\n[score_manager] room section: score={room_score}, "
         f"critical_room_total={critical_room_total}, gate2_passed={critical_room_threshold_passed}"
     )
 
     if not critical_room_threshold_passed:
         print(
-            "[score_manager] gating out functional and extra because critical+room < 40"
+            "\n[score_manager] gating out functional and extra because critical+room < 40"
         )
         SystemLogger.log_event(
             tag="SCORE",
@@ -443,7 +441,7 @@ def score_layout(
     diagnostics["extra"] = extra_diag
 
     print(
-        f"[score_manager] functional section: score={functional_score}, extra section: score={extra_score}"
+        f"\n[score_manager] functional section: score={functional_score}, extra section: score={extra_score}"
     )
 
     total_score = critical_score + room_score + float(functional_score) + float(extra_score)
