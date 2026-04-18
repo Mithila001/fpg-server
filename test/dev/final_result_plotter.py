@@ -34,7 +34,8 @@ def _safe_float(value: Any) -> float | None:
 def plot_floor_plan_payload(payload: Mapping[str, Any], show: bool = False) -> str | None:
     """Plot walls, openings, and room labels from API payload and save image to test/dev/output."""
     payload_dict = _to_dict(payload)
-    rooms = payload_dict.get("compact_by_room", {}) or {}
+    rooms = payload_dict.get("rooms", {}) or {}
+    global_openings = (payload_dict.get("doors", []) or []) + (payload_dict.get("windows", []) or [])
 
     output_dir = Path(__file__).resolve().parent / "output"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -58,8 +59,7 @@ def plot_floor_plan_payload(payload: Mapping[str, Any], show: bool = False) -> s
         x_points.extend([x1, x2])
         y_points.extend([y1, y2])
 
-    # Optional opening list at root if solver provides opening segments outside rooms
-    global_openings = payload_dict.get("openings", []) or []
+    # Optional opening list at root if the payload uses doors/windows arrays
     for opening in global_openings:
         opening = _to_dict(opening)
         x1 = _safe_float(opening.get("x1"))
@@ -76,8 +76,8 @@ def plot_floor_plan_payload(payload: Mapping[str, Any], show: bool = False) -> s
 
     for room_name, room_value in rooms.items():
         room = _to_dict(room_value)
-        walls = room.get("walls", []) or []
-        openings = room.get("openings", []) or []
+        walls = room.get("room_walls", []) or []
+        openings = []
 
         room_x: list[float] = []
         room_y: list[float] = []
@@ -154,7 +154,7 @@ def plot_final_floor_plan(payload: Mapping[str, Any], show: bool = False) -> str
 def _build_payload_from_solver_result(run_result: Any) -> dict[str, Any]:
     """Reconstruct payload format used by API from an FpgEvaluationResult."""
     if not run_result or not getattr(run_result, "solved", False):
-        return {"status": getattr(run_result, "status", "ERROR"), "message": getattr(run_result, "message", ""), "walls": [], "compact_by_room": {}}
+        return {"status": getattr(run_result, "status", "ERROR"), "message": getattr(run_result, "message", ""), "union_walls": [], "rooms": {}, "doors": [], "windows": []}
 
     quick_post_process_result = getattr(run_result, "quick_post_process_result", None)
     if quick_post_process_result is not None:
@@ -179,8 +179,10 @@ def _build_payload_from_solver_result(run_result: Any) -> dict[str, Any]:
     return {
         "status": run_result.status,
         "message": run_result.message,
-        "walls": post_process_result.get("walls", []),
-        "compact_by_room": post_process_result.get("compact_by_room", {}),
+        "union_walls": post_process_result.get("union_walls", []),
+        "rooms": post_process_result.get("rooms", {}),
+        "doors": post_process_result.get("doors", []),
+        "windows": post_process_result.get("windows", []),
     }
 
 

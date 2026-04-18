@@ -165,19 +165,19 @@ ROOM_SHARED_WALL_RULES = {
     "bedroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
     "kitchen": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
     "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
-    "veranda": {"min_walls": 1, "max_walls": 3, "wiggle_pct": 10},
-    "garage": {"min_walls": 1, "max_walls": 2, "wiggle_pct": 10},
+    "veranda": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 10},
+    "garage": {"min_walls": 2, "max_walls": 2, "wiggle_pct": 10},
 }
 # Refinement phase shared-wall rules (tighter minimum requirements for refine_1).
 # Applied as soft constraint with penalties for violations.
 ROOM_SHARED_WALL_RULES_REFINE = {
     "livingRoom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
-    "bathroom": {"min_walls": 3, "max_walls": 4, "wiggle_pct": 0},
+    "bathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 5},
     "bedroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
     "kitchen": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
-    "attachedBathroom": {"min_walls": 3, "max_walls": 5, "wiggle_pct": 10},
-    "veranda": {"min_walls": 1, "max_walls": 3, "wiggle_pct": 10},
-    "garage": {"min_walls": 1, "max_walls": 2, "wiggle_pct": 10},
+    "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
+    "veranda": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 20},
+    "garage": {"min_walls": 1, "max_walls": 2, "wiggle_pct": 20},
 }
 
 __all__ = [

@@ -90,7 +90,7 @@ def calculate_floor_bounds(
     required_floor_area = total_min_area + additional_min_area
 
     target_area = total_min_area
-    start_width = 50 if max_floor_width >= 50 else max_floor_width
+    start_width = 80 if max_floor_width >= 80 else max_floor_width
     min_width_float = max(
         float(start_width),
         math.sqrt(target_area),

@@ -36,46 +36,41 @@ class WallSegmentResponse(BaseModel):
     y2: float
 
 
-class OpeningSegmentResponse(BaseModel):
+class RoomResponse(BaseModel):
     room_name: str
-    room_type: str | None = None
-    opening_type: str | None = None
-    side: str | None = None
+    room_type: str
+    room_walls: List[WallSegmentResponse]
+
+
+class DoorResponse(BaseModel):
+    room1_name: str
+    room1_type: str | None = None
+    room2_name: str | None = None
+    room2_type: str | None = None
+    opening_type: str
     x1: float | None = None
     y1: float | None = None
     x2: float | None = None
     y2: float | None = None
-    connected_room_name: str | None = None
-    connected_room_type: str | None = None
 
 
-class CompactRoomResponse(BaseModel):
+class WindowResponse(BaseModel):
     room_name: str
-    room_type: str
-    walls: List[WallSegmentResponse]
-    openings: List[OpeningSegmentResponse]
-
-
-class VerandaMetadataResponse(BaseModel):
-    room_name: str
-    l_veranda_pillar: PointResponse
-    r_veranda_pillar: PointResponse
-    veranda_back_points: List[PointResponse]
-
-
-class PostProcessMetadataResponse(BaseModel):
-    veranda: VerandaMetadataResponse | None = None
-    garage_shared_horizontal_overlap_segment: WallSegmentResponse | None = None
-    hallway_living_shared_walls: List[WallSegmentResponse] = Field(default_factory=list)
-    converted_hallway_living_openings: int = 0
+    room_type: str | None = None
+    opening_type: str
+    x1: float | None = None
+    y1: float | None = None
+    x2: float | None = None
+    y2: float | None = None
 
 
 class FormatterResponse(BaseModel):
     status: str
     message: str
-    walls: List[WallSegmentResponse]
-    compact_by_room: dict[str, CompactRoomResponse]
-    metadata: PostProcessMetadataResponse | None = None
+    union_walls: List[WallSegmentResponse]
+    rooms: dict[str, RoomResponse]
+    doors: List[DoorResponse]
+    windows: List[WindowResponse]
 
 
 class FormatterV2ApiRequest(BaseModel):

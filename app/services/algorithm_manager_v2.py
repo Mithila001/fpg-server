@@ -35,14 +35,10 @@ from app.util.algorithm_manager import (
 from test.dev.final_result_plotter import plot_final_solver_result
 
 EMPTY_POST_PROCESS_LAYOUT = {
-    "walls": [],
-    "compact_by_room": {},
-    "metadata": {
-        "veranda": None,
-        "garage_shared_horizontal_overlap_segment": None,
-        "hallway_living_shared_walls": [],
-        "converted_hallway_living_openings": 0,
-    },
+    "union_walls": [],
+    "rooms": {},
+    "doors": [],
+    "windows": [],
 }
 EMPTY_OPENING_LAYOUT = {
     "openings": [],
@@ -261,11 +257,10 @@ def _build_payload_from_solver_result(
     return {
         "status": run_result.status,
         "message": run_result.message,
-        "walls": post_process_result["walls"],
-        "compact_by_room": post_process_result["compact_by_room"],
-        "metadata": post_process_result.get(
-            "metadata", EMPTY_POST_PROCESS_LAYOUT["metadata"]
-        ),
+        "union_walls": post_process_result["union_walls"],
+        "rooms": post_process_result["rooms"],
+        "doors": post_process_result["doors"],
+        "windows": post_process_result["windows"],
     }
 
 
@@ -294,7 +289,7 @@ def run_fpg_pipeline_api(
         verbose: Verbosity flag
 
     Returns:
-        Response dict with status, message, walls, compact_by_room, metadata
+        Response dict with status, message, union_walls, rooms, doors, windows
     """
     print("\nSTART: run_fpg_pipeline_api() ------")
     SystemLogger.log_event(
