@@ -10,7 +10,6 @@ import optuna
 from app.algorithms.fpg_rooms.types.room import (
     ConfigData,
     FpgRequirements,
-    RoomData,
 )
 from app.core.fpg_rooms.config_fpg import (
     TRIAL_EARLY_STOP_SCORE_THRESHOLD,

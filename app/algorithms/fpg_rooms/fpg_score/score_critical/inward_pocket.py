@@ -308,14 +308,14 @@ def detect_inward_pocket_violation_v2(
     )
     hull_contact_points = _extract_pocket_hull_contact_points(hull=hull, pockets=pockets)
 
-    # _debug_steps_plotter(
-    #     rooms=rooms,
-    #     union_geom=union_geom,
-    #     hull=hull,
-    #     pockets=pockets,
-    #     pockets_info=pockets_info,
-    #     hull_contact_points=hull_contact_points,
-    # )
+    _debug_steps_plotter(
+        rooms=rooms,
+        union_geom=union_geom,
+        hull=hull,
+        pockets=pockets,
+        pockets_info=pockets_info,
+        hull_contact_points=hull_contact_points,
+    )
 
     purple_groups: list[Dict[str, Any]] = []
     violating_segments: list[Dict[str, Any]] = []

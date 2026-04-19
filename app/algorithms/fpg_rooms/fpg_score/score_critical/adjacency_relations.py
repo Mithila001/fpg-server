@@ -117,5 +117,5 @@ def validate_adjacency_relations(
                     f"on room_type '{room_type}'"
                 )
 
-    # print(f"\nAdjacency Violation: {violations}\n")
+    print(f"\nAdjacency Violation: {violations}\n")
     return violations

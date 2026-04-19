@@ -74,14 +74,14 @@ KITCHEN_HALLWAY_BACK_WALL_SETBACK_MAX_GAP = 20
 
 # Constraint toggles (soft)
 CONSTRAINT_SOFT_SEED_LAYOUT_HINTS = True
-CONSTRAINT_SOFT_ROOM_ADJACENCY_PREFERENCE = True
-CONSTRAINT_SOFT_COMPACT_LAYOUT_CENTER_PROXIMITY = True
-CONSTRAINT_SOFT_BATHROOM_LOCATION_PREFERENCE = True
-CONSTRAINT_SOFT_LAYOUT_DEAD_SPACE_PENALTY = True
-CONSTRAINT_SOFT_SEED_FACADE_DEPTH_PENALTY = True
-CONSTRAINT_SOFT_SEED_FACADE_ALIGNMENT_PENALTY = True
-CONSTRAINT_SOFT_RECESSED_FACADE_PENALTY = True
-CONSTRAINT_SOFT_ROOM_SHARED_WALL_REFINE = True
+CONSTRAINT_SOFT_ROOM_ADJACENCY_PREFERENCE = False
+CONSTRAINT_SOFT_COMPACT_LAYOUT_CENTER_PROXIMITY = False
+CONSTRAINT_SOFT_BATHROOM_LOCATION_PREFERENCE = False
+CONSTRAINT_SOFT_LAYOUT_DEAD_SPACE_PENALTY = False
+CONSTRAINT_SOFT_SEED_FACADE_DEPTH_PENALTY = False
+CONSTRAINT_SOFT_SEED_FACADE_ALIGNMENT_PENALTY = False
+CONSTRAINT_SOFT_RECESSED_FACADE_PENALTY = False
+CONSTRAINT_SOFT_ROOM_SHARED_WALL_REFINE = False
 
 # Soft-constraint tuning constants
 SOFT_LAYOUT_DEAD_SPACE_WEIGHT = 12
@@ -160,7 +160,7 @@ ROOM_SHARED_WALL_RULES = {
     "bathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 5},
     "bedroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
     "kitchen": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
-    "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 5},
+    "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 0},
     "veranda": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 10},
     "garage": {"min_walls": 2, "max_walls": 2, "wiggle_pct": 10},
 }
@@ -171,7 +171,7 @@ ROOM_SHARED_WALL_RULES_REFINE = {
     "bathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 5},
     "bedroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
     "kitchen": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
-    "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 5},
+    "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 0},
     "veranda": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 10},
     "garage": {"min_walls": 2, "max_walls": 2, "wiggle_pct": 10},
 }
