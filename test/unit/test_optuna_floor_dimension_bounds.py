@@ -8,6 +8,7 @@ from app.algorithms.fpg_rooms.types.room import ConfigData, FpgRequirements, Roo
 def test_mutate_requirements_uses_floor_dimension_bounds():
     base_requirements = FpgRequirements(
         rooms=[
+            RoomData(name="Living Room", type="livingRoom", min_w=15, min_h=15, max_w=20, max_h=20),
             RoomData(name="Bedroom 1", type="bedroom", min_w=6, min_h=6, max_w=14, max_h=14),
         ],
         config=ConfigData(
@@ -32,10 +33,12 @@ def test_mutate_requirements_uses_floor_dimension_bounds():
         {
             "floor_plan_width": 52,
             "floor_plan_height": 41,
-            "room_0_bedroom_min_w": 7,
-            "room_0_bedroom_min_h": 8,
-            "room_0_bedroom_max_w": 12,
-            "room_0_bedroom_max_h": 13,
+            "room_0_livingRoom_min_w": 15,
+            "room_0_livingRoom_min_h": 15,
+            "room_0_livingRoom_max_w": 20,
+            "room_0_livingRoom_max_h": 20,
+            "room_0_livingRoom_anchor_area": 250,
+            "room_1_bedroom_target_area": 150,
             "config_min_coverage": 0.5,
             "hallway_count": 2,
         }
@@ -53,12 +56,19 @@ def test_mutate_requirements_uses_floor_dimension_bounds():
     assert floor_bounds_input["min_floor_height"] <= mutated.config.floor_plan_height <= floor_bounds_input["max_floor_height"]
 
     room = mutated.rooms[0]
+    assert room.type == "livingRoom"
     assert 1 <= room.min_w <= room.max_w <= mutated.config.floor_plan_width
     assert 1 <= room.min_h <= room.max_h <= mutated.config.floor_plan_height
     assert base_requirements.rooms[0].min_w <= room.min_w <= base_requirements.rooms[0].max_w
     assert base_requirements.rooms[0].min_h <= room.min_h <= base_requirements.rooms[0].max_h
     assert base_requirements.rooms[0].min_w <= room.max_w <= base_requirements.rooms[0].max_w
     assert base_requirements.rooms[0].min_h <= room.max_h <= base_requirements.rooms[0].max_h
+
+    bedroom = mutated.rooms[1]
+    assert bedroom.type == "bedroom"
+    assert bedroom.min_w == bedroom.max_w
+    assert bedroom.min_h == bedroom.max_h
+    assert 125 <= bedroom.min_w * bedroom.min_h <= 175
 
     calculated_bounds = calculate_floor_bounds(
         requirements=mutated,
@@ -71,6 +81,7 @@ def test_mutate_requirements_uses_floor_dimension_bounds():
 def test_requirements_from_best_params_clamps_room_dimensions_to_base_ranges():
     base_requirements = FpgRequirements(
         rooms=[
+            RoomData(name="Living Room", type="livingRoom", min_w=15, min_h=15, max_w=20, max_h=20),
             RoomData(name="Bedroom 1", type="bedroom", min_w=6, min_h=7, max_w=14, max_h=15),
         ],
         config=ConfigData(
@@ -89,10 +100,12 @@ def test_requirements_from_best_params_clamps_room_dimensions_to_base_ranges():
         best_params={
             "floor_plan_width": 60,
             "floor_plan_height": 45,
-            "room_0_bedroom_min_w": 1,
-            "room_0_bedroom_min_h": 1,
-            "room_0_bedroom_max_w": 999,
-            "room_0_bedroom_max_h": 999,
+            "room_0_livingRoom_min_w": 15,
+            "room_0_livingRoom_min_h": 15,
+            "room_0_livingRoom_max_w": 20,
+            "room_0_livingRoom_max_h": 20,
+            "room_0_livingRoom_anchor_area": 250,
+            "room_1_bedroom_target_area": 150,
             "config_min_coverage": 0.55,
             "hallway_count": 2,
         },
@@ -104,8 +117,14 @@ def test_requirements_from_best_params_clamps_room_dimensions_to_base_ranges():
         },
     )
 
-    room = clamped.rooms[0]
-    assert room.min_w == 6
-    assert room.min_h == 7
-    assert room.max_w == 14
-    assert room.max_h == 15
+    living_room = clamped.rooms[0]
+    assert living_room.type == "livingRoom"
+    assert living_room.min_w == 15
+    assert living_room.min_h == 15
+    assert living_room.max_w == 20
+    assert living_room.max_h == 20
+
+    room = clamped.rooms[1]
+    assert room.min_w == room.max_w
+    assert room.min_h == room.max_h
+    assert 125 <= room.min_w * room.min_h <= 175

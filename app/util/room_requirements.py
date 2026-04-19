@@ -40,6 +40,9 @@ def normalize_db_data_requirements(
     normalized: List[RoomData] = []
 
     for room in rooms:
+        if room.type == "livingRoom":
+            raise ValueError("ERROR: livingRoom must not be provided by the template")
+
         constraint = constraints_by_type.get(room.type)
 
         if not constraint:
@@ -93,6 +96,47 @@ def normalize_db_data_requirements(
                 max_h=max_h,
             )
         )
+
+    living_room_constraint = constraints_by_type.get("livingRoom")
+    if not living_room_constraint:
+        raise ValueError("ERROR: livingRoom has no constraint record in database")
+
+    if living_room_constraint.min_w is None:
+        raise ValueError("ERROR: livingRoom missing min_w constraint in database")
+    if living_room_constraint.min_h is None:
+        raise ValueError("ERROR: livingRoom missing min_h constraint in database")
+    if living_room_constraint.max_w is None:
+        raise ValueError("ERROR: livingRoom missing max_w constraint in database")
+    if living_room_constraint.max_h is None:
+        raise ValueError("ERROR: livingRoom missing max_h constraint in database")
+
+    living_min_w = int(living_room_constraint.min_w)
+    living_min_h = int(living_room_constraint.min_h)
+    living_max_w = int(living_room_constraint.max_w)
+    living_max_h = int(living_room_constraint.max_h)
+
+    if living_min_w <= 0 or living_min_h <= 0 or living_max_w <= 0 or living_max_h <= 0:
+        raise ValueError(
+            "ERROR: livingRoom has non-positive dimensions: "
+            f"min_w={living_min_w}, min_h={living_min_h}, max_w={living_max_w}, max_h={living_max_h}"
+        )
+
+    if living_min_w > living_max_w or living_min_h > living_max_h:
+        raise ValueError(
+            "ERROR: livingRoom has invalid dimension ranges: "
+            f"min_w={living_min_w} > max_w={living_max_w} or min_h={living_min_h} > max_h={living_max_h}"
+        )
+
+    normalized.append(
+        RoomData(
+            name="Living Room",
+            type="livingRoom",
+            min_w=living_min_w,
+            min_h=living_min_h,
+            max_w=living_max_w,
+            max_h=living_max_h,
+        )
+    )
 
     return normalized
 

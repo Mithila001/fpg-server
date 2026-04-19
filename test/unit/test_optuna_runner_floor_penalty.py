@@ -8,6 +8,7 @@ from app.algorithms.fpg_rooms.types.room import ConfigData, FpgRequirements, Roo
 def test_run_optuna_optimization_penalizes_infeasible_floor_bounds():
     requirements = FpgRequirements(
         rooms=[
+            RoomData(name="Living Room", type="livingRoom", min_w=20, min_h=20, max_w=20, max_h=20),
             RoomData(name="Bedroom", type="bedroom", min_w=20, min_h=20, max_w=25, max_h=25),
         ],
         config=ConfigData(
@@ -44,13 +45,14 @@ def test_run_optuna_optimization_penalizes_infeasible_floor_bounds():
     assert calls == []
     assert result.best_value == 0.0
     assert result.best_run is not None
-    assert result.best_run.status == "floor_bounds_infeasible"
+    assert result.best_run.status == "mutate_requirements_infeasible"
     assert result.best_run.solved is False
 
 
 def test_run_optuna_optimization_penalizes_room_floor_intersection_conflict():
     requirements = FpgRequirements(
         rooms=[
+            RoomData(name="Living Room", type="livingRoom", min_w=20, min_h=20, max_w=20, max_h=20),
             RoomData(name="Bedroom", type="bedroom", min_w=20, min_h=20, max_w=25, max_h=25),
         ],
         config=ConfigData(

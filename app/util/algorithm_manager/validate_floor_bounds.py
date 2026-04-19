@@ -2,8 +2,6 @@ from app.algorithms.fpg_rooms.types.room import FpgRequirements
 from app.core.fpg_rooms.config_fpg import (
     HALLWAY_GENERATOR_MIN_HEIGHT,
     HALLWAY_GENERATOR_MIN_WIDTH,
-    LIVING_ROOM_MIN_HEIGHT,
-    LIVING_ROOM_MIN_WIDTH,
     MIN_FLOOR_AREA_BUFFER,
     MIN_FLOOR_HEIGHT,
     MIN_FLOOR_WIDTH,
@@ -26,6 +24,7 @@ def validate_and_compute_floor_bounds(
         )
 
     total_min_area = 0.0
+    living_room_found = False
     for room in requirements.rooms:
         min_w = getattr(room, "min_w", None)
         min_h = getattr(room, "min_h", None)
@@ -42,8 +41,13 @@ def validate_and_compute_floor_bounds(
                 f"Room '{getattr(room, 'name', '<unknown>')}' has invalid dimensions"
             )
 
+        if getattr(room, "type", None) == "livingRoom":
+            living_room_found = True
+
+    if not living_room_found:
+        raise Exception("LivingRoom requirement is missing from normalized requirements")
+
     # API validation uses one hallway minimum area as a baseline requirement.
-    total_min_area += float(LIVING_ROOM_MIN_WIDTH) * float(LIVING_ROOM_MIN_HEIGHT)
     total_min_area += float(HALLWAY_GENERATOR_MIN_WIDTH) * float(HALLWAY_GENERATOR_MIN_HEIGHT)
 
     total_min_area_with_buffer = total_min_area + MIN_FLOOR_AREA_BUFFER

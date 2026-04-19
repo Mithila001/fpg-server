@@ -7,8 +7,6 @@ from app.algorithms.fpg_rooms.types.room import FpgRequirements
 from app.core.fpg_rooms.config_fpg import (
     HALLWAY_GENERATOR_MIN_HEIGHT,
     HALLWAY_GENERATOR_MIN_WIDTH,
-    LIVING_ROOM_MIN_HEIGHT,
-    LIVING_ROOM_MIN_WIDTH,
     MIN_FLOOR_AREA_BUFFER,
 )
 
@@ -28,10 +26,14 @@ class FloorBoundsResult:
 
 def _room_min_area(requirements: FpgRequirements) -> float:
     total_min_area = 0.0
+    living_room_found = False
     for room in requirements.rooms:
         total_min_area += float(room.min_w) * float(room.min_h)
+        if room.type == "livingRoom":
+            living_room_found = True
 
-    total_min_area += float(LIVING_ROOM_MIN_WIDTH) * float(LIVING_ROOM_MIN_HEIGHT)
+    if not living_room_found:
+        raise ValueError("LivingRoom requirement is missing from normalized requirements")
 
     hallway_count = max(0, int(getattr(requirements.config, "hallway_count", 0)))
     if hallway_count > 0:
@@ -48,9 +50,6 @@ def _room_min_extents(requirements: FpgRequirements) -> tuple[int, int]:
     for room in requirements.rooms:
         min_width = max(min_width, int(room.min_w))
         min_height = max(min_height, int(room.min_h))
-
-    min_width = max(min_width, int(LIVING_ROOM_MIN_WIDTH))
-    min_height = max(min_height, int(LIVING_ROOM_MIN_HEIGHT))
 
     hallway_count = max(0, int(getattr(requirements.config, "hallway_count", 0)))
     if hallway_count > 0:

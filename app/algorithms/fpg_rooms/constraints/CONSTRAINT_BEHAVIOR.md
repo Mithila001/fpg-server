@@ -113,6 +113,8 @@ Improves overall utilization consistency across generated plans.
 
 ## Description
 Constrains target room areas as percentage bands of livingRoom area.
+The livingRoom reference is now transported through normalized requirements and
+no longer comes from hardcoded generator fallback constants.
 For each configured room type, area must stay between min and max percent.
 Skips gracefully if livingRoom is missing.
 

@@ -148,10 +148,6 @@ HALLWAY_LONG_SIDE_MIN = 10
 # Default 3 means only one hallway wall may remain as an exterior wall.
 HALLWAY_REQUIRED_SHARED_WALLS = 3
 
-# Living room generation minimums.
-LIVING_ROOM_MIN_WIDTH = 30
-LIVING_ROOM_MIN_HEIGHT = 30
-
 # Room types whose relation constraints should not be pruned by template.
 NOT_PRUNE_ROOMS = ["livingRoom", "hallway"]
 
@@ -260,8 +256,6 @@ __all__ = [
     "HALLWAY_GENERATOR_MIN_HEIGHT",
     "HALLWAY_LONG_SIDE_MIN",
     "HALLWAY_REQUIRED_SHARED_WALLS",
-    "LIVING_ROOM_MIN_WIDTH",
-    "LIVING_ROOM_MIN_HEIGHT",
     "NOT_PRUNE_ROOMS",
     "ROOM_SHARED_WALL_RULES",
     "ROOM_SHARED_WALL_RULES_REFINE",
