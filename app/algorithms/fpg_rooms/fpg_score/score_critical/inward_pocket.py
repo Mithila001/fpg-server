@@ -243,14 +243,14 @@ def detect_inward_pocket_violation(
                 )
 
     print("\n------------------ Inward Pockets\n")
-    _plot_inward_pocket_debug(
-        rooms=rooms,
-        hull=hull,
-        pockets=pockets,
-        tracked_segments=tracked_segments,
-        bad_segments=bad_segments,
-        output_dir=None,
-    )
+    # _plot_inward_pocket_debug(
+    #     rooms=rooms,
+    #     hull=hull,
+    #     pockets=pockets,
+    #     tracked_segments=tracked_segments,
+    #     bad_segments=bad_segments,
+    #     output_dir=None,
+    # )
 
     diagnostics["violating_segments"] = violating_segments
     return len(violating_segments) > 0, diagnostics
@@ -500,7 +500,19 @@ def _debug_steps_plotter(
 ) -> None:
     """Save a debug plot of the floor plan, convex hull, and detected pockets."""
     if output_dir is None:
-        output_dir = os.path.abspath(os.path.dirname(__file__))
+        output_dir = os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "..",
+                "..",
+                "..",
+                "test",
+                "outputs",
+                "score_inward_pockats",
+            )
+        )
 
     os.makedirs(output_dir, exist_ok=True)
 

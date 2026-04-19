@@ -26,12 +26,7 @@ from app.core.fpg_rooms.config_optuna import (
     OPTUNA_ENVELOPE_MIN_GAP_DEFAULT,
     OPTUNA_HALLWAY_COUNT_MAX,
     OPTUNA_HALLWAY_COUNT_MIN,
-    OPTUNA_MIN_COVERAGE_FLOOR,
-    OPTUNA_MIN_COVERAGE_HIGH,
-    OPTUNA_MIN_COVERAGE_LOW,
-    OPTUNA_MIN_COVERAGE_STEP,
     OPTUNA_PARAM_KEY_HALLWAY_COUNT,
-    OPTUNA_PARAM_KEY_MIN_COVERAGE,
 )
 from app.util.tracking import get_tracking_context
 
@@ -215,12 +210,8 @@ def mutate_requirements(
 
     tuned_rooms = copy.deepcopy(base_requirements.rooms)
     tuned_config = ConfigData(
-        min_coverage=trial.suggest_float(
-            OPTUNA_PARAM_KEY_MIN_COVERAGE,
-            OPTUNA_MIN_COVERAGE_LOW,
-            OPTUNA_MIN_COVERAGE_HIGH,
-            step=OPTUNA_MIN_COVERAGE_STEP,
-        ),
+        #TODO: Put this in Config
+        min_coverage=0.5,
         hallway_count=trial.suggest_int(
             OPTUNA_PARAM_KEY_HALLWAY_COUNT,
             OPTUNA_HALLWAY_COUNT_MIN,
@@ -353,13 +344,7 @@ def _requirements_from_best_params(
     floor_h = max(min_floor_h, min(max_floor_h, floor_h))
 
     tuned_rooms = copy.deepcopy(base_requirements.rooms)
-    coverage = float(
-        best_params.get(
-            OPTUNA_PARAM_KEY_MIN_COVERAGE,
-            float(base_requirements.config.min_coverage),
-        )
-    )
-    coverage = min(1.0, max(OPTUNA_MIN_COVERAGE_FLOOR, coverage))
+    coverage = 0.5
     base_hallway_count = int(getattr(base_requirements.config, "hallway_count", 1))
     hallway_count = int(best_params.get(OPTUNA_PARAM_KEY_HALLWAY_COUNT, base_hallway_count))
     hallway_count = max(OPTUNA_HALLWAY_COUNT_MIN, min(OPTUNA_HALLWAY_COUNT_MAX, hallway_count))

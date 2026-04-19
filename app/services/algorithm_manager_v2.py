@@ -75,15 +75,24 @@ def _plot_refine_before_after_dev(
             return None
 
         # Prefer 3-stage plotting if available, otherwise fallback to 2-stage
+        output_dir = project_root / "test" / "outputs" / "refinements"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
         if plot_fn.__name__ == "plot_refine_three_generations":
             return plot_fn(
                 before_rooms=stage1_rooms,
                 middle_rooms=stage2_rooms,
                 after_rooms=stage3_rooms,
+                output_dir=output_dir,
                 show=False,
             )
 
-        return plot_fn(before_rooms=stage1_rooms, after_rooms=stage3_rooms, show=False)
+        return plot_fn(
+            before_rooms=stage1_rooms,
+            after_rooms=stage3_rooms,
+            output_dir=output_dir,
+            show=False,
+        )
     except Exception:
         return None
 
@@ -138,11 +147,11 @@ def _run_single_fpg_solve(
     print("\n run_refine_profile_2")
     stage3_rooms = refine_result2.rooms if refine_result2.rooms else stage2_rooms
     final_rooms = stage3_rooms
-    # _plot_refine_before_after_dev(
-    #     stage1_rooms=stage1_rooms,
-    #     stage2_rooms=stage2_rooms,
-    #     stage3_rooms=stage3_rooms,
-    # )
+    _plot_refine_before_after_dev(
+        stage1_rooms=stage1_rooms,
+        stage2_rooms=stage2_rooms,
+        stage3_rooms=stage3_rooms,
+    )
 
     # Combined status/message from two refine passes for diagnostics
     refine_status = f"{refine_result1.status} -> {refine_result2.status}"
