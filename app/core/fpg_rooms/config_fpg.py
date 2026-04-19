@@ -161,10 +161,10 @@ NOT_PRUNE_ROOMS = ["livingRoom", "hallway"]
 #   min_walls sides; e.g. 30 means up to 30% uncovered is allowed.
 ROOM_SHARED_WALL_RULES = {
     "livingRoom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
-    "bathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 0},
+    "bathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 5},
     "bedroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
     "kitchen": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
-    "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
+    "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 5},
     "veranda": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 10},
     "garage": {"min_walls": 2, "max_walls": 2, "wiggle_pct": 10},
 }
@@ -173,11 +173,11 @@ ROOM_SHARED_WALL_RULES = {
 ROOM_SHARED_WALL_RULES_REFINE = {
     "livingRoom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
     "bathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 5},
-    "bedroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
+    "bedroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
     "kitchen": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
-    "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
-    "veranda": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 20},
-    "garage": {"min_walls": 1, "max_walls": 2, "wiggle_pct": 20},
+    "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 5},
+    "veranda": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 10},
+    "garage": {"min_walls": 2, "max_walls": 2, "wiggle_pct": 10},
 }
 
 __all__ = [

@@ -128,7 +128,6 @@ def _plot_inward_pocket_debug(
     fig.tight_layout()
     fig.savefig(output_path, dpi=150)
     plt.close(fig)
-    print(f"Saved inward pocket debug plot to: {output_path}")
 
 
 def detect_inward_pocket_violation(
