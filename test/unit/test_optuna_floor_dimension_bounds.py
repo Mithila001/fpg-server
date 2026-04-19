@@ -1,4 +1,5 @@
 import optuna
+import pytest
 
 from app.algorithms.fpg_rooms.fpg_optuna.runner import _requirements_from_best_params, mutate_requirements
 from app.algorithms.fpg_rooms.fpg_optuna.util import calculate_floor_bounds
@@ -33,12 +34,6 @@ def test_mutate_requirements_uses_floor_dimension_bounds():
         {
             "floor_plan_width": 52,
             "floor_plan_height": 41,
-            "room_0_livingRoom_min_w": 15,
-            "room_0_livingRoom_min_h": 15,
-            "room_0_livingRoom_max_w": 20,
-            "room_0_livingRoom_max_h": 20,
-            "room_0_livingRoom_anchor_area": 250,
-            "room_1_bedroom_target_area": 150,
             "config_min_coverage": 0.5,
             "hallway_count": 2,
         }
@@ -66,9 +61,10 @@ def test_mutate_requirements_uses_floor_dimension_bounds():
 
     bedroom = mutated.rooms[1]
     assert bedroom.type == "bedroom"
-    assert bedroom.min_w == bedroom.max_w
-    assert bedroom.min_h == bedroom.max_h
-    assert 125 <= bedroom.min_w * bedroom.min_h <= 175
+    assert bedroom.min_w == base_requirements.rooms[1].min_w
+    assert bedroom.min_h == base_requirements.rooms[1].min_h
+    assert bedroom.max_w == base_requirements.rooms[1].max_w
+    assert bedroom.max_h == base_requirements.rooms[1].max_h
 
     calculated_bounds = calculate_floor_bounds(
         requirements=mutated,
@@ -78,7 +74,7 @@ def test_mutate_requirements_uses_floor_dimension_bounds():
     assert calculated_bounds.min_floor_height <= calculated_bounds.max_floor_height
 
 
-def test_requirements_from_best_params_clamps_room_dimensions_to_base_ranges():
+def test_requirements_from_best_params_preserves_room_dimensions():
     base_requirements = FpgRequirements(
         rooms=[
             RoomData(name="Living Room", type="livingRoom", min_w=15, min_h=15, max_w=20, max_h=20),
@@ -95,17 +91,11 @@ def test_requirements_from_best_params_clamps_room_dimensions_to_base_ranges():
         relation_constraints=[],
     )
 
-    clamped = _requirements_from_best_params(
+    selected = _requirements_from_best_params(
         base_requirements=base_requirements,
         best_params={
             "floor_plan_width": 60,
             "floor_plan_height": 45,
-            "room_0_livingRoom_min_w": 15,
-            "room_0_livingRoom_min_h": 15,
-            "room_0_livingRoom_max_w": 20,
-            "room_0_livingRoom_max_h": 20,
-            "room_0_livingRoom_anchor_area": 250,
-            "room_1_bedroom_target_area": 150,
             "config_min_coverage": 0.55,
             "hallway_count": 2,
         },
@@ -117,14 +107,49 @@ def test_requirements_from_best_params_clamps_room_dimensions_to_base_ranges():
         },
     )
 
-    living_room = clamped.rooms[0]
+    living_room = selected.rooms[0]
     assert living_room.type == "livingRoom"
     assert living_room.min_w == 15
     assert living_room.min_h == 15
     assert living_room.max_w == 20
     assert living_room.max_h == 20
 
-    room = clamped.rooms[1]
-    assert room.min_w == room.max_w
-    assert room.min_h == room.max_h
-    assert 125 <= room.min_w * room.min_h <= 175
+    room = selected.rooms[1]
+    assert room.min_w == base_requirements.rooms[1].min_w
+    assert room.min_h == base_requirements.rooms[1].min_h
+    assert room.max_w == base_requirements.rooms[1].max_w
+    assert room.max_h == base_requirements.rooms[1].max_h
+
+
+def test_mutate_requirements_rejects_unachievable_room_size_hierarchy():
+    base_requirements = FpgRequirements(
+        rooms=[
+            RoomData(name="Living Room", type="livingRoom", min_w=10, min_h=10, max_w=10, max_h=10),
+            RoomData(name="Bedroom", type="bedroom", min_w=5, min_h=5, max_w=6, max_h=6),
+        ],
+        config=ConfigData(
+            min_coverage=0.5,
+            max_aspect_ratio=16.0,
+            min_aspect_ratio=0.0,
+            floor_plan_width=20,
+            floor_plan_height=20,
+            hallway_count=1,
+        ),
+        relation_constraints=[],
+    )
+
+    trial = optuna.trial.FixedTrial(
+        {
+            "floor_plan_width": 20,
+            "floor_plan_height": 20,
+            "config_min_coverage": 0.5,
+            "hallway_count": 1,
+        }
+    )
+
+    with pytest.raises(ValueError, match="ROOM_SIZE_HIERARCHY"):
+        mutate_requirements(
+            base_requirements=base_requirements,
+            trial=trial,
+            floor_dimension_bounds=None,
+        )

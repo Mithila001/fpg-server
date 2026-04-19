@@ -20,8 +20,6 @@ from app.core.fpg_rooms.config_fpg import (
 from app.core.fpg_rooms.config_optuna import (
     OPTUNA_DEFAULT_STUDY_NAME,
     OPTUNA_DEFAULT_TRIALS,
-    OPTUNA_DIMENSION_MAX_JITTER,
-    OPTUNA_DIMENSION_MIN_JITTER,
     OPTUNA_ENVELOPE_APPLY_SIDES_DEFAULT,
     OPTUNA_ENVELOPE_ENABLED_DEFAULT,
     OPTUNA_ENVELOPE_EXCLUDE_TYPES_DEFAULT,
@@ -103,233 +101,46 @@ class OptunaOptimizationController:
         return False
 
 
-def _trial_param_key(room: RoomData, index: int, suffix: str) -> str:
-    return f"room_{index}_{room.type}_{suffix}"
-
-
 def _clamp_int(value: int, lower: int, upper: int) -> int:
     return max(lower, min(upper, value))
 
 
-def _find_room_index(requirements: FpgRequirements, room_type: str) -> int:
-    for index, room in enumerate(requirements.rooms):
-        if room.type == room_type:
-            return index
-    raise ValueError(f"Missing required room type: {room_type}")
+def _validate_room_size_hierarchy(requirements: FpgRequirements) -> tuple[bool, str]:
+    living_room = next((room for room in requirements.rooms if room.type == "livingRoom"), None)
+    if living_room is None:
+        return False, "LivingRoom requirement is missing from normalized requirements"
 
-
-def _select_room_rectangle_for_area_band(
-    *,
-    room_type: str,
-    allowed_min_w: int,
-    allowed_max_w: int,
-    allowed_min_h: int,
-    allowed_max_h: int,
-    area_min: int,
-    area_max: int,
-    target_area: int,
-) -> tuple[int, int]:
-    best_choice: tuple[int, int, int, int] | None = None
-
-    for width in range(allowed_min_w, allowed_max_w + 1):
-        for height in range(allowed_min_h, allowed_max_h + 1):
-            area = width * height
-            if area < area_min or area > area_max:
-                continue
-
-            candidate = (abs(area - target_area), abs(width - height), width, height)
-            if best_choice is None or candidate < best_choice:
-                best_choice = candidate
-
-    if best_choice is None:
-        raise ValueError(
-            "No valid rectangle found for room type "
-            f"{room_type} within area band [{area_min}, {area_max}] "
-            f"and bounds w=[{allowed_min_w}, {allowed_max_w}], h=[{allowed_min_h}, {allowed_max_h}]."
-        )
-
-    return best_choice[2], best_choice[3]
-
-
-def _tune_living_room(
-    trial: optuna.Trial,
-    room: RoomData,
-    index: int,
-    floor_w: int,
-    floor_h: int,
-) -> tuple[RoomData, int]:
-    tuned_room = _tune_room_dimension(
-        trial=trial,
-        floor_w=floor_w,
-        floor_h=floor_h,
-        room=room,
-        index=index,
-    )
-
-    living_min_area = int(tuned_room.min_w) * int(tuned_room.min_h)
-    living_max_area = int(tuned_room.max_w) * int(tuned_room.max_h)
+    living_min_area = int(living_room.min_w) * int(living_room.min_h)
+    living_max_area = int(living_room.max_w) * int(living_room.max_h)
     if living_min_area > living_max_area:
-        raise ValueError(
-            "LivingRoom has invalid tuned area bounds: "
+        return False, (
+            "LivingRoom has invalid area bounds: "
             f"min_area={living_min_area}, max_area={living_max_area}."
         )
 
-    anchor_area = trial.suggest_int(
-        _trial_param_key(room, index, "anchor_area"),
-        living_min_area,
-        living_max_area,
-    )
+    for room in requirements.rooms:
+        if room.type not in ROOM_SIZE_HIERARCHY:
+            continue
 
-    return tuned_room, anchor_area
+        room_min_area = int(room.min_w) * int(room.min_h)
+        room_max_area = int(room.max_w) * int(room.max_h)
+        if room_min_area > room_max_area:
+            return False, (
+                f"Room type '{room.type}' has invalid area bounds: "
+                f"min_area={room_min_area}, max_area={room_max_area}."
+            )
 
+        min_pct, max_pct = ROOM_SIZE_HIERARCHY[room.type]
+        min_ratio = float(room_min_area) / float(living_max_area)
+        max_ratio = float(room_max_area) / float(living_min_area)
+        if max_ratio < min_pct / 100.0 or min_ratio > max_pct / 100.0:
+            return False, (
+                f"Room type '{room.type}' cannot satisfy ROOM_SIZE_HIERARCHY "
+                f"with livingRoom area range [{living_min_area}, {living_max_area}] "
+                f"and room area range [{room_min_area}, {room_max_area}]."
+            )
 
-def _tune_hierarchy_room(
-    trial: optuna.Trial,
-    floor_w: int,
-    floor_h: int,
-    room: RoomData,
-    index: int,
-    anchor_area: int,
-) -> RoomData:
-    if room.type not in ROOM_SIZE_HIERARCHY:
-        raise ValueError(f"Room type '{room.type}' is not configured in ROOM_SIZE_HIERARCHY")
-
-    allowed_min_w, allowed_max_w = _resolve_room_axis_bounds(
-        room_type=room.type,
-        axis_name="width",
-        requested_min=int(room.min_w),
-        requested_max=int(room.max_w),
-        floor_limit=floor_w,
-    )
-    allowed_min_h, allowed_max_h = _resolve_room_axis_bounds(
-        room_type=room.type,
-        axis_name="height",
-        requested_min=int(room.min_h),
-        requested_max=int(room.max_h),
-        floor_limit=floor_h,
-    )
-
-    original_min_area = allowed_min_w * allowed_min_h
-    original_max_area = allowed_max_w * allowed_max_h
-    min_pct, max_pct = ROOM_SIZE_HIERARCHY[room.type]
-
-    hierarchy_min_area = int(math.ceil(anchor_area * min_pct / 100.0))
-    hierarchy_max_area = int(math.floor(anchor_area * max_pct / 100.0))
-
-    area_min = max(original_min_area, hierarchy_min_area)
-    area_max = min(original_max_area, hierarchy_max_area)
-    if area_min > area_max:
-        raise ValueError(
-            "No valid hierarchy area band for room type "
-            f"{room.type}: area=[{area_min}, {area_max}], anchor_area={anchor_area}, "
-            f"original=[{original_min_area}, {original_max_area}], hierarchy=[{hierarchy_min_area}, {hierarchy_max_area}]."
-        )
-
-    target_area = trial.suggest_int(
-        _trial_param_key(room, index, "target_area"),
-        area_min,
-        area_max,
-    )
-    chosen_w, chosen_h = _select_room_rectangle_for_area_band(
-        room_type=room.type,
-        allowed_min_w=allowed_min_w,
-        allowed_max_w=allowed_max_w,
-        allowed_min_h=allowed_min_h,
-        allowed_max_h=allowed_max_h,
-        area_min=area_min,
-        area_max=area_max,
-        target_area=target_area,
-    )
-
-    return RoomData(
-        name=room.name,
-        type=room.type,
-        min_w=chosen_w,
-        min_h=chosen_h,
-        max_w=chosen_w,
-        max_h=chosen_h,
-    )
-
-
-def _resolve_room_axis_bounds(
-    *,
-    room_type: str,
-    axis_name: str,
-    requested_min: int,
-    requested_max: int,
-    floor_limit: int,
-) -> tuple[int, int]:
-    normalized_max = max(1, int(requested_max))
-    normalized_min = max(1, min(int(requested_min), normalized_max))
-
-    allowed_min = normalized_min
-    allowed_max = min(normalized_max, max(1, int(floor_limit)))
-
-    if allowed_min > allowed_max:
-        raise ValueError(
-            "No valid room dimension range after intersecting base requirements with floor bounds "
-            f"for {room_type} ({axis_name}: base=[{normalized_min}, {normalized_max}], "
-            f"floor_limit={floor_limit})."
-        )
-
-    return allowed_min, allowed_max
-
-
-def _tune_room_dimension(
-    trial: optuna.Trial,
-    floor_w: int,
-    floor_h: int,
-    room: RoomData,
-    index: int,
-) -> RoomData:
-    allowed_min_w, allowed_max_w = _resolve_room_axis_bounds(
-        room_type=room.type,
-        axis_name="width",
-        requested_min=int(room.min_w),
-        requested_max=int(room.max_w),
-        floor_limit=floor_w,
-    )
-    allowed_min_h, allowed_max_h = _resolve_room_axis_bounds(
-        room_type=room.type,
-        axis_name="height",
-        requested_min=int(room.min_h),
-        requested_max=int(room.max_h),
-        floor_limit=floor_h,
-    )
-
-    base_min_w = allowed_min_w
-    base_max_w = allowed_max_w
-    base_min_h = allowed_min_h
-    base_max_h = allowed_max_h
-
-    min_w_low = max(allowed_min_w, base_min_w - OPTUNA_DIMENSION_MIN_JITTER)
-    min_w_high = min(allowed_max_w, base_min_w + OPTUNA_DIMENSION_MIN_JITTER)
-    min_w = trial.suggest_int(_trial_param_key(room, index, "min_w"), min_w_low, min_w_high)
-
-    min_h_low = max(allowed_min_h, base_min_h - OPTUNA_DIMENSION_MIN_JITTER)
-    min_h_high = min(allowed_max_h, base_min_h + OPTUNA_DIMENSION_MIN_JITTER)
-    min_h = trial.suggest_int(_trial_param_key(room, index, "min_h"), min_h_low, min_h_high)
-
-    max_w_low = max(min_w, allowed_min_w, base_max_w - OPTUNA_DIMENSION_MAX_JITTER)
-    max_w_high = min(allowed_max_w, base_max_w + OPTUNA_DIMENSION_MAX_JITTER)
-    if max_w_low > max_w_high:
-        max_w_low = max_w_high
-    max_w = trial.suggest_int(_trial_param_key(room, index, "max_w"), max_w_low, max_w_high)
-
-    max_h_low = max(min_h, allowed_min_h, base_max_h - OPTUNA_DIMENSION_MAX_JITTER)
-    max_h_high = min(allowed_max_h, base_max_h + OPTUNA_DIMENSION_MAX_JITTER)
-    if max_h_low > max_h_high:
-        max_h_low = max_h_high
-    max_h = trial.suggest_int(_trial_param_key(room, index, "max_h"), max_h_low, max_h_high)
-
-    return RoomData(
-        name=room.name,
-        type=room.type,
-        min_w=min_w,
-        min_h=min_h,
-        max_w=max_w,
-        max_h=max_h,
-    )
+    return True, ""
 
 
 def _resolve_floor_dimension_bounds(
@@ -403,35 +214,7 @@ def mutate_requirements(
         valid_max_h,
     )
 
-    tuned_rooms: list[RoomData] = []
-
-    living_room_index = _find_room_index(base_requirements, "livingRoom")
-    living_room_base = base_requirements.rooms[living_room_index]
-    tuned_living_room, living_anchor_area = _tune_living_room(
-        trial=trial,
-        room=living_room_base,
-        index=living_room_index,
-        floor_w=floor_w,
-        floor_h=floor_h,
-    )
-
-    for idx, room in enumerate(base_requirements.rooms):
-        if room.type == "livingRoom":
-            tuned_rooms.append(tuned_living_room)
-        elif room.type in ROOM_SIZE_HIERARCHY:
-            tuned_rooms.append(
-                _tune_hierarchy_room(
-                    trial=trial,
-                    floor_w=floor_w,
-                    floor_h=floor_h,
-                    room=room,
-                    index=idx,
-                    anchor_area=living_anchor_area,
-                )
-            )
-        else:
-            tuned_rooms.append(_tune_room_dimension(trial, floor_w, floor_h, room, idx))
-
+    tuned_rooms = copy.deepcopy(base_requirements.rooms)
     tuned_config = ConfigData(
         min_coverage=trial.suggest_float(
             OPTUNA_PARAM_KEY_MIN_COVERAGE,
@@ -485,11 +268,17 @@ def mutate_requirements(
         ),
     )
 
-    return FpgRequirements(
+    requirements = FpgRequirements(
         rooms=tuned_rooms,
         config=tuned_config,
         relation_constraints=copy.deepcopy(base_requirements.relation_constraints),
     )
+
+    valid, reason = _validate_room_size_hierarchy(requirements)
+    if not valid:
+        raise ValueError(reason)
+
+    return requirements
 
 
 def _relation_constraints_are_resolvable(requirements: FpgRequirements) -> tuple[bool, str]:
@@ -542,6 +331,10 @@ def _precheck(requirements: FpgRequirements) -> tuple[bool, str]:
     if not valid:
         return False, reason
 
+    valid, reason = _validate_room_size_hierarchy(requirements)
+    if not valid:
+        return False, reason
+
     return True, ""
 
 
@@ -560,166 +353,7 @@ def _requirements_from_best_params(
     floor_w = max(min_floor_w, min(max_floor_w, floor_w))
     floor_h = max(min_floor_h, min(max_floor_h, floor_h))
 
-    tuned_rooms: list[RoomData] = []
-    living_room_index = _find_room_index(base_requirements, "livingRoom")
-    living_room_base = base_requirements.rooms[living_room_index]
-
-    allowed_min_w, allowed_max_w = _resolve_room_axis_bounds(
-        room_type=living_room_base.type,
-        axis_name="width",
-        requested_min=int(living_room_base.min_w),
-        requested_max=int(living_room_base.max_w),
-        floor_limit=floor_w,
-    )
-    allowed_min_h, allowed_max_h = _resolve_room_axis_bounds(
-        room_type=living_room_base.type,
-        axis_name="height",
-        requested_min=int(living_room_base.min_h),
-        requested_max=int(living_room_base.max_h),
-        floor_limit=floor_h,
-    )
-
-    base_min_w = allowed_min_w
-    base_max_w = allowed_max_w
-    base_min_h = allowed_min_h
-    base_max_h = allowed_max_h
-
-    living_min_w = int(best_params.get(_trial_param_key(living_room_base, living_room_index, "min_w"), base_min_w))
-    living_min_h = int(best_params.get(_trial_param_key(living_room_base, living_room_index, "min_h"), base_min_h))
-    living_max_w = int(best_params.get(_trial_param_key(living_room_base, living_room_index, "max_w"), base_max_w))
-    living_max_h = int(best_params.get(_trial_param_key(living_room_base, living_room_index, "max_h"), base_max_h))
-
-    living_min_w = _clamp_int(living_min_w, allowed_min_w, allowed_max_w)
-    living_min_h = _clamp_int(living_min_h, allowed_min_h, allowed_max_h)
-    living_max_w = _clamp_int(living_max_w, living_min_w, allowed_max_w)
-    living_max_h = _clamp_int(living_max_h, living_min_h, allowed_max_h)
-
-    tuned_living_room = RoomData(
-        name=living_room_base.name,
-        type=living_room_base.type,
-        min_w=living_min_w,
-        min_h=living_min_h,
-        max_w=living_max_w,
-        max_h=living_max_h,
-    )
-
-    living_min_area = tuned_living_room.min_w * tuned_living_room.min_h
-    living_max_area = tuned_living_room.max_w * tuned_living_room.max_h
-    living_anchor_area = int(
-        best_params.get(
-            _trial_param_key(living_room_base, living_room_index, "anchor_area"),
-            living_min_area,
-        )
-    )
-    living_anchor_area = _clamp_int(living_anchor_area, living_min_area, living_max_area)
-
-    for idx, room in enumerate(base_requirements.rooms):
-        if room.type == "livingRoom":
-            tuned_rooms.append(tuned_living_room)
-            continue
-
-        if room.type in ROOM_SIZE_HIERARCHY:
-            allowed_min_w, allowed_max_w = _resolve_room_axis_bounds(
-                room_type=room.type,
-                axis_name="width",
-                requested_min=int(room.min_w),
-                requested_max=int(room.max_w),
-                floor_limit=floor_w,
-            )
-            allowed_min_h, allowed_max_h = _resolve_room_axis_bounds(
-                room_type=room.type,
-                axis_name="height",
-                requested_min=int(room.min_h),
-                requested_max=int(room.max_h),
-                floor_limit=floor_h,
-            )
-
-            original_min_area = allowed_min_w * allowed_min_h
-            original_max_area = allowed_max_w * allowed_max_h
-            min_pct, max_pct = ROOM_SIZE_HIERARCHY[room.type]
-            hierarchy_min_area = int(math.ceil(living_anchor_area * min_pct / 100.0))
-            hierarchy_max_area = int(math.floor(living_anchor_area * max_pct / 100.0))
-
-            area_min = max(original_min_area, hierarchy_min_area)
-            area_max = min(original_max_area, hierarchy_max_area)
-            if area_min > area_max:
-                raise ValueError(
-                    "No valid hierarchy area band for room type "
-                    f"{room.type}: area=[{area_min}, {area_max}], anchor_area={living_anchor_area}, "
-                    f"original=[{original_min_area}, {original_max_area}], hierarchy=[{hierarchy_min_area}, {hierarchy_max_area}]."
-                )
-
-            target_area = int(
-                best_params.get(
-                    _trial_param_key(room, idx, "target_area"),
-                    area_min,
-                )
-            )
-            target_area = _clamp_int(target_area, area_min, area_max)
-            chosen_w, chosen_h = _select_room_rectangle_for_area_band(
-                room_type=room.type,
-                allowed_min_w=allowed_min_w,
-                allowed_max_w=allowed_max_w,
-                allowed_min_h=allowed_min_h,
-                allowed_max_h=allowed_max_h,
-                area_min=area_min,
-                area_max=area_max,
-                target_area=target_area,
-            )
-
-            tuned_rooms.append(
-                RoomData(
-                    name=room.name,
-                    type=room.type,
-                    min_w=chosen_w,
-                    min_h=chosen_h,
-                    max_w=chosen_w,
-                    max_h=chosen_h,
-                )
-            )
-            continue
-
-        allowed_min_w, allowed_max_w = _resolve_room_axis_bounds(
-            room_type=room.type,
-            axis_name="width",
-            requested_min=int(room.min_w),
-            requested_max=int(room.max_w),
-            floor_limit=floor_w,
-        )
-        allowed_min_h, allowed_max_h = _resolve_room_axis_bounds(
-            room_type=room.type,
-            axis_name="height",
-            requested_min=int(room.min_h),
-            requested_max=int(room.max_h),
-            floor_limit=floor_h,
-        )
-
-        base_min_w = allowed_min_w
-        base_max_w = allowed_max_w
-        base_min_h = allowed_min_h
-        base_max_h = allowed_max_h
-
-        min_w = int(best_params.get(_trial_param_key(room, idx, "min_w"), base_min_w))
-        min_h = int(best_params.get(_trial_param_key(room, idx, "min_h"), base_min_h))
-        max_w = int(best_params.get(_trial_param_key(room, idx, "max_w"), base_max_w))
-        max_h = int(best_params.get(_trial_param_key(room, idx, "max_h"), base_max_h))
-
-        min_w = _clamp_int(min_w, allowed_min_w, allowed_max_w)
-        min_h = _clamp_int(min_h, allowed_min_h, allowed_max_h)
-        max_w = _clamp_int(max_w, min_w, allowed_max_w)
-        max_h = _clamp_int(max_h, min_h, allowed_max_h)
-
-        tuned_rooms.append(
-            RoomData(
-                name=room.name,
-                type=room.type,
-                min_w=min_w,
-                min_h=min_h,
-                max_w=max_w,
-                max_h=max_h,
-            )
-        )
-
+    tuned_rooms = copy.deepcopy(base_requirements.rooms)
     coverage = float(
         best_params.get(
             OPTUNA_PARAM_KEY_MIN_COVERAGE,
