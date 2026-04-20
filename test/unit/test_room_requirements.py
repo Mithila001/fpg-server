@@ -141,6 +141,23 @@ def test_normalize_db_data_requirements_requires_living_room_constraint():
         normalize_db_data_requirements(rooms, constraints)
 
 
+def test_normalize_db_data_requirements_allows_dining_room_without_db_constraint():
+    rooms = [
+        RoomData(name="Dining", type="diningRoom", min_w=14, min_h=16, max_w=20, max_h=22),
+    ]
+    constraints = [
+        RoomSizeConstraint(type="livingRoom", min_w=30, min_h=31, max_w=40, max_h=41),
+    ]
+
+    normalized = normalize_db_data_requirements(rooms, constraints)
+
+    assert [room.type for room in normalized] == ["diningRoom", "livingRoom"]
+    assert normalized[0].min_w == 14
+    assert normalized[0].min_h == 16
+    assert normalized[0].max_w == 20
+    assert normalized[0].max_h == 22
+
+
 def test_generate_living_room_uses_requirement_bounds():
     requirements = FpgRequirements(
         rooms=[

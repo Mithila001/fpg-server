@@ -14,7 +14,7 @@
     {
       "room_type": "bathroom",
       "related_room": ["hallway"],
-      "constraint_level": "hard_OR",
+      "constraint_level": "hard_AND",
       "last_updated": "2026-03-25"
     },
     {

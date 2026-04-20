@@ -16,7 +16,8 @@ Content-Type: application/json
 			{ "id": "kitchen1", "type": "kitchen" },
 			{ "id": "attachedBathroom1", "type": "attachedBathroom" },
 			{ "id": "veranda1", "type": "veranda" },
-			{ "id": "garage1", "type": "garage" }
+			{ "id": "garage1", "type": "garage" },
+			{ "id": "diningRoom1", "type": "diningRoom" }
 			
 		]
 	},
