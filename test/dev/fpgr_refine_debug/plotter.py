@@ -77,12 +77,16 @@ def plot_refine_three_generations(
     middle_rooms: list[dict[str, Any]],
     after_rooms: list[dict[str, Any]],
     show: bool = False,
+    output_dir: Path | str | None = None,
 ) -> str | None:
     """Plot FPGR refine stage 1/2/3 layouts side by side and save image to output folder."""
     if not before_rooms and not middle_rooms and not after_rooms:
         return None
 
-    output_dir = Path(__file__).resolve().parent / "output"
+    if output_dir is None:
+        output_dir = Path(__file__).resolve().parent / "output"
+    else:
+        output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     fig, axes = plt.subplots(1, 3, figsize=(24, 8))
@@ -141,6 +145,7 @@ def plot_refine_before_after(
     before_rooms: list[dict[str, Any]],
     after_rooms: list[dict[str, Any]],
     show: bool = False,
+    output_dir: Path | str | None = None,
 ) -> str | None:
     """Backward-compatibility wrapper for existing 2-stage usage."""
     return plot_refine_three_generations(
@@ -148,4 +153,5 @@ def plot_refine_before_after(
         middle_rooms=[],
         after_rooms=after_rooms,
         show=show,
+        output_dir=output_dir,
     )

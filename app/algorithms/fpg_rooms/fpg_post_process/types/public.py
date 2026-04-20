@@ -27,12 +27,41 @@ class PostProcessMetadataPayload(TypedDict):
     converted_hallway_living_openings: int
 
 
+class RoomOutputPayload(TypedDict):
+    room_name: str
+    room_type: str
+    room_walls: list[WallSegmentPayload]
+
+
+class DoorPayload(TypedDict):
+    room1_name: str
+    room1_type: str
+    room2_name: str
+    room2_type: str
+    opening_type: str
+    x1: float
+    y1: float
+    x2: float
+    y2: float
+
+
+class WindowPayload(TypedDict):
+    room_name: str
+    room_type: str
+    opening_type: str
+    x1: float
+    y1: float
+    x2: float
+    y2: float
+
+
 class PostProcessOutputPayload(TypedDict):
     status: str
     message: str
-    walls: list[WallSegmentPayload]
-    compact_by_room: dict[str, CompactRoomPayload]
-    metadata: PostProcessMetadataPayload
+    union_walls: list[WallSegmentPayload]
+    rooms: dict[str, RoomOutputPayload]
+    doors: list[DoorPayload]
+    windows: list[WindowPayload]
 
 
 class QuickPostProcessOutputPayload(TypedDict):
@@ -40,3 +69,4 @@ class QuickPostProcessOutputPayload(TypedDict):
     message: str
     rooms: list[RoomBoundaryPayload]
     wall_union: WallUnionResultPayload
+    openings: NotRequired[list[OpeningPayload]]

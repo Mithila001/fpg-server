@@ -360,7 +360,7 @@ class FpgrCore:
             total_cost = cp_model.LinearExpr.Sum(objective_terms)  # type: ignore
             self.model.Minimize(total_cost)
 
-        print(f"\n === Solver max Time: {max_time_seconds}")
+        print("\n === Solver Core Run")
         self.solver.parameters.max_time_in_seconds = max(0.1, float(max_time_seconds))
         self.solver.parameters.random_seed = random.randint(0, 1000)
         self.solver.parameters.randomize_search = True

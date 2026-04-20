@@ -3,8 +3,8 @@ from typing import List
 
 from ...solver_models.room import Room
 from app.core.fpg_rooms.config_fpg import (
-    HALLWAY_MIN_HEIGHT,
-    HALLWAY_MIN_WIDTH,
+    HALLWAY_GENERATOR_MIN_HEIGHT,
+    HALLWAY_GENERATOR_MIN_WIDTH,
     HALLWAY_RULE_TARGET_ROOM_TYPES,
 )
 from ...types.room import FpgRequirements
@@ -69,16 +69,16 @@ def generate_hallway_rooms(requirements: FpgRequirements) -> List[Room]:
     if hallway_count <= 0:
         return []
 
-    max_w = max(HALLWAY_MIN_WIDTH, int(floor_width * 0.8))
-    max_h = max(HALLWAY_MIN_HEIGHT, int(floor_height * 0.8))
+    max_w = max(HALLWAY_GENERATOR_MIN_WIDTH, int(floor_width * 0.8))
+    max_h = max(HALLWAY_GENERATOR_MIN_HEIGHT, int(floor_height * 0.8))
 
     hallways: list[Room] = []
     for i in range(hallway_count):
         hallways.append(
             Room(
                 f"hallway{i + 1}",
-                HALLWAY_MIN_WIDTH,
-                HALLWAY_MIN_HEIGHT,
+                HALLWAY_GENERATOR_MIN_WIDTH,
+                HALLWAY_GENERATOR_MIN_HEIGHT,
                 max_w,
                 max_h,
                 "hallway",

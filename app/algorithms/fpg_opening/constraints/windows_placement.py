@@ -7,16 +7,15 @@ from ortools.sat.python import cp_model
 
 from app.algorithms.fpg_opening.types.opening import NormalizedRoom, OpeningPayload
 from app.algorithms.fpg_opening.types.opening_solver import WindowCandidate, WindowDecisionVars
-
-_WINDOW_ELIGIBLE_ROOM_TYPES = {"bedroom", "livingroom", "kitchen"}
-
-
-def _normalize_room_type(room_type: str) -> str:
-    return room_type.strip().lower()
-
+from app.core.fpg_opening_config import (
+    CARDINAL_SIDES,
+    GEOMETRIC_TOLERANCE,
+    WINDOW_ELIGIBLE_ROOM_TYPES,
+    normalize_room_type,
+)
 
 def is_window_eligible_room(room_type: str) -> bool:
-    return _normalize_room_type(room_type) in _WINDOW_ELIGIBLE_ROOM_TYPES
+    return normalize_room_type(room_type) in WINDOW_ELIGIBLE_ROOM_TYPES
 
 
 def _get_axis_interval(side: str, opening: dict[str, Any]) -> tuple[float, float]:
@@ -59,10 +58,10 @@ def build_window_candidates_for_room(
     existing_openings: list[OpeningPayload],
     window_width: float,
     door_clearance: float,
-    tolerance: float = 1e-6,
+    tolerance: float = GEOMETRIC_TOLERANCE,
 ) -> list[WindowCandidate]:
     candidates: list[WindowCandidate] = []
-    side_order: tuple[str, ...] = ("south", "east", "north", "west")
+    side_order: tuple[str, ...] = CARDINAL_SIDES
 
     for side in side_order:
         if side not in exterior_sides:

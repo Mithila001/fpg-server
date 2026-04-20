@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping
+import math
 
 import matplotlib.pyplot as plt
 
@@ -32,11 +33,14 @@ def _safe_float(value: Any) -> float | None:
 
 
 def plot_floor_plan_payload(payload: Mapping[str, Any], show: bool = False) -> str | None:
-    """Plot walls, openings, and room labels from API payload and save image to test/dev/output."""
+    """Plot walls, separate doors/windows, and room labels from API payload and save image to test/outputs/final_results."""
     payload_dict = _to_dict(payload)
-    rooms = payload_dict.get("compact_by_room", {}) or {}
+    rooms = payload_dict.get("rooms", {}) or {}
+    doors = payload_dict.get("doors", []) or []
+    windows = payload_dict.get("windows", []) or []
+    global_openings = doors + windows
 
-    output_dir = Path(__file__).resolve().parent / "output"
+    output_dir = Path(__file__).resolve().parent.parent / "outputs" / "final_results"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     fig, ax = plt.subplots(figsize=(10, 8))
@@ -44,8 +48,8 @@ def plot_floor_plan_payload(payload: Mapping[str, Any], show: bool = False) -> s
     x_points: list[float] = []
     y_points: list[float] = []
 
-    # Draw global walls from Rooms Solver to ensure scheme based on root-level walls
-    global_walls = payload_dict.get("walls", []) or []
+    # Draw latest solver union walls, with fallback to legacy root-level walls
+    global_walls = payload_dict.get("union_walls") or payload_dict.get("walls", []) or []
     for wall in global_walls:
         wall = _to_dict(wall)
         x1 = _safe_float(wall.get("x1"))
@@ -58,8 +62,7 @@ def plot_floor_plan_payload(payload: Mapping[str, Any], show: bool = False) -> s
         x_points.extend([x1, x2])
         y_points.extend([y1, y2])
 
-    # Optional opening list at root if solver provides opening segments outside rooms
-    global_openings = payload_dict.get("openings", []) or []
+    # Plot doors and windows separately for clarity
     for opening in global_openings:
         opening = _to_dict(opening)
         x1 = _safe_float(opening.get("x1"))
@@ -69,14 +72,16 @@ def plot_floor_plan_payload(payload: Mapping[str, Any], show: bool = False) -> s
         if None in (x1, y1, x2, y2):
             continue
         opening_type = (opening.get("opening_type") or "opening").lower()
-        color = "tab:blue" if "window" in opening_type else "tab:red"
-        ax.plot([x1, x2], [y1, y2], color=color, linewidth=4, linestyle="--", alpha=0.95)
+        is_window = "window" in opening_type
+        color = "tab:blue" if is_window else "tab:red"
+        linestyle = "--" if is_window else "-"
+        ax.plot([x1, x2], [y1, y2], color=color, linewidth=4, linestyle=linestyle, alpha=0.95)
         x_points.extend([x1, x2])
         y_points.extend([y1, y2])
 
     for room_name, room_value in rooms.items():
         room = _to_dict(room_value)
-        walls = room.get("walls", []) or []
+        walls = room.get("room_walls", []) or []
         openings = room.get("openings", []) or []
 
         room_x: list[float] = []
@@ -126,9 +131,13 @@ def plot_floor_plan_payload(payload: Mapping[str, Any], show: bool = False) -> s
     ax.set_xlim(x_min, x_max)
     ax.set_ylim(y_min, y_max)
 
-    # Use a 1x1 unit grid scale
-    ax.set_xticks([x for x in range(int(x_min), int(x_max) + 2)])
-    ax.set_yticks([y for y in range(int(y_min), int(y_max) + 2)])
+    # Use a 10x10 unit grid scale
+    x_grid_start = math.floor(x_min / 10) * 10
+    x_grid_end = math.ceil(x_max / 10) * 10
+    y_grid_start = math.floor(y_min / 10) * 10
+    y_grid_end = math.ceil(y_max / 10) * 10
+    ax.set_xticks(list(range(int(x_grid_start), int(x_grid_end) + 1, 10)))
+    ax.set_yticks(list(range(int(y_grid_start), int(y_grid_end) + 1, 10)))
     ax.grid(which="both", color="gray", linestyle="--", linewidth=0.5, alpha=0.5)
 
     ax.set_title("Floor Plan Preview")
@@ -154,7 +163,7 @@ def plot_final_floor_plan(payload: Mapping[str, Any], show: bool = False) -> str
 def _build_payload_from_solver_result(run_result: Any) -> dict[str, Any]:
     """Reconstruct payload format used by API from an FpgEvaluationResult."""
     if not run_result or not getattr(run_result, "solved", False):
-        return {"status": getattr(run_result, "status", "ERROR"), "message": getattr(run_result, "message", ""), "walls": [], "compact_by_room": {}}
+        return {"status": getattr(run_result, "status", "ERROR"), "message": getattr(run_result, "message", ""), "union_walls": [], "rooms": {}, "doors": [], "windows": []}
 
     quick_post_process_result = getattr(run_result, "quick_post_process_result", None)
     if quick_post_process_result is not None:
@@ -179,8 +188,10 @@ def _build_payload_from_solver_result(run_result: Any) -> dict[str, Any]:
     return {
         "status": run_result.status,
         "message": run_result.message,
-        "walls": post_process_result.get("walls", []),
-        "compact_by_room": post_process_result.get("compact_by_room", {}),
+        "union_walls": post_process_result.get("union_walls", []),
+        "rooms": post_process_result.get("rooms", {}),
+        "doors": post_process_result.get("doors", []),
+        "windows": post_process_result.get("windows", []),
     }
 
 

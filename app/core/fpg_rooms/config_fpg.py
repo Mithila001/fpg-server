@@ -4,6 +4,13 @@
 FLOOR_WIDTH = 100
 FLOOR_HEIGHT = 150
 
+# Minimum floor dimensions constraint
+MIN_FLOOR_WIDTH = 50
+MIN_FLOOR_HEIGHT = 50
+
+# Minimum floor area buffer (added to total min room area for feasibility check)
+MIN_FLOOR_AREA_BUFFER = 1250
+
 # Maximum allowed aspect ratio for rooms
 MAX_ASPECT_RATIO_HEIGHT = 10
 MAX_ASPECT_RATIO_WIDTH = 16
@@ -42,8 +49,8 @@ VERANDA_OUTDOOR_SPACE_MAX_W = 100
 VERANDA_OUTDOOR_SPACE_MAX_H = 100
 
 # Adjacency constraint settings
-DEFAULT_ADJACENCY_MIN_OVERLAP = 10
-GENERATOR_ADJACENCY_MIN_OVERLAP = 20
+DEFAULT_ADJACENCY_MIN_OVERLAP = 10 # Default value when no value is given
+GENERATOR_ADJACENCY_MIN_OVERLAP = 10 # Actual using value
 
 # Room location/bathroom preferences
 BATHROOM_LOCATION_WEIGHT = 1
@@ -69,7 +76,7 @@ KITCHEN_HALLWAY_BACK_WALL_SETBACK_MAX_GAP = 20
 CONSTRAINT_SOFT_SEED_LAYOUT_HINTS = True
 CONSTRAINT_SOFT_ROOM_ADJACENCY_PREFERENCE = True
 CONSTRAINT_SOFT_COMPACT_LAYOUT_CENTER_PROXIMITY = True
-CONSTRAINT_SOFT_BATHROOM_LOCATION_PREFERENCE = True
+CONSTRAINT_SOFT_BATHROOM_LOCATION_PREFERENCE = False
 CONSTRAINT_SOFT_LAYOUT_DEAD_SPACE_PENALTY = True
 CONSTRAINT_SOFT_SEED_FACADE_DEPTH_PENALTY = True
 CONSTRAINT_SOFT_SEED_FACADE_ALIGNMENT_PENALTY = True
@@ -104,10 +111,11 @@ ROOM_SIZE_HIERARCHY = {
     "attachedBathroom": (15, 30),
     "veranda": (40, 70),
     "garage": (50, 70),
+    "dining" : (30,50)
 }
 
 # Room types used by hallway-related generation rules.
-HALLWAY_RULE_TARGET_ROOM_TYPES = {"bedroom", "kitchen", "bathroom"}
+HALLWAY_RULE_TARGET_ROOM_TYPES = {"bedroom", "kitchen", "bathroom", "dining"}
 
 # Default solver/optuna execution settings
 DEFAULT_ROOM_DIMENSION = 70
@@ -124,19 +132,19 @@ TRIAL_OPTIMIZATION_TIMEOUT_SECONDS = 60  # Hard deadline for all trials
 DEFAULT_ASPECT_RATIO_MAX = 16.0
 DEFAULT_ASPECT_RATIO_MIN = 0.0
 DEFAULT_HALLWAY_COUNT = 1
-DEFAULT_SOLVER_MAX_TIME_SECONDS = 5
+DEFAULT_SOLVER_MAX_TIME_SECONDS = 3
 WIGGLE_ROOM = 10
 
 # TODO Fix hallway config value duplication
 # Hallway dimensions
 # Fixed narrow dimension — the solver enforces exactly this value for
 # whichever of width/height is the "short" side.
-HALLWAY_WIDTH = 10
+HALLWAY_NARROW_SIDE = 10
 # Minimum width/height used when creating hallway rooms.
-HALLWAY_MIN_WIDTH = 10
-HALLWAY_MIN_HEIGHT = 10
+HALLWAY_GENERATOR_MIN_WIDTH = 10
+HALLWAY_GENERATOR_MIN_HEIGHT = 10
 # Minimum length of the long side (the solver may extend it further).
-HALLWAY_MIN_LENGTH = 10
+HALLWAY_LONG_SIDE_MIN = 10
 # Number of hallway walls that must be fully shared with other rooms.
 # Default 3 means only one hallway wall may remain as an exterior wall.
 HALLWAY_REQUIRED_SHARED_WALLS = 3
@@ -150,28 +158,33 @@ NOT_PRUNE_ROOMS = ["livingRoom", "hallway"]
 #   min_walls sides; e.g. 30 means up to 30% uncovered is allowed.
 ROOM_SHARED_WALL_RULES = {
     "livingRoom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
-    "bathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 0},
+    "bathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 5},
     "bedroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
     "kitchen": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
-    "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
-    "veranda": {"min_walls": 1, "max_walls": 3, "wiggle_pct": 10},
-    "garage": {"min_walls": 1, "max_walls": 2, "wiggle_pct": 10},
+    "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 0},
+    "veranda": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 10},
+    "garage": {"min_walls": 2, "max_walls": 2, "wiggle_pct": 10},
+    "dining": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
 }
 # Refinement phase shared-wall rules (tighter minimum requirements for refine_1).
 # Applied as soft constraint with penalties for violations.
 ROOM_SHARED_WALL_RULES_REFINE = {
     "livingRoom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
-    "bathroom": {"min_walls": 3, "max_walls": 4, "wiggle_pct": 0},
-    "bedroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 20},
+    "bathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 5},
+    "bedroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
     "kitchen": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
-    "attachedBathroom": {"min_walls": 3, "max_walls": 5, "wiggle_pct": 10},
-    "veranda": {"min_walls": 1, "max_walls": 3, "wiggle_pct": 10},
-    "garage": {"min_walls": 1, "max_walls": 2, "wiggle_pct": 10},
+    "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 0},
+    "veranda": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 10},
+    "garage": {"min_walls": 2, "max_walls": 2, "wiggle_pct": 10},
+    "dining": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
 }
 
 __all__ = [
     "FLOOR_WIDTH",
     "FLOOR_HEIGHT",
+    "MIN_FLOOR_WIDTH",
+    "MIN_FLOOR_HEIGHT",
+    "MIN_FLOOR_AREA_BUFFER",
     "MAX_ASPECT_RATIO_HEIGHT",
     "MAX_ASPECT_RATIO_WIDTH",
     "MIN_COVERAGE",
@@ -241,10 +254,10 @@ __all__ = [
     "VERANDA_OUTDOOR_SPACE_MIN_H",
     "VERANDA_OUTDOOR_SPACE_MAX_W",
     "VERANDA_OUTDOOR_SPACE_MAX_H",
-    "HALLWAY_WIDTH",
-    "HALLWAY_MIN_WIDTH",
-    "HALLWAY_MIN_HEIGHT",
-    "HALLWAY_MIN_LENGTH",
+    "HALLWAY_NARROW_SIDE",
+    "HALLWAY_GENERATOR_MIN_WIDTH",
+    "HALLWAY_GENERATOR_MIN_HEIGHT",
+    "HALLWAY_LONG_SIDE_MIN",
     "HALLWAY_REQUIRED_SHARED_WALLS",
     "NOT_PRUNE_ROOMS",
     "ROOM_SHARED_WALL_RULES",

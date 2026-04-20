@@ -6,7 +6,6 @@ from typing import Any
 
 from app.algorithms.fp_boundary_finder import FPBoundaryFinder
 from app.algorithms.usable_land_space_finder import find_usable_land_space
-from app.util.logger import SystemLogger
 
 
 def _error_payload(message: str, status: str = "ERROR") -> dict[str, Any]:
@@ -148,12 +147,6 @@ def plot_buildable_space(
         plt.close(fig)
         return out_path
     except Exception as exc:
-        SystemLogger.warning(
-            sector=5,
-            message="Buildable-space plotting skipped",
-            data={"error": str(exc)},
-            filename="buildable_space_manager.py",
-        )
         return None
 
 
@@ -166,18 +159,6 @@ def run_buildable_space_pipeline(
     """Compute buildable space from API land payload and return normalized response payload."""
     start_time = perf_counter()
 
-    SystemLogger.info(
-        sector=1,
-        message="Buildable-space pipeline started",
-        data={
-            "segment_count": len(land_data.get("segmentsCoordinates", [])),
-            "road_count": len(land_data.get("roadConnected", [])),
-            "min_width": min_width,
-            "min_height": min_height,
-            "should_plot": should_plot,
-        },
-        filename="buildable_space_manager.py",
-    )
 
     try:
         raw_polygon_coordinates = _extract_polygon_coordinates(land_data)
@@ -222,32 +203,12 @@ def run_buildable_space_pipeline(
         }
 
         duration_ms = (perf_counter() - start_time) * 1000
-        SystemLogger.info(
-            sector=1,
-            message="Buildable-space pipeline completed",
-            data={
-                "duration_ms": round(duration_ms, 2),
-                "has_rectangle": rectangle is not None,
-            },
-            filename="buildable_space_manager.py",
-        )
         return payload
 
     except ValueError as exc:
         duration_ms = (perf_counter() - start_time) * 1000
-        SystemLogger.error(
-            sector=1,
-            message="Buildable-space pipeline validation error",
-            data={"error": str(exc), "duration_ms": round(duration_ms, 2)},
-            filename="buildable_space_manager.py",
-        )
         return _error_payload(str(exc))
     except Exception as exc:
         duration_ms = (perf_counter() - start_time) * 1000
-        SystemLogger.error(
-            sector=1,
-            message="Buildable-space pipeline unexpected error",
-            data={"error": str(exc), "duration_ms": round(duration_ms, 2)},
-            filename="buildable_space_manager.py",
-        )
+
         return _error_payload("Unexpected error while computing buildable space.")

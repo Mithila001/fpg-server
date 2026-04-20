@@ -1,1 +1,3 @@
-- Check Room aspect ratios and room sized. Some are off
+1. Need to make Inward pocked Score more accurate.
+Currently its look like incorrect scoring causing the infeasible issues.
+2. We need an Api Endpoint to Force Stop the Solving Process.

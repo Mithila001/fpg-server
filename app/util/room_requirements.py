@@ -1,21 +1,48 @@
+import math
 from typing import List, Sequence
 
 from app.algorithms.fpg_rooms.types.room import FpgRequirements, RoomData
 from app.models.room_size_constraint import RoomSizeConstraint
 
 
+def floor_values(value: float) -> int:
+    """Convert float value to integer by flooring (rounding down).
+    
+    Args:
+        value: Float value to floor
+        
+    Returns:
+        Floored integer value (e.g., 5.5 -> 5, 5.3 -> 5, 4.9 -> 4)
+    """
+    return int(math.floor(value))
+
+
 def normalize_db_data_requirements(
     rooms: List[RoomData],
     constraints: Sequence[RoomSizeConstraint],
 ) -> List[RoomData]:
-    """Normalize room dimensions from DB constraints with simple defaults.
+    """Normalize room dimensions from DB constraints with strict validation.
 
-    For each room type, use the DB value when present; otherwise use 10.
+    For each room type, use the DB value when present. If any required dimension
+    is missing, raise an error (no defaults allowed).
+    
+    Args:
+        rooms: List of room instances from template
+        constraints: Room size constraints from database
+        
+    Returns:
+        Normalized rooms with dimensions from constraints
+        
+    Raises:
+        ValueError: If constraint not found or missing dimensions
     """
     constraints_by_type = {c.type: c for c in constraints}
     normalized: List[RoomData] = []
 
     for room in rooms:
+        if room.type == "livingRoom":
+            raise ValueError("ERROR: livingRoom must not be provided by the template")
+
         constraint = constraints_by_type.get(room.type)
 
         if not constraint:
@@ -23,10 +50,41 @@ def normalize_db_data_requirements(
                 f"ERROR: Room type '{room.type}' has no constraint record in database"
             )
 
-        min_w = int(constraint.min_w) if constraint.min_w is not None else 10
-        min_h = int(constraint.min_h) if constraint.min_h is not None else 10
-        max_w = int(constraint.max_w) if constraint.max_w is not None else 100
-        max_h = int(constraint.max_h) if constraint.max_h is not None else 100
+        # Strict validation: all dimensions must be present, no defaults
+        if constraint.min_w is None:
+            raise ValueError(
+                f"ERROR: Room type '{room.type}' missing min_w constraint in database"
+            )
+        if constraint.min_h is None:
+            raise ValueError(
+                f"ERROR: Room type '{room.type}' missing min_h constraint in database"
+            )
+        if constraint.max_w is None:
+            raise ValueError(
+                f"ERROR: Room type '{room.type}' missing max_w constraint in database"
+            )
+        if constraint.max_h is None:
+            raise ValueError(
+                f"ERROR: Room type '{room.type}' missing max_h constraint in database"
+            )
+
+        min_w = int(constraint.min_w)
+        min_h = int(constraint.min_h)
+        max_w = int(constraint.max_w)
+        max_h = int(constraint.max_h)
+
+        # Validate dimension ranges
+        if min_w <= 0 or min_h <= 0 or max_w <= 0 or max_h <= 0:
+            raise ValueError(
+                f"ERROR: Room type '{room.type}' has non-positive dimensions: "
+                f"min_w={min_w}, min_h={min_h}, max_w={max_w}, max_h={max_h}"
+            )
+
+        if min_w > max_w or min_h > max_h:
+            raise ValueError(
+                f"ERROR: Room type '{room.type}' has invalid dimension ranges: "
+                f"min_w={min_w} > max_w={max_w} or min_h={min_h} > max_h={max_h}"
+            )
 
         normalized.append(
             RoomData(
@@ -38,6 +96,47 @@ def normalize_db_data_requirements(
                 max_h=max_h,
             )
         )
+
+    living_room_constraint = constraints_by_type.get("livingRoom")
+    if not living_room_constraint:
+        raise ValueError("ERROR: livingRoom has no constraint record in database")
+
+    if living_room_constraint.min_w is None:
+        raise ValueError("ERROR: livingRoom missing min_w constraint in database")
+    if living_room_constraint.min_h is None:
+        raise ValueError("ERROR: livingRoom missing min_h constraint in database")
+    if living_room_constraint.max_w is None:
+        raise ValueError("ERROR: livingRoom missing max_w constraint in database")
+    if living_room_constraint.max_h is None:
+        raise ValueError("ERROR: livingRoom missing max_h constraint in database")
+
+    living_min_w = int(living_room_constraint.min_w)
+    living_min_h = int(living_room_constraint.min_h)
+    living_max_w = int(living_room_constraint.max_w)
+    living_max_h = int(living_room_constraint.max_h)
+
+    if living_min_w <= 0 or living_min_h <= 0 or living_max_w <= 0 or living_max_h <= 0:
+        raise ValueError(
+            "ERROR: livingRoom has non-positive dimensions: "
+            f"min_w={living_min_w}, min_h={living_min_h}, max_w={living_max_w}, max_h={living_max_h}"
+        )
+
+    if living_min_w > living_max_w or living_min_h > living_max_h:
+        raise ValueError(
+            "ERROR: livingRoom has invalid dimension ranges: "
+            f"min_w={living_min_w} > max_w={living_max_w} or min_h={living_min_h} > max_h={living_max_h}"
+        )
+
+    normalized.append(
+        RoomData(
+            name="Living Room",
+            type="livingRoom",
+            min_w=living_min_w,
+            min_h=living_min_h,
+            max_w=living_max_w,
+            max_h=living_max_h,
+        )
+    )
 
     return normalized
 

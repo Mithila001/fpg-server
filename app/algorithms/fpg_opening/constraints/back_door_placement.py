@@ -5,22 +5,22 @@ from ortools.sat.python import cp_model
 from app.algorithms.fpg_opening.types.opening import NormalizedRoom
 from app.algorithms.fpg_opening.types.opening_solver import BackDoorCandidate, BackDoorDecisionVars
 from app.algorithms.fpg_opening.utils import get_exterior_sides
-
-
-def _normalize_room_type(room_type: str) -> str:
-    return room_type.strip().lower()
+from app.core.fpg_opening_config import (
+    BACK_DOOR_ELIGIBLE_ROOM_TYPES,
+    BACK_DOOR_ROOM_TYPE_PRIORITY,
+    GEOMETRIC_TOLERANCE,
+    normalize_room_type,
+)
 
 
 def _is_eligible_room_type(room_type: str) -> bool:
-    normalized = _normalize_room_type(room_type)
-    return normalized in {"kitchen", "hallway"}
+    normalized = normalize_room_type(room_type)
+    return normalized in BACK_DOOR_ELIGIBLE_ROOM_TYPES
 
 
 def _room_type_priority(room_type: str) -> int:
-    normalized = _normalize_room_type(room_type)
-    if normalized == "kitchen":
-        return 0
-    return 1
+    normalized = normalize_room_type(room_type)
+    return BACK_DOOR_ROOM_TYPE_PRIORITY.get(normalized, 999)
 
 
 def _build_horizontal_back_candidates(
@@ -169,7 +169,7 @@ def _build_vertical_outermost_candidates(
 def build_back_door_candidates(
     all_rooms: list[NormalizedRoom],
     preferred_door_length: float,
-    tolerance: float = 1e-6,
+    tolerance: float = GEOMETRIC_TOLERANCE,
 ) -> list[BackDoorCandidate]:
     """Build ranked back-door candidates from kitchen/hallway exterior walls.
 

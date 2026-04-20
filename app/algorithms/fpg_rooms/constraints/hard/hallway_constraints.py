@@ -5,15 +5,15 @@ from typing import Any, Dict, List
 from ortools.sat.python import cp_model
 
 from app.core.fpg_rooms.config_fpg import (
-    HALLWAY_MIN_LENGTH,
+    HALLWAY_LONG_SIDE_MIN,
     HALLWAY_REQUIRED_SHARED_WALLS,
-    HALLWAY_WIDTH,
+    HALLWAY_NARROW_SIDE,
 )
 
 from ...solver_models.room import Room
 
 
-_MIN_OVERLAP = HALLWAY_WIDTH
+_MIN_OVERLAP = HALLWAY_NARROW_SIDE
 
 
 def _touch_constraints(
@@ -161,11 +161,11 @@ def add_hallway_constraints(
 
         is_horizontal = model.NewBoolVar(f"{hallway.name}_is_horizontal")  # type: ignore
 
-        model.Add(hallway.w >= HALLWAY_MIN_LENGTH).OnlyEnforceIf(is_horizontal)  # type: ignore[attr-defined]
-        model.Add(hallway.h == HALLWAY_WIDTH).OnlyEnforceIf(is_horizontal)  # type: ignore[attr-defined]
+        model.Add(hallway.w >= HALLWAY_LONG_SIDE_MIN).OnlyEnforceIf(is_horizontal)  # type: ignore[attr-defined]
+        model.Add(hallway.h == HALLWAY_NARROW_SIDE).OnlyEnforceIf(is_horizontal)  # type: ignore[attr-defined]
 
-        model.Add(hallway.h >= HALLWAY_MIN_LENGTH).OnlyEnforceIf(is_horizontal.Not())  # type: ignore[attr-defined]
-        model.Add(hallway.w == HALLWAY_WIDTH).OnlyEnforceIf(is_horizontal.Not())  # type: ignore[attr-defined]
+        model.Add(hallway.h >= HALLWAY_LONG_SIDE_MIN).OnlyEnforceIf(is_horizontal.Not())  # type: ignore[attr-defined]
+        model.Add(hallway.w == HALLWAY_NARROW_SIDE).OnlyEnforceIf(is_horizontal.Not())  # type: ignore[attr-defined]
 
         if living_room is not None:
             living_touches = pair_touches.get(living_room.name)

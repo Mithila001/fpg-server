@@ -2,6 +2,7 @@ from .types.room import FpgRequirements, RoomData
 from app.core.fpg_rooms.config_fpg import DEFAULT_MIN_W, DEFAULT_MIN_H, DEFAULT_MAX_W, DEFAULT_MAX_H
 
 # normalization rules for requirement objects
+#TODO: Check if this needed. Looks like useless
 def normalize_requirements(req: FpgRequirements) -> FpgRequirements:
     """Return a copy of ``req`` where any missing min/max dimensions are filled.
 

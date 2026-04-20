@@ -1,14 +1,14 @@
 [
     {
       "room_type": "bedroom",
-      "related_room": ["livingRoom"],
+      "related_room": ["livingRoom", "hallway"],
       "constraint_level": "hard_OR",
       "last_updated": "2026-03-25"
     },
     {
       "room_type": "kitchen",
-      "related_room": ["livingRoom"],
-      "constraint_level": "hard_AND",
+      "related_room": ["livingRoom", "hallway"],
+      "constraint_level": "hard_OR",
       "last_updated": "2026-03-25"
     },
     {
@@ -31,8 +31,8 @@
     },
     {
       "room_type": "garage",
-      "related_room": ["livingRoom","veranda"],
-      "constraint_level": "hard_AND",
+      "related_room": ["livingRoom", "hallway"],
+      "constraint_level": "hard_OR",
       "last_updated": "2026-03-25"
     }
 ]

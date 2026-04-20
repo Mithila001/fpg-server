@@ -54,11 +54,11 @@ class ConstraintControlPanel:
     def generate_profile(cls) -> ConstraintControlPanel:
         return cls(
             soft_seed_layout_hints=False,
-            soft_layout_dead_space_penalty=False,
+            soft_layout_dead_space_penalty=True,
             soft_seed_facade_depth_penalty=False,
             soft_seed_facade_alignment_penalty=False,
             soft_recessed_facade_penalty=False,
-            soft_room_shared_wall_refine_penalty=True,
+            soft_room_shared_wall_refine_penalty=False,
             soft_compact_layout_center_proximity=True,
         )
 

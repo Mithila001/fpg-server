@@ -1,7 +1,7 @@
 from app.algorithms.fpg_rooms.fpg_post_process import run_final_post_process
 
 
-def test_final_post_process_removes_veranda_and_veranda_outdoor_and_extracts_veranda_metadata() -> None:
+def test_final_post_process_filters_verandaoutdoorspace_and_returns_room_payloads() -> None:
     payload = {
         "rooms": [
             {"name": "veranda_1", "type": "veranda", "x": 10, "y": 0, "x_end": 50, "y_end": 20},
@@ -13,65 +13,75 @@ def test_final_post_process_removes_veranda_and_veranda_outdoor_and_extracts_ver
 
     result = run_final_post_process(payload)
 
-    assert "veranda_1" not in result["compact_by_room"]
-    assert "verandaOutdoorSpace_for_veranda_1" not in result["compact_by_room"]
-    assert "living_1" in result["compact_by_room"]
-
-    veranda_metadata = result["metadata"]["veranda"]
-    assert veranda_metadata is not None
-    assert veranda_metadata["room_name"] == "veranda_1"
-    assert veranda_metadata["l_veranda_pillar"] == {"x": 10.0, "y": 0.0}
-    assert veranda_metadata["r_veranda_pillar"] == {"x": 50.0, "y": 0.0}
-    assert veranda_metadata["veranda_back_points"] == [
-        {"x": 10.0, "y": 20.0},
-        {"x": 50.0, "y": 20.0},
-    ]
+    assert "veranda_1" in result["rooms"]
+    assert "verandaOutdoorSpace_for_veranda_1" not in result["rooms"]
+    assert "living_1" in result["rooms"]
+    assert result["rooms"]["living_1"]["room_type"] == "livingRoom"
+    assert isinstance(result["union_walls"], list)
+    assert isinstance(result["rooms"]["veranda_1"]["room_walls"], list)
 
 
-def test_final_post_process_detects_garage_veranda_outdoor_horizontal_overlap() -> None:
+def test_final_post_process_classifies_openings_into_doors_and_windows() -> None:
     payload = {
         "rooms": [
-            {"name": "garage_1", "type": "garage", "x": 0, "y": 0, "x_end": 50, "y_end": 20},
-            {"name": "verandaOutdoorSpace_for_veranda_1", "type": "verandaOutdoorSpace", "x": 20, "y": 20, "x_end": 80, "y_end": 40},
-            {"name": "living_1", "type": "livingRoom", "x": 0, "y": 40, "x_end": 80, "y_end": 90},
+            {"name": "bedroom_1", "type": "bedroom", "x": 0, "y": 0, "x_end": 50, "y_end": 50},
+            {"name": "living_1", "type": "livingRoom", "x": 50, "y": 0, "x_end": 100, "y_end": 50},
         ],
-        "openings": [],
+        "openings": [
+            {
+                "room_name": "bedroom_1",
+                "room_type": "bedroom",
+                "opening_type": "window",
+                "x1": 10,
+                "y1": 50,
+                "x2": 20,
+                "y2": 50,
+            },
+            {
+                "room_name": "bedroom_1",
+                "room_type": "bedroom",
+                "opening_type": "internalDoor",
+                "x1": 50,
+                "y1": 20,
+                "x2": 50,
+                "y2": 30,
+                "connected_room_name": "living_1",
+                "connected_room_type": "livingRoom",
+            },
+        ],
     }
 
     result = run_final_post_process(payload)
 
-    assert result["metadata"]["garage_shared_horizontal_overlap_segment"] == {
-        "x1": 20.0,
-        "y1": 20.0,
-        "x2": 50.0,
-        "y2": 20.0,
-    }
+    assert len(result["windows"]) == 1
+    assert result["windows"][0]["opening_type"] == "default_window"
+    assert len(result["doors"]) == 1
+    assert result["doors"][0]["room1_name"] == "bedroom_1"
+    assert result["doors"][0]["room2_name"] == "living_1"
 
 
-def test_final_post_process_converts_hallway_living_internal_door_to_cased_door() -> None:
+def test_final_post_process_filters_openings_linked_to_verandaoutdoorspace() -> None:
     payload = {
         "rooms": [
-            {"name": "hall_1", "type": "hallway", "x": 0, "y": 0, "x_end": 20, "y_end": 50},
-            {"name": "living_1", "type": "livingRoom", "x": 20, "y": 0, "x_end": 80, "y_end": 50},
+            {"name": "living_1", "type": "livingRoom", "x": 0, "y": 0, "x_end": 50, "y_end": 50},
+            {"name": "verandaOutdoorSpace_for_veranda_1", "type": "verandaOutdoorSpace", "x": 50, "y": 0, "x_end": 90, "y_end": 20},
         ],
         "openings": [
             {
-                "room_name": "hall_1",
-                "room_type": "hallway",
+                "room_name": "living_1",
+                "room_type": "livingRoom",
                 "opening_type": "internalDoor",
-                "x1": 20,
+                "x1": 50,
                 "y1": 10,
-                "x2": 20,
+                "x2": 50,
                 "y2": 20,
-                "connected_room_name": "living_1",
-                "connected_room_type": "livingRoom",
+                "connected_room_name": "verandaOutdoorSpace_for_veranda_1",
+                "connected_room_type": "verandaOutdoorSpace",
             }
         ],
     }
 
     result = run_final_post_process(payload)
 
-    hall_openings = result["compact_by_room"]["hall_1"]["openings"]
-    assert hall_openings[0]["opening_type"] == "casedDoor"
-    assert result["metadata"]["converted_hallway_living_openings"] == 1
-    assert len(result["metadata"]["hallway_living_shared_walls"]) >= 1
+    assert result["doors"] == []
+    assert result["windows"] == []
