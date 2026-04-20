@@ -111,11 +111,11 @@ ROOM_SIZE_HIERARCHY = {
     "attachedBathroom": (15, 30),
     "veranda": (40, 70),
     "garage": (50, 70),
-    "dining" : (30,50)
+    "diningRoom" : (30,50)
 }
 
 # Room types used by hallway-related generation rules.
-HALLWAY_RULE_TARGET_ROOM_TYPES = {"bedroom", "kitchen", "bathroom", "dining"}
+HALLWAY_RULE_TARGET_ROOM_TYPES = {"bedroom", "kitchen", "bathroom", "diningRoom"}
 
 # Default solver/optuna execution settings
 DEFAULT_ROOM_DIMENSION = 70

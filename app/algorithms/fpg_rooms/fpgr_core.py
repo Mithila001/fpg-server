@@ -35,6 +35,7 @@ from .constraints.hard.basic_constraints import add_basic_constraints
 from .constraints.hard.envelope_staircase import add_envelope_staircase_constraints
 from .constraints.hard.floor_area_coverage import add_minimum_area_coverage
 from .constraints.hard.hallway_constraints import add_hallway_constraints
+from .constraints.hard.hard_dining_room_relation import add_hard_dining_room_relation_constraint
 from .constraints.hard.hard_veranda_placement import add_veranda_placement_constraints
 from .constraints.hard.hard_garage_placement import add_garage_placement_constraints
 from .constraints.hard.kitchen_hallway_back_wall_setback import (
@@ -164,6 +165,12 @@ class FpgrCore:
 
         if panel.hard_room_shared_walls:
             add_room_shared_wall_constraints(self.model, self.rooms)
+
+        add_hard_dining_room_relation_constraint(
+            self.model,
+            self.rooms,
+            min_overlap=GENERATOR_ADJACENCY_MIN_OVERLAP,
+        )
 
         soft_relation_constraints: list[RoomRelationsConstraint] = []
         hard_or_relation_constraints: list[RoomRelationsConstraint] = []
