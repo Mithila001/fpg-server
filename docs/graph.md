@@ -29,13 +29,133 @@ Overall, my plane is to place this graph to the flow plan, Since the program wil
 
 
 ------------------------- 2
+> Front End Input changes
+Currently the front end send data like in this format
 
+```
+POST http://localhost:8000/algorithms/format/v2
+Content-Type: application/json
+
+{
+	"floor_width": 180,
+	"floor_height": 200,
+	"room_template": {
+		"name": "Standard 2BHK Layout",
+		"data": [
+			{ "id": "bedroom1", "type": "bedroom" },
+			{ "id": "bedroom2", "type": "bedroom" },
+			{ "id": "bathroom1", "type": "bathroom" },
+			{ "id": "kitchen1", "type": "kitchen" },
+			{ "id": "attachedBathroom1", "type": "attachedBathroom" },
+			{ "id": "veranda1", "type": "veranda" },
+			{ "id": "garage1", "type": "garage" },
+			{ "id": "diningRoom1", "type": "diningRoom" }
+			
+		]
+	},
+	"should_optuna_run": true,
+	"optuna_trial_count": 50
+}
+```
+But now with new update, it will send data like this
+POST http://localhost:8000/algorithms/format/v2
+Content-Type: application/json
+
+{
+	"floor_width": 180,
+	"floor_height": 200,
+	"room_template": {
+		"name": "Standard 2BHK Layout",
+		"data": [
+			{ "id": "bedroom1", "type": "bedroom", "size_class": "large" },
+			{ "id": "bedroom2", "type": "bedroom", "size_class": "medium"  },
+			{ "id": "bathroom1", "type": "bathroom" , "size_class": "medium" },
+			{ "id": "kitchen1", "type": "kitchen" , "size_class": "medium"  },
+			{ "id": "attachedBathroom1", "type": "attachedBathroom" , "size_class": "medium" },
+			{ "id": "veranda1", "type": "veranda" , "size_class": "small" },
+			{ "id": "garage1", "type": "garage" , "size_class": "medium" },
+			{ "id": "diningRoom1", "type": "diningRoom" , "size_class": "medium" }
+			
+		]
+	},
+	"should_optuna_run": true,
+	"optuna_trial_count": 50
+}
+
+At app/util/algorithm_manager/build_requirements.py we need to do major changes to the logics and flow.
+
+Currently the `size_constraints` will give data like this format
+```json
+[
+  {
+    "type": "bedroom",
+    "min_w": 30,
+    "max_w": 45,
+    "min_h": 30,
+    "max_h": 45,
+    "min_area": 900,
+    "max_area": 2025,
+    "preset_id": "standard_bed"
+  },
+  {
+    "type": "kitchen",
+    "min_w": 27,
+    "max_w": 40,
+    "min_h": 30,
+    "max_h": 50,
+    "min_area": 810,
+    "max_area": 2000,
+    "preset_id": "standard_kitchen"
+  },
+]
+```
+But with new version, the `size_constraints` will have data like this
+
+```json
+[
+  {
+    "type": "bedroom",
+    "base_values":{
+        "w" : 30,
+        "area" : 1000
+    },
+    "size_class":{
+        "small":{
+            "w_add": -3,
+            "area_add": -200,
+            "max_value_add" : 5,
+        },
+        "medium":{
+            "w_add": 0,
+            "area_add": 0,
+            "max_value_add" : 5,
+        },
+        "large":{
+            "w_add": 30,
+            "area_add": 500,
+            "max_value_add" : 10,
+        }
+    },
+    "preset_id": "standard_bed"
+  },....
+]
+```
+
+With this new data, now should do calculation to create min_w, min_h, max_w, max_h
+Example: IF the given Room size_class == "small" for the bedroom. then the 
+- min_w = base_values.w + size_class.<given_size_class>.w_add
+- min_h = (base_values.area + size_class.<given_size_class>.area_add ) / min_w
+- max_w = min_w + size_class.<given_size_class>.max_value_add
+- max_h = min_h + size_class.<given_size_class>.max_value_add
+
+
+> start 
 
 In this graph-based spatial model, each node represents an individual room, while each edge defines a specific relationship or transition between them. To ensure a valid configuration, every room must possess at least one direct connection to another, and the entire network must be fully connected. This implies that while every node is not required to share a direct edge with every other node, a continuous traversal path must exist between any two points in the system. For instance, if Room A and Room C are not directly linked, the requirement is still satisfied provided an indirect path exists through an intermediary, such as A→B→C
 
 > Storage 
 
-> passing hints
+
 
 > Optuna Trials
 
@@ -52,7 +172,8 @@ The optuna will give coordinate values for each node. And once those are placed 
 
 > Scoring
 
-
+> passing hints
+After getting a Good Score result, those node coordinates will be pass to the Solver as Hints. 
 
 
 > Next Phase. 
