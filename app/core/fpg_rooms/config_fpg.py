@@ -49,8 +49,8 @@ VERANDA_OUTDOOR_SPACE_MAX_W = 100
 VERANDA_OUTDOOR_SPACE_MAX_H = 100
 
 # Adjacency constraint settings
-DEFAULT_ADJACENCY_MIN_OVERLAP = 10
-GENERATOR_ADJACENCY_MIN_OVERLAP = 15
+DEFAULT_ADJACENCY_MIN_OVERLAP = 10 # Default value when no value is given
+GENERATOR_ADJACENCY_MIN_OVERLAP = 10 # Actual using value
 
 # Room location/bathroom preferences
 BATHROOM_LOCATION_WEIGHT = 1
@@ -111,10 +111,11 @@ ROOM_SIZE_HIERARCHY = {
     "attachedBathroom": (15, 30),
     "veranda": (40, 70),
     "garage": (50, 70),
+    "dining" : (30,50)
 }
 
 # Room types used by hallway-related generation rules.
-HALLWAY_RULE_TARGET_ROOM_TYPES = {"bedroom", "kitchen", "bathroom"}
+HALLWAY_RULE_TARGET_ROOM_TYPES = {"bedroom", "kitchen", "bathroom", "dining"}
 
 # Default solver/optuna execution settings
 DEFAULT_ROOM_DIMENSION = 70
@@ -163,6 +164,7 @@ ROOM_SHARED_WALL_RULES = {
     "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 0},
     "veranda": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 10},
     "garage": {"min_walls": 2, "max_walls": 2, "wiggle_pct": 10},
+    "dining": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
 }
 # Refinement phase shared-wall rules (tighter minimum requirements for refine_1).
 # Applied as soft constraint with penalties for violations.
@@ -174,6 +176,7 @@ ROOM_SHARED_WALL_RULES_REFINE = {
     "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 0},
     "veranda": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 10},
     "garage": {"min_walls": 2, "max_walls": 2, "wiggle_pct": 10},
+    "dining": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
 }
 
 __all__ = [
