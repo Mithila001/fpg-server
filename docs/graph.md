@@ -163,14 +163,25 @@ To optimize the layout of the node group, we utilize Force-Directed Graph mechan
 
 Each node group is contained within a fixed boundary defined by the floor plan’s width and height, which typically maintains an aspect ratio between 1:1 and 1:2. All individual nodes must fit entirely inside this area without crossing its edges, though they are not required to fill the entire space. While the nodes can be arranged in various ways, specific types like the veranda or garage are generally positioned toward the front of the boundary to reflect the house's entrance.
 
-> Circle size calculation
-Each node is represent as a circle. And each circle area(size) is difference based on the room type  
+## Circle size calculation
+Each node is represent as a circle. And each circle area(size) is difference based on the room type. the circle size will calculate like this:
+for each room, get it's min,max w,h value (for hallway, use fpg_config hallway values) and get midpoint width and midpoint height. Now find the circle size that can fit withing that rectangle, that thats the rectangle size representing that room.
+
+## Node Connection weights
+The connection wight = 1 is normal connection, anything between 0-1 is low connection and 1-2 is high connection (close connections)
+
+### Node Relation Implementations logic
+Use `app/algorithms/fpg_rooms/constraints/hard/room_adjacency_hard.py`, `app/algorithms/fpg_rooms/constraints/hard/hard_dining_room_relation.py` and `app/algorithms/fpg_rooms/constraints/hard/hallway_constraints.py` to get an idea about the how the relation implementation between room work. Look at `test/db-mock/room_relations_constraints.json` to see actual room relation data. 
 
 # The optuna Simulation
 The optuna will give coordinate values for each node. And once those are placed in the boundary. The physics engine will run. The physics loop until the nodes stop moving significantly (And safety limit value so the physics loop will not run non stop in case of error/bug). This physics will follow Force-Directed Graph mechanics, pulling nodes based on their spring stiffness, and prevent overlaps of node and other logics to achieve Force-Directed Graph mechanics.
+Add hallways based on optuna choice, use `DEFAULT_HALLWAY_COUNT` value as starting point. 
 
 
-> Scoring
+# Scoring
+For this, lets do a basic scoring for now. Simply check if the room adjacent is satisfied by calculating the room connection stretch and connection weight also if the adjacent rooms are not block/separated by other room. Some rooms have more that one option to satisfy the connections (Example: diningRoom).
+- Also check if the veranda and garage are at front most of the house. Give 50 scores for this. IF the total score is more that 40, then thats a usable layout. And provide that to optuna.
+
 
 > passing hints
 After getting a Good Score result, those node coordinates will be pass to the Solver as Hints. 
