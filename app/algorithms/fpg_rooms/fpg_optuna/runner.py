@@ -10,6 +10,7 @@ from app.algorithms.fpg_rooms.types.room import FpgRequirements
 from app.algorithms.fpg_rooms.fpg_graph.api import run_graph_layout
 from app.core.fpg_rooms.config_fpg import (
     TRIAL_EARLY_STOP_SCORE_THRESHOLD,
+    TRIAL_GRAPH_SOLVER_GATE_THRESHOLD,
     TRIAL_OPTIMIZATION_TIMEOUT_SECONDS,
 )
 from app.core.fpg_rooms.config_optuna import (
@@ -57,12 +58,9 @@ class OptunaOptimizationController:
         if elapsed > self.timeout_seconds:
             raise TrialTimeoutError(elapsed_time=elapsed, timeout_seconds=self.timeout_seconds)
 
-    def should_stop_optimization(self, score: float) -> bool:
+    def record_best_score(self, score: float) -> None:
         if self.best_score is None or score > self.best_score:
             self.best_score = score
-        if score >= self.score_threshold:
-            return True
-        return False
 
 
 def run_optuna_optimization(
@@ -72,7 +70,7 @@ def run_optuna_optimization(
     study_name: str = OPTUNA_DEFAULT_STUDY_NAME,
     storage: str | None = None,
 ) -> OptunaOptimizationResult:
-    """Optuna optimization loop: build trial graphs and execute inner solver when graphs are usable."""
+    """Run graph-first Optuna trials and invoke solver only for high-scoring graph candidates."""
     best_run_by_trial: dict[int, FpgEvaluationResult] = {}
     controller = OptunaOptimizationController()
 
@@ -103,7 +101,12 @@ def run_optuna_optimization(
             weighted_graph_score = _weighted_graph_score(graph_score)
 
             trial.set_user_attr("graph_score", graph_score)
+            trial.set_user_attr("graph_weighted_score", weighted_graph_score)
             trial.set_user_attr("graph_nodes", len(graph_result.nodes))
+            trial.set_user_attr("solver_score", 0.0)
+            trial.set_user_attr("solver_weighted_score", 0.0)
+            trial.set_user_attr("solver_invoked", False)
+            trial.set_user_attr("solver_passed", False)
 
             if not graph_result.score.usable_layout:
                 trial.set_user_attr("status", "graph_unusable")
@@ -113,6 +116,30 @@ def run_optuna_optimization(
                     score_report=None,
                     status="graph_unusable",
                     message="Graph layout marked as not usable.",
+                )
+                print(
+                    f"[Optuna] trial={trial.number} graph={graph_score:.2f} "
+                    f"graph_w={weighted_graph_score:.2f} solver=SKIP reason=graph_unusable "
+                    f"composite={weighted_graph_score:.2f}"
+                )
+                return weighted_graph_score
+
+            if graph_score < TRIAL_GRAPH_SOLVER_GATE_THRESHOLD:
+                trial.set_user_attr("status", "graph_below_solver_gate")
+                best_run_by_trial[trial.number] = FpgEvaluationResult(
+                    solved=False,
+                    solution=[],
+                    score_report=None,
+                    status="graph_below_solver_gate",
+                    message=(
+                        "Graph score below solver gate threshold "
+                        f"{TRIAL_GRAPH_SOLVER_GATE_THRESHOLD:.1f}."
+                    ),
+                )
+                print(
+                    f"[Optuna] trial={trial.number} graph={graph_score:.2f} "
+                    f"graph_w={weighted_graph_score:.2f} solver=SKIP reason=graph_below_gate "
+                    f"gate={TRIAL_GRAPH_SOLVER_GATE_THRESHOLD:.2f} composite={weighted_graph_score:.2f}"
                 )
                 return weighted_graph_score
 
@@ -131,6 +158,7 @@ def run_optuna_optimization(
             inner_requirements.initial_point_hints = point_hints
 
             # Execute run_solver_with_hints securely.
+            trial.set_user_attr("solver_invoked", True)
             run_result = evaluator(inner_requirements, False)
 
             best_run_by_trial[trial.number] = run_result
@@ -138,10 +166,27 @@ def run_optuna_optimization(
             trial.set_user_attr("solved", run_result.solved)
 
             if not run_result.solved or run_result.score_report is None:
+                print(
+                    f"[Optuna] trial={trial.number} graph={graph_score:.2f} "
+                    f"graph_w={weighted_graph_score:.2f} solver=FAILED composite={weighted_graph_score:.2f}"
+                )
                 return weighted_graph_score
 
             solver_score = float(run_result.score_report.total_score)
-            final_composite_score = weighted_graph_score + _weighted_solver_score(solver_score)
+            weighted_solver_score = _weighted_solver_score(solver_score)
+            final_composite_score = weighted_graph_score + weighted_solver_score
+            solver_passed = solver_score >= TRIAL_EARLY_STOP_SCORE_THRESHOLD
+
+            trial.set_user_attr("solver_score", solver_score)
+            trial.set_user_attr("solver_weighted_score", weighted_solver_score)
+            trial.set_user_attr("solver_passed", solver_passed)
+            trial.set_user_attr("composite_score", final_composite_score)
+
+            print(
+                f"[Optuna] trial={trial.number} graph={graph_score:.2f} graph_w={weighted_graph_score:.2f} "
+                f"solver={solver_score:.2f} solver_w={weighted_solver_score:.2f} "
+                f"composite={final_composite_score:.2f} solver_passed={solver_passed}"
+            )
 
             return final_composite_score
             
@@ -152,8 +197,21 @@ def run_optuna_optimization(
     def optimization_callback(study: optuna.Study, trial: optuna.Trial) -> None:
         if trial.value is None:
             return
-        if controller.should_stop_optimization(float(trial.value)):
+        controller.record_best_score(float(trial.value))
+
+        if bool(trial.user_attrs.get("solver_passed", False)):
             study.stop()
+            return
+
+        try:
+            solver_score = float(trial.user_attrs.get("solver_score", 0.0))
+        except (TypeError, ValueError):
+            solver_score = 0.0
+
+        if solver_score >= controller.score_threshold:
+            study.stop()
+            return
+
         try:
             controller.check_timeout_and_raise()
         except TrialTimeoutError:

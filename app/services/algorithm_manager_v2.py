@@ -22,6 +22,7 @@ from app.algorithms.fpg_rooms.types.room import FpgRequirements
 from app.core.fpg_rooms.config_fpg import (
     DEFAULT_OPTUNA_STUDY_NAME,
     DEFAULT_OPTUNA_TRIALS,
+    TRIAL_EARLY_STOP_SCORE_THRESHOLD,
     DEFAULT_OPTUNA_STORAGE_ENABLED,
     DEFAULT_OPTUNA_STORAGE_URL,
     WIGGLE_ROOM,
@@ -206,13 +207,29 @@ def run_solver_with_hints(
     best_score = float("-inf")
     last_result: FpgEvaluationResult | None = None
 
-    for _ in range(safe_run_count):
+    for attempt_index in range(safe_run_count):
         current_result = _run_single_fpg_solve(requirements=requirements, verbose=verbose)
         last_result = current_result
         if not current_result.solved or current_result.score_report is None:
+            print(
+                f"[SolverLoop] attempt={attempt_index + 1}/{safe_run_count} "
+                f"status={current_result.status} solved={current_result.solved}"
+            )
             continue
 
         current_score = float(current_result.score_report.total_score)
+        print(
+            f"[SolverLoop] attempt={attempt_index + 1}/{safe_run_count} "
+            f"status={current_result.status} score={current_score:.2f}"
+        )
+
+        if current_score >= TRIAL_EARLY_STOP_SCORE_THRESHOLD:
+            print(
+                f"[SolverLoop] early-stop pass: score={current_score:.2f} "
+                f">= threshold={TRIAL_EARLY_STOP_SCORE_THRESHOLD:.2f}"
+            )
+            return current_result
+
         if current_score > best_score:
             best_score = current_score
             best_result = current_result

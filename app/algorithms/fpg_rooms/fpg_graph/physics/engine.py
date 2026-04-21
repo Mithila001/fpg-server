@@ -76,7 +76,7 @@ def run_force_directed_layout(
             ux = dx / dist
             uy = dy / dist
 
-            target_distance = (node_a.radius + node_b.radius) * (2.5 - 0.6 * max(0.0, min(2.0, edge.weight)))
+            target_distance = (node_a.radius + node_b.radius) * (1.2 - 0.4 * max(0.0, min(2.0, edge.weight)))
             spring_strength = config.spring_constant * max(0.1, edge.weight)
             spring_force = spring_strength * (dist - target_distance)
 
@@ -112,6 +112,25 @@ def run_force_directed_layout(
         max_displacement = 0.0
         for node in nodes:
             fx, fy = forces[node.id]
+            
+            # --- 1. Horizontal "Squeeze" (Center-seeking) ---
+            # Keeps the house from being too wide; pulls toward center X
+            center_x = boundary.width / 2
+            side_pull = 0.1  # Reduced from 0.5 to prevent "thin" houses
+            fx += (center_x - node.x) * side_pull
+
+            # --- 2. Back Push (Piston Effect) ---
+            # This pushes nodes from the back (max height) toward the front (y=0)
+            # The further back a node is, the harder it gets pushed
+            back_push_strength = 5
+            fy -= back_push_strength * (node.y / boundary.height)
+
+            # --- 3. Front Resistance (Optional) ---
+            # If nodes are hitting the front wall (y=0) too hard, 
+            # this adds a small "cushion" as they get close to the edge.
+            if node.y < boundary.height * 0.1:
+                fy += 0.05
+            
             node.vx = (node.vx + fx * config.time_step) * config.damping
             node.vy = (node.vy + fy * config.time_step) * config.damping
 
