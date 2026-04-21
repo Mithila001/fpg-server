@@ -76,3 +76,4 @@ class FpgRequirements:
     rooms: list[RoomData]
     config: ConfigData
     relation_constraints: list[Any] = field(default_factory=list)  # RoomRelationsConstraintBase rows
+    initial_point_hints: list[dict[str, Any]] = field(default_factory=list)

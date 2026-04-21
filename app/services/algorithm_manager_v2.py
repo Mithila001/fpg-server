@@ -8,7 +8,6 @@ from app.algorithms.fpg_opening import generate_openings
 from app.algorithms.fpg_rooms import FloorPlanGenerator
 from app.algorithms.fpg_rooms.fpg_optuna import (
     FpgEvaluationResult,
-    run_optuna_optimization,
 )
 from app.algorithms.fpg_rooms.fpg_post_process import (
     run_final_post_process,
@@ -20,9 +19,6 @@ from app.algorithms.fpg_rooms.fpg_score import score_layout
 from app.algorithms.fpg_rooms.fpgr_p_refine_1 import run_refine_profile_1
 from app.algorithms.fpg_rooms.types.room import FpgRequirements
 from app.core.fpg_rooms.config_fpg import (
-    DEFAULT_OPTUNA_STUDY_NAME,
-    DEFAULT_OPTUNA_STORAGE_ENABLED,
-    DEFAULT_OPTUNA_STORAGE_URL,
     DEFAULT_OPTUNA_TRIALS,
     WIGGLE_ROOM,
 )
@@ -192,35 +188,6 @@ def _run_single_fpg_solve(
     return result
 
 
-def _select_solver_result(
-    requirements: FpgRequirements,
-    should_optuna_run: bool,
-    optuna_trial_count: int,
-    verbose: bool,
-) -> FpgEvaluationResult:
-    print("\n _select_solver_result()")
-    if not should_optuna_run:
-        return _run_single_fpg_solve(requirements, verbose=verbose)
-
-    optuna_result = run_optuna_optimization(
-        base_requirements=requirements,
-        evaluator=_run_single_fpg_solve,
-        n_trials=optuna_trial_count,
-        study_name=DEFAULT_OPTUNA_STUDY_NAME,
-        storage=DEFAULT_OPTUNA_STORAGE_URL if DEFAULT_OPTUNA_STORAGE_ENABLED else None,
-    )
-    if optuna_result.best_run is not None:
-        return optuna_result.best_run
-
-    return FpgEvaluationResult(
-        solved=False,
-        solution=[],
-        score_report=None,
-        status="NO_BEST_RUN",
-        message="Optuna did not produce a best run",
-    )
-
-
 def _build_payload_from_solver_result(
     run_result: FpgEvaluationResult,
 ) -> dict[str, Any]:
@@ -328,10 +295,8 @@ def run_fpg_pipeline_api(
         print(f"\n DATA DEBUG :\n Floor Validation = {validation_result} ")
 
         # Step 3: Run solver
-        run_result = _select_solver_result(
+        run_result = _run_single_fpg_solve(
             requirements=requirements,
-            should_optuna_run=should_optuna_run,
-            optuna_trial_count=optuna_trial_count,
             verbose=verbose,
         )
 
