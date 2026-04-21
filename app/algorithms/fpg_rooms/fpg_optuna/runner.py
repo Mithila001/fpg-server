@@ -25,6 +25,18 @@ from .types import FpgEvaluationResult, OptunaOptimizationResult
 
 EVALUATION_FN = Callable[[FpgRequirements, bool], FpgEvaluationResult]
 
+
+def _normalize_score_0_100(score: float) -> float:
+    return max(0.0, min(100.0, float(score)))
+
+
+def _weighted_graph_score(graph_total_score: float) -> float:
+    return (_normalize_score_0_100(graph_total_score) / 100.0) * 90.0
+
+
+def _weighted_solver_score(solver_total_score: float) -> float:
+    return (_normalize_score_0_100(solver_total_score) / 100.0) * 10.0
+
 class OptunaOptimizationController:
     """Controller to manage trial optimization early stopping and timeout logic."""
     def __init__(
@@ -86,9 +98,9 @@ def run_optuna_optimization(
                 hallway_count_override=hallway_count,
                 seed=seed,
             )
-            
+
             graph_score = float(graph_result.score.total_score)
-            weighted_graph_score = (graph_score / 100.0) * 90.0
+            weighted_graph_score = _weighted_graph_score(graph_score)
 
             trial.set_user_attr("graph_score", graph_score)
             trial.set_user_attr("graph_nodes", len(graph_result.nodes))
@@ -120,7 +132,7 @@ def run_optuna_optimization(
 
             # Execute run_solver_with_hints securely.
             run_result = evaluator(inner_requirements, False)
-            
+
             best_run_by_trial[trial.number] = run_result
             trial.set_user_attr("status", run_result.status)
             trial.set_user_attr("solved", run_result.solved)
@@ -129,7 +141,7 @@ def run_optuna_optimization(
                 return weighted_graph_score
 
             solver_score = float(run_result.score_report.total_score)
-            final_composite_score = weighted_graph_score + ((solver_score / 100.0) * 10.0)
+            final_composite_score = weighted_graph_score + _weighted_solver_score(solver_score)
 
             return final_composite_score
             

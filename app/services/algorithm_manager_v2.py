@@ -8,6 +8,7 @@ from app.algorithms.fpg_opening import generate_openings
 from app.algorithms.fpg_rooms import FloorPlanGenerator
 from app.algorithms.fpg_rooms.fpg_optuna import (
     FpgEvaluationResult,
+    run_optuna_optimization,
 )
 from app.algorithms.fpg_rooms.fpg_post_process import (
     run_final_post_process,
@@ -19,7 +20,10 @@ from app.algorithms.fpg_rooms.fpg_score import score_layout
 from app.algorithms.fpg_rooms.fpgr_p_refine_1 import run_refine_profile_1
 from app.algorithms.fpg_rooms.types.room import FpgRequirements
 from app.core.fpg_rooms.config_fpg import (
+    DEFAULT_OPTUNA_STUDY_NAME,
     DEFAULT_OPTUNA_TRIALS,
+    DEFAULT_OPTUNA_STORAGE_ENABLED,
+    DEFAULT_OPTUNA_STORAGE_URL,
     WIGGLE_ROOM,
 )
 from app.schemas.db.room_setup_template import RoomSetupTemplateBase
@@ -42,6 +46,8 @@ EMPTY_OPENING_LAYOUT = {
     "status": "NOT_RUN",
     "message": "Not run",
 }
+
+FPG_SOLVER_RUN_COUNT = 2
 
 
 def _plot_refine_before_after_dev(
@@ -188,6 +194,43 @@ def _run_single_fpg_solve(
     return result
 
 
+def run_solver_with_hints(
+    requirements: FpgRequirements,
+    verbose: bool = True,
+    run_count: int = FPG_SOLVER_RUN_COUNT,
+) -> FpgEvaluationResult:
+    """Inner loop for Phase 3: repeatedly run solver with point hints and keep best solved layout."""
+    safe_run_count = max(1, int(run_count))
+
+    best_result: FpgEvaluationResult | None = None
+    best_score = float("-inf")
+    last_result: FpgEvaluationResult | None = None
+
+    for _ in range(safe_run_count):
+        current_result = _run_single_fpg_solve(requirements=requirements, verbose=verbose)
+        last_result = current_result
+        if not current_result.solved or current_result.score_report is None:
+            continue
+
+        current_score = float(current_result.score_report.total_score)
+        if current_score > best_score:
+            best_score = current_score
+            best_result = current_result
+
+    if best_result is not None:
+        return best_result
+    if last_result is not None:
+        return last_result
+
+    return FpgEvaluationResult(
+        solved=False,
+        solution=[],
+        score_report=None,
+        status="NO_RUN_ATTEMPTS",
+        message="Inner solver loop did not execute any attempts.",
+    )
+
+
 def _build_payload_from_solver_result(
     run_result: FpgEvaluationResult,
 ) -> dict[str, Any]:
@@ -295,10 +338,38 @@ def run_fpg_pipeline_api(
         print(f"\n DATA DEBUG :\n Floor Validation = {validation_result} ")
 
         # Step 3: Run solver
-        run_result = _run_single_fpg_solve(
-            requirements=requirements,
-            verbose=verbose,
-        )
+        if should_optuna_run:
+            optuna_result = run_optuna_optimization(
+                base_requirements=requirements,
+                evaluator=lambda req, run_verbose: run_solver_with_hints(
+                    requirements=req,
+                    verbose=run_verbose,
+                    run_count=FPG_SOLVER_RUN_COUNT,
+                ),
+                n_trials=optuna_trial_count,
+                study_name=DEFAULT_OPTUNA_STUDY_NAME,
+                storage=(
+                    DEFAULT_OPTUNA_STORAGE_URL
+                    if DEFAULT_OPTUNA_STORAGE_ENABLED
+                    else None
+                ),
+            )
+            run_result = (
+                optuna_result.best_run
+                if optuna_result.best_run is not None
+                else FpgEvaluationResult(
+                    solved=False,
+                    solution=[],
+                    score_report=None,
+                    status="NO_BEST_RUN",
+                    message="Optuna did not produce a best run.",
+                )
+            )
+        else:
+            run_result = _run_single_fpg_solve(
+                requirements=requirements,
+                verbose=verbose,
+            )
 
         # Plot the final solver result via public plotter API before payload construction
         try:
