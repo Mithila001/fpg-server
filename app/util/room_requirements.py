@@ -38,24 +38,10 @@ def normalize_db_data_requirements(
     """
     constraints_by_type = {c.type: c for c in constraints}
     normalized: List[RoomData] = []
-    db_optional_room_types = {"diningRoom"}
 
     for room in rooms:
         if room.type == "livingRoom":
             raise ValueError("ERROR: livingRoom must not be provided by the template")
-
-        if room.type in db_optional_room_types:
-            normalized.append(
-                RoomData(
-                    name=room.name,
-                    type=room.type,
-                    min_w=int(room.min_w),
-                    min_h=int(room.min_h),
-                    max_w=int(room.max_w),
-                    max_h=int(room.max_h),
-                )
-            )
-            continue
 
         constraint = constraints_by_type.get(room.type)
 

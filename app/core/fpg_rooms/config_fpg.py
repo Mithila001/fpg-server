@@ -60,7 +60,7 @@ CONSTRAINT_HARD_BASIC_GEOMETRY = True
 CONSTRAINT_HARD_HALLWAY_RULES = True
 CONSTRAINT_HARD_ROOM_SHARED_WALLS = True
 CONSTRAINT_HARD_ROOM_ADJACENCY = True
-CONSTRAINT_HARD_MINIMUM_AREA_COVERAGE = True
+CONSTRAINT_HARD_MINIMUM_AREA_COVERAGE = False
 CONSTRAINT_HARD_ROOM_SIZE_HIERARCHY = True
 CONSTRAINT_HARD_LIVING_ROOM_LOCATION = True
 CONSTRAINT_HARD_VERANDA_PLACEMENT = True
@@ -105,13 +105,13 @@ DEFAULT_MAX_H = 70
 
 # Room size hierarchy (% of living room area)
 ROOM_SIZE_HIERARCHY = {
-    "bedroom": (50, 70),
-    "kitchen": (40, 50),
-    "bathroom": (15, 30),
-    "attachedBathroom": (15, 30),
-    "veranda": (40, 70),
-    "garage": (50, 70),
-    "diningRoom" : (30,50)
+    "bedroom": (60, 75),          # Increased from (50, 70)
+    "kitchen": (45, 55),          # Tightened from (40, 50)
+    "bathroom": (20, 30),         # Refined from (15, 30)
+    "attachedBathroom": (20, 25), # Refined from (15, 30)
+    "veranda": (55, 70),          # Lifted from (40, 70)
+    "garage": (100, 120),         # Major change: Garage is larger than Living Room
+    "diningRoom": (70, 75)        # Major change: Increased from (30, 50)
 }
 
 # Room types used by hallway-related generation rules.

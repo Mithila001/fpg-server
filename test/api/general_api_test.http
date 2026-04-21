@@ -5,8 +5,8 @@ POST http://localhost:8000/algorithms/format/v2
 Content-Type: application/json
 
 {
-	"floor_width": 180,
-	"floor_height": 200,
+	"floor_width": 200,
+	"floor_height": 300,
 	"room_template": {
 		"name": "Standard 2BHK Layout",
 		"data": [

@@ -25,7 +25,7 @@
     "max_w": 20,
     "min_h": 25,
     "max_h": 32,
-    "min_area": 360,
+    "min_area": 375,
     "max_area": 640,
     "preset_id": "standard_bath"
   },

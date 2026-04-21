@@ -158,6 +158,49 @@ def test_normalize_db_data_requirements_allows_dining_room_without_db_constraint
     assert normalized[0].max_h == 22
 
 
+def test_normalize_db_data_requirements_uses_nested_size_class_values():
+    rooms = [
+        RoomData(
+            name="Bedroom",
+            type="bedroom",
+            min_w=1,
+            min_h=1,
+            max_w=1,
+            max_h=1,
+            size_class="small",
+        ),
+    ]
+    constraints = [
+        {
+            "type": "bedroom",
+            "base_values": {"w": 36, "area": 1400},
+            "size_class": {
+                "small": {"w_add": -6, "area_add": -450, "max_value_add": 5},
+                "medium": {"w_add": 0, "area_add": 0, "max_value_add": 5},
+            },
+        },
+        {
+            "type": "livingRoom",
+            "base_values": {"w": 39, "area": 2000},
+            "size_class": {
+                "medium": {"w_add": 0, "area_add": 0, "max_value_add": 10},
+            },
+        },
+    ]
+
+    normalized = normalize_db_data_requirements(rooms, constraints)
+
+    assert [room.type for room in normalized] == ["bedroom", "livingRoom"]
+    assert normalized[0].min_w == 30
+    assert normalized[0].min_h == 31
+    assert normalized[0].max_w == 35
+    assert normalized[0].max_h == 36
+    assert normalized[-1].min_w == 39
+    assert normalized[-1].min_h == 51
+    assert normalized[-1].max_w == 49
+    assert normalized[-1].max_h == 61
+
+
 def test_generate_living_room_uses_requirement_bounds():
     requirements = FpgRequirements(
         rooms=[

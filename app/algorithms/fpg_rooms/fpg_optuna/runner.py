@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import copy
-import math
 import time
 from typing import Callable
 
@@ -36,10 +35,6 @@ from .util import calculate_floor_bounds
 
 EVALUATION_FN = Callable[[FpgRequirements, bool], FpgEvaluationResult]
 FLOOR_DIMENSION_BOUNDS = dict[str, int]
-
-OPTUNA_PARAM_KEY_FLOOR_PLAN_WIDTH = "floor_plan_width"
-OPTUNA_PARAM_KEY_FLOOR_PLAN_HEIGHT = "floor_plan_height"
-
 
 class OptunaOptimizationController:
     """Controller to manage trial optimization early stopping and timeout logic."""
@@ -152,8 +147,8 @@ def _resolve_floor_dimension_bounds(
         return (
             max(1, int(computed_bounds.min_floor_width)),
             max(1, int(computed_bounds.min_floor_height)),
-            max(1, int(computed_bounds.max_floor_width)),
-            max(1, int(computed_bounds.max_floor_height)),
+            max(base_floor_w, int(computed_bounds.max_floor_width)),
+            max(base_floor_h, int(computed_bounds.max_floor_height)),
         )
 
     min_floor_w = int(floor_dimension_bounds.get("min_floor_width", base_floor_w))
@@ -180,33 +175,8 @@ def mutate_requirements(
         floor_dimension_bounds,
     )
 
-    min_aspect_ratio = 1.0
-    max_aspect_ratio = 16.0 / 9.0
-
-    floor_w = trial.suggest_int(
-        OPTUNA_PARAM_KEY_FLOOR_PLAN_WIDTH,
-        min_floor_w,
-        max_floor_w,
-    )
-
-    # Derive valid height range for this width under hard aspect constraint:
-    # 1:1 <= width/height <= 16:9  =>  width/(16/9) <= height <= width
-    derived_min_h = int(math.ceil(floor_w / max_aspect_ratio))
-    derived_max_h = int(math.floor(floor_w / min_aspect_ratio))
-
-    valid_min_h = max(min_floor_h, derived_min_h)
-    valid_max_h = min(max_floor_h, derived_max_h)
-    if valid_min_h > valid_max_h:
-        raise ValueError(
-            "No valid floor height exists for selected width under 1:1..16:9 aspect ratio "
-            f"(width={floor_w}, min_h={min_floor_h}, max_h={max_floor_h})."
-        )
-
-    floor_h = trial.suggest_int(
-        OPTUNA_PARAM_KEY_FLOOR_PLAN_HEIGHT,
-        valid_min_h,
-        valid_max_h,
-    )
+    floor_w = int(base_requirements.config.floor_plan_width)
+    floor_h = int(base_requirements.config.floor_plan_height)
 
     tuned_rooms = copy.deepcopy(base_requirements.rooms)
     tuned_config = ConfigData(
@@ -338,10 +308,8 @@ def _requirements_from_best_params(
         floor_dimension_bounds,
     )
 
-    floor_w = int(best_params.get(OPTUNA_PARAM_KEY_FLOOR_PLAN_WIDTH, min_floor_w))
-    floor_h = int(best_params.get(OPTUNA_PARAM_KEY_FLOOR_PLAN_HEIGHT, min_floor_h))
-    floor_w = max(min_floor_w, min(max_floor_w, floor_w))
-    floor_h = max(min_floor_h, min(max_floor_h, floor_h))
+    floor_w = int(base_requirements.config.floor_plan_width)
+    floor_h = int(base_requirements.config.floor_plan_height)
 
     tuned_rooms = copy.deepcopy(base_requirements.rooms)
     coverage = 0.5

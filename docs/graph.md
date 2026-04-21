@@ -136,7 +136,7 @@ But with new version, the `size_constraints` will have data like this
             "max_value_add" : 10,
         }
     },
-    "preset_id": "standard_bed"
+    "preset_id": "standard_bedroom"
   },....
 ]
 ```
@@ -183,3 +183,250 @@ The "Rigid Bone" Rule: Instead of letting the circles move freely, you treat the
 If the hallway is a "string," it has more "surface area" for other rooms to attach to. To keep your system from getting confused, you should treat the Hallway as a "Container" or a "Super-Node."
 These inner circles should be placed so they are touching or slightly overlapping. If each circle has a radius r, the distance between their centers should be exactly 2r
 Instead of picking one circle (first or last), let the Bedroom node connect to the entire hallway string using a "Floating Edge."
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+POST http://localhost:8000/algorithms/format/v2
+Content-Type: application/json
+
+{
+	"floor_width": 300,
+	"floor_height": 300,
+	"room_template": {
+		"name": "Standard 2BHK Layout",
+		"data": [
+			{ "id": "bedroom1", "type": "bedroom", "size_class": "medium" },
+			{ "id": "bedroom2", "type": "bedroom", "size_class": "medium"  },
+			{ "id": "bathroom1", "type": "bathroom" , "size_class": "medium" },
+			{ "id": "kitchen1", "type": "kitchen" , "size_class": "medium"  },
+			{ "id": "attachedBathroom1", "type": "attachedBathroom" , "size_class": "medium" },
+			{ "id": "veranda1", "type": "veranda" , "size_class": "medium" },
+			{ "id": "garage1", "type": "garage" , "size_class": "medium" },
+			{ "id": "diningRoom1", "type": "diningRoom" , "size_class": "medium" }
+			
+		]
+	},
+	"should_optuna_run": true,
+	"optuna_trial_count": 10
+}
+
+
+
+[
+  {
+    "type": "bedroom",
+    "base_values": {
+      "w": 36,
+      "area": 1400
+    },
+    "size_class": {
+      "small": {
+        "w_add": -6,
+        "area_add": -450,
+        "max_value_add": 5
+      },
+      "medium": {
+        "w_add": 0,
+        "area_add": 0,
+        "max_value_add": 5
+      },
+      "large": {
+        "w_add": 6,
+        "area_add": 500,
+        "max_value_add": 10
+      }
+    },
+    "preset_id": "standard_bedroom"
+  },
+  {
+    "type": "kitchen",
+    "base_values": {
+      "w": 30,
+      "area": 1000
+    },
+    "size_class": {
+      "small": {
+        "w_add": -6,
+        "area_add": -300,
+        "max_value_add": 3
+      },
+      "medium": {
+        "w_add": 0,
+        "area_add": 0,
+        "max_value_add": 5
+      },
+      "large": {
+        "w_add": 6,
+        "area_add": 400,
+        "max_value_add": 8
+      }
+    },
+    "preset_id": "standard_kitchen"
+  },
+  {
+    "type": "livingRoom",
+    "base_values": {
+      "w": 39,
+      "area": 2000
+    },
+    "size_class": {
+      "small": {
+        "w_add": -6,
+        "area_add": -600,
+        "max_value_add": 5
+      },
+      "medium": {
+        "w_add": 0,
+        "area_add": 0,
+        "max_value_add": 10
+      },
+      "large": {
+        "w_add": 9,
+        "area_add": 1000,
+        "max_value_add": 15
+      }
+    },
+    "preset_id": "standard_living"
+  },
+  {
+    "type": "diningRoom",
+    "base_values": {
+      "w": 36,
+      "area": 1450
+    },
+    "size_class": {
+      "small": {
+        "w_add": -6,
+        "area_add": -450,
+        "max_value_add": 4
+      },
+      "medium": {
+        "w_add": 0,
+        "area_add": 0,
+        "max_value_add": 6
+      },
+      "large": {
+        "w_add": 6,
+        "area_add": 650,
+        "max_value_add": 10
+      }
+    },
+    "preset_id": "standard_dining"
+  },
+  {
+    "type": "bathroom",
+    "base_values": {
+      "w": 15,
+      "area": 500
+    },
+    "size_class": {
+      "small": {
+        "w_add": -3,
+        "area_add": -175,
+        "max_value_add": 2
+      },
+      "medium": {
+        "w_add": 0,
+        "area_add": 0,
+        "max_value_add": 3
+      },
+      "large": {
+        "w_add": 3,
+        "area_add": 200,
+        "max_value_add": 5
+      }
+    },
+    "preset_id": "standard_bathroom"
+  },
+  {
+    "type": "attachedBathroom",
+    "base_values": {
+      "w": 15,
+      "area": 450
+    },
+    "size_class": {
+      "small": {
+        "w_add": -3,
+        "area_add": -150,
+        "max_value_add": 2
+      },
+      "medium": {
+        "w_add": 0,
+        "area_add": 0,
+        "max_value_add": 3
+      },
+      "large": {
+        "w_add": 5,
+        "area_add": 250,
+        "max_value_add": 5
+      }
+    },
+    "preset_id": "ensuite_bathroom"
+  },
+  {
+    "type": "garage",
+    "base_values": {
+      "w": 36,
+      "area": 2200
+    },
+    "size_class": {
+      "small": {
+        "w_add": -6,
+        "area_add": -550,
+        "max_value_add": 5
+      },
+      "medium": {
+        "w_add": 0,
+        "area_add": 0,
+        "max_value_add": 5
+      },
+      "large": {
+        "w_add": 19,
+        "area_add": 1000,
+        "max_value_add": 10
+      }
+    },
+    "preset_id": "standard_garage"
+  },
+  {
+    "type": "veranda",
+    "base_values": {
+      "w": 24,
+      "area": 1200
+    },
+    "size_class": {
+      "small": {
+        "w_add": -6,
+        "area_add": -400,
+        "max_value_add": 3
+      },
+      "medium": {
+        "w_add": 0,
+        "area_add": 0,
+        "max_value_add": 20
+      },
+      "large": {
+        "w_add": 12,
+        "area_add": 800,
+        "max_value_add": 10
+      }
+    },
+    "preset_id": "standard_veranda"
+  }
+]
