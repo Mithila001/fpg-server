@@ -6,366 +6,51 @@ from typing import Callable
 
 import optuna
 
-from app.algorithms.fpg_rooms.types.room import (
-    ConfigData,
-    FpgRequirements,
-)
+from app.algorithms.fpg_rooms.types.room import FpgRequirements
+from app.algorithms.fpg_rooms.fpg_graph.api import run_graph_layout
 from app.core.fpg_rooms.config_fpg import (
     TRIAL_EARLY_STOP_SCORE_THRESHOLD,
     TRIAL_OPTIMIZATION_TIMEOUT_SECONDS,
-    ROOM_SIZE_HIERARCHY,
 )
 from app.core.fpg_rooms.config_optuna import (
     OPTUNA_DEFAULT_STUDY_NAME,
     OPTUNA_DEFAULT_TRIALS,
-    OPTUNA_ENVELOPE_APPLY_SIDES_DEFAULT,
-    OPTUNA_ENVELOPE_ENABLED_DEFAULT,
-    OPTUNA_ENVELOPE_EXCLUDE_TYPES_DEFAULT,
-    OPTUNA_ENVELOPE_MAX_GAP_DEFAULT,
-    OPTUNA_ENVELOPE_MIN_GAP_DEFAULT,
     OPTUNA_HALLWAY_COUNT_MAX,
     OPTUNA_HALLWAY_COUNT_MIN,
     OPTUNA_PARAM_KEY_HALLWAY_COUNT,
 )
 from app.util.tracking import get_tracking_context
-
 from .exceptions import TrialTimeoutError
 from .types import FpgEvaluationResult, OptunaOptimizationResult
-from .util import calculate_floor_bounds
 
 EVALUATION_FN = Callable[[FpgRequirements, bool], FpgEvaluationResult]
-FLOOR_DIMENSION_BOUNDS = dict[str, int]
 
 class OptunaOptimizationController:
     """Controller to manage trial optimization early stopping and timeout logic."""
-
-    def __init__(self, timeout_seconds: int = TRIAL_OPTIMIZATION_TIMEOUT_SECONDS, score_threshold: float = TRIAL_EARLY_STOP_SCORE_THRESHOLD):
-        """
-        Initialize the optimization controller.
-
-        Args:
-            timeout_seconds: Maximum time allowed for all trials (seconds)
-            score_threshold: Score threshold for early stopping (0-100)
-        """
+    def __init__(
+        self,
+        timeout_seconds: float = TRIAL_OPTIMIZATION_TIMEOUT_SECONDS,
+        score_threshold: float = TRIAL_EARLY_STOP_SCORE_THRESHOLD,
+    ):
         self.timeout_seconds = timeout_seconds
         self.score_threshold = score_threshold
         self.start_time = time.time()
         self.best_score: float | None = None
-        self.feasible_found = False
 
     def get_elapsed_time(self) -> float:
-        """Get elapsed time since controller creation (seconds)."""
         return time.time() - self.start_time
 
     def check_timeout_and_raise(self) -> None:
-        """Raise TrialTimeoutError if timeout exceeded."""
         elapsed = self.get_elapsed_time()
         if elapsed > self.timeout_seconds:
             raise TrialTimeoutError(elapsed_time=elapsed, timeout_seconds=self.timeout_seconds)
 
     def should_stop_optimization(self, score: float) -> bool:
-        """
-        Check if optimization should stop (early stopping condition).
-
-        Args:
-            score: The score from the current trial
-
-        Returns:
-            True if optimization should stop, False otherwise
-        """
-        # Update best score
         if self.best_score is None or score > self.best_score:
             self.best_score = score
-
-        # Check if score exceeds threshold
         if score >= self.score_threshold:
-            self.feasible_found = True
             return True
-
-        # Check if timeout exceeded
-        if self.get_elapsed_time() > self.timeout_seconds:
-            # Don't raise here; let caller decide how to handle
-            return False
-
         return False
-
-
-def _clamp_int(value: int, lower: int, upper: int) -> int:
-    return max(lower, min(upper, value))
-
-
-def _validate_room_size_hierarchy(requirements: FpgRequirements) -> tuple[bool, str]:
-    living_room = next((room for room in requirements.rooms if room.type == "livingRoom"), None)
-    if living_room is None:
-        return False, "LivingRoom requirement is missing from normalized requirements"
-
-    living_min_area = int(living_room.min_w) * int(living_room.min_h)
-    living_max_area = int(living_room.max_w) * int(living_room.max_h)
-    if living_min_area > living_max_area:
-        return False, (
-            "LivingRoom has invalid area bounds: "
-            f"min_area={living_min_area}, max_area={living_max_area}."
-        )
-
-    for room in requirements.rooms:
-        if room.type not in ROOM_SIZE_HIERARCHY:
-            continue
-
-        room_min_area = int(room.min_w) * int(room.min_h)
-        room_max_area = int(room.max_w) * int(room.max_h)
-        if room_min_area > room_max_area:
-            return False, (
-                f"Room type '{room.type}' has invalid area bounds: "
-                f"min_area={room_min_area}, max_area={room_max_area}."
-            )
-
-        min_pct, max_pct = ROOM_SIZE_HIERARCHY[room.type]
-        min_ratio = float(room_min_area) / float(living_max_area)
-        max_ratio = float(room_max_area) / float(living_min_area)
-        if max_ratio < min_pct / 100.0 or min_ratio > max_pct / 100.0:
-            return False, (
-                f"Room type '{room.type}' cannot satisfy ROOM_SIZE_HIERARCHY "
-                f"with livingRoom area range [{living_min_area}, {living_max_area}] "
-                f"and room area range [{room_min_area}, {room_max_area}]."
-            )
-
-    return True, ""
-
-
-def _resolve_floor_dimension_bounds(
-    base_requirements: FpgRequirements,
-    floor_dimension_bounds: FLOOR_DIMENSION_BOUNDS | None,
-) -> tuple[int, int, int, int]:
-    base_floor_w = max(1, int(base_requirements.config.floor_plan_width))
-    base_floor_h = max(1, int(base_requirements.config.floor_plan_height))
-
-    if floor_dimension_bounds is None:
-        computed_bounds = calculate_floor_bounds(base_requirements)
-        if not computed_bounds.feasible:
-            return base_floor_w, base_floor_h, base_floor_w, base_floor_h
-
-        return (
-            max(1, int(computed_bounds.min_floor_width)),
-            max(1, int(computed_bounds.min_floor_height)),
-            max(base_floor_w, int(computed_bounds.max_floor_width)),
-            max(base_floor_h, int(computed_bounds.max_floor_height)),
-        )
-
-    min_floor_w = int(floor_dimension_bounds.get("min_floor_width", base_floor_w))
-    min_floor_h = int(floor_dimension_bounds.get("min_floor_height", base_floor_h))
-    max_floor_w = int(floor_dimension_bounds.get("max_floor_width", base_floor_w))
-    max_floor_h = int(floor_dimension_bounds.get("max_floor_height", base_floor_h))
-
-    min_floor_w = max(1, min_floor_w)
-    min_floor_h = max(1, min_floor_h)
-    max_floor_w = max(min_floor_w, max_floor_w)
-    max_floor_h = max(min_floor_h, max_floor_h)
-
-    return min_floor_w, min_floor_h, max_floor_w, max_floor_h
-
-
-def mutate_requirements(
-    base_requirements: FpgRequirements,
-    trial: optuna.Trial,
-    floor_dimension_bounds: FLOOR_DIMENSION_BOUNDS | None = None,
-) -> FpgRequirements:
-    # print(f"Base Requirment in Optuna: \n {base_requirements}\n")
-    min_floor_w, min_floor_h, max_floor_w, max_floor_h = _resolve_floor_dimension_bounds(
-        base_requirements,
-        floor_dimension_bounds,
-    )
-
-    floor_w = int(base_requirements.config.floor_plan_width)
-    floor_h = int(base_requirements.config.floor_plan_height)
-
-    tuned_rooms = copy.deepcopy(base_requirements.rooms)
-    tuned_config = ConfigData(
-        #TODO: Put this in Config
-        min_coverage=0.5,
-        hallway_count=trial.suggest_int(
-            OPTUNA_PARAM_KEY_HALLWAY_COUNT,
-            OPTUNA_HALLWAY_COUNT_MIN,
-            OPTUNA_HALLWAY_COUNT_MAX,
-        ),
-        max_aspect_ratio=base_requirements.config.max_aspect_ratio,
-        min_aspect_ratio=base_requirements.config.min_aspect_ratio,
-        floor_plan_width=floor_w,
-        floor_plan_height=floor_h,
-        envelope_enabled=bool(
-            getattr(
-                base_requirements.config,
-                "envelope_enabled",
-                OPTUNA_ENVELOPE_ENABLED_DEFAULT,
-            )
-        ),
-        envelope_min_gap=int(
-            getattr(
-                base_requirements.config,
-                "envelope_min_gap",
-                OPTUNA_ENVELOPE_MIN_GAP_DEFAULT,
-            )
-        ),
-        envelope_max_gap=int(
-            getattr(
-                base_requirements.config,
-                "envelope_max_gap",
-                OPTUNA_ENVELOPE_MAX_GAP_DEFAULT,
-            )
-        ),
-        envelope_exclude_types=list(
-            getattr(
-                base_requirements.config,
-                "envelope_exclude_types",
-                OPTUNA_ENVELOPE_EXCLUDE_TYPES_DEFAULT,
-            )
-        ),
-        envelope_apply_sides=list(
-            getattr(
-                base_requirements.config,
-                "envelope_apply_sides",
-                OPTUNA_ENVELOPE_APPLY_SIDES_DEFAULT,
-            )
-        ),
-    )
-
-    requirements = FpgRequirements(
-        rooms=tuned_rooms,
-        config=tuned_config,
-        relation_constraints=copy.deepcopy(base_requirements.relation_constraints),
-    )
-
-    valid, reason = _validate_room_size_hierarchy(requirements)
-    if not valid:
-        raise ValueError(reason)
-
-    return requirements
-
-
-def _relation_constraints_are_resolvable(requirements: FpgRequirements) -> tuple[bool, str]:
-    available_types = {room.type for room in requirements.rooms}
-    # mandatory system rooms are injected by FloorPlanGenerator.
-    available_types.update({"livingRoom", "hallway"})
-
-    for item in requirements.relation_constraints:
-        room_type = getattr(item, "room_type", None)
-        related_room = getattr(item, "related_room", None)
-
-        if not room_type or room_type not in available_types:
-            return False, f"Unknown room_type in relation constraints: {room_type}"
-
-        for related_type in related_room or []:
-            if related_type not in available_types:
-                return False, f"Unknown related_room type in relation constraints: {related_type}"
-
-    return True, ""
-
-
-def _bounds_are_valid(requirements: FpgRequirements) -> tuple[bool, str]:
-    floor_w = int(requirements.config.floor_plan_width)
-    floor_h = int(requirements.config.floor_plan_height)
-
-    if floor_w < 1 or floor_h < 1:
-        return False, "floor_plan_width and floor_plan_height must be positive"
-
-    for room in requirements.rooms:
-        if room.min_w < 1 or room.min_h < 1:
-            return False, f"Invalid min dimensions for {room.type}"
-        if room.min_w > room.max_w or room.min_h > room.max_h:
-            return False, f"Invalid min/max ordering for {room.type}"
-        if room.max_w > floor_w or room.max_h > floor_h:
-            return False, f"Room max dimension exceeds floor bounds for {room.type}"
-
-    coverage = float(requirements.config.min_coverage)
-    if coverage <= 0.0 or coverage > 1.0:
-        return False, "min_coverage must be in (0, 1]"
-
-    return True, ""
-
-
-def _precheck(requirements: FpgRequirements) -> tuple[bool, str]:
-    valid, reason = _bounds_are_valid(requirements)
-    if not valid:
-        return False, reason
-
-    valid, reason = _relation_constraints_are_resolvable(requirements)
-    if not valid:
-        return False, reason
-
-    valid, reason = _validate_room_size_hierarchy(requirements)
-    if not valid:
-        return False, reason
-
-    return True, ""
-
-
-def _requirements_from_best_params(
-    base_requirements: FpgRequirements,
-    best_params: dict[str, float | int],
-    floor_dimension_bounds: FLOOR_DIMENSION_BOUNDS | None = None,
-) -> FpgRequirements:
-    min_floor_w, min_floor_h, max_floor_w, max_floor_h = _resolve_floor_dimension_bounds(
-        base_requirements,
-        floor_dimension_bounds,
-    )
-
-    floor_w = int(base_requirements.config.floor_plan_width)
-    floor_h = int(base_requirements.config.floor_plan_height)
-
-    tuned_rooms = copy.deepcopy(base_requirements.rooms)
-    coverage = 0.5
-    base_hallway_count = int(getattr(base_requirements.config, "hallway_count", 1))
-    hallway_count = int(best_params.get(OPTUNA_PARAM_KEY_HALLWAY_COUNT, base_hallway_count))
-    hallway_count = max(OPTUNA_HALLWAY_COUNT_MIN, min(OPTUNA_HALLWAY_COUNT_MAX, hallway_count))
-
-    tuned_config = ConfigData(
-        min_coverage=coverage,
-        hallway_count=hallway_count,
-        max_aspect_ratio=base_requirements.config.max_aspect_ratio,
-        min_aspect_ratio=base_requirements.config.min_aspect_ratio,
-        floor_plan_width=floor_w,
-        floor_plan_height=floor_h,
-        envelope_enabled=bool(
-            getattr(
-                base_requirements.config,
-                "envelope_enabled",
-                OPTUNA_ENVELOPE_ENABLED_DEFAULT,
-            )
-        ),
-        envelope_min_gap=int(
-            getattr(
-                base_requirements.config,
-                "envelope_min_gap",
-                OPTUNA_ENVELOPE_MIN_GAP_DEFAULT,
-            )
-        ),
-        envelope_max_gap=int(
-            getattr(
-                base_requirements.config,
-                "envelope_max_gap",
-                OPTUNA_ENVELOPE_MAX_GAP_DEFAULT,
-            )
-        ),
-        envelope_exclude_types=list(
-            getattr(
-                base_requirements.config,
-                "envelope_exclude_types",
-                OPTUNA_ENVELOPE_EXCLUDE_TYPES_DEFAULT,
-            )
-        ),
-        envelope_apply_sides=list(
-            getattr(
-                base_requirements.config,
-                "envelope_apply_sides",
-                OPTUNA_ENVELOPE_APPLY_SIDES_DEFAULT,
-            )
-        ),
-    )
-
-    return FpgRequirements(
-        rooms=tuned_rooms,
-        config=tuned_config,
-        relation_constraints=copy.deepcopy(base_requirements.relation_constraints),
-    )
 
 
 def run_optuna_optimization(
@@ -374,128 +59,95 @@ def run_optuna_optimization(
     n_trials: int = OPTUNA_DEFAULT_TRIALS,
     study_name: str = OPTUNA_DEFAULT_STUDY_NAME,
     storage: str | None = None,
-    floor_dimension_bounds: FLOOR_DIMENSION_BOUNDS | None = None,
 ) -> OptunaOptimizationResult:
-    """Run Optuna optimization for floor-plan requirements."""
-
+    """Optuna optimization loop: build trial graphs and execute inner solver when graphs are usable."""
     best_run_by_trial: dict[int, FpgEvaluationResult] = {}
     controller = OptunaOptimizationController()
 
     optuna.logging.set_verbosity(optuna.logging.WARN)
 
     def objective(trial: optuna.Trial) -> float:
-        # Check timeout before starting trial evaluation
         controller.check_timeout_and_raise()
-
         tracking_context = get_tracking_context()
         if tracking_context is not None:
             tracking_context.next_trial_id()
+
         try:
-            try:
-                trial_requirements = mutate_requirements(
-                    base_requirements,
-                    trial,
-                    floor_dimension_bounds=floor_dimension_bounds,
+            seed = trial.suggest_int("seed", 0, 9999)
+            hallway_count = trial.suggest_int(
+                OPTUNA_PARAM_KEY_HALLWAY_COUNT,
+                OPTUNA_HALLWAY_COUNT_MIN,
+                OPTUNA_HALLWAY_COUNT_MAX,
+            )
+
+            # Stage 1: Fast Graph Construction
+            graph_result = run_graph_layout(
+                requirements=base_requirements,
+                hallway_count_override=hallway_count,
+                seed=seed,
+            )
+            
+            graph_score = float(graph_result.score.total_score)
+            weighted_graph_score = (graph_score / 100.0) * 90.0
+
+            trial.set_user_attr("graph_score", graph_score)
+            trial.set_user_attr("graph_nodes", len(graph_result.nodes))
+
+            if not graph_result.score.usable_layout:
+                trial.set_user_attr("status", "graph_unusable")
+                best_run_by_trial[trial.number] = FpgEvaluationResult(
+                    solved=False,
+                    solution=[],
+                    score_report=None,
+                    status="graph_unusable",
+                    message="Graph layout marked as not usable.",
                 )
-            except ValueError as exc:
-                trial.set_user_attr("status", "mutate_requirements_infeasible")
-                trial.set_user_attr("reason", str(exc))
-                trial.set_user_attr("valid", False)
-                return 0.0
-            # print(f"\nOptuna Trial = {trial_requirements}\n")
+                return weighted_graph_score
 
-            bounds_result = calculate_floor_bounds(trial_requirements)
-            if not bounds_result.feasible:
-                trial.set_user_attr("status", "floor_bounds_infeasible")
-                trial.set_user_attr("reason", bounds_result.reason)
-                trial.set_user_attr("valid", False)
-                print(f"\n-- Invalid Bounds: {bounds_result}\n")
-                return 0.0
+            # Stage 2: Inner Solver Evaluation (Inject Hint Logic)
+            point_hints = [
+                {
+                    "name": node.name,
+                    "type": node.room_type,
+                    "x": int(round(node.x)),
+                    "y": int(round(node.y)),
+                }
+                for node in graph_result.nodes
+            ]
 
-            print(f"\n-- Bounds: {bounds_result}\n")
-            print("\nStarts")
-            ok, reason = _precheck(trial_requirements)
-            if not ok:
-                
-                trial.set_user_attr("status", "precheck_failed")
-                trial.set_user_attr("reason", reason)
-                trial.set_user_attr("valid", False)
-                print("\n# Pre Check Failed")
-                return 0.0
-            # --- Optuna logging block end ---
+            inner_requirements = copy.deepcopy(base_requirements)
+            inner_requirements.initial_point_hints = point_hints
+
+            # Execute run_solver_with_hints securely.
+            run_result = evaluator(inner_requirements, False)
             
+            best_run_by_trial[trial.number] = run_result
+            trial.set_user_attr("status", run_result.status)
+            trial.set_user_attr("solved", run_result.solved)
+
+            if not run_result.solved or run_result.score_report is None:
+                return weighted_graph_score
+
+            solver_score = float(run_result.score_report.total_score)
+            final_composite_score = weighted_graph_score + ((solver_score / 100.0) * 10.0)
+
+            return final_composite_score
             
-            print("\n\n#sym:trial_requirements")
-            print("  config:")
-            print(f"    floor_plan_width: {trial_requirements.config.floor_plan_width}")
-            print(f"    floor_plan_height: {trial_requirements.config.floor_plan_height}")
-            print(f"    min_coverage: {trial_requirements.config.min_coverage}")
-            print(f"    hallway_count: {trial_requirements.config.hallway_count}")
-            print(f"    min_aspect_ratio: {trial_requirements.config.min_aspect_ratio}")
-            print(f"    max_aspect_ratio: {trial_requirements.config.max_aspect_ratio}")
-            print(f"    envelope_enabled: {trial_requirements.config.envelope_enabled}")
-            print(f"    envelope_min_gap: {trial_requirements.config.envelope_min_gap}")
-            print(f"    envelope_max_gap: {trial_requirements.config.envelope_max_gap}")
-            print(f"    envelope_exclude_types: {trial_requirements.config.envelope_exclude_types}")
-            print(f"    envelope_apply_sides: {trial_requirements.config.envelope_apply_sides}")
-            print("  rooms:")
-            for idx, room in enumerate(trial_requirements.rooms):
-                print(
-                    f"    [{idx}] {room.type} "
-                    f"(name={room.name}) "
-                    f"min=({room.min_w}x{room.min_h}) "
-                    f"max=({room.max_w}x{room.max_h})"
-                )
-            #print(f"  relation_constraints: {trial_requirements.relation_constraints}")
-            print("-- end trial_requirements --\n\n")
-            
-            result = evaluator(trial_requirements, False)
-
-
-
-            best_run_by_trial[trial.number] = result
-
-            trial.set_user_attr("status", result.status)
-            trial.set_user_attr("message", result.message)
-            trial.set_user_attr("solved", result.solved)
-            
-            if not result.solved or result.score_report is None:
-                trial.set_user_attr("valid", False)
-                print("\n# Infeasible Result")
-                return 0.0
-
-            trial.set_user_attr("valid", result.score_report.valid)
-            if not result.score_report.valid:
-                trial.set_user_attr("hard_violations", result.score_report.hard_violations)
-                print("\n# Invalid Score Report")
-                return 0.0
-            print("\nSolved + Score Passed")
-            return float(result.score_report.total_score)
         finally:
             if tracking_context is not None:
                 tracking_context.clear_trial_id()
 
     def optimization_callback(study: optuna.Study, trial: optuna.Trial) -> None:
-        """Callback to check early stopping and timeout conditions after each trial."""
         if trial.value is None:
             return
-
-        score = float(trial.value)
-
-        # Check if score threshold reached (early stop condition)
-        if controller.should_stop_optimization(score):
+        if controller.should_stop_optimization(float(trial.value)):
             study.stop()
-            return
-
-        # Check timeout
         try:
             controller.check_timeout_and_raise()
         except TrialTimeoutError:
             study.stop()
-            raise
 
     sampler = optuna.samplers.TPESampler()
-
     study = optuna.create_study(
         direction="maximize",
         sampler=sampler,
@@ -504,64 +156,32 @@ def run_optuna_optimization(
         load_if_exists=True,
     )
 
-    study.optimize(objective, n_trials=n_trials, callbacks=[optimization_callback])
+    try:
+        study.optimize(objective, n_trials=n_trials, callbacks=[optimization_callback])
+    except TrialTimeoutError:
+        pass
 
-    failed_trials = 0
-    for trial in study.trials[-n_trials:]:
-        if float(trial.value or 0.0) <= 0.0:
-            failed_trials += 1
+    failed_trials = sum(1 for t in study.trials if float(t.value or 0.0) <= 0.0)
 
-    best_run = best_run_by_trial.get(study.best_trial.number)
+    best_trial_number = study.best_trial.number if study.best_trial else 0
+    best_value = float(study.best_value) if study.best_trial else 0.0
+    best_params = dict(study.best_params) if study.best_trial else {}
+
+    best_run = best_run_by_trial.get(best_trial_number)
     if best_run is None:
-        best_trial_status = str(study.best_trial.user_attrs.get("status", ""))
-        if best_trial_status in {"floor_bounds_infeasible", "precheck_failed", "mutate_requirements_infeasible"}:
-            best_reason = str(study.best_trial.user_attrs.get("reason", best_trial_status))
-            best_run = FpgEvaluationResult(
-                solved=False,
-                solution=[],
-                score_report=None,
-                status=best_trial_status,
-                message=best_reason,
-            )
-
-    best_requirements: FpgRequirements | None = None
-    if best_run is None:
-        # The best trial can come from a previous run when load_if_exists=True.
-        # Rebuild and evaluate it so callers always get coordinates.
-        try:
-            best_requirements = _requirements_from_best_params(
-                base_requirements,
-                dict(study.best_params),
-                floor_dimension_bounds=floor_dimension_bounds,
-            )
-        except ValueError as exc:
-            best_run = FpgEvaluationResult(
-                solved=False,
-                solution=[],
-                score_report=None,
-                status="mutate_requirements_infeasible",
-                message=str(exc),
-            )
-            best_requirements = None
-
-    if best_run is None and best_requirements is not None:
-        ok, reason = _precheck(best_requirements)
-        if ok:
-            best_run = evaluator(best_requirements, False)
-        else:
-            best_run = FpgEvaluationResult(
-                solved=False,
-                solution=[],
-                score_report=None,
-                status="precheck_failed",
-                message=reason,
-            )
+        best_run = FpgEvaluationResult(
+            solved=False,
+            solution=[],
+            score_report=None,
+            status="missing_best_run",
+            message="Optuna trial result cache empty for the best trial.",
+        )
 
     return OptunaOptimizationResult(
         study_name=study.study_name,
-        best_value=float(study.best_value),
-        best_trial_number=int(study.best_trial.number),
-        best_params=dict(study.best_params),
+        best_value=best_value,
+        best_trial_number=best_trial_number,
+        best_params=best_params,
         completed_trials=len(study.trials),
         failed_trials=failed_trials,
         best_run=best_run,
