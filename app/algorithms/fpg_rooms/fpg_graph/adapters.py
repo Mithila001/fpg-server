@@ -14,6 +14,7 @@ from app.core.fpg_rooms.config_fpg import (
 
 from .types import GraphBoundary, GraphEdge, GraphNode
 
+UNIQUE_RELATION_REQUIRED_ROOM_TYPES = ['attachedBathroom']
 
 def _midpoint(value_a: float, value_b: float) -> float:
     return (float(value_a) + float(value_b)) / 2.0
@@ -110,12 +111,17 @@ def build_edges(
         nodes_by_type.setdefault(node.room_type, []).append(node)
 
     weighted_pairs: dict[tuple[str, str], GraphEdge] = {}
+    # Track assignments for unique room types (e.g., which bedroom is taken by an attachedBathroom)
+    # Key: target_node_id, Value: list of source_node_ids
+    assignments: dict[str, list[str]] = {}
 
     def add_pair(source_id: str, target_id: str, weight: float, rule_kind: str) -> None:
         if source_id == target_id:
             return
         low_id, high_id = sorted((source_id, target_id))
         key = (low_id, high_id)
+        
+        # If edge exists, keep the one with higher weight
         edge = weighted_pairs.get(key)
         if edge is None or weight > edge.weight:
             weighted_pairs[key] = GraphEdge(
@@ -125,31 +131,66 @@ def build_edges(
                 rule_kind=rule_kind,
             )
 
+    # 1. Process explicit Relation Constraints
     for raw_rule in relation_constraints:
         relation = _coerce_relation(raw_rule)
         if relation is None:
             continue
+            
         room_type, related_types, constraint_level = relation
         weight = _default_weight_for_level(constraint_level)
         subjects = nodes_by_type.get(room_type, [])
 
         for subject in subjects:
-            for related_type in related_types:
-                for target in nodes_by_type.get(related_type, []):
-                    add_pair(subject.id, target.id, weight, constraint_level or "relation")
+            for rel_type in related_types:
+                targets = nodes_by_type.get(rel_type, [])
+                if not targets:
+                    continue
 
+                # Requirement 2 & 3: Find the "Best" single target
+                best_target = None
+                
+                if room_type in UNIQUE_RELATION_REQUIRED_ROOM_TYPES:
+                    # Filter for targets not already assigned to another room of this same type
+                    available_targets = [t for t in targets if t.id not in assignments]
+                    
+                    if available_targets:
+                        # Find closest available
+                        best_target = min(available_targets, key=lambda t: pair_distance(subject, t))
+                    else:
+                        # Fallback: All targets taken, just pick the closest overall
+                        best_target = min(targets, key=lambda t: pair_distance(subject, t))
+                else:
+                    # Standard behavior: Just find the closest room of that type
+                    best_target = min(targets, key=lambda t: pair_distance(subject, t))
+
+                if best_target:
+                    add_pair(subject.id, best_target.id, weight, constraint_level or "relation")
+                    # Register assignment
+                    assignments.setdefault(best_target.id, []).append(subject.id)
+
+    # 2. Hardcoded Architectural Logic
+    # Requirement 1: Weights are lower (1.1) than hard_AND (1.2)
     dining_rooms = nodes_by_type.get("diningRoom", [])
     living_rooms = nodes_by_type.get("livingRoom", [])
     kitchens = nodes_by_type.get("kitchen", [])
     hallways = nodes_by_type.get("hallway", [])
 
     for dining in dining_rooms:
-        for living in living_rooms:
-            add_pair(dining.id, living.id, 1.35, "dining_path")
-        for kitchen in kitchens:
-            add_pair(dining.id, kitchen.id, 1.35, "dining_path")
-        for hallway in hallways:
-            add_pair(dining.id, hallway.id, 1.05, "dining_hallway")
+        # Connect to the SINGLE closest living room
+        if living_rooms:
+            closest_living = min(living_rooms, key=lambda r: pair_distance(dining, r))
+            add_pair(dining.id, closest_living.id, 1.1, "dining_path")
+            
+        # Connect to the SINGLE closest kitchen
+        if kitchens:
+            closest_kitchen = min(kitchens, key=lambda r: pair_distance(dining, r))
+            add_pair(dining.id, closest_kitchen.id, 1.1, "dining_path")
+            
+        # Connect to the SINGLE closest hallway
+        if hallways:
+            closest_hallway = min(hallways, key=lambda r: pair_distance(dining, r))
+            add_pair(dining.id, closest_hallway.id, 1.05, "dining_hallway")
 
     return list(weighted_pairs.values())
 

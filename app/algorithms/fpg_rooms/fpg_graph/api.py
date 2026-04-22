@@ -60,7 +60,7 @@ def run_graph_layout(
             "iterations_run": convergence.iterations_run,
         },
     )
-    if score.total_score > 85:
+    if score.total_score > 80:
         plot_graph_layout(result)
 
     return GraphLayoutResult(

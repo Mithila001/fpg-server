@@ -29,8 +29,8 @@ def evaluate_room_location_hard(
     )
 
     kitchen_nodes = _nodes_of_type(nodes, "kitchen")
-    results["kitchen_in_center"] = bool(kitchen_nodes) and all(
-        compute_zone(node.x, node.y, min_x, min_y, width, height) == (2, 2) for node in kitchen_nodes
+    results["kitchen_not_in_center"] = bool(kitchen_nodes) and all(
+        compute_zone(node.x, node.y, min_x, min_y, width, height) != (2, 2) for node in kitchen_nodes
     )
 
     hallway_nodes = _nodes_of_type(nodes, "hallway")

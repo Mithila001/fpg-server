@@ -104,6 +104,8 @@ def evaluate_room_location_soft(
     relation_constraints: list[object] | None = None,
 ) -> dict[str, float]:
     relation_constraints = relation_constraints or []
+    
+    # print(f"\nGraph Nodes : {nodes}\n" )
 
     living_nodes = _nodes_of_type(nodes, {"livingRoom"})
     living_ok = [

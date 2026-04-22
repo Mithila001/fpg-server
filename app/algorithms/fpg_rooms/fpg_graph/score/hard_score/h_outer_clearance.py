@@ -51,7 +51,7 @@ def evaluate_outer_clearance_hard(nodes: list[GraphNode]) -> dict[str, bool]:
         or _is_direction_clear(node, nodes, "right")
         for node in kitchen_nodes
     )
-    hallway_back_clear = bool(hallway_nodes) and all(
+    hallway_back_clear = bool(hallway_nodes) and any(
         _is_direction_clear(node, nodes, "back") for node in hallway_nodes
     )
     results["kitchen_or_hallway_outer_clear"] = kitchen_any_clear or hallway_back_clear
