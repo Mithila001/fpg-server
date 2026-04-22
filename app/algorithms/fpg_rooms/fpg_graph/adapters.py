@@ -158,6 +158,7 @@ def initialize_positions(
     nodes: list[GraphNode],
     boundary: GraphBoundary,
     seed: int | None,
+    explicit_positions: dict[str, tuple[float, float]] | None = None,
 ) -> None:
     rng = Random(seed)
 
@@ -166,6 +167,14 @@ def initialize_positions(
         max_x = max(min_x, boundary.width - node.radius)
         min_y = node.radius
         max_y = max(min_y, boundary.height - node.radius)
+
+        if explicit_positions is not None and node.id in explicit_positions:
+            x, y = explicit_positions[node.id]
+            node.x = min(max_x, max(min_x, float(x)))
+            node.y = min(max_y, max(min_y, float(y)))
+            node.vx = 0.0
+            node.vy = 0.0
+            continue
 
         node.x = rng.uniform(min_x, max_x)
 

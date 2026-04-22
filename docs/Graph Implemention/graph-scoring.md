@@ -1,4 +1,7 @@
-# Graph Generation
+# Optuna Behavior Update
+
+Optuna should able to place all node locations coordinates per each trial instead of random seed. Now No room will be randomly placed. All the room locations will decided by the Optuna
+
 
 # Graph Scoring
 When Scoring Most of the time, we can use circle centroid for location identification.
@@ -47,10 +50,14 @@ app/algorithms/fpg_rooms/fpg_graph/score as room
 # hard and soft score 
 
 ## Hard score
-There are bool flag scoring. Each evaluation will done and based on success and failures, it will give results out of total hard scoring. (example 4 out of 7) And this score need to be normalize to value 50.
+There are bool flag scoring. Each evaluation will done and based on success and failures, it will give results out of total hard scoring. (example 4 out of 7) And this score need to be normalize to value 40.
 
 ## Soft Scores
 These are range scoring. Each evaluation will have range scoring or fixed score value. All score must be normalize to value 50
+
+So now total score is 90.
+
+Here change the Optuna evaluation where if the total Score is less that 80, then its a failed graph result
 
 # Scoring Rules
 
@@ -71,4 +78,4 @@ Some room required have a outer wall in order to expose with land. Here we take 
 ## Room Location Evaluation (Soft Score)
 - If Living Room withing 1,1 - 3,2 -> Give a Score
 - If All bathrooms are not in 1,1 - 3,1 AND 2,2 -> Give a score
-- 
+ 

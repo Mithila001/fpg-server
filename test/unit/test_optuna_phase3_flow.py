@@ -38,7 +38,7 @@ def _requirements() -> FpgRequirements:
 
 
 def test_weighted_scores_are_clamped() -> None:
-    assert _weighted_graph_score(100.0) == 90.0
+    assert _weighted_graph_score(90.0) == 90.0
     assert _weighted_graph_score(200.0) == 90.0
     assert _weighted_graph_score(-20.0) == 0.0
 
@@ -120,3 +120,37 @@ def test_optuna_uses_inner_solver_when_graph_usable(monkeypatch) -> None:
     assert evaluator_calls["count"] == 1
     assert evaluator_calls["has_hints"] is True
     assert result.best_value == expected
+
+
+def test_optuna_samples_explicit_coordinates(monkeypatch) -> None:
+    base = _requirements()
+    captured = {"explicit_positions": None}
+
+    def fake_graph_layout(*args, **kwargs):  # noqa: ANN002, ANN003
+        captured["explicit_positions"] = kwargs.get("explicit_positions")
+        return _GraphResult(total_score=50.0, usable_layout=False, nodes=[])
+
+    def fake_evaluator(requirements, verbose):  # noqa: ANN001
+        return FpgEvaluationResult(
+            solved=False,
+            solution=[],
+            score_report=None,
+            status="SKIPPED",
+            message="not used",
+        )
+
+    monkeypatch.setattr(
+        "app.algorithms.fpg_rooms.fpg_optuna.runner.run_graph_layout",
+        fake_graph_layout,
+    )
+
+    run_optuna_optimization(
+        base_requirements=base,
+        evaluator=fake_evaluator,
+        n_trials=1,
+        study_name="phase3_coordinate_sampling_test",
+        storage=None,
+    )
+
+    assert isinstance(captured["explicit_positions"], dict)
+    assert len(captured["explicit_positions"]) >= 1

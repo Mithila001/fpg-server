@@ -60,19 +60,24 @@ def test_run_graph_layout_keeps_nodes_inside_boundary() -> None:
         assert node.y <= result.boundary.height - node.radius
 
 
-def test_score_graph_layout_front_bonus_for_frontmost_veranda_and_garage() -> None:
+def test_score_graph_layout_uses_hard_soft_contract_without_front_bonus() -> None:
     nodes = [
         GraphNode(id="a", name="veranda1", room_type="veranda", radius=5, x=20, y=5),
-        GraphNode(id="b", name="garage1", room_type="garage", radius=6, x=50, y=6),
-        GraphNode(id="c", name="livingRoom1", room_type="livingRoom", radius=10, x=60, y=30),
+        GraphNode(id="b", name="garage1", room_type="garage", radius=6, x=90, y=6),
+        GraphNode(id="c", name="kitchen1", room_type="kitchen", radius=7, x=55, y=40),
+        GraphNode(id="d", name="hallway1", room_type="hallway", radius=5, x=55, y=30),
+        GraphNode(id="e", name="livingRoom1", room_type="livingRoom", radius=10, x=60, y=30),
     ]
-    edges = [GraphEdge(source_id="a", target_id="c", weight=1.2)]
+    edges = [GraphEdge(source_id="a", target_id="e", weight=1.2)]
     relations = [
         {"room_type": "veranda", "related_room": ["livingRoom"], "constraint_level": "hard_AND"}
     ]
 
     score = score_graph_layout(nodes=nodes, edges=edges, relation_constraints=relations)
 
-    assert score.front_bonus == 50.0
-    assert score.total_score > 40.0
-    assert score.usable_layout is True
+    assert score.front_bonus == 0.0
+    assert score.blocked_penalty == 0.0
+    assert score.hard_total > 0
+    assert score.hard_score >= 0.0
+    assert score.soft_score >= 0.0
+    assert score.total_score == score.hard_score + score.soft_score

@@ -8,6 +8,7 @@ import optuna
 
 from app.algorithms.fpg_rooms.types.room import FpgRequirements
 from app.algorithms.fpg_rooms.fpg_graph.api import run_graph_layout
+from app.algorithms.fpg_rooms.fpg_graph.adapters import build_boundary, build_nodes
 from app.core.fpg_rooms.config_fpg import (
     TRIAL_EARLY_STOP_SCORE_THRESHOLD,
     TRIAL_GRAPH_SOLVER_GATE_THRESHOLD,
@@ -27,16 +28,16 @@ from .types import FpgEvaluationResult, OptunaOptimizationResult
 EVALUATION_FN = Callable[[FpgRequirements, bool], FpgEvaluationResult]
 
 
-def _normalize_score_0_100(score: float) -> float:
-    return max(0.0, min(100.0, float(score)))
+def _normalize_score(score: float, max_score: float) -> float:
+    return max(0.0, min(float(max_score), float(score)))
 
 
 def _weighted_graph_score(graph_total_score: float) -> float:
-    return (_normalize_score_0_100(graph_total_score) / 100.0) * 90.0
+    return (_normalize_score(graph_total_score, 90.0) / 90.0) * 90.0
 
 
 def _weighted_solver_score(solver_total_score: float) -> float:
-    return (_normalize_score_0_100(solver_total_score) / 100.0) * 10.0
+    return (_normalize_score(solver_total_score, 100.0) / 100.0) * 10.0
 
 class OptunaOptimizationController:
     """Controller to manage trial optimization early stopping and timeout logic."""
@@ -83,18 +84,31 @@ def run_optuna_optimization(
             tracking_context.next_trial_id()
 
         try:
-            seed = trial.suggest_int("seed", 0, 9999)
             hallway_count = trial.suggest_int(
                 OPTUNA_PARAM_KEY_HALLWAY_COUNT,
                 OPTUNA_HALLWAY_COUNT_MIN,
                 OPTUNA_HALLWAY_COUNT_MAX,
             )
 
+            boundary = build_boundary(base_requirements)
+            trial_nodes = build_nodes(base_requirements, hallway_count_override=hallway_count)
+
+            explicit_positions: dict[str, tuple[float, float]] = {}
+            for node in trial_nodes:
+                min_x = node.radius
+                max_x = max(min_x, boundary.width - node.radius)
+                min_y = node.radius
+                max_y = max(min_y, boundary.height - node.radius)
+
+                sample_x = trial.suggest_float(f"{node.id}_x", min_x, max_x)
+                sample_y = trial.suggest_float(f"{node.id}_y", min_y, max_y)
+                explicit_positions[node.id] = (sample_x, sample_y)
+
             # Stage 1: Fast Graph Construction
             graph_result = run_graph_layout(
                 requirements=base_requirements,
                 hallway_count_override=hallway_count,
-                seed=seed,
+                explicit_positions=explicit_positions,
             )
 
             graph_score = float(graph_result.score.total_score)

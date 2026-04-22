@@ -76,7 +76,7 @@ def run_force_directed_layout(
             ux = dx / dist
             uy = dy / dist
 
-            target_distance = (node_a.radius + node_b.radius) * (1.2 - 0.4 * max(0.0, min(2.0, edge.weight)))
+            target_distance = (node_a.radius + node_b.radius) * (2.0 - 0.5 * max(0.0, min(2.0, edge.weight)))
             spring_strength = config.spring_constant * max(0.1, edge.weight)
             spring_force = spring_strength * (dist - target_distance)
 

@@ -51,11 +51,17 @@ class GraphConvergence:
 
 @dataclass
 class GraphScoreBreakdown:
-    adjacency_score: float
-    blocked_penalty: float
-    front_bonus: float
+    hard_score: float
+    soft_score: float
     total_score: float
     usable_layout: bool
+    hard_passed: int = 0
+    hard_total: int = 0
+    hard_results: dict[str, bool] = field(default_factory=dict)
+    soft_results: dict[str, float] = field(default_factory=dict)
+    adjacency_score: float = 0.0
+    blocked_penalty: float = 0.0
+    front_bonus: float = 0.0
 
 
 @dataclass

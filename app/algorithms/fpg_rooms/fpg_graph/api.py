@@ -18,6 +18,7 @@ def run_graph_layout(
     requirements: FpgRequirements,
     hallway_count_override: int | None = None,
     seed: int | None = None,
+    explicit_positions: dict[str, tuple[float, float]] | None = None,
     relation_constraints: list[Any] | None = None,
     physics_config: GraphPhysicsConfig | None = None,
 ) -> GraphLayoutResult:
@@ -29,7 +30,7 @@ def run_graph_layout(
         relations = list(requirements.relation_constraints)
 
     edges = build_edges(nodes, relations)
-    initialize_positions(nodes, boundary, seed=seed)
+    initialize_positions(nodes, boundary, seed=seed, explicit_positions=explicit_positions)
 
     config = physics_config or GraphPhysicsConfig()
     convergence = run_force_directed_layout(
@@ -59,7 +60,8 @@ def run_graph_layout(
             "iterations_run": convergence.iterations_run,
         },
     )
-    plot_graph_layout(result)
+    if score.total_score > 84:
+        plot_graph_layout(result)
 
     return GraphLayoutResult(
         nodes=nodes,
@@ -219,9 +221,5 @@ def plot_graph_layout(layout_result: GraphLayoutResult, base_name: str = "layout
     plt.savefig(save_path, bbox_inches='tight', dpi=150)
     plt.close(fig)
 
-    # 9. Final Step: Mutate the actual data for the Scorer
-    # Now that plotting is done, we can shift the nodes to (0,0)
-    layout_result.boundary = shrink_wrap_boundary(nodes, orig_b, requested_padding=10.0)
-    
     print(f"✅ Unique layout saved to: {save_path}")
     return save_path

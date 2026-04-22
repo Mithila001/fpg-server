@@ -34,6 +34,7 @@ from app.util.algorithm_manager import (
     validate_and_compute_floor_bounds,
 )
 from test.dev.final_result_plotter import plot_final_solver_result
+from test.dev.plot_refiner import plot_refine_floor_plan
 
 EMPTY_POST_PROCESS_LAYOUT = {
     "union_walls": [],
@@ -57,28 +58,36 @@ def _plot_refine_before_after_dev(
     stage3_rooms: list[dict[str, Any]],
 ) -> str | None:
     """Best-effort dev-only plotting hook with zero impact on pipeline outcomes."""
+    
+    print(f"Stage1: {stage1_rooms}")
+    print(f"Stage2: {stage2_rooms}")
+    print(f"Stage3: {stage3_rooms}")
     try:
         project_root = Path(__file__).resolve().parents[2]
-        plotter_path = (
-            project_root / "test" / "dev" / "fpgr_refine_debug" / "plotter.py"
-        )
+        plotter_path = project_root / "test" / "dev" / "fpgr_refine_debug" / "plotter.py"
         if not plotter_path.exists():
+            # If this prints, the file literally isn't at the path above
+            print(f"\n\n ERROR: Plotter not found at {plotter_path}\n\n")
             return None
 
         spec = spec_from_file_location("fpgr_refine_debug_plotter", plotter_path)
         if not spec or not spec.loader:
+            print("\n\n 22\n\n")
             return None
 
         module = module_from_spec(spec)
         spec.loader.exec_module(module)
         plot_fn = getattr(module, "plot_refine_three_generations", None)
         if not callable(plot_fn):
+            print("\n\n 33\n\n")
             plot_fn = getattr(module, "plot_refine_before_after", None)
         if not callable(plot_fn):
+            print("\n\n 44\n\n")
             return None
 
         # Prefer 3-stage plotting if available, otherwise fallback to 2-stage
-        output_dir = project_root / "test" / "outputs" / "refinements"
+
+        output_dir = project_root / "test" / "outputs" / "refine"
         output_dir.mkdir(parents=True, exist_ok=True)
 
         if plot_fn.__name__ == "plot_refine_three_generations":
@@ -106,6 +115,7 @@ def _run_single_fpg_solve(
 ) -> FpgEvaluationResult:
     generator = FloorPlanGenerator(requirements)
     print("\n _run_single_fpg_solve")
+    print(f"\nRequirements:{requirements}\n")
 
     verbose = False  # TODO DEBUG FLAG Remove this
     if verbose:
@@ -115,6 +125,7 @@ def _run_single_fpg_solve(
             solved = generator.generate()
 
     status = generator.last_status_name
+    print(f"Status:{status}")
 
     if not solved:
         print("\nNOT solved")
@@ -150,11 +161,17 @@ def _run_single_fpg_solve(
     print("\n run_refine_profile_2")
     stage3_rooms = refine_result2.rooms if refine_result2.rooms else stage2_rooms
     final_rooms = stage3_rooms
-    _plot_refine_before_after_dev(
+    
+    plot_refine_floor_plan(
         stage1_rooms=stage1_rooms,
         stage2_rooms=stage2_rooms,
         stage3_rooms=stage3_rooms,
     )
+    # _plot_refine_before_after_dev(
+    #     stage1_rooms=stage1_rooms,
+    #     stage2_rooms=stage2_rooms,
+    #     stage3_rooms=stage3_rooms,
+    # )
 
     # Combined status/message from two refine passes for diagnostics
     refine_status = f"{refine_result1.status} -> {refine_result2.status}"
