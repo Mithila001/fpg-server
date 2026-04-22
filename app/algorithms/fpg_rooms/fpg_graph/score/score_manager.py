@@ -29,7 +29,7 @@ def score_graph_layout(
     edges: list[GraphEdge],
     relation_constraints: list[Any],
 ) -> GraphScoreBreakdown:
-    del edges, relation_constraints
+    del edges
 
     min_x, min_y, width, height = _layout_bounds(nodes)
 
@@ -41,7 +41,14 @@ def score_graph_layout(
     hard_passed = sum(1 for passed in hard_results.values() if passed)
     hard_score = (hard_passed / hard_total) * 40.0 if hard_total > 0 else 0.0
 
-    soft_results = evaluate_room_location_soft(nodes, min_x, min_y, width, height)
+    soft_results = evaluate_room_location_soft(
+        nodes,
+        min_x,
+        min_y,
+        width,
+        height,
+        relation_constraints=relation_constraints,
+    )
     soft_score = sum(soft_results.values())
     soft_score = max(0.0, min(50.0, soft_score))
 
