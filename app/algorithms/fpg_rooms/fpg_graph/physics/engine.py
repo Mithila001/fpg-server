@@ -116,7 +116,7 @@ def run_force_directed_layout(
             # --- 1. Horizontal "Squeeze" (Center-seeking) ---
             # Keeps the house from being too wide; pulls toward center X
             center_x = boundary.width / 2
-            side_pull = 0.1  # Reduced from 0.5 to prevent "thin" houses
+            side_pull = 0.1 
             fx += (center_x - node.x) * side_pull
 
             # --- 2. Back Push (Piston Effect) ---
