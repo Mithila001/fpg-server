@@ -55,9 +55,9 @@ def score_graph_layout(
     total_score = hard_score + soft_score
     usable_layout = total_score >= float(TRIAL_GRAPH_SOLVER_GATE_THRESHOLD)
     
-    # print(f"\nHard Score: {hard_results}/40")
-    # print(f"Soft Score: {soft_results}/50")
-    # print(f"Total Score: {total_score}\n")
+    print(f"\nHard Score: {hard_results}/40")
+    print(f"Soft Score: {soft_results}/50")
+    print(f"Total Score: {total_score}\n")
 
     # if total_score > 83 :
     #     print(" \n-- Top Score --\n ")

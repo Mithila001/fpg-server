@@ -219,12 +219,15 @@ def run_solver_with_hints(
 ) -> FpgEvaluationResult:
     """Inner loop for Phase 3: repeatedly run solver with point hints and keep best solved layout."""
     safe_run_count = max(1, int(run_count))
+    
+    print(f"Run Solver With Hints {requirements}\n")
 
     best_result: FpgEvaluationResult | None = None
     best_score = float("-inf")
     last_result: FpgEvaluationResult | None = None
 
     for attempt_index in range(safe_run_count):
+        print(f"Before run Single FPG: {requirements}\n")
         current_result = _run_single_fpg_solve(requirements=requirements, verbose=verbose)
         last_result = current_result
         if not current_result.solved or current_result.score_report is None:

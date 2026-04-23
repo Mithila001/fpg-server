@@ -91,7 +91,9 @@ def run_optuna_optimization(
             )
 
             boundary = build_boundary(base_requirements)
+            print(f"\nHallway Count {hallway_count}\n")
             trial_nodes = build_nodes(base_requirements, hallway_count_override=hallway_count)
+            # print(f"\nBase Requirements: {base_requirements}\n")
 
             explicit_positions: dict[str, tuple[float, float]] = {}
             for node in trial_nodes:
@@ -170,6 +172,10 @@ def run_optuna_optimization(
 
             inner_requirements = copy.deepcopy(base_requirements)
             inner_requirements.initial_point_hints = point_hints
+            
+            print(f"Inner Requirements: {inner_requirements}\n")
+            
+            inner_requirements = _update_hallway_count_for_solver(inner_requirements)
 
             # Execute run_solver_with_hints securely.
             trial.set_user_attr("solver_invoked", True)
@@ -270,3 +276,21 @@ def run_optuna_optimization(
         failed_trials=failed_trials,
         best_run=best_run,
     )
+    
+    
+def _update_hallway_count_for_solver(requirements: FpgRequirements) -> FpgRequirements:
+    """
+    Synchronizes the config hallway count with the actual number of 
+    hallway hints generated during the graph layout stage.
+    """
+    if not requirements.initial_point_hints:
+        requirements.config.hallway_count = 0
+        return requirements
+
+    hallway_count = sum(
+        1 for hint in requirements.initial_point_hints 
+        if hint.get("type") == "hallway"
+    )
+    
+    requirements.config.hallway_count = hallway_count
+    return requirements
