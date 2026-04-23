@@ -5,6 +5,7 @@ import math
 from ..zone_utils import compute_zone, is_in_zone_range
 from ...types import GraphNode
 
+from app.core.fpg_rooms.config_fpg import PRIVATE_ROOM_TYPES, PUBLIC_ROOM_TYPES
 
 def _nodes_of_type(nodes: list[GraphNode], room_types: set[str]) -> list[GraphNode]:
     return [node for node in nodes if node.room_type in room_types]
@@ -154,12 +155,10 @@ def evaluate_room_location_soft(
 
 def _get_room_category(room_type: str) -> str | None:
     """Categorizes a room as public, private, or neutral."""
-    public_types = {"garage", "kitchen", "diningRoom"}
-    private_types = {"bathroom", "bedroom", "attachedBathroom"}
     
-    if room_type in public_types:
+    if room_type in PUBLIC_ROOM_TYPES:
         return "public"
-    if room_type in private_types:
+    if room_type in PRIVATE_ROOM_TYPES:
         return "private"
     return None  # Neutral (livingRoom, hallway, veranda, etc.)
 

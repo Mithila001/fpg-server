@@ -132,7 +132,7 @@ TRIAL_GRAPH_SOLVER_GATE_THRESHOLD = 80  # Invoke solver only when graph score re
 # Default generator config
 DEFAULT_ASPECT_RATIO_MAX = 16.0
 DEFAULT_ASPECT_RATIO_MIN = 0.0
-DEFAULT_HALLWAY_COUNT = 1
+DEFAULT_HALLWAY_COUNT = 2
 DEFAULT_SOLVER_MAX_TIME_SECONDS = 3
 WIGGLE_ROOM = 10
 
@@ -152,6 +152,9 @@ HALLWAY_REQUIRED_SHARED_WALLS = 3
 
 # Room types whose relation constraints should not be pruned by template.
 NOT_PRUNE_ROOMS = ["livingRoom", "hallway"]
+
+PUBLIC_ROOM_TYPES = ["garage", "kitchen", "diningRoom"]
+PRIVATE_ROOM_TYPES = ["bathroom", "bedroom", "attachedBathroom"]
 
 # Per-type room shared-wall requirements.
 # - min_walls/max_walls count fully shared sides.
@@ -266,4 +269,6 @@ __all__ = [
     "NOT_PRUNE_ROOMS",
     "ROOM_SHARED_WALL_RULES",
     "ROOM_SHARED_WALL_RULES_REFINE",
+    "PRIVATE_ROOM_TYPES",
+    "PUBLIC_ROOM_TYPES"
 ]

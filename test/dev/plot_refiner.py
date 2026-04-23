@@ -1,46 +1,67 @@
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import os
-import uuid
+from datetime import datetime
 
-def plot_refine_floor_plan(stage1_rooms, stage2_rooms, stage3_rooms):
+def plot_refine_floor_plan(stage1_rooms=None, stage2_rooms=None, stage3_rooms=None, stage4_rooms=None):
     """
-    Plots three refinement stages side-by-side with Y=0 at the bottom.
+    Plots provided refinement stages side-by-side. 
+    Skips any stage that is None or empty.
     """
     output_dir = "/home/mithila/ssd_projects/fpg-server/test/outputs/refine"
     
-    # Ensure directory exists
     if not os.path.exists(output_dir):
         os.makedirs(output_dir, exist_ok=True)
 
-    stages_data = [stage1_rooms, stage2_rooms, stage3_rooms]
-    titles = ["Stage 1: Initial", "Stage 2: Refined", "Stage 3: Final"]
+    # Define all potential stages and their labels
+    raw_stages = [stage1_rooms, stage2_rooms, stage3_rooms, stage4_rooms]
+    raw_titles = ["Stage 1: Initial", "Stage 2: Refined", "Stage 3: Final", "Stage 4: Post-Final"]
     
-    fig, axes = plt.subplots(1, 3, figsize=(24, 10))
+    # --- Filter out None or empty stages ---
+    stages_data = []
+    titles = []
+    for data, title in zip(raw_stages, raw_titles):
+        if data: # Only add if the list is not None and not empty
+            stages_data.append(data)
+            titles.append(title)
+
+    if not stages_data:
+        print("No valid room data provided to plot.")
+        return None
+
+    # --- 1. Calculate Global Boundaries ---
+    all_x = []
+    all_y = []
+    for rooms in stages_data:
+        for room in rooms:
+            all_x.extend([float(room['x']), float(room['x_end'])])
+            all_y.extend([float(room['y']), float(room['y_end'])])
     
-    # Floor plan color palette
+    padding = 5
+    min_x, max_x = min(all_x) - padding, max(all_x) + padding
+    min_y, max_y = min(all_y) - padding, max(all_y) + padding
+
+    # --- 2. Dynamic Layout ---
+    num_plots = len(stages_data)
+    # Adjust width based on number of plots (8 inches per plot is usually a good ratio)
+    fig, axes = plt.subplots(1, num_plots, figsize=(8 * num_plots, 10), squeeze=False)
+    # squeeze=False ensures 'axes' is always a 2D array even if num_plots is 1
+    axes = axes.flatten() 
+    
     colors = {
-        "bedroom": "#AEC6CF",
-        "bathroom": "#CFCFCF",
-        "kitchen": "#FFB347",
-        "attachedBathroom": "#BDBDBD",
-        "veranda": "#77DD77",
-        "garage": "#838996",
-        "diningRoom": "#FDFD96",
-        "livingRoom": "#FFB7CE",
-        "hallway": "#E6E6FA",
+        "bedroom": "#AEC6CF", "bathroom": "#CFCFCF", "kitchen": "#FFB347",
+        "attachedBathroom": "#BDBDBD", "veranda": "#77DD77", "garage": "#838996",
+        "diningRoom": "#FDFD96", "livingRoom": "#FFB7CE", "hallway": "#E6E6FA",
         "verandaOutdoorSpace": "#C1E1C1"
     }
 
     for i, rooms in enumerate(stages_data):
         ax = axes[i]
         for room in rooms:
-            # Convert to float for safety
             x, y = float(room['x']), float(room['y'])
             w = float(room['x_end']) - x
             h = float(room['y_end']) - y
             
-            # Create rectangle
             rect = patches.Rectangle(
                 (x, y), w, h, 
                 linewidth=2, 
@@ -50,37 +71,24 @@ def plot_refine_floor_plan(stage1_rooms, stage2_rooms, stage3_rooms):
             )
             ax.add_patch(rect)
             
-            # Add label in the center
-            label = room['name'].replace('_for_', '\n')
-            ax.text(
-                x + w/2, y + h/2, label, 
-                ha='center', va='center', 
-                fontsize=8, fontweight='bold', 
-                color='black', wrap=True
-            )
+            room_name = str(room.get('name', 'Unknown'))
+            label = room_name.replace('_for_', '\n')
+            ax.text(x + w/2, y + h/2, label, ha='center', va='center', 
+                    fontsize=8, fontweight='bold', wrap=True)
 
         ax.set_title(titles[i], fontsize=16, pad=20)
-        
-        # Axis setup
-        ax.set_xlim(-5, 105)
-        ax.set_ylim(-5, 135) # Y increases upwards; 0 is at the bottom
+        ax.set_xlim(min_x, max_x)
+        ax.set_ylim(min_y, max_y)
         ax.set_aspect('equal')
-        
-        # Removed ax.invert_yaxis() to keep Y=0 at the bottom
-        
         ax.grid(True, linestyle=':', alpha=0.6)
-        ax.set_xlabel('X')
-        if i == 0:
-            ax.set_ylabel('Y (Bottom-Up)')
+        if i == 0: ax.set_ylabel('Y (Bottom-Up)')
 
-    plt.tight_layout()
+    plt.tight_layout(pad=3.0)
     
-    # Save with unique name
-    unique_id = uuid.uuid4().hex[:8]
-    save_path = os.path.join(output_dir, f"refine_{unique_id}.png")
-    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    save_path = os.path.join(output_dir, f"refine_{timestamp}.png")
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close(fig)
     
-    print(f"Refinement plot (standard orientation) saved to: {save_path}")
+    print(f"Refinement plot saved ({num_plots} stages): {save_path}")
     return save_path

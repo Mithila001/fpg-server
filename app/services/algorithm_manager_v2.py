@@ -147,7 +147,7 @@ def _run_single_fpg_solve(
     refine_result1 = run_refine_profile_1(
         requirements=requirements,
         initial_rooms=stage1_rooms,
-        wiggle_room=WIGGLE_ROOM,
+        wiggle_room=5,
         verbose=False,
     )
     print("\n run_refine_profile_1")
@@ -155,17 +155,39 @@ def _run_single_fpg_solve(
     refine_result2 = run_refine_profile_1(
         requirements=requirements,
         initial_rooms=stage2_rooms,
-        wiggle_room=WIGGLE_ROOM,
+        wiggle_room=5,
         verbose=False,
     )
     print("\n run_refine_profile_2")
     stage3_rooms = refine_result2.rooms if refine_result2.rooms else stage2_rooms
-    final_rooms = stage3_rooms
+
+    # Third Refinement (Added)
+    refine_result3 = run_refine_profile_1(
+        requirements=requirements,
+        initial_rooms=stage3_rooms,
+        wiggle_room=5,
+        verbose=False,
+    )
+    print("\n run_refine_profile_3")
+    stage4_rooms = refine_result3.rooms if refine_result3.rooms else stage3_rooms
+    
+    refine_result4 = run_refine_profile_1(
+        requirements=requirements,
+        initial_rooms=stage4_rooms,
+        wiggle_room=5,
+        verbose=False,
+    )
+    print("\n run_refine_profile_3")
+    stage5_rooms = refine_result4.rooms if refine_result4.rooms else stage4_rooms
+
+    # Set Final Rooms
+    final_rooms = stage5_rooms
     
     plot_refine_floor_plan(
         stage1_rooms=stage1_rooms,
-        stage2_rooms=stage2_rooms,
-        stage3_rooms=stage3_rooms,
+        stage2_rooms=stage3_rooms,
+        stage4_rooms=final_rooms
+        
     )
     # _plot_refine_before_after_dev(
     #     stage1_rooms=stage1_rooms,

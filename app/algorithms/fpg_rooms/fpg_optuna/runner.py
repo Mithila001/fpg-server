@@ -112,6 +112,7 @@ def run_optuna_optimization(
                 hallway_count_override=hallway_count,
                 explicit_positions=explicit_positions,
             )
+            print(f"\nGraph Results: {graph_result}\n")
 
             graph_score = float(graph_result.score.total_score)
             weighted_graph_score = _weighted_graph_score(graph_score)
