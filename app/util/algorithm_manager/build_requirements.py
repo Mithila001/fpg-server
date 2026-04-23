@@ -13,7 +13,9 @@ from app.core.fpg_rooms.config_fpg import (
 from app.schemas.db.room_setup_template import RoomSetupTemplateBase
 from app.util.constraint_pruner import prune_room_relations_constraints_by_template
 from app.util.room_requirements import normalize_db_data_requirements
-from app.util.algorithm_manager.build_rooms_from_template import build_rooms_from_template
+from app.util.algorithm_manager.build_rooms_from_template import (
+    build_rooms_from_template,
+)
 from app.util.algorithm_manager.load_server_side_data import load_server_side_data
 
 
@@ -33,7 +35,7 @@ def build_requirements(
         _, size_constraints, relation_constraints = load_server_side_data()
     except Exception as exc:
         raise Exception(f"Failed to load server-side constraints: {exc}") from exc
-    
+
     try:
         relation_constraints, prune_error = (
             prune_room_relations_constraints_by_template(
@@ -45,7 +47,7 @@ def build_requirements(
             raise Exception(f"Failed to prune relation constraints: {prune_error}")
     except Exception as exc:
         raise Exception(f"Failed to prune room relations constraints: {exc}") from exc
-    print(f"\n\n Load Size Constraints : {size_constraints} \n\n")
+    # print(f"\n\n Load Size Constraints : {size_constraints} \n\n")
     rooms = build_rooms_from_template(room_template)
     normalized_rooms = normalize_db_data_requirements(rooms, size_constraints)
 

@@ -3,7 +3,12 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, Mapping, Sequence
 
-from app.algorithms.fpg_rooms.fpg_post_process.types import QuickPostProcessOutputPayload
+from app.algorithms.fpg_rooms.fpg_post_process.types import (
+    QuickPostProcessOutputPayload,
+)
+from app.algorithms.fpg_rooms.fpg_score.score_critical.inward_pocket import (
+    detect_inward_pocket_violation_v2,
+)
 from app.algorithms.fpg_rooms.types.room import FpgRequirements
 from app.core.fpg_rooms.config_fpg import (
     ENVELOPE_APPLY_SIDES,
@@ -31,7 +36,9 @@ from app.util.logger.system_logger import SystemLogger
 DEFAULT_WEIGHTS = SCORE_WEIGHTS.copy()
 
 
-def _coerce_room_record(raw_room: Mapping[str, Any], fallback_name: str) -> Dict[str, Any] | None:
+def _coerce_room_record(
+    raw_room: Mapping[str, Any], fallback_name: str
+) -> Dict[str, Any] | None:
     try:
         x = float(raw_room["x"])
         y = float(raw_room["y"])
@@ -80,7 +87,9 @@ def _resolve_scoring_inputs(
 
         maybe_openings = quick_post_process_result.get("openings")
         if isinstance(maybe_openings, list):
-            openings = [opening for opening in maybe_openings if isinstance(opening, Mapping)]
+            openings = [
+                opening for opening in maybe_openings if isinstance(opening, Mapping)
+            ]
 
     source_rooms: Sequence[Mapping[str, Any]] = post_rooms if post_rooms else solution
     normalized_rooms: list[Dict[str, Any]] = []
@@ -124,7 +133,9 @@ def _score_critical_section(
         if not passed:
             critical_violations.extend(violations)
 
-    geometry_violations = validate_room_geometry(scoring_rooms, floor_width, floor_height)
+    geometry_violations = validate_room_geometry(
+        scoring_rooms, floor_width, floor_height
+    )
     _append_check("room_geometry", geometry_violations)
 
     overlap_violations = validate_no_overlap(scoring_rooms)
@@ -143,7 +154,9 @@ def _score_critical_section(
             scoring_rooms,
             min_gap=int(getattr(cfg, "envelope_min_gap", ENVELOPE_MIN_GAP)),
             max_gap=int(getattr(cfg, "envelope_max_gap", ENVELOPE_MAX_GAP)),
-            exclude_types=getattr(cfg, "envelope_exclude_types", ENVELOPE_EXCLUDE_TYPES),
+            exclude_types=getattr(
+                cfg, "envelope_exclude_types", ENVELOPE_EXCLUDE_TYPES
+            ),
             apply_sides=getattr(cfg, "envelope_apply_sides", ENVELOPE_APPLY_SIDES),
         )
         _append_check("envelope_staircase_bounds", envelope_violations)
@@ -157,7 +170,7 @@ def _score_critical_section(
     )
     _append_check("empty_space", empty_space_violations)
 
-    pocket_violation, inward_pocket_diag = detect_inward_pocket_violation(
+    pocket_violation, inward_pocket_diag = detect_inward_pocket_violation_v2(
         scoring_rooms,
         max_inward_length=inward_pocket_max_length,
         tolerance=geometry_tolerance,
@@ -172,7 +185,9 @@ def _score_critical_section(
 
     total_checks = len(checks)
     passed_checks = sum(1 for check in checks if bool(check["passed"]))
-    critical_score = _clamp_0_25((25.0 * passed_checks / total_checks) if total_checks > 0 else 0.0)
+    critical_score = _clamp_0_25(
+        (25.0 * passed_checks / total_checks) if total_checks > 0 else 0.0
+    )
 
     SystemLogger.log_event(
         tag="SCORE",
@@ -183,8 +198,7 @@ def _score_critical_section(
             "passed_checks": passed_checks,
             "total_checks": total_checks,
             "checks": [
-                {"name": check["name"], "passed": check["passed"]}
-                for check in checks
+                {"name": check["name"], "passed": check["passed"]} for check in checks
             ],
         },
     )
@@ -228,10 +242,11 @@ def _score_room_section(
         weight_total = 2.0
 
     weighted_average = (
-        (coverage_score * coverage_weight) + (rectangularity_score * rectangularity_weight)
+        (coverage_score * coverage_weight)
+        + (rectangularity_score * rectangularity_weight)
     ) / weight_total
     room_score = _clamp_0_25((weighted_average / 100.0) * 25.0)
-    
+
     SystemLogger.log_event(
         tag="SCORE",
         event="score_room",
@@ -271,7 +286,9 @@ def score_layout(
     min_touch_overlap: int = 1,
 ) -> ScoreReport:
     """Score a solved floor-plan layout using 4 sections with two gate rules."""
-    scoring_rooms, wall_union, openings = _resolve_scoring_inputs(solution, quick_post_process_result)
+    scoring_rooms, wall_union, openings = _resolve_scoring_inputs(
+        solution, quick_post_process_result
+    )
     if not scoring_rooms:
         print("\n[score_manager] no scoring rooms after normalization")
         SystemLogger.log_event(
@@ -318,7 +335,7 @@ def score_layout(
 
     print(
         f"\n[score_manager] critical section: score={critical_score}, "
-        f"passed={critical_result['diagnostics']['passed_checks']}/" \
+        f"passed={critical_result['diagnostics']['passed_checks']}/"
         f"{critical_result['diagnostics']['executed_checks']}"
     )
 
@@ -352,7 +369,9 @@ def score_layout(
                 "passed_checks": critical_result["diagnostics"]["passed_checks"],
                 "total_checks": critical_result["diagnostics"]["executed_checks"],
                 "failed_checks": [
-                    check["name"] for check in critical_result["checks"] if not check["passed"]
+                    check["name"]
+                    for check in critical_result["checks"]
+                    if not check["passed"]
                 ],
             },
         )
@@ -373,7 +392,9 @@ def score_layout(
     )
     room_score = float(room_result["score"])
     component_scores["room"] = round(room_score, 2)
-    component_scores["room_coverage_raw"] = round(float(room_result["coverage_score"]), 2)
+    component_scores["room_coverage_raw"] = round(
+        float(room_result["coverage_score"]), 2
+    )
     component_scores["room_rectangularity_raw"] = round(
         float(room_result["rectangularity_score"]),
         2,
@@ -382,7 +403,9 @@ def score_layout(
 
     critical_room_total = critical_score + room_score
     critical_room_threshold_passed = critical_room_total >= 40.0
-    diagnostics["gates"]["critical_room_threshold_passed"] = critical_room_threshold_passed
+    diagnostics["gates"]["critical_room_threshold_passed"] = (
+        critical_room_threshold_passed
+    )
     diagnostics["gates"]["critical_room_total"] = round(critical_room_total, 2)
 
     print(
@@ -418,7 +441,7 @@ def score_layout(
         scoring_rooms,
         openings=openings,
     )
-    
+
     SystemLogger.log_event(
         tag="SCORE",
         event="score_functional",
@@ -431,8 +454,7 @@ def score_layout(
             ],
         },
     )
-    
-    
+
     extra_score, extra_diag = score_extra_section(scoring_rooms)
 
     component_scores["functional"] = round(float(functional_score), 2)
@@ -444,8 +466,10 @@ def score_layout(
         f"\n[score_manager] functional section: score={functional_score}, extra section: score={extra_score}"
     )
 
-    total_score = critical_score + room_score + float(functional_score) + float(extra_score)
-    
+    total_score = (
+        critical_score + room_score + float(functional_score) + float(extra_score)
+    )
+
     SystemLogger.log_event(
         tag="SCORE",
         event="score_complete",

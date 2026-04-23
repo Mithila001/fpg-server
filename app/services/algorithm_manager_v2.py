@@ -58,13 +58,15 @@ def _plot_refine_before_after_dev(
     stage3_rooms: list[dict[str, Any]],
 ) -> str | None:
     """Best-effort dev-only plotting hook with zero impact on pipeline outcomes."""
-    
+
     print(f"Stage1: {stage1_rooms}")
     print(f"Stage2: {stage2_rooms}")
     print(f"Stage3: {stage3_rooms}")
     try:
         project_root = Path(__file__).resolve().parents[2]
-        plotter_path = project_root / "test" / "dev" / "fpgr_refine_debug" / "plotter.py"
+        plotter_path = (
+            project_root / "test" / "dev" / "fpgr_refine_debug" / "plotter.py"
+        )
         if not plotter_path.exists():
             # If this prints, the file literally isn't at the path above
             print(f"\n\n ERROR: Plotter not found at {plotter_path}\n\n")
@@ -115,7 +117,6 @@ def _run_single_fpg_solve(
 ) -> FpgEvaluationResult:
     generator = FloorPlanGenerator(requirements)
     print("\n _run_single_fpg_solve")
-    print(f"\nRequirements:{requirements}\n")
 
     verbose = False  # TODO DEBUG FLAG Remove this
     if verbose:
@@ -170,7 +171,7 @@ def _run_single_fpg_solve(
     )
     print("\n run_refine_profile_3")
     stage4_rooms = refine_result3.rooms if refine_result3.rooms else stage3_rooms
-    
+
     refine_result4 = run_refine_profile_1(
         requirements=requirements,
         initial_rooms=stage4_rooms,
@@ -182,12 +183,9 @@ def _run_single_fpg_solve(
 
     # Set Final Rooms
     final_rooms = stage5_rooms
-    
+
     plot_refine_floor_plan(
-        stage1_rooms=stage1_rooms,
-        stage2_rooms=stage3_rooms,
-        stage4_rooms=final_rooms
-        
+        stage1_rooms=stage1_rooms, stage2_rooms=stage3_rooms, stage4_rooms=final_rooms
     )
     # _plot_refine_before_after_dev(
     #     stage1_rooms=stage1_rooms,
@@ -241,16 +239,15 @@ def run_solver_with_hints(
 ) -> FpgEvaluationResult:
     """Inner loop for Phase 3: repeatedly run solver with point hints and keep best solved layout."""
     safe_run_count = max(1, int(run_count))
-    
-    print(f"Run Solver With Hints {requirements}\n")
 
     best_result: FpgEvaluationResult | None = None
     best_score = float("-inf")
     last_result: FpgEvaluationResult | None = None
 
     for attempt_index in range(safe_run_count):
-        print(f"Before run Single FPG: {requirements}\n")
-        current_result = _run_single_fpg_solve(requirements=requirements, verbose=verbose)
+        current_result = _run_single_fpg_solve(
+            requirements=requirements, verbose=verbose
+        )
         last_result = current_result
         if not current_result.solved or current_result.score_report is None:
             print(
@@ -376,8 +373,10 @@ def run_fpg_pipeline_api(
         level="INFO",
         data={"status": "working"},
     )
-    
-    print(f"\n DATA DEBUG ::\n<Initial> Floor Width = {floor_width}, Floor Height = {floor_height}, Room Template = {room_template} ")
+
+    print(
+        f"\n DATA DEBUG ::\n<Initial> Floor Width = {floor_width}, Floor Height = {floor_height}, Room Template = {room_template} "
+    )
 
     try:
         # Step 1: Build requirements (loads and prunes internally)
@@ -386,7 +385,7 @@ def run_fpg_pipeline_api(
             floor_height=floor_height,
             room_template=room_template,
         )
-        print(f"\n DATA DEBUG :\n After Build Requirements = {requirements}")
+        # print(f"\n DATA DEBUG :\n After Build Requirements = {requirements}")
 
         # Step 2: Validate floor dimensions
         validation_result = validate_and_compute_floor_bounds(
@@ -394,7 +393,7 @@ def run_fpg_pipeline_api(
             floor_height=floor_height,
             requirements=requirements,
         )
-        print(f"\n DATA DEBUG :\n Floor Validation = {validation_result} ")
+        #  Load Size Constraints
 
         # Step 3: Run solver
         if should_optuna_run:

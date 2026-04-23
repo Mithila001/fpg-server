@@ -39,8 +39,10 @@ def _weighted_graph_score(graph_total_score: float) -> float:
 def _weighted_solver_score(solver_total_score: float) -> float:
     return (_normalize_score(solver_total_score, 100.0) / 100.0) * 10.0
 
+
 class OptunaOptimizationController:
     """Controller to manage trial optimization early stopping and timeout logic."""
+
     def __init__(
         self,
         timeout_seconds: float = TRIAL_OPTIMIZATION_TIMEOUT_SECONDS,
@@ -57,7 +59,9 @@ class OptunaOptimizationController:
     def check_timeout_and_raise(self) -> None:
         elapsed = self.get_elapsed_time()
         if elapsed > self.timeout_seconds:
-            raise TrialTimeoutError(elapsed_time=elapsed, timeout_seconds=self.timeout_seconds)
+            raise TrialTimeoutError(
+                elapsed_time=elapsed, timeout_seconds=self.timeout_seconds
+            )
 
     def record_best_score(self, score: float) -> None:
         if self.best_score is None or score > self.best_score:
@@ -92,7 +96,9 @@ def run_optuna_optimization(
 
             boundary = build_boundary(base_requirements)
             print(f"\nHallway Count {hallway_count}\n")
-            trial_nodes = build_nodes(base_requirements, hallway_count_override=hallway_count)
+            trial_nodes = build_nodes(
+                base_requirements, hallway_count_override=hallway_count
+            )
             # print(f"\nBase Requirements: {base_requirements}\n")
 
             explicit_positions: dict[str, tuple[float, float]] = {}
@@ -112,7 +118,6 @@ def run_optuna_optimization(
                 hallway_count_override=hallway_count,
                 explicit_positions=explicit_positions,
             )
-            print(f"\nGraph Results: {graph_result}\n")
 
             graph_score = float(graph_result.score.total_score)
             weighted_graph_score = _weighted_graph_score(graph_score)
@@ -173,9 +178,9 @@ def run_optuna_optimization(
 
             inner_requirements = copy.deepcopy(base_requirements)
             inner_requirements.initial_point_hints = point_hints
-            
-            print(f"Inner Requirements: {inner_requirements}\n")
-            
+
+            # print(f"Inner Requirements: {inner_requirements}\n")
+
             inner_requirements = _update_hallway_count_for_solver(inner_requirements)
 
             # Execute run_solver_with_hints securely.
@@ -210,7 +215,7 @@ def run_optuna_optimization(
             )
 
             return final_composite_score
-            
+
         finally:
             if tracking_context is not None:
                 tracking_context.clear_trial_id()
@@ -277,11 +282,11 @@ def run_optuna_optimization(
         failed_trials=failed_trials,
         best_run=best_run,
     )
-    
-    
+
+
 def _update_hallway_count_for_solver(requirements: FpgRequirements) -> FpgRequirements:
     """
-    Synchronizes the config hallway count with the actual number of 
+    Synchronizes the config hallway count with the actual number of
     hallway hints generated during the graph layout stage.
     """
     if not requirements.initial_point_hints:
@@ -289,9 +294,8 @@ def _update_hallway_count_for_solver(requirements: FpgRequirements) -> FpgRequir
         return requirements
 
     hallway_count = sum(
-        1 for hint in requirements.initial_point_hints 
-        if hint.get("type") == "hallway"
+        1 for hint in requirements.initial_point_hints if hint.get("type") == "hallway"
     )
-    
+
     requirements.config.hallway_count = hallway_count
     return requirements
