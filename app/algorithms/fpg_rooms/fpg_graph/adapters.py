@@ -200,6 +200,16 @@ def build_edges(
         if kitchens:
             closest_kitchen = min(kitchens, key=lambda r: pair_distance(dining, r))
             add_pair(dining.id, closest_kitchen.id, 1.1, "dining_path")
+            
+    # 4. Custom Room Connections
+    living_rooms = nodes_by_type.get("livingRoom", [])
+    verandas = nodes_by_type.get("veranda", [])
+    
+    for living in living_rooms:
+        for veranda in verandas:
+            # Setting weight to 1.3 to make it stronger than dining (1.1) 
+            # and hard_AND rules (1.2)
+            add_pair(living.id, veranda.id, 1.3, "living_veranda_connection")
 
     return list(weighted_pairs.values())
 

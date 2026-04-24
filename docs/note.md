@@ -18,3 +18,8 @@ Give Veranda - Garage Higher Score
 Check if the Bathroom-Hallway Relation weight is tight
 
 # Why even new Inward pocket score seems give fail score, but the project make it final floor plan
+
+
+# When Opening Generation
+- Avoid overlapping Doors and Windows
+- Door placement logic change - Highly prioritize Living Room - Veranda Door Connection Rather Hallway Connection

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import numpy as np
+
 from app.algorithms.fpg_rooms.types.room import FpgRequirements
 
 from .adapters import build_boundary, build_edges, build_nodes, initialize_positions
@@ -13,6 +15,8 @@ import os
 import time
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+
+from app.core.fpg_rooms.config_fpg import TRIAL_GRAPH_SOLVER_GATE_THRESHOLD
 
 def run_graph_layout(
     requirements: FpgRequirements,
@@ -60,7 +64,7 @@ def run_graph_layout(
             "iterations_run": convergence.iterations_run,
         },
     )
-    if score.total_score > 85:
+    if score.total_score > TRIAL_GRAPH_SOLVER_GATE_THRESHOLD:
         plot_graph_layout(result)
 
     return GraphLayoutResult(
@@ -113,113 +117,115 @@ def shrink_wrap_boundary(
         node.y = node.y - (tight_min_y - pad_bottom)
 
     return GraphBoundary(width=new_width, height=new_height)
-def plot_graph_layout(layout_result: GraphLayoutResult, base_name: str = "layout"):
+def plot_graph_layout(layout_result: "GraphLayoutResult", base_name: str = "layout"):
     """
-    Plots high-fidelity graph layout with original vs. padded boundary comparison.
+    Plots high-fidelity graph layout with improved edge visibility and node-boundary clipping.
     """
-    # 1. Capture original boundary for plotting limits
     orig_b = layout_result.boundary
     nodes = layout_result.nodes
     requested_padding = 10.0
 
-    # 2. Calculate the Shrunk/Padded Box bounds WITHOUT mutating nodes yet
-    # Find raw tight extents
+    # 1. Calculate the Shrunk/Padded Box
     tight_min_x = min(node.x - node.radius for node in nodes)
     tight_max_x = max(node.x + node.radius for node in nodes)
     tight_min_y = min(node.y - node.radius for node in nodes)
     tight_max_y = max(node.y + node.radius for node in nodes)
 
-    # Calculate allowable padding based on original boundary constraints
     pad_l = max(0, min(requested_padding, tight_min_x))
     pad_r = max(0, min(requested_padding, orig_b.width - tight_max_x))
     pad_b = max(0, min(requested_padding, tight_min_y))
     pad_t = max(0, min(requested_padding, orig_b.height - tight_max_y))
 
-    # The actual box coordinates to draw in the plot
-    shrunk_x = tight_min_x - pad_l
-    shrunk_y = tight_min_y - pad_b
+    shrunk_x, shrunk_y = tight_min_x - pad_l, tight_min_y - pad_b
     shrunk_w = (tight_max_x - tight_min_x) + pad_l + pad_r
     shrunk_h = (tight_max_y - tight_min_y) + pad_b + pad_t
 
-    # 3. Setup Plotting
+    # 2. Setup Plotting
     output_dir = os.path.join("test", "outputs", "graph_results")
     os.makedirs(output_dir, exist_ok=True)
     save_path = os.path.join(output_dir, f"{base_name}_{time.strftime('%Y%m%d-%H%M%S')}.png")
 
-    fig, ax = plt.subplots(figsize=(12, 10))
+    fig, ax = plt.subplots(figsize=(14, 11))
 
-    # Styling Palette
+    # Expanded Styling Palette
     colors = {
         "hallway": "#95a5a6", "kitchen": "#f1c40f", "livingRoom": "#3498db",
         "diningRoom": "#e67e22", "bedroom": "#a29bfe", "garage": "#2d3436",
-        "veranda": "#26de81", "bathroom": "#81ecec",
+        "veranda": "#26de81", "bathroom": "#81ecec", "attachedBathroom": "#74b9ff"
     }
     default_color = "#dfe6e9"
 
-    # 4. Draw Original Boundary (Reference)
+    # 3. Draw Boundaries
     ax.add_patch(patches.Rectangle(
         (0, 0), orig_b.width, orig_b.height,
-        linewidth=1, edgecolor="#b2bec3", facecolor="#f8f9fa", 
-        linestyle='-', alpha=0.5, zorder=0, label="Original Boundary"
+        linewidth=1, edgecolor="#b2bec3", facecolor="#f8f9fa", alpha=0.5, zorder=0, label="Site Boundary"
     ))
-
-    # 5. Draw Padded Shrunk Boundary (Red Dotted Line)
     ax.add_patch(patches.Rectangle(
         (shrunk_x, shrunk_y), shrunk_w, shrunk_h,
-        linewidth=2, edgecolor='red', facecolor='none',
-        linestyle='--', zorder=5, label=f"Padded Boundary (+{max(pad_l, pad_r)}m)"
+        linewidth=2, edgecolor='red', facecolor='none', linestyle='--', zorder=5, label="Padded Area"
     ))
 
-    # 6. Draw Edges (High Quality)
+    # 4. Draw Edges with Clipping and Weight Exaggeration
     node_map = {node.id: node for node in nodes}
     for edge in layout_result.edges:
-        source, target = node_map.get(edge.source_id), node_map.get(edge.target_id)
-        if source and target:
-            linewidth = 1.0 + (edge.weight * 2)
-            ax.plot(
-                [source.x, target.x], [source.y, target.y],
-                color="#b2bec3", linewidth=linewidth,
-                alpha=0.4, zorder=1
-            )
+        src, tgt = node_map.get(edge.source_id), node_map.get(edge.target_id)
+        if src and tgt:
+            # Calculate distance and unit vector to clip lines at the node circle edge
+            dx, dy = tgt.x - src.x, tgt.y - src.y
+            dist = np.sqrt(dx**2 + dy**2)
+            
+            if dist > (src.radius + tgt.radius):
+                ux, uy = dx/dist, dy/dist
+                # Start and end points shifted by radius
+                x1, y1 = src.x + ux * src.radius, src.y + uy * src.radius
+                x2, y2 = tgt.x - ux * tgt.radius, tgt.y - uy * tgt.radius
+                
+                # Exaggerate weight: use power of weight for higher contrast
+                # 0.9 weight -> ~1.5px, 1.3 weight -> ~6px
+                lw = 1.0 + (edge.weight ** 3) * 2 
+                alpha = min(0.1 + (edge.weight * 0.3), 0.7)
+                
+                # Color code by rule kind if available
+                e_color = "#2980b9" if "hard" in edge.rule_kind else "#bdc3c7"
+                
+                ax.plot([x1, x2], [y1, y2], color=e_color, linewidth=lw, alpha=alpha, zorder=1)
 
-    # 7. Draw Nodes (High Quality)
+    # 5. Draw Nodes
     for node in nodes:
-        face_color = colors.get(node.room_type, default_color)
-        edge_style = '--' if getattr(node, 'synthesized', False) else '-'
+        f_color = colors.get(node.room_type, default_color)
+        e_style = '--' if getattr(node, 'synthesized', False) else '-'
         
         ax.add_patch(patches.Circle(
             (node.x, node.y), node.radius,
-            linewidth=1.5, edgecolor="#2d3436", facecolor=face_color,
-            linestyle=edge_style, alpha=0.9, zorder=3
+            linewidth=2, edgecolor="#2d3436", facecolor=f_color,
+            linestyle=e_style, alpha=0.9, zorder=3
         ))
         
+        # Room Label
         display_name = getattr(node, 'name', node.id)
         ax.text(
-            node.x, node.y, display_name,
-            fontsize=8, ha='center', va='center', fontweight='bold',
-            color='black' if face_color != "#2d3436" else 'white', zorder=4
+            node.x, node.y, f"{display_name}\nR:{node.radius}",
+            fontsize=9, ha='center', va='center', fontweight='bold',
+            color='black' if f_color not in ["#2d3436", "#2980b9"] else 'white', zorder=4
         )
 
-    # 8. Final Formatting
-    ax.set_xlim(-2, orig_b.width + 2)
-    ax.set_ylim(-2, orig_b.height + 2)
+    # 6. Final Formatting
+    ax.set_xlim(-5, orig_b.width + 5)
+    ax.set_ylim(-5, orig_b.height + 5)
     ax.set_aspect('equal')
     
-    res = layout_result.score
     utilization = (shrunk_w * shrunk_h) / (orig_b.width * orig_b.height) * 100
     title_str = (
-        f"Score: {res.total_score:.1f} | Area Utilized: {utilization:.1f}%\n"
-        f"Original: {orig_b.width}x{orig_b.height} | Padded Shrunk: {shrunk_w:.1f}x{shrunk_h:.1f}"
+        f"Layout Score: {layout_result.score.total_score:.1f} | Utilization: {utilization:.1f}%\n"
+        f"Site: {orig_b.width}m x {orig_b.height}m | Design Area: {shrunk_w:.1f}m x {shrunk_h:.1f}m"
     )
-    ax.set_title(title_str, loc='left', fontsize=10, pad=10)
+    ax.set_title(title_str, loc='left', fontsize=12, fontweight='bold', pad=15)
     
-    plt.grid(True, linestyle=':', alpha=0.3)
-    plt.legend(loc='upper right', fontsize='small')
+    plt.grid(True, linestyle=':', alpha=0.4)
+    plt.legend(loc='upper right', frameon=True, shadow=True)
     plt.xlabel("Width (m)")
     plt.ylabel("Height (m)")
     
     plt.savefig(save_path, bbox_inches='tight', dpi=150)
     plt.close(fig)
-
-    print(f"✅ Unique layout saved to: {save_path}")
     return save_path

@@ -151,6 +151,7 @@ def _run_single_fpg_solve(
         wiggle_room=5,
         verbose=False,
     )
+    print(f"Stage Rooms {stage1_rooms}")
     print("\n run_refine_profile_1")
     stage2_rooms = refine_result1.rooms if refine_result1.rooms else stage1_rooms
     refine_result2 = run_refine_profile_1(
@@ -267,8 +268,20 @@ def run_solver_with_hints(
                 f"[SolverLoop] early-stop pass: score={current_score:.2f} "
                 f">= threshold={TRIAL_EARLY_STOP_SCORE_THRESHOLD:.2f}"
             )
+            SystemLogger.log_event(
+                tag="SOLVER",
+                event="solver_early_stop",
+                level="INFO",
+                data={"score": current_score, "threshold": TRIAL_EARLY_STOP_SCORE_THRESHOLD},
+            )
             return current_result
 
+        SystemLogger.log_event(
+            tag="SOLVER",
+            event="solver_low_score",
+            level="INFO",
+            data={"attempt": attempt_index + 1, "score": current_score, "status": current_result.status},
+        )
         if current_score > best_score:
             best_score = current_score
             best_result = current_result
@@ -387,7 +400,7 @@ def run_fpg_pipeline_api(
         )
         # print(f"\n DATA DEBUG :\n After Build Requirements = {requirements}")
 
-        # Step 2: Validate floor dimensions
+        # Step 2: Validate floor dimensions (Will Throw an Exception)
         validation_result = validate_and_compute_floor_bounds(
             floor_width=floor_width,
             floor_height=floor_height,
@@ -435,6 +448,12 @@ def run_fpg_pipeline_api(
         except Exception:
             pass
 
+            SystemLogger.log_event(
+            tag="SOLVER",
+            event="solver_run_complete",
+            level="INFO",
+            data={"status": run_result.status, "solved": run_result.solved},
+        )
         # Step 4: Build and return formatted payload
         payload = _build_payload_from_solver_result(run_result)
         return payload

@@ -9,7 +9,7 @@ MIN_FLOOR_WIDTH = 50
 MIN_FLOOR_HEIGHT = 50
 
 # Minimum floor area buffer (added to total min room area for feasibility check)
-MIN_FLOOR_AREA_BUFFER = 1250
+MIN_FLOOR_AREA_BUFFER = 500
 
 # Maximum allowed aspect ratio for rooms
 MAX_ASPECT_RATIO_HEIGHT = 10
@@ -127,7 +127,7 @@ DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
 # Trial optimization control
 TRIAL_EARLY_STOP_SCORE_THRESHOLD = 90  # Stop trials if score exceeds this
 TRIAL_OPTIMIZATION_TIMEOUT_SECONDS = 120  # Hard deadline for all trials
-TRIAL_GRAPH_SOLVER_GATE_THRESHOLD = 80  # Invoke solver only when graph score reaches this
+TRIAL_GRAPH_SOLVER_GATE_THRESHOLD = 70  # Invoke solver only when graph score reaches this
 
 # Default generator config
 DEFAULT_ASPECT_RATIO_MAX = 16.0
