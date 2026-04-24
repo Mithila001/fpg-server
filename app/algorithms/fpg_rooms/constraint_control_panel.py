@@ -75,6 +75,20 @@ class ConstraintControlPanel:
             soft_recessed_facade_penalty=True,
             soft_room_shared_wall_refine_penalty=True,
         )
+        
+    @classmethod
+    def refine_profile_extender(cls) -> ConstraintControlPanel:
+        return cls(
+            soft_seed_layout_hints=True,
+            soft_room_adjacency_preference=True,
+            soft_compact_layout_center_proximity=True,
+            soft_bathroom_location_preference=True,
+            soft_layout_dead_space_penalty=True,
+            soft_seed_facade_depth_penalty=True,
+            soft_seed_facade_alignment_penalty=True,
+            soft_recessed_facade_penalty=True,
+            soft_room_shared_wall_refine_penalty=True,
+        )
 
     def with_overrides(self, **changes: bool) -> ConstraintControlPanel:
         return replace(self, **changes)
