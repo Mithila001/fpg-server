@@ -3,9 +3,10 @@ from __future__ import annotations
 import math
 
 from ..zone_utils import compute_zone, is_in_zone_range
-from ...types import GraphNode
+from app.algorithms.types.graph import GraphNode
 
 from app.core.fpg_rooms.config_fpg import PRIVATE_ROOM_TYPES, PUBLIC_ROOM_TYPES
+
 
 def _nodes_of_type(nodes: list[GraphNode], room_types: set[str]) -> list[GraphNode]:
     return [node for node in nodes if node.room_type in room_types]
@@ -90,10 +91,13 @@ def _explicit_bedroom_attached_bathroom_pairs(
     return explicit_pairs
 
 
-def _pair_proximity_score(node_a: GraphNode, node_b: GraphNode, max_score: float, diagonal: float) -> float:
+def _pair_proximity_score(
+    node_a: GraphNode, node_b: GraphNode, max_score: float, diagonal: float
+) -> float:
     distance = math.hypot(node_b.x - node_a.x, node_b.y - node_a.y)
     closeness = max(0.0, 1.0 - (distance / diagonal))
     return _clamp_score(closeness * max_score, max_score)
+
 
 SCORE_WEIGHT_PARAMETERS = {
     "living_room": 12.0,
@@ -101,8 +105,9 @@ SCORE_WEIGHT_PARAMETERS = {
     "dining_room": 8.0,
     "hallway_purity": 5.0,
     "bedroom_bath_proximity": 8.0,
-    "hallway_count_logic": 5.0, 
+    "hallway_count_logic": 5.0,
 }
+
 
 def evaluate_room_location_soft(
     nodes: list[GraphNode],
@@ -113,8 +118,8 @@ def evaluate_room_location_soft(
     relation_constraints: list[object] | None = None,
 ) -> dict[str, float]:
     """
-    Evaluates the room layout. 
-    Total score is out of 50. 
+    Evaluates the room layout.
+    Total score is out of 50.
     If only 1 hallway exists, the 'hallway_count_score' is 0 (effectively reducing total by 5).
     """
     relation_constraints = relation_constraints or []
@@ -124,7 +129,9 @@ def evaluate_room_location_soft(
     # 1. Living Room Scoring
     living_nodes = _nodes_of_type(nodes, {"livingRoom"})
     living_ok = [
-        is_in_zone_range(compute_zone(n.x, n.y, min_x, min_y, width, height), (1, 1), (3, 2))
+        is_in_zone_range(
+            compute_zone(n.x, n.y, min_x, min_y, width, height), (1, 1), (3, 2)
+        )
         for n in living_nodes
     ]
 
@@ -133,13 +140,19 @@ def evaluate_room_location_soft(
     bathrooms_ok = []
     for node in bathroom_nodes:
         zone = compute_zone(node.x, node.y, min_x, min_y, width, height)
-        bathrooms_ok.append(not is_in_zone_range(zone, (1, 1), (3, 1)) and zone != (2, 2))
+        bathrooms_ok.append(
+            not is_in_zone_range(zone, (1, 1), (3, 1)) and zone != (2, 2)
+        )
 
     # 3. Dining Room Scoring
     dining_nodes = _nodes_of_type(nodes, {"diningRoom"})
     dining_ok = [
-        not (compute_zone(n.x, n.y, min_x, min_y, width, height) == (2, 1) or 
-             is_in_zone_range(compute_zone(n.x, n.y, min_x, min_y, width, height), (1, 3), (3, 3)))
+        not (
+            compute_zone(n.x, n.y, min_x, min_y, width, height) == (2, 1)
+            or is_in_zone_range(
+                compute_zone(n.x, n.y, min_x, min_y, width, height), (1, 3), (3, 3)
+            )
+        )
         for n in dining_nodes
     ]
 
@@ -151,10 +164,14 @@ def evaluate_room_location_soft(
     )
 
     # 5. Bed/Bath Proximity
-    explicit_pairs = _explicit_bedroom_attached_bathroom_pairs(nodes, relation_constraints)
+    explicit_pairs = _explicit_bedroom_attached_bathroom_pairs(
+        nodes, relation_constraints
+    )
     if explicit_pairs:
         pair_scores = [
-            _pair_proximity_score(bedroom, attached_bathroom, w["bedroom_bath_proximity"], diagonal)
+            _pair_proximity_score(
+                bedroom, attached_bathroom, w["bedroom_bath_proximity"], diagonal
+            )
             for bedroom, attached_bathroom in explicit_pairs
         ]
         proximity_score = sum(pair_scores) / len(pair_scores)
@@ -171,23 +188,22 @@ def evaluate_room_location_soft(
         "dining_room_zone_score": _ratio_score(dining_ok, w["dining_room"]),
         "bedroom_attached_bathroom_proximity_score": proximity_score,
         "hallway_zoning_purity_score": hallway_purity_score,
-        "hallway_count_score": hallway_count_score
+        "hallway_count_score": hallway_count_score,
     }
+
 
 def _get_room_category(room_type: str) -> str | None:
     """Categorizes a room as public, private, or neutral."""
-    
+
     if room_type in PUBLIC_ROOM_TYPES:
         return "public"
     if room_type in PRIVATE_ROOM_TYPES:
         return "private"
     return None  # Neutral (livingRoom, hallway, veranda, etc.)
 
+
 def _calculate_hallway_purity(
-    hallways: list[GraphNode], 
-    rooms: list[GraphNode], 
-    diagonal: float,
-    max_score: float
+    hallways: list[GraphNode], rooms: list[GraphNode], diagonal: float, max_score: float
 ) -> float:
     if not hallways:
         return max_score
@@ -201,11 +217,11 @@ def _calculate_hallway_purity(
             category = _get_room_category(room.room_type)
             if category is None:
                 continue
-            
+
             dist = math.hypot(room.x - hallway.x, room.y - hallway.y)
             if dist <= threshold:
                 found_categories.add(category)
-        
+
         # Binary purity check: 1.0 if pure or empty, 0.0 if polluted
         hallway_scores.append(0.0 if len(found_categories) > 1 else 1.0)
 

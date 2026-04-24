@@ -1,5 +1,5 @@
 from .api import run_graph_layout
-from .types import (
+from app.algorithms.types.graph import (
     GraphBoundary,
     GraphConvergence,
     GraphEdge,

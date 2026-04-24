@@ -14,7 +14,7 @@ from app.core.fpg_rooms.config_fpg import (
     PRIVATE_ROOM_TYPES,
 )
 
-from .types import GraphBoundary, GraphEdge, GraphNode
+from app.algorithms.types.graph import GraphBoundary, GraphEdge, GraphNode
 
 UNIQUE_RELATION_REQUIRED_ROOM_TYPES = ["attachedBathroom"]
 

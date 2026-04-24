@@ -9,7 +9,12 @@ from app.algorithms.types.room import FpgRequirements
 from .adapters import build_boundary, build_edges, build_nodes, initialize_positions
 from .physics.engine import run_force_directed_layout
 from .score.scorer import score_graph_layout
-from .types import GraphBoundary, GraphLayoutResult, GraphNode, GraphPhysicsConfig
+from app.algorithms.types.graph import (
+    GraphBoundary,
+    GraphLayoutResult,
+    GraphNode,
+    GraphPhysicsConfig,
+)
 
 import os
 import time

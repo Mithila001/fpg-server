@@ -7,7 +7,7 @@ from app.core.fpg_rooms.config_fpg import TRIAL_GRAPH_SOLVER_GATE_THRESHOLD
 from .hard_score.h_outer_clearance import evaluate_outer_clearance_hard
 from .hard_score.h_room_location import evaluate_room_location_hard
 from .soft_score.s_room_location import evaluate_room_location_soft
-from ..types import GraphEdge, GraphNode, GraphScoreBreakdown
+from app.algorithms.types.graph import GraphEdge, GraphNode, GraphScoreBreakdown
 
 
 def _layout_bounds(nodes: list[GraphNode]) -> tuple[float, float, float, float]:
@@ -54,7 +54,7 @@ def score_graph_layout(
 
     total_score = hard_score + soft_score
     usable_layout = total_score >= float(TRIAL_GRAPH_SOLVER_GATE_THRESHOLD)
-    
+
     print(f"\nHard Score: {hard_results}/40")
     print(f"Soft Score: {soft_results}/50")
     print(f"Total Score: {total_score}\n")

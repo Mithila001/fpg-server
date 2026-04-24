@@ -2,7 +2,13 @@ from __future__ import annotations
 
 import math
 
-from ..types import GraphBoundary, GraphConvergence, GraphEdge, GraphNode, GraphPhysicsConfig
+from app.algorithms.types.graph import (
+    GraphBoundary,
+    GraphConvergence,
+    GraphEdge,
+    GraphNode,
+    GraphPhysicsConfig,
+)
 
 
 def _clamp(value: float, low: float, high: float) -> float:
@@ -11,7 +17,9 @@ def _clamp(value: float, low: float, high: float) -> float:
 
 def _apply_boundary(node: GraphNode, boundary: GraphBoundary) -> None:
     node.x = _clamp(node.x, node.radius, max(node.radius, boundary.width - node.radius))
-    node.y = _clamp(node.y, node.radius, max(node.radius, boundary.height - node.radius))
+    node.y = _clamp(
+        node.y, node.radius, max(node.radius, boundary.height - node.radius)
+    )
 
 
 def _resolve_overlaps(nodes: list[GraphNode], boundary: GraphBoundary) -> None:
@@ -76,7 +84,9 @@ def run_force_directed_layout(
             ux = dx / dist
             uy = dy / dist
 
-            target_distance = (node_a.radius + node_b.radius) * (2.0 - 0.5 * max(0.0, min(2.0, edge.weight)))
+            target_distance = (node_a.radius + node_b.radius) * (
+                2.0 - 0.5 * max(0.0, min(2.0, edge.weight))
+            )
             spring_strength = config.spring_constant * max(0.1, edge.weight)
             spring_force = spring_strength * (dist - target_distance)
 
@@ -112,11 +122,11 @@ def run_force_directed_layout(
         max_displacement = 0.0
         for node in nodes:
             fx, fy = forces[node.id]
-            
+
             # --- 1. Horizontal "Squeeze" (Center-seeking) ---
             # Keeps the house from being too wide; pulls toward center X
             center_x = boundary.width / 2
-            side_pull = 0.1 
+            side_pull = 0.1
             fx += (center_x - node.x) * side_pull
 
             # --- 2. Back Push (Piston Effect) ---
@@ -126,11 +136,11 @@ def run_force_directed_layout(
             fy -= back_push_strength * (node.y / boundary.height)
 
             # --- 3. Front Resistance (Optional) ---
-            # If nodes are hitting the front wall (y=0) too hard, 
+            # If nodes are hitting the front wall (y=0) too hard,
             # this adds a small "cushion" as they get close to the edge.
             if node.y < boundary.height * 0.1:
                 fy += 0.05
-            
+
             node.vx = (node.vx + fx * config.time_step) * config.damping
             node.vy = (node.vy + fy * config.time_step) * config.damping
 
