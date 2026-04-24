@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 
-from app.algorithms.fpg_rooms.types.room import FpgRequirements
+from app.algorithms.types.room import FpgRequirements
 from app.core.fpg_rooms.config_fpg import (
     HALLWAY_GENERATOR_MIN_HEIGHT,
     HALLWAY_GENERATOR_MIN_WIDTH,
@@ -33,11 +33,15 @@ def _room_min_area(requirements: FpgRequirements) -> float:
             living_room_found = True
 
     if not living_room_found:
-        raise ValueError("LivingRoom requirement is missing from normalized requirements")
+        raise ValueError(
+            "LivingRoom requirement is missing from normalized requirements"
+        )
 
     hallway_count = max(0, int(getattr(requirements.config, "hallway_count", 0)))
     if hallway_count > 0:
-        hallway_area = float(HALLWAY_GENERATOR_MIN_WIDTH) * float(HALLWAY_GENERATOR_MIN_HEIGHT)
+        hallway_area = float(HALLWAY_GENERATOR_MIN_WIDTH) * float(
+            HALLWAY_GENERATOR_MIN_HEIGHT
+        )
         total_min_area += float(hallway_count) * hallway_area
 
     return total_min_area

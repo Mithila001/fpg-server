@@ -1,8 +1,10 @@
 from ...solver_models.room import Room
-from ...types.room import FpgRequirements
+from ....types.room import FpgRequirements
 
 
-def _get_living_room_requirements(requirements: FpgRequirements) -> tuple[int, int, int, int]:
+def _get_living_room_requirements(
+    requirements: FpgRequirements,
+) -> tuple[int, int, int, int]:
     for room in requirements.rooms:
         if room.type == "livingRoom":
             return int(room.min_w), int(room.min_h), int(room.max_w), int(room.max_h)

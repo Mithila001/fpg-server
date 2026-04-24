@@ -2,15 +2,28 @@ from __future__ import annotations
 
 from app.algorithms.fpg_rooms.fpg_graph import GraphEdge, GraphNode, run_graph_layout
 from app.algorithms.fpg_rooms.fpg_graph.score import score_graph_layout
-from app.algorithms.fpg_rooms.types.room import ConfigData, FpgRequirements, RoomData
+from app.algorithms.types.room import ConfigData, FpgRequirements, RoomData
 
 
 def _requirements() -> FpgRequirements:
     rooms = [
-        RoomData(name="livingRoom1", type="livingRoom", min_w=30, min_h=25, max_w=40, max_h=35),
-        RoomData(name="bedroom1", type="bedroom", min_w=16, min_h=14, max_w=22, max_h=20),
-        RoomData(name="kitchen1", type="kitchen", min_w=14, min_h=12, max_w=20, max_h=18),
-        RoomData(name="veranda1", type="veranda", min_w=18, min_h=10, max_w=26, max_h=14),
+        RoomData(
+            name="livingRoom1",
+            type="livingRoom",
+            min_w=30,
+            min_h=25,
+            max_w=40,
+            max_h=35,
+        ),
+        RoomData(
+            name="bedroom1", type="bedroom", min_w=16, min_h=14, max_w=22, max_h=20
+        ),
+        RoomData(
+            name="kitchen1", type="kitchen", min_w=14, min_h=12, max_w=20, max_h=18
+        ),
+        RoomData(
+            name="veranda1", type="veranda", min_w=18, min_h=10, max_w=26, max_h=14
+        ),
         RoomData(name="garage1", type="garage", min_w=24, min_h=20, max_w=34, max_h=26),
     ]
     config = ConfigData(
@@ -22,12 +35,30 @@ def _requirements() -> FpgRequirements:
         hallway_count=1,
     )
     relation_constraints = [
-        {"room_type": "bedroom", "related_room": ["livingRoom", "hallway"], "constraint_level": "hard_OR"},
-        {"room_type": "kitchen", "related_room": ["livingRoom", "hallway"], "constraint_level": "hard_OR"},
-        {"room_type": "veranda", "related_room": ["livingRoom"], "constraint_level": "hard_AND"},
-        {"room_type": "garage", "related_room": ["livingRoom", "hallway"], "constraint_level": "hard_OR"},
+        {
+            "room_type": "bedroom",
+            "related_room": ["livingRoom", "hallway"],
+            "constraint_level": "hard_OR",
+        },
+        {
+            "room_type": "kitchen",
+            "related_room": ["livingRoom", "hallway"],
+            "constraint_level": "hard_OR",
+        },
+        {
+            "room_type": "veranda",
+            "related_room": ["livingRoom"],
+            "constraint_level": "hard_AND",
+        },
+        {
+            "room_type": "garage",
+            "related_room": ["livingRoom", "hallway"],
+            "constraint_level": "hard_OR",
+        },
     ]
-    return FpgRequirements(rooms=rooms, config=config, relation_constraints=relation_constraints)
+    return FpgRequirements(
+        rooms=rooms, config=config, relation_constraints=relation_constraints
+    )
 
 
 def test_run_graph_layout_creates_hallway_from_config() -> None:
@@ -44,8 +75,12 @@ def test_run_graph_layout_is_deterministic_with_fixed_seed() -> None:
     first = run_graph_layout(requirements=requirements, seed=11)
     second = run_graph_layout(requirements=requirements, seed=11)
 
-    first_positions = sorted((node.id, round(node.x, 6), round(node.y, 6)) for node in first.nodes)
-    second_positions = sorted((node.id, round(node.x, 6), round(node.y, 6)) for node in second.nodes)
+    first_positions = sorted(
+        (node.id, round(node.x, 6), round(node.y, 6)) for node in first.nodes
+    )
+    second_positions = sorted(
+        (node.id, round(node.x, 6), round(node.y, 6)) for node in second.nodes
+    )
     assert first_positions == second_positions
 
 
@@ -66,11 +101,17 @@ def test_score_graph_layout_uses_hard_soft_contract_without_front_bonus() -> Non
         GraphNode(id="b", name="garage1", room_type="garage", radius=6, x=90, y=6),
         GraphNode(id="c", name="kitchen1", room_type="kitchen", radius=7, x=55, y=40),
         GraphNode(id="d", name="hallway1", room_type="hallway", radius=5, x=55, y=30),
-        GraphNode(id="e", name="livingRoom1", room_type="livingRoom", radius=10, x=60, y=30),
+        GraphNode(
+            id="e", name="livingRoom1", room_type="livingRoom", radius=10, x=60, y=30
+        ),
     ]
     edges = [GraphEdge(source_id="a", target_id="e", weight=1.2)]
     relations = [
-        {"room_type": "veranda", "related_room": ["livingRoom"], "constraint_level": "hard_AND"}
+        {
+            "room_type": "veranda",
+            "related_room": ["livingRoom"],
+            "constraint_level": "hard_AND",
+        }
     ]
 
     score = score_graph_layout(nodes=nodes, edges=edges, relation_constraints=relations)

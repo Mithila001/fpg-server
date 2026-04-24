@@ -3,7 +3,7 @@ import pytest
 from app.algorithms.fpg_rooms.fpg_score.score_critical.adjacency_relations import (
     validate_adjacency_relations,
 )
-from app.algorithms.fpg_rooms.types.room_relations_constraints import RoomRelationsConstraint
+from app.algorithms.types.room_relations_constraints import RoomRelationsConstraint
 
 
 def make_room(name: str, type_: str, x: int, y: int, x_end: int, y_end: int) -> dict:

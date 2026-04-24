@@ -1,5 +1,5 @@
 from app.algorithms.fpg_rooms.fpg_score import score_layout
-from app.algorithms.fpg_rooms.types.room import ConfigData, FpgRequirements
+from app.algorithms.types.room import ConfigData, FpgRequirements
 
 
 def _base_requirements() -> FpgRequirements:
@@ -19,8 +19,22 @@ def _base_requirements() -> FpgRequirements:
 def test_score_layout_full_flow_scores_all_sections():
     requirements = _base_requirements()
     solution = [
-        {"name": "A", "type": "livingRoom", "x": 0.0, "y": 0.0, "x_end": 5.0, "y_end": 10.0},
-        {"name": "B", "type": "kitchen", "x": 5.0, "y": 0.0, "x_end": 10.0, "y_end": 10.0},
+        {
+            "name": "A",
+            "type": "livingRoom",
+            "x": 0.0,
+            "y": 0.0,
+            "x_end": 5.0,
+            "y_end": 10.0,
+        },
+        {
+            "name": "B",
+            "type": "kitchen",
+            "x": 5.0,
+            "y": 0.0,
+            "x_end": 10.0,
+            "y_end": 10.0,
+        },
     ]
     quick_post_process_result = {
         "rooms": solution,

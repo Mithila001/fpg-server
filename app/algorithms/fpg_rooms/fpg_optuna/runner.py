@@ -6,7 +6,7 @@ from typing import Callable
 
 import optuna
 
-from app.algorithms.fpg_rooms.types.room import FpgRequirements
+from app.algorithms.types.room import FpgRequirements
 from app.algorithms.fpg_rooms.fpg_graph.api import run_graph_layout
 from app.algorithms.fpg_rooms.fpg_graph.adapters import build_boundary, build_nodes
 from app.core.fpg_rooms.config_fpg import (

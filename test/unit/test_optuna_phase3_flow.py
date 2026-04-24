@@ -8,7 +8,7 @@ from app.algorithms.fpg_rooms.fpg_optuna.runner import (
     run_optuna_optimization,
 )
 from app.algorithms.fpg_rooms.fpg_optuna.types import FpgEvaluationResult
-from app.algorithms.fpg_rooms.types.room import ConfigData, FpgRequirements
+from app.algorithms.types.room import ConfigData, FpgRequirements
 
 
 class _Node:
@@ -20,8 +20,12 @@ class _Node:
 
 
 class _GraphResult:
-    def __init__(self, total_score: float, usable_layout: bool, nodes: list[_Node]) -> None:
-        self.score = SimpleNamespace(total_score=total_score, usable_layout=usable_layout)
+    def __init__(
+        self, total_score: float, usable_layout: bool, nodes: list[_Node]
+    ) -> None:
+        self.score = SimpleNamespace(
+            total_score=total_score, usable_layout=usable_layout
+        )
         self.nodes = nodes
 
 

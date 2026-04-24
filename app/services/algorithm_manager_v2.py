@@ -19,7 +19,7 @@ from app.util.logger.system_logger import SystemLogger
 from app.algorithms.fpg_rooms.fpg_score import score_layout
 from app.algorithms.fpg_rooms.fpgr_p_refine_1 import run_refine_profile_1
 from app.algorithms.fpg_rooms.fpgr_p_refine_extender import run_refine_profile_extender
-from app.algorithms.fpg_rooms.types.room import FpgRequirements
+from app.algorithms.types.room import FpgRequirements
 from app.algorithms.fpg_rooms.utils.extender_injection import (
     inject_extenders_into_requirements,
 )
@@ -172,7 +172,9 @@ def _run_single_fpg_solve(
     print(f"Requirements: {requirements}\n")
     print(f"Requirements with extenders: {requirements_with_extenders}\n")
     print("\n run_refine_profile_extender (Pass 2)")
-    extender_rooms = refine_result_extender.rooms if refine_result_extender.rooms else stage2_rooms
+    extender_rooms = (
+        refine_result_extender.rooms if refine_result_extender.rooms else stage2_rooms
+    )
 
     # --- PASS 3: Standard Refine (The "rest") ---
     refine_result2 = run_refine_profile_1(
@@ -292,7 +294,10 @@ def run_solver_with_hints(
                 tag="SOLVER",
                 event="solver_early_stop",
                 level="INFO",
-                data={"score": current_score, "threshold": TRIAL_EARLY_STOP_SCORE_THRESHOLD},
+                data={
+                    "score": current_score,
+                    "threshold": TRIAL_EARLY_STOP_SCORE_THRESHOLD,
+                },
             )
             return current_result
 
@@ -300,7 +305,11 @@ def run_solver_with_hints(
             tag="SOLVER",
             event="solver_low_score",
             level="INFO",
-            data={"attempt": attempt_index + 1, "score": current_score, "status": current_result.status},
+            data={
+                "attempt": attempt_index + 1,
+                "score": current_score,
+                "status": current_result.status,
+            },
         )
         if current_score > best_score:
             best_score = current_score
@@ -469,11 +478,11 @@ def run_fpg_pipeline_api(
             pass
 
             SystemLogger.log_event(
-            tag="SOLVER",
-            event="solver_run_complete",
-            level="INFO",
-            data={"status": run_result.status, "solved": run_result.solved},
-        )
+                tag="SOLVER",
+                event="solver_run_complete",
+                level="INFO",
+                data={"status": run_result.status, "solved": run_result.solved},
+            )
         # Step 4: Build and return formatted payload
         payload = _build_payload_from_solver_result(run_result)
         return payload

@@ -39,7 +39,9 @@ def add_conditional_room_touch_constraint(
     model.Add(room1.y_end != room2.y).OnlyEnforceIf(conds + [touch_bottom.Not()])  # type: ignore
 
     if enforcer is not None:
-        model.AddBoolOr([touch_right, touch_left, touch_top, touch_bottom]).OnlyEnforceIf(enforcer)  # type: ignore[attr-defined]
+        model.AddBoolOr(
+            [touch_right, touch_left, touch_top, touch_bottom]
+        ).OnlyEnforceIf(enforcer)  # type: ignore[attr-defined]
     else:
         model.AddBoolOr([touch_right, touch_left, touch_top, touch_bottom])  # type: ignore[attr-defined]
 
@@ -59,7 +61,9 @@ def add_hard_and_room_adjacency_constraints(
     min_overlap: int = DEFAULT_ADJACENCY_MIN_OVERLAP,
 ) -> None:
     for room in rooms_list:
-        matching_rules = [rel for rel in hard_and_relations if rel.room_type == room.type]
+        matching_rules = [
+            rel for rel in hard_and_relations if rel.room_type == room.type
+        ]
         if not matching_rules:
             continue
 
@@ -100,7 +104,9 @@ def add_hard_or_room_adjacency_constraints(
     min_overlap: int = DEFAULT_ADJACENCY_MIN_OVERLAP,
 ) -> None:
     for room in rooms_list:
-        matching_rules = [rel for rel in hard_or_relations if rel.room_type == room.type]
+        matching_rules = [
+            rel for rel in hard_or_relations if rel.room_type == room.type
+        ]
         if not matching_rules:
             continue
 

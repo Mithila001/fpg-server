@@ -9,7 +9,7 @@ from app.algorithms.fpg_rooms.fpg_post_process.types import (
 from app.algorithms.fpg_rooms.fpg_score.score_critical.inward_pocket import (
     detect_inward_pocket_violation_v2,
 )
-from app.algorithms.fpg_rooms.types.room import FpgRequirements
+from app.algorithms.types.room import FpgRequirements
 from app.core.fpg_rooms.config_fpg import (
     ENVELOPE_APPLY_SIDES,
     ENVELOPE_ENABLED,

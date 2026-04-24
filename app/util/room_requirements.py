@@ -1,16 +1,16 @@
 import math
 from typing import List, Sequence
 
-from app.algorithms.fpg_rooms.types.room import FpgRequirements, RoomData
+from app.algorithms.types.room import FpgRequirements, RoomData
 from app.models.room_size_constraint import RoomSizeConstraint
 
 
 def floor_values(value: float) -> int:
     """Convert float value to integer by flooring (rounding down).
-    
+
     Args:
         value: Float value to floor
-        
+
     Returns:
         Floored integer value (e.g., 5.5 -> 5, 5.3 -> 5, 4.9 -> 4)
     """
@@ -25,14 +25,14 @@ def normalize_db_data_requirements(
 
     For each room type, use the DB value when present. If any required dimension
     is missing, raise an error (no defaults allowed).
-    
+
     Args:
         rooms: List of room instances from template
         constraints: Room size constraints from database
-        
+
     Returns:
         Normalized rooms with dimensions from constraints
-        
+
     Raises:
         ValueError: If constraint not found or missing dimensions
     """
@@ -141,7 +141,9 @@ def normalize_db_data_requirements(
     return normalized
 
 
-def compute_floor_plan_dimension_bounds(requirements: "FpgRequirements") -> dict[str, object]:
+def compute_floor_plan_dimension_bounds(
+    requirements: "FpgRequirements",
+) -> dict[str, object]:
     """Compute floor plan min/max bounds based on room requirements.
 
     The function performs strict validation. On failure, return an error payload
@@ -278,7 +280,9 @@ def compute_floor_plan_dimension_bounds(requirements: "FpgRequirements") -> dict
     normalized_aspect_ratio = max(1, math.floor(raw_aspect_ratio))
 
     target_max_area = total_max_area + 2500
-    normalized_floor_area = target_max_area if target_max_area < floor_area else floor_area
+    normalized_floor_area = (
+        target_max_area if target_max_area < floor_area else floor_area
+    )
 
     min_floor_area = total_min_area
 

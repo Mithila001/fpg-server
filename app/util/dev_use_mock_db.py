@@ -2,9 +2,9 @@ import json
 from pathlib import Path
 from typing import List
 
-from app.models.room_relations_constraint import RoomRelationsConstraint
-from app.models.room_setup_template import RoomSetupTemplate
-from app.models.room_size_constraint import RoomSizeConstraint
+from app.types.room_relations_constraint import RoomRelationsConstraint
+from app.types.room_setup_template import RoomSetupTemplate
+from app.types.room_size_constraint import RoomSizeConstraint
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

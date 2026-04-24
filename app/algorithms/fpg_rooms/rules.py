@@ -1,8 +1,14 @@
-from .types.room import FpgRequirements, RoomData
-from app.core.fpg_rooms.config_fpg import DEFAULT_MIN_W, DEFAULT_MIN_H, DEFAULT_MAX_W, DEFAULT_MAX_H
+from ..types.room import FpgRequirements, RoomData
+from app.core.fpg_rooms.config_fpg import (
+    DEFAULT_MIN_W,
+    DEFAULT_MIN_H,
+    DEFAULT_MAX_W,
+    DEFAULT_MAX_H,
+)
+
 
 # normalization rules for requirement objects
-#TODO: Check if this needed. Looks like useless
+# TODO: Check if this needed. Looks like useless
 def normalize_requirements(req: FpgRequirements) -> FpgRequirements:
     """Return a copy of ``req`` where any missing min/max dimensions are filled.
 
@@ -18,12 +24,10 @@ def normalize_requirements(req: FpgRequirements) -> FpgRequirements:
         min_h = r.min_h if r.min_h not in (None, "") else DEFAULT_MIN_H
         max_w = r.max_w if r.max_w not in (None, "") else DEFAULT_MAX_W
         max_h = r.max_h if r.max_h not in (None, "") else DEFAULT_MAX_H
-        normalized_rooms.append(
-            RoomData(r.name, r.type, min_w, min_h, max_w, max_h)
-        )
+        normalized_rooms.append(RoomData(r.name, r.type, min_w, min_h, max_w, max_h))
 
     # Preserve relation constraints when normalizing.
-    relation_constraints = getattr(req, "relation_constraints", None)
+    relation_constraints = getattr(req, "relation_constraints", [])
     return FpgRequirements(
         rooms=normalized_rooms,
         config=req.config,
