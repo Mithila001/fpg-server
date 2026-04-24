@@ -34,6 +34,8 @@ class RoomData:
     min_h: int
     max_w: int
     max_h: int
+    is_extender: bool = False
+    parent_room_name: str | None = None
 
 @dataclass
 class ConfigData:
@@ -76,3 +78,4 @@ class FpgRequirements:
     rooms: list[RoomData]
     config: ConfigData
     relation_constraints: list[Any] = field(default_factory=list)  # RoomRelationsConstraintBase rows
+    initial_point_hints: list[dict[str, Any]] = field(default_factory=list)

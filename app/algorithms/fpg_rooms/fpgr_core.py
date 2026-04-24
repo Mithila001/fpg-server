@@ -31,6 +31,10 @@ from app.core.fpg_rooms.config_fpg import (
 )
 
 from .constraint_control_panel import ConstraintControlPanel
+from .constraints.extenders import (
+    add_extender_placement_soft_penalty,
+    add_extender_wall_attachment_constraint,
+)
 from .constraints.hard.basic_constraints import add_basic_constraints
 from .constraints.hard.envelope_staircase import add_envelope_staircase_constraints
 from .constraints.hard.floor_area_coverage import add_minimum_area_coverage
@@ -119,7 +123,7 @@ class FpgrCore:
         self.last_status_name: str = "NOT_RUN"
 
         self.rooms: list[Room] = [
-            Room(r.name, r.min_w, r.min_h, r.max_w, r.max_h, r.type)
+            Room(r.name, r.min_w, r.min_h, r.max_w, r.max_h, r.type, r.is_extender, r.parent_room_name)
             for r in self.requirements.rooms
         ]
 
@@ -256,6 +260,12 @@ class FpgrCore:
                 max_gap=self.kitchen_hallway_back_wall_setback_max_gap,
             )
 
+        if panel.hard_extender_wall_attachment:
+            add_extender_wall_attachment_constraint(
+                self.model,
+                self.rooms,
+            )
+
         seed_context = None
         if seed_layout:
             seed_context = build_seed_layout_context(seed_layout)
@@ -360,6 +370,14 @@ class FpgrCore:
                     self.model,
                     self.rooms,
                     refine_weight=SOFT_ROOM_SHARED_WALL_REFINE_WEIGHT,
+                )
+            )
+
+        if panel.soft_extender_placement_penalty:
+            objective_terms.append(
+                add_extender_placement_soft_penalty(
+                    self.model,
+                    self.rooms,
                 )
             )
 

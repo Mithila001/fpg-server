@@ -9,7 +9,7 @@ MIN_FLOOR_WIDTH = 50
 MIN_FLOOR_HEIGHT = 50
 
 # Minimum floor area buffer (added to total min room area for feasibility check)
-MIN_FLOOR_AREA_BUFFER = 1250
+MIN_FLOOR_AREA_BUFFER = 500
 
 # Maximum allowed aspect ratio for rooms
 MAX_ASPECT_RATIO_HEIGHT = 10
@@ -62,11 +62,11 @@ CONSTRAINT_HARD_ROOM_SHARED_WALLS = True
 CONSTRAINT_HARD_ROOM_ADJACENCY = True
 CONSTRAINT_HARD_MINIMUM_AREA_COVERAGE = False
 CONSTRAINT_HARD_ROOM_SIZE_HIERARCHY = True
-CONSTRAINT_HARD_LIVING_ROOM_LOCATION = True
+CONSTRAINT_HARD_LIVING_ROOM_LOCATION = False
 CONSTRAINT_HARD_VERANDA_PLACEMENT = True
 CONSTRAINT_HARD_GARAGE_PLACEMENT = True
 CONSTRAINT_HARD_ENVELOPE_STAIRCASE = True
-CONSTRAINT_HARD_KITCHEN_HALLWAY_BACK_WALL_SETBACK = True
+CONSTRAINT_HARD_KITCHEN_HALLWAY_BACK_WALL_SETBACK = False
 
 # Kitchen/hallway back-wall door setback settings
 KITCHEN_HALLWAY_BACK_WALL_SETBACK_MIN_GAP = 5
@@ -82,6 +82,10 @@ CONSTRAINT_SOFT_SEED_FACADE_DEPTH_PENALTY = True
 CONSTRAINT_SOFT_SEED_FACADE_ALIGNMENT_PENALTY = True
 CONSTRAINT_SOFT_RECESSED_FACADE_PENALTY = True
 CONSTRAINT_SOFT_ROOM_SHARED_WALL_REFINE = True
+
+# Extender room constraints (hard and soft)
+CONSTRAINT_HARD_EXTENDER_WALL_ATTACHMENT = False  # Disabled by default; enabled only in refine_profile_extender
+CONSTRAINT_SOFT_EXTENDER_PLACEMENT_PENALTY = False  # Disabled by default; enabled only in refine_profile_extender
 
 # Soft-constraint tuning constants
 SOFT_LAYOUT_DEAD_SPACE_WEIGHT = 12
@@ -126,12 +130,13 @@ DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
 
 # Trial optimization control
 TRIAL_EARLY_STOP_SCORE_THRESHOLD = 90  # Stop trials if score exceeds this
-TRIAL_OPTIMIZATION_TIMEOUT_SECONDS = 60  # Hard deadline for all trials
+TRIAL_OPTIMIZATION_TIMEOUT_SECONDS = 120  # Hard deadline for all trials
+TRIAL_GRAPH_SOLVER_GATE_THRESHOLD = 70  # Invoke solver only when graph score reaches this
 
 # Default generator config
 DEFAULT_ASPECT_RATIO_MAX = 16.0
 DEFAULT_ASPECT_RATIO_MIN = 0.0
-DEFAULT_HALLWAY_COUNT = 1
+DEFAULT_HALLWAY_COUNT = 2
 DEFAULT_SOLVER_MAX_TIME_SECONDS = 3
 WIGGLE_ROOM = 10
 
@@ -151,6 +156,9 @@ HALLWAY_REQUIRED_SHARED_WALLS = 3
 
 # Room types whose relation constraints should not be pruned by template.
 NOT_PRUNE_ROOMS = ["livingRoom", "hallway"]
+
+PUBLIC_ROOM_TYPES = ["garage", "kitchen", "diningRoom"]
+PRIVATE_ROOM_TYPES = ["bathroom", "bedroom", "attachedBathroom"]
 
 # Per-type room shared-wall requirements.
 # - min_walls/max_walls count fully shared sides.
@@ -242,6 +250,9 @@ __all__ = [
     "DEFAULT_OPTUNA_TRIALS",
     "DEFAULT_OPTUNA_STORAGE_ENABLED",
     "DEFAULT_OPTUNA_STORAGE_URL",
+    "TRIAL_EARLY_STOP_SCORE_THRESHOLD",
+    "TRIAL_OPTIMIZATION_TIMEOUT_SECONDS",
+    "TRIAL_GRAPH_SOLVER_GATE_THRESHOLD",
     "DEFAULT_ASPECT_RATIO_MAX",
     "DEFAULT_ASPECT_RATIO_MIN",
     "DEFAULT_HALLWAY_COUNT",
@@ -262,4 +273,6 @@ __all__ = [
     "NOT_PRUNE_ROOMS",
     "ROOM_SHARED_WALL_RULES",
     "ROOM_SHARED_WALL_RULES_REFINE",
+    "PRIVATE_ROOM_TYPES",
+    "PUBLIC_ROOM_TYPES"
 ]
