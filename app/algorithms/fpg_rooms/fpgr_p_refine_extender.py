@@ -24,13 +24,13 @@ def run_refine_profile_extender(
     wiggle_room: int = 10,
     verbose: bool = False,
 ) -> RefineResult:
-    """Profile 2 (refine): seeded bounded solve focused on refinement soft features."""
+    """Profile 3 (refine extender): seeded solve with extender-specific constraints."""
     if not initial_rooms:
         return RefineResult(
             solved=False,
             rooms=[],
             status="SKIPPED",
-            message="Refine skipped because initial layout is empty",
+            message="Refine extender skipped because initial layout is empty",
         )
 
     control_panel = ConstraintControlPanel.refine_profile_extender()
@@ -47,12 +47,12 @@ def run_refine_profile_extender(
             solved=False,
             rooms=initial_rooms,
             status=core.last_status_name,
-            message="Refine stage returned non-feasible status; keeping stage-1 layout",
+            message="Refine extender stage returned non-feasible status; keeping input layout",
         )
 
     return RefineResult(
         solved=True,
         rooms=core.get_solution(),
         status=core.last_status_name,
-        message="Refine stage produced a feasible improved layout",
+        message="Refine extender stage produced a feasible layout with extender constraints applied",
     )

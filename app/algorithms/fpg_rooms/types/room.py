@@ -34,6 +34,8 @@ class RoomData:
     min_h: int
     max_w: int
     max_h: int
+    is_extender: bool = False
+    parent_room_name: str | None = None
 
 @dataclass
 class ConfigData:

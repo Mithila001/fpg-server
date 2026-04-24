@@ -83,6 +83,10 @@ CONSTRAINT_SOFT_SEED_FACADE_ALIGNMENT_PENALTY = True
 CONSTRAINT_SOFT_RECESSED_FACADE_PENALTY = True
 CONSTRAINT_SOFT_ROOM_SHARED_WALL_REFINE = True
 
+# Extender room constraints (hard and soft)
+CONSTRAINT_HARD_EXTENDER_WALL_ATTACHMENT = False  # Disabled by default; enabled only in refine_profile_extender
+CONSTRAINT_SOFT_EXTENDER_PLACEMENT_PENALTY = False  # Disabled by default; enabled only in refine_profile_extender
+
 # Soft-constraint tuning constants
 SOFT_LAYOUT_DEAD_SPACE_WEIGHT = 12
 SOFT_SEED_FACADE_DEPTH_WEIGHT = 25

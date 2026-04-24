@@ -4,7 +4,8 @@ from typing import Optional
 
 class Room:
     def __init__(
-        self, name: str, min_w: int, min_h: int, max_w: int, max_h: int, type: str
+        self, name: str, min_w: int, min_h: int, max_w: int, max_h: int, type: str, 
+                 is_extender: bool = False, parent_room_name: Optional[str] = None
     ):
         self.name = name
         self.min_w = min_w
@@ -12,6 +13,8 @@ class Room:
         self.max_w = max_w
         self.max_h = max_h
         self.type = type
+        self.is_extender = is_extender
+        self.parent_room_name = parent_room_name
 
         # OR-Tools Variables (populated by create_variables)
         self.x: Optional[cp_model.IntVar] = None
