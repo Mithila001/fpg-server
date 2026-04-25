@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..types import OpeningPayload, RoomBoundaryPayload
+from app.algorithms.types.public import OpeningPayload, RoomBoundaryPayload
 
 
 def normalize_rooms(rooms: list[dict[str, Any]]) -> list[RoomBoundaryPayload]:

@@ -4,7 +4,7 @@ from collections.abc import Iterable
 
 from shapely.geometry import GeometryCollection, LineString, MultiLineString, Polygon
 
-from ..types import WallSegmentPayload
+from app.algorithms.types.public import WallSegmentPayload
 
 
 def _snap(value: float, tolerance: float) -> float:
@@ -43,7 +43,9 @@ def _segment_key(
     return (a, b) if a <= b else (b, a)
 
 
-def extract_unique_segments(geometry: object, tolerance: float = 1e-6) -> list[WallSegmentPayload]:
+def extract_unique_segments(
+    geometry: object, tolerance: float = 1e-6
+) -> list[WallSegmentPayload]:
     """Convert any line-like geometry into sorted unique wall segments."""
     seen: set[tuple[tuple[float, float], tuple[float, float]]] = set()
     segments: list[WallSegmentPayload] = []
@@ -80,5 +82,7 @@ def extract_unique_segments(geometry: object, tolerance: float = 1e-6) -> list[W
                 }
             )
 
-    segments.sort(key=lambda segment: (segment["x1"], segment["y1"], segment["x2"], segment["y2"]))
+    segments.sort(
+        key=lambda segment: (segment["x1"], segment["y1"], segment["x2"], segment["y2"])
+    )
     return segments

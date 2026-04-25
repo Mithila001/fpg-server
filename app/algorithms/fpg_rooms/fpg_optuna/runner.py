@@ -23,7 +23,7 @@ from app.core.fpg_rooms.config_optuna import (
 )
 from app.util.tracking import get_tracking_context
 from .exceptions import TrialTimeoutError
-from .types import FpgEvaluationResult, OptunaOptimizationResult
+from app.algorithms.types.optuna import FpgEvaluationResult, OptunaOptimizationResult
 
 EVALUATION_FN = Callable[[FpgRequirements, bool], FpgEvaluationResult]
 

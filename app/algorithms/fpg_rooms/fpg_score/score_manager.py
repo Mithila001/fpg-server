@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, Mapping, Sequence
 
-from app.algorithms.fpg_rooms.fpg_post_process.types import (
+from app.algorithms.types.public import (
     QuickPostProcessOutputPayload,
 )
 from app.algorithms.fpg_rooms.fpg_score.score_critical.inward_pocket import (

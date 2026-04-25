@@ -7,9 +7,9 @@ from typing import Any
 from app.algorithms.fpg_opening import generate_openings
 from app.algorithms.fpg_rooms import FloorPlanGenerator
 from app.algorithms.fpg_rooms.fpg_optuna import (
-    FpgEvaluationResult,
     run_optuna_optimization,
 )
+from app.algorithms.types.optuna import FpgEvaluationResult
 from app.algorithms.fpg_rooms.fpg_post_process import (
     run_final_post_process,
     run_quick_post_process,

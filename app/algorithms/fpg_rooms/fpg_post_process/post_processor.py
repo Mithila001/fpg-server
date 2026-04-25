@@ -3,16 +3,16 @@ from __future__ import annotations
 from typing import Any
 
 from .processors import run_wall_union
-from .types import (
+from app.algorithms.types.public import (
     OpeningPayload,
     PostProcessInputPayload,
     PostProcessOutputPayload,
-    ProcessContextPayload,
     QuickPostProcessOutputPayload,
     RoomBoundaryPayload,
-    RoomWallsPayload,
     WallSegmentPayload,
 )
+from app.algorithms.types.processor_outputs import RoomWallsPayload
+from app.algorithms.types.pipeline import ProcessContextPayload
 from .utils import normalize_openings, normalize_rooms
 
 
@@ -22,19 +22,28 @@ def _normalize_room_type(room_type: str) -> str:
 
 def _filter_rooms(rooms: list[RoomBoundaryPayload]) -> list[RoomBoundaryPayload]:
     return [
-        room for room in rooms if _normalize_room_type(room["type"]) != "verandaoutdoorspace"
+        room
+        for room in rooms
+        if _normalize_room_type(room["type"]) != "verandaoutdoorspace"
     ]
 
 
-def _filter_openings(openings: list[OpeningPayload], rooms: list[RoomBoundaryPayload]) -> list[OpeningPayload]:
+def _filter_openings(
+    openings: list[OpeningPayload], rooms: list[RoomBoundaryPayload]
+) -> list[OpeningPayload]:
     veranda_outdoor_room_names = {
-        room["name"] for room in rooms if _normalize_room_type(room["type"]) == "verandaoutdoorspace"
+        room["name"]
+        for room in rooms
+        if _normalize_room_type(room["type"]) == "verandaoutdoorspace"
     }
     filtered: list[OpeningPayload] = []
     for opening in openings:
         room_name = str(opening.get("room_name") or "")
         connected_room_name = str(opening.get("connected_room_name") or "")
-        if room_name in veranda_outdoor_room_names or connected_room_name in veranda_outdoor_room_names:
+        if (
+            room_name in veranda_outdoor_room_names
+            or connected_room_name in veranda_outdoor_room_names
+        ):
             continue
 
         room_type = str(opening.get("room_type") or "")
@@ -47,7 +56,9 @@ def _filter_openings(openings: list[OpeningPayload], rooms: list[RoomBoundaryPay
     return filtered
 
 
-def _build_room_outputs(room_walls: dict[str, RoomWallsPayload]) -> dict[str, dict[str, Any]]:
+def _build_room_outputs(
+    room_walls: dict[str, RoomWallsPayload],
+) -> dict[str, dict[str, Any]]:
     return {
         room_name: {
             "room_name": room_name,
@@ -99,7 +110,9 @@ def _build_doors_and_windows(
     return doors, windows
 
 
-def run_final_post_process(payload: PostProcessInputPayload) -> PostProcessOutputPayload:
+def run_final_post_process(
+    payload: PostProcessInputPayload,
+) -> PostProcessOutputPayload:
     """Heavy post processor for final layout payload shape."""
     context: ProcessContextPayload = {
         "rooms": normalize_rooms(payload.get("rooms", [])),
@@ -126,7 +139,9 @@ def run_final_post_process(payload: PostProcessInputPayload) -> PostProcessOutpu
     }
 
 
-def run_quick_post_process(payload: PostProcessInputPayload) -> QuickPostProcessOutputPayload:
+def run_quick_post_process(
+    payload: PostProcessInputPayload,
+) -> QuickPostProcessOutputPayload:
     """Post Process function for iterative post processing for algorithms"""
     context: ProcessContextPayload = {
         "rooms": normalize_rooms(payload.get("rooms", [])),
@@ -145,4 +160,3 @@ def run_quick_post_process(payload: PostProcessInputPayload) -> QuickPostProcess
         "rooms": context["rooms"],
         "wall_union": wall_union_result,
     }
-

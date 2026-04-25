@@ -2,8 +2,16 @@ from __future__ import annotations
 
 from typing import NotRequired, TypedDict
 
-from .geometry import OpeningPayload, PointPayload, RoomBoundaryPayload, WallSegmentPayload
-from .processor_outputs import CompactRoomPayload, WallUnionResultPayload
+from .geometry import (
+    OpeningPayload,
+    PointPayload,
+    RoomBoundaryPayload,
+    WallSegmentPayload,
+)
+from .processor_outputs import (
+    CompactRoomPayload,
+    WallUnionResultPayload,
+)
 
 
 class PostProcessInputPayload(TypedDict):

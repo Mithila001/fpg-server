@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..types import RoomBoundaryPayload
+from app.algorithms.types.public import RoomBoundaryPayload
 
 
 def _snap_to_grid(value: float, grid_size: float) -> float:

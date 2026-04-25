@@ -5,14 +5,15 @@ from typing import Any
 
 from ortools.sat.python import cp_model
 
-from app.algorithms.fpg_opening.types.opening import NormalizedRoom, OpeningPayload
-from app.algorithms.fpg_opening.types.opening_solver import WindowCandidate, WindowDecisionVars
+from app.algorithms.types.opening import NormalizedRoom, OpeningPayload
+from app.algorithms.types.opening_solver import WindowCandidate, WindowDecisionVars
 from app.core.fpg_opening_config import (
     CARDINAL_SIDES,
     GEOMETRIC_TOLERANCE,
     WINDOW_ELIGIBLE_ROOM_TYPES,
     normalize_room_type,
 )
+
 
 def is_window_eligible_room(room_type: str) -> bool:
     return normalize_room_type(room_type) in WINDOW_ELIGIBLE_ROOM_TYPES

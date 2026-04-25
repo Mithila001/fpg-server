@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.algorithms.fpg_opening.types.opening import NormalizedRoom
-from app.algorithms.fpg_opening.types.opening_solver import InternalDoorCandidate
+from app.algorithms.types.opening import NormalizedRoom
+from app.algorithms.types.opening_solver import InternalDoorCandidate
 
 
 _MIN_INTERNAL_DOOR_SHARED_WALL_OVERLAP = 10.0
@@ -117,11 +117,18 @@ def get_internal_door_candidates(
         for j in range(i + 1, len(all_rooms)):
             room_b = all_rooms[j]
 
-            overlap_y = _overlap_length(room_a["y"], room_a["y_end"], room_b["y"], room_b["y_end"])
-            overlap_x = _overlap_length(room_a["x"], room_a["x_end"], room_b["x"], room_b["x_end"])
+            overlap_y = _overlap_length(
+                room_a["y"], room_a["y_end"], room_b["y"], room_b["y_end"]
+            )
+            overlap_x = _overlap_length(
+                room_a["x"], room_a["x_end"], room_b["x"], room_b["x_end"]
+            )
 
             # Vertical adjacency: shared x wall and positive y overlap.
-            if overlap_y > tolerance and abs(room_a["x_end"] - room_b["x"]) <= tolerance:
+            if (
+                overlap_y > tolerance
+                and abs(room_a["x_end"] - room_b["x"]) <= tolerance
+            ):
                 span_start = max(room_a["y"], room_b["y"])
                 span_end = min(room_a["y_end"], room_b["y_end"])
                 span_length = span_end - span_start
@@ -147,7 +154,10 @@ def get_internal_door_candidates(
                 )
                 continue
 
-            if overlap_y > tolerance and abs(room_a["x"] - room_b["x_end"]) <= tolerance:
+            if (
+                overlap_y > tolerance
+                and abs(room_a["x"] - room_b["x_end"]) <= tolerance
+            ):
                 span_start = max(room_a["y"], room_b["y"])
                 span_end = min(room_a["y_end"], room_b["y_end"])
                 span_length = span_end - span_start
@@ -174,7 +184,10 @@ def get_internal_door_candidates(
                 continue
 
             # Horizontal adjacency: shared y wall and positive x overlap.
-            if overlap_x > tolerance and abs(room_a["y_end"] - room_b["y"]) <= tolerance:
+            if (
+                overlap_x > tolerance
+                and abs(room_a["y_end"] - room_b["y"]) <= tolerance
+            ):
                 span_start = max(room_a["x"], room_b["x"])
                 span_end = min(room_a["x_end"], room_b["x_end"])
                 span_length = span_end - span_start
@@ -200,7 +213,10 @@ def get_internal_door_candidates(
                 )
                 continue
 
-            if overlap_x > tolerance and abs(room_a["y"] - room_b["y_end"]) <= tolerance:
+            if (
+                overlap_x > tolerance
+                and abs(room_a["y"] - room_b["y_end"]) <= tolerance
+            ):
                 span_start = max(room_a["x"], room_b["x"])
                 span_end = min(room_a["x_end"], room_b["x_end"])
                 span_length = span_end - span_start
