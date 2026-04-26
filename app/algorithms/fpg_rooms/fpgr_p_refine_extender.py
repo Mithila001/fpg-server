@@ -36,6 +36,7 @@ def run_refine_profile_extender(
             message="Refine extender skipped because initial layout is empty",
         )
 
+    print(f"Requirements for refine extender:\n{requirements}\n")
     control_panel = ConstraintControlPanel.refine_profile_extender()
     core = FpgrCore(requirements, control_panel=control_panel)
     solved = core.solve(

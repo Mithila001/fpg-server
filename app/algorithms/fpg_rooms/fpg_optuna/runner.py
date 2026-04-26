@@ -136,38 +136,23 @@ def run_optuna_optimization(
 
             if not graph_result.score.usable_layout:
                 trial.set_user_attr("status", "graph_unusable")
-                best_run_by_trial[trial.number] = FpgEvaluationResult(
-                    solved=False,
-                    solution=[],
-                    score_report=None,
-                    status="graph_unusable",
-                    message="Graph layout marked as not usable.",
-                )
+                trial.set_user_attr("composite_score", 0.0)
                 print(
                     f"[Optuna] trial={trial.number} graph={graph_score:.2f} "
                     f"graph_w={weighted_graph_score:.2f} solver=SKIP reason=graph_unusable "
-                    f"composite={weighted_graph_score:.2f}"
+                    f"composite=0.00"
                 )
-                return weighted_graph_score
+                return 0.0
 
-            if graph_score < TRIAL_GRAPH_SOLVER_GATE_THRESHOLD:
+            if graph_score <= TRIAL_GRAPH_SOLVER_GATE_THRESHOLD:
                 trial.set_user_attr("status", "graph_below_solver_gate")
-                best_run_by_trial[trial.number] = FpgEvaluationResult(
-                    solved=False,
-                    solution=[],
-                    score_report=None,
-                    status="graph_below_solver_gate",
-                    message=(
-                        "Graph score below solver gate threshold "
-                        f"{TRIAL_GRAPH_SOLVER_GATE_THRESHOLD:.1f}."
-                    ),
-                )
+                trial.set_user_attr("composite_score", 0.0)
                 print(
                     f"[Optuna] trial={trial.number} graph={graph_score:.2f} "
                     f"graph_w={weighted_graph_score:.2f} solver=SKIP reason=graph_below_gate "
-                    f"gate={TRIAL_GRAPH_SOLVER_GATE_THRESHOLD:.2f} composite={weighted_graph_score:.2f}"
+                    f"gate={TRIAL_GRAPH_SOLVER_GATE_THRESHOLD:.2f} composite=0.00"
                 )
-                return weighted_graph_score
+                return 0.0
 
             # Stage 2: Inner Solver Evaluation (Inject Hint Logic)
             point_hints = [
@@ -192,8 +177,6 @@ def run_optuna_optimization(
             # Execute run_solver_with_hints securely.
             trial.set_user_attr("solver_invoked", True)
             run_result = evaluator(inner_requirements, False)
-
-            best_run_by_trial[trial.number] = run_result
             trial.set_user_attr("status", run_result.status)
             trial.set_user_attr("solved", run_result.solved)
 
@@ -201,21 +184,34 @@ def run_optuna_optimization(
                 debug_log_data(
                     run_result.score_report, tag="[Optuna] Solver Failure Result"
                 )
+                trial.set_user_attr("composite_score", 0.0)
                 print(
                     f"[Optuna] trial={trial.number} graph={graph_score:.2f} "
-                    f"graph_w={weighted_graph_score:.2f} solver=FAILED composite={weighted_graph_score:.2f}"
+                    f"graph_w={weighted_graph_score:.2f} solver=FAILED composite=0.00"
                 )
-                return weighted_graph_score
+                return 0.0
 
             solver_score = float(run_result.score_report.total_score)
             weighted_solver_score = _weighted_solver_score(solver_score)
-            final_composite_score = weighted_graph_score + weighted_solver_score
             solver_passed = solver_score >= MINIMUM_REQUIRED_FPG_SCORE
 
             trial.set_user_attr("solver_score", solver_score)
             trial.set_user_attr("solver_weighted_score", weighted_solver_score)
             trial.set_user_attr("solver_passed", solver_passed)
+
+            if not solver_passed:
+                trial.set_user_attr("composite_score", 0.0)
+                print(
+                    f"[Optuna] trial={trial.number} graph={graph_score:.2f} graph_w={weighted_graph_score:.2f} "
+                    f"solver={solver_score:.2f} solver_w={weighted_solver_score:.2f} "
+                    f"composite=0.00 solver_passed=False"
+                )
+                return 0.0
+
+            final_composite_score = weighted_graph_score + weighted_solver_score
             trial.set_user_attr("composite_score", final_composite_score)
+
+            best_run_by_trial[trial.number] = run_result
 
             debug_log_data(
                 run_result.score_report, tag="[Optuna] Solver Success Result"
@@ -276,14 +272,6 @@ def run_optuna_optimization(
     best_params = dict(study.best_params) if study.best_trial else {}
 
     best_run = best_run_by_trial.get(best_trial_number)
-    if best_run is None:
-        best_run = FpgEvaluationResult(
-            solved=False,
-            solution=[],
-            score_report=None,
-            status="missing_best_run",
-            message="Optuna trial result cache empty for the best trial.",
-        )
 
     return OptunaOptimizationResult(
         study.study_name,

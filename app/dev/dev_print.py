@@ -6,8 +6,22 @@ from datetime import datetime
 def debug_log_data(data, tag="NO_TAG"):
     """
     Log data with a specific tag to identify the source or type of log.
+    Includes a flag and filter list to control which tags are recorded.
     """
-    # 1. Get the directory where dev_print.py is located
+    # --- CONFIGURATION ---
+    ENABLE_FILTER = True  # The bool flag
+    TAG_FILTER = [
+        "EXTENDER_PLACEMENT_SOFT",
+        "EXTENDER_WALL_ATTACHMENT",
+        "NO_TAG",
+    ]  # Hardcoded list of allowed tags
+    # ---------------------
+
+    # If filtering is ON and the tag isn't in our allowed list, skip logging
+    if ENABLE_FILTER and tag not in TAG_FILTER:
+        return
+
+    # 1. Get the directory where the current file is located
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     # 2. Navigate up to project root (fpg-server)
@@ -21,7 +35,7 @@ def debug_log_data(data, tag="NO_TAG"):
 
     log_file_path = os.path.join(log_dir, "debug_logs.jsonl")
 
-    # Structure the log entry: timestamp, then tag, then the data
+    # Structure the log entry
     log_entry = {"timestamp": datetime.now().isoformat(), "tag": tag, "payload": data}
 
     try:
@@ -29,7 +43,7 @@ def debug_log_data(data, tag="NO_TAG"):
             f.write(
                 json.dumps(
                     log_entry,
-                    # Handle custom classes/objects like FpgRequirements
+                    # Handle custom classes/objects
                     default=lambda o: o.__dict__ if hasattr(o, "__dict__") else str(o),
                     ensure_ascii=False,
                 )

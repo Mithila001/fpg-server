@@ -129,7 +129,7 @@ def normalize_db_data_requirements(
 
     normalized.append(
         RoomData(
-            name="Living Room",
+            name="livingRoom1",
             type="livingRoom",
             min_w=living_min_w,
             min_h=living_min_h,

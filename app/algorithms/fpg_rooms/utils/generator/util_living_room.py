@@ -17,7 +17,7 @@ def generate_living_room(requirements: FpgRequirements) -> Room:
     min_w, min_h, max_w, max_h = _get_living_room_requirements(requirements)
 
     living_room = Room(
-        "Living Room",
+        "livingRoom1",
         min_w,
         min_h,
         max_w,
