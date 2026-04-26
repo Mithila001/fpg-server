@@ -26,6 +26,7 @@ from app.core.fpg_rooms.config_optuna import (
 from app.dev.dev_print import debug_log_data
 from app.util.tracking import get_tracking_context
 from .exceptions import TrialTimeoutError
+from .sampling_logic import RoomAwareTPESampler, RoomSamplingPolicy
 from app.algorithms.types.solvers import FpgEvaluationResult, OptunaOptimizationResult
 
 EVALUATION_FN = Callable[[FpgRequirements, bool], FpgEvaluationResult]
@@ -82,6 +83,7 @@ def run_optuna_optimization(
     """Run graph-first Optuna trials and invoke solver only for high-scoring graph candidates."""
     best_run_by_trial: dict[int, FpgEvaluationResult] = {}
     controller = OptunaOptimizationController()
+    sampling_policy = RoomSamplingPolicy()
 
     optuna.logging.set_verbosity(optuna.logging.WARN)
 
@@ -100,14 +102,27 @@ def run_optuna_optimization(
 
             boundary = build_boundary(base_requirements)
             print(f"\nHallway Count {hallway_count}\n")
-            trial_nodes = build_nodes(
-                base_requirements, hallway_count_override=hallway_count
+            trial_nodes = sampling_policy.sort_nodes_for_sampling(
+                build_nodes(base_requirements, hallway_count_override=hallway_count)
             )
             # print(f"\nBase Requirements: {base_requirements}\n")
 
             explicit_positions: dict[str, tuple[float, float]] = {}
+            sampled_positions: dict[str, dict[str, float | str]] = {}
             used_positions: set[tuple[float, float]] = set()
             for node in trial_nodes:
+                trial.set_user_attr(
+                    "fpg_current_room_context",
+                    {
+                        "room_id": node.id,
+                        "room_name": node.name,
+                        "room_type": node.room_type,
+                        "radius": node.radius,
+                        "floor_width": boundary.width,
+                        "floor_height": boundary.height,
+                    },
+                )
+
                 min_x = node.radius
                 max_x = max(min_x, boundary.width - node.radius)
                 min_y = node.radius
@@ -115,21 +130,17 @@ def run_optuna_optimization(
 
                 min_x_idx = int(math.ceil(min_x / OPTUNA_SEARCH_SPACE_GRID_SCALE))
                 max_x_idx = int(math.floor(max_x / OPTUNA_SEARCH_SPACE_GRID_SCALE))
-                min_y_idx = int(math.ceil(min_y / OPTUNA_SEARCH_SPACE_GRID_SCALE))
-                max_y_idx = int(math.floor(max_y / OPTUNA_SEARCH_SPACE_GRID_SCALE))
-
                 if min_x_idx > max_x_idx:
                     x_idx = min_x_idx
                 else:
                     x_idx = trial.suggest_int(f"{node.id}_x_idx", min_x_idx, max_x_idx)
 
-                if min_y_idx > max_y_idx:
-                    y_idx = min_y_idx
+                if min_y > max_y:
+                    sample_y = float(min_y)
                 else:
-                    y_idx = trial.suggest_int(f"{node.id}_y_idx", min_y_idx, max_y_idx)
+                    sample_y = trial.suggest_float(f"{node.id}_y", min_y, max_y)
 
                 sample_x = float(x_idx * OPTUNA_SEARCH_SPACE_GRID_SCALE)
-                sample_y = float(y_idx * OPTUNA_SEARCH_SPACE_GRID_SCALE)
                 sampled_position = (sample_x, sample_y)
 
                 if sampled_position in used_positions:
@@ -143,6 +154,13 @@ def run_optuna_optimization(
 
                 used_positions.add(sampled_position)
                 explicit_positions[node.id] = (sample_x, sample_y)
+                sampled_positions[node.id] = {
+                    "type": node.room_type,
+                    "x": sample_x,
+                    "y": sample_y,
+                    "radius": node.radius,
+                }
+                trial.set_user_attr("fpg_sampled_positions", sampled_positions)
 
             # Stage 1: Fast Graph Construction
             graph_result = run_graph_layout(
@@ -281,7 +299,7 @@ def run_optuna_optimization(
         except TrialTimeoutError:
             study.stop()
 
-    sampler = optuna.samplers.TPESampler()
+    sampler = RoomAwareTPESampler(policy=sampling_policy)
     study = optuna.create_study(
         direction="maximize",
         sampler=sampler,
