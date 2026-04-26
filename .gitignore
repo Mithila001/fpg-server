@@ -76,3 +76,4 @@ optuna_fpg.db
 
 
 test/outputs/*
+logs/*
