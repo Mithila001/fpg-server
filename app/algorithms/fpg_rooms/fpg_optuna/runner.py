@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import math
 import time
 from typing import Callable
 
@@ -28,6 +29,7 @@ from .exceptions import TrialTimeoutError
 from app.algorithms.types.solvers import FpgEvaluationResult, OptunaOptimizationResult
 
 EVALUATION_FN = Callable[[FpgRequirements, bool], FpgEvaluationResult]
+OPTUNA_SEARCH_SPACE_GRID_SCALE = 10
 
 
 def _normalize_score(score: float, max_score: float) -> float:
@@ -104,14 +106,42 @@ def run_optuna_optimization(
             # print(f"\nBase Requirements: {base_requirements}\n")
 
             explicit_positions: dict[str, tuple[float, float]] = {}
+            used_positions: set[tuple[float, float]] = set()
             for node in trial_nodes:
                 min_x = node.radius
                 max_x = max(min_x, boundary.width - node.radius)
                 min_y = node.radius
                 max_y = max(min_y, boundary.height - node.radius)
 
-                sample_x = trial.suggest_float(f"{node.id}_x", min_x, max_x)
-                sample_y = trial.suggest_float(f"{node.id}_y", min_y, max_y)
+                min_x_idx = int(math.ceil(min_x / OPTUNA_SEARCH_SPACE_GRID_SCALE))
+                max_x_idx = int(math.floor(max_x / OPTUNA_SEARCH_SPACE_GRID_SCALE))
+                min_y_idx = int(math.ceil(min_y / OPTUNA_SEARCH_SPACE_GRID_SCALE))
+                max_y_idx = int(math.floor(max_y / OPTUNA_SEARCH_SPACE_GRID_SCALE))
+
+                if min_x_idx > max_x_idx:
+                    x_idx = min_x_idx
+                else:
+                    x_idx = trial.suggest_int(f"{node.id}_x_idx", min_x_idx, max_x_idx)
+
+                if min_y_idx > max_y_idx:
+                    y_idx = min_y_idx
+                else:
+                    y_idx = trial.suggest_int(f"{node.id}_y_idx", min_y_idx, max_y_idx)
+
+                sample_x = float(x_idx * OPTUNA_SEARCH_SPACE_GRID_SCALE)
+                sample_y = float(y_idx * OPTUNA_SEARCH_SPACE_GRID_SCALE)
+                sampled_position = (sample_x, sample_y)
+
+                if sampled_position in used_positions:
+                    trial.set_user_attr("status", "duplicate_grid_position")
+                    trial.set_user_attr("composite_score", 0.0)
+                    print(
+                        f"[Optuna] trial={trial.number} solver=SKIP reason=duplicate_grid_position "
+                        f"node={node.id} position={sampled_position}"
+                    )
+                    return 0.0
+
+                used_positions.add(sampled_position)
                 explicit_positions[node.id] = (sample_x, sample_y)
 
             # Stage 1: Fast Graph Construction
