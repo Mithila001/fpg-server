@@ -327,6 +327,53 @@ Prevents extender rooms from floating independently.
 Keeps the optional extension tied to the chosen parent room.
 Relies on extender metadata surviving requirement normalization.
 
+# Extender Room Size Activation (extenders/extender_room_size.py)
+
+- Type: Hard
+- Currently Used: Yes when hard_extender_wall_attachment toggle is on
+
+## Description
+
+Adds active/inactive sizing logic for extender rooms.
+If an extender is active, width and height must each be at least 10.
+If inactive, width and height are both forced to 0.
+
+## Parameters
+
+model
+rooms
+min_active_w (default 10)
+min_active_h (default 10)
+
+## Constraint Impact
+
+Prevents ambiguous partial extenders with tiny non-zero dimensions.
+Allows true opt-out behavior by forcing exact zero-size inactive state.
+Stabilizes extender semantics before wall-attachment and objective scoring.
+
+# Extender Placement Soft Penalty (extenders/extender_placement_soft.py)
+
+- Type: Soft
+- Currently Used: Yes when soft_extender_placement_penalty toggle is on
+
+## Description
+
+Applies penalty only when an extender is active and below active minimum size.
+Inactive extenders (w=0, h=0) receive zero extender-size penalty.
+Uses active-state gating to avoid forcing optional extenders active through objective pressure.
+
+## Parameters
+
+model
+rooms
+weight
+
+## Constraint Impact
+
+Avoids negative objective pressure on inactive optional extenders.
+Keeps soft scoring aligned with active/inactive hard sizing behavior.
+Reduces risk of objective conflict with explicit minimum width/height rules.
+
 # Soft Room Adjacency Preference (soft_room_adjacency.py)
 
 - Type: Soft

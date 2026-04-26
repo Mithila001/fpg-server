@@ -193,7 +193,7 @@ def _run_single_fpg_solve(
     # print(f"Final extender rooms: {extender_rooms}\n")
 
     # --- PASS 3: Standard Refine (The "rest") ---
-    refine_result2 = run_refine_profile_1(
+    refine_result2 = run_refine_profile_extender(
         requirements=requirements_with_extenders,
         initial_rooms=extender_rooms,
         wiggle_room=5,
@@ -203,7 +203,7 @@ def _run_single_fpg_solve(
     stage3_rooms = refine_result2.rooms if refine_result2.rooms else extender_rooms
 
     # --- PASS 4: Standard Refine ---
-    refine_result3 = run_refine_profile_1(
+    refine_result3 = run_refine_profile_extender(
         requirements=requirements_with_extenders,
         initial_rooms=stage3_rooms,
         wiggle_room=5,
@@ -213,7 +213,7 @@ def _run_single_fpg_solve(
     stage4_rooms = refine_result3.rooms if refine_result3.rooms else stage3_rooms
 
     # --- PASS 5: Standard Refine ---
-    refine_result4 = run_refine_profile_1(
+    refine_result4 = run_refine_profile_extender(
         requirements=requirements_with_extenders,
         initial_rooms=stage4_rooms,
         wiggle_room=5,
