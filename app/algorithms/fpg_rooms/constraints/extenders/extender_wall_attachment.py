@@ -17,6 +17,10 @@ if TYPE_CHECKING:
     from app.algorithms.fpg_rooms.solver_models.room import Room
 
 
+# Max depth of extender protrusion away from the parent wall.
+EXTENDER_PERPENDICULAR_MAX = 20
+
+
 def add_extender_wall_attachment_constraint(
     model: Any,
     rooms: list[Room],
@@ -112,10 +116,14 @@ def add_single_extender_wall_constraint(
     assert parent.y is not None
     assert parent.x_end is not None
     assert parent.y_end is not None
+    assert parent.w is not None
+    assert parent.h is not None
     assert extender.x is not None
     assert extender.y is not None
     assert extender.x_end is not None
     assert extender.y_end is not None
+    assert extender.w is not None
+    assert extender.h is not None
 
     # Prefix ensures variables are unique even if the same extender is checked against multiple parents
     prefix = f"{extender.name}_to_{parent.name}"
@@ -141,18 +149,26 @@ def add_single_extender_wall_constraint(
     model.Add(extender.y_end == parent.y).OnlyEnforceIf(south_side)
     model.Add(parent.x <= extender.x).OnlyEnforceIf(south_side)
     model.Add(extender.x_end <= parent.x_end).OnlyEnforceIf(south_side)
+    model.Add(extender.h <= EXTENDER_PERPENDICULAR_MAX).OnlyEnforceIf(south_side)
+    model.Add(extender.w <= parent.w).OnlyEnforceIf(south_side)
 
     # North side: extender above parent
     model.Add(extender.y == parent.y_end).OnlyEnforceIf(north_side)
     model.Add(parent.x <= extender.x).OnlyEnforceIf(north_side)
     model.Add(extender.x_end <= parent.x_end).OnlyEnforceIf(north_side)
+    model.Add(extender.h <= EXTENDER_PERPENDICULAR_MAX).OnlyEnforceIf(north_side)
+    model.Add(extender.w <= parent.w).OnlyEnforceIf(north_side)
 
     # East side: extender to the right of parent
     model.Add(extender.x == parent.x_end).OnlyEnforceIf(east_side)
     model.Add(parent.y <= extender.y).OnlyEnforceIf(east_side)
     model.Add(extender.y_end <= parent.y_end).OnlyEnforceIf(east_side)
+    model.Add(extender.w <= EXTENDER_PERPENDICULAR_MAX).OnlyEnforceIf(east_side)
+    model.Add(extender.h <= parent.h).OnlyEnforceIf(east_side)
 
     # West side: extender to the left of parent
     model.Add(extender.x_end == parent.x).OnlyEnforceIf(west_side)
     model.Add(parent.y <= extender.y).OnlyEnforceIf(west_side)
     model.Add(extender.y_end <= parent.y_end).OnlyEnforceIf(west_side)
+    model.Add(extender.w <= EXTENDER_PERPENDICULAR_MAX).OnlyEnforceIf(west_side)
+    model.Add(extender.h <= parent.h).OnlyEnforceIf(west_side)
