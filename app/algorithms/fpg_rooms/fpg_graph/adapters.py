@@ -138,6 +138,13 @@ def build_edges(
                 rule_kind=rule_kind,
             )
 
+    def _node_degree(node_id: str) -> int:
+        degree = 0
+        for edge in weighted_pairs.values():
+            if edge.source_id == node_id or edge.target_id == node_id:
+                degree += 1
+        return degree
+
     # 1. Process explicit Relation Constraints (Keep your existing logic here)
     for raw_rule in relation_constraints:
         relation = _coerce_relation(raw_rule)
@@ -209,6 +216,32 @@ def build_edges(
         for room in public_rooms:
             closest_hallway = min(hallways, key=lambda h: pair_distance(room, h))
             add_pair(room.id, closest_hallway.id, 1.0, "hallway_public_cluster")
+
+    # Ensure every hallway participates in the graph connectivity when possible.
+    living_rooms = nodes_by_type.get("livingRoom", [])
+    non_veranda_rooms = [n for n in nodes if n.room_type not in {"hallway", "veranda"}]
+    for hallway in hallways:
+        if _node_degree(hallway.id) > 0:
+            continue
+
+        fallback_room: GraphNode | None = None
+        if living_rooms:
+            fallback_room = min(
+                living_rooms, key=lambda room: pair_distance(hallway, room)
+            )
+        elif non_veranda_rooms:
+            fallback_room = min(
+                non_veranda_rooms,
+                key=lambda room: pair_distance(hallway, room),
+            )
+
+        if fallback_room is not None:
+            add_pair(
+                fallback_room.id,
+                hallway.id,
+                0.95,
+                "hallway_coverage_fallback",
+            )
 
     # 3. Existing Dining Path Logic (Optional: Keep or remove based on preference)
     dining_rooms = nodes_by_type.get("diningRoom", [])
