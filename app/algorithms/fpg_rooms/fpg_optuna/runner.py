@@ -189,6 +189,7 @@ def run_optuna_optimization(
                 requirements=base_requirements,
                 hallway_count_override=hallway_count,
                 explicit_positions=explicit_positions,
+                plot_base_name=f"trial_{trial.number}_phase_layout",
                 physics_config=GraphPhysicsConfig(
                     use_staged_node_sizing=True,
                     staged_uniform_radius=OPTUNA_GRAPH_PHASE1_UNIFORM_RADIUS,
