@@ -3,6 +3,8 @@ from __future__ import annotations
 import math
 import os
 from typing import Any, Dict, Sequence, Tuple
+from matplotlib.patches import Rectangle as MplRectangle
+from matplotlib.lines import Line2D as MplLine2D
 
 from shapely.geometry import box, LineString
 from shapely.ops import unary_union
@@ -14,6 +16,9 @@ from ..utils import (
     iter_segments,
     segment_orientation,
 )
+
+MplRectangle: Any
+MplLine2D: Any
 
 
 def _plot_inward_pocket_debug(
@@ -43,7 +48,8 @@ def _plot_inward_pocket_debug(
 
     try:
         import matplotlib.pyplot as plt
-        from matplotlib.patches import Polygon as MplPolygon
+        from matplotlib.patches import Polygon as MplPolygon, Rectangle as MplRectangle
+        from matplotlib.lines import Line2D as MplLine2D
     except ImportError as exc:
         print(
             f"Unable to save inward pocket debug plot because matplotlib is not installed: {exc}"
@@ -57,7 +63,9 @@ def _plot_inward_pocket_debug(
             y = float(room["y"])
             w = float(room["x_end"]) - x
             h = float(room["y_end"]) - y
-            rect = plt.Rectangle((x, y), w, h, facecolor="lightblue", edgecolor="black", alpha=0.3)
+            rect = MplRectangle(
+                (x, y), w, h, facecolor="lightblue", edgecolor="black", alpha=0.3
+            )
             ax.add_patch(rect)
 
     def _draw_polygon(ax: Any, polygon: Any, **kwargs: Any) -> None:
@@ -76,8 +84,12 @@ def _plot_inward_pocket_debug(
             xs, ys = segment.xy
             ax.plot(xs, ys, **kwargs)
 
-    all_x = [float(room["x"]) for room in rooms] + [float(room["x_end"]) for room in rooms]
-    all_y = [float(room["y"]) for room in rooms] + [float(room["y_end"]) for room in rooms]
+    all_x = [float(room["x"]) for room in rooms] + [
+        float(room["x_end"]) for room in rooms
+    ]
+    all_y = [float(room["y"]) for room in rooms] + [
+        float(room["y_end"]) for room in rooms
+    ]
     padding = max(1.0, max(all_x) - min(all_x), max(all_y) - min(all_y))
     x_min = min(all_x) - padding * 0.05
     x_max = max(all_x) + padding * 0.05
@@ -116,7 +128,14 @@ def _plot_inward_pocket_debug(
     _draw_segments(axes[1], tracked_segments, color="orange", linewidth=2)
     _draw_segments(axes[2], bad_segments, color="red", linewidth=3)
 
-    axes[0].legend([plt.Line2D([0], [0], color="lightblue", lw=10, alpha=0.3), plt.Line2D([0], [0], color="red", lw=10, alpha=0.35)], ["rooms", "pockets"], frameon=False)
+    axes[0].legend(
+        [
+            MplLine2D([0], [0], color="lightblue", lw=10, alpha=0.3),
+            MplLine2D([0], [0], color="red", lw=10, alpha=0.35),
+        ],
+        ["rooms", "pockets"],
+        frameon=False,
+    )
 
     import uuid
     from datetime import datetime
@@ -144,9 +163,8 @@ def detect_inward_pocket_violation(
         "tolerance": float(tolerance),
         "geometry_status": "ok",
     }
-    
-    
-    detect_inward_pocket_violation_v2(rooms,max_inward_length, tolerance)
+
+    detect_inward_pocket_violation_v2(rooms, max_inward_length, tolerance)
 
     if not rooms:
         diagnostics["geometry_status"] = "no_rooms"
@@ -207,19 +225,26 @@ def detect_inward_pocket_violation(
             start = (float(coords[0][0]), float(coords[0][1]))
             end = (float(coords[1][0]), float(coords[1][1]))
 
-            start_on_hull_contact = is_close_to_any(start, hull_contacts, float(tolerance) * 10.0)
-            end_on_hull_contact = is_close_to_any(end, hull_contacts, float(tolerance) * 10.0)
+            start_on_hull_contact = is_close_to_any(
+                start, hull_contacts, float(tolerance) * 10.0
+            )
+            end_on_hull_contact = is_close_to_any(
+                end, hull_contacts, float(tolerance) * 10.0
+            )
 
             # Inward walls generally connect hull-contact point to deeper pocket boundary point.
-            inward_by_endpoints = (start_on_hull_contact and not end_on_hull_contact) or (
-                end_on_hull_contact and not start_on_hull_contact
-            )
+            inward_by_endpoints = (
+                start_on_hull_contact and not end_on_hull_contact
+            ) or (end_on_hull_contact and not start_on_hull_contact)
 
             if not inward_by_endpoints:
                 continue
 
             current_orientation = segment_orientation(segment, tolerance)
-            if hull_segment_orientations and current_orientation in hull_segment_orientations:
+            if (
+                hull_segment_orientations
+                and current_orientation in hull_segment_orientations
+            ):
                 continue
 
             tracked_segments.append(segment)
@@ -254,7 +279,6 @@ def detect_inward_pocket_violation(
 
     diagnostics["violating_segments"] = violating_segments
     return len(violating_segments) > 0, diagnostics
-
 
 
 def detect_inward_pocket_violation_v2(
@@ -306,7 +330,9 @@ def detect_inward_pocket_violation_v2(
         pockets=pockets,
         tolerance=tolerance,
     )
-    hull_contact_points = _extract_pocket_hull_contact_points(hull=hull, pockets=pockets)
+    hull_contact_points = _extract_pocket_hull_contact_points(
+        hull=hull, pockets=pockets
+    )
 
     _debug_steps_plotter(
         rooms=rooms,
@@ -421,7 +447,9 @@ def _iter_geometry_segments(geometry: Any) -> list[LineString]:
     return segments
 
 
-def _get_convex_orientation(hull_segments: Sequence[LineString], tolerance: float = 1e-6) -> str | None:
+def _get_convex_orientation(
+    hull_segments: Sequence[LineString], tolerance: float = 1e-6
+) -> str | None:
     if not hull_segments:
         return None
     orientation_lengths = {"horizontal": 0.0, "vertical": 0.0}
@@ -479,7 +507,9 @@ def _compute_red_pocket_angle_info(
     return pocket_infos
 
 
-def _extract_pocket_hull_contact_points(hull: Any, pockets: Any, tolerance: float = 1e-6) -> list[tuple[float, float]]:
+def _extract_pocket_hull_contact_points(
+    hull: Any, pockets: Any, tolerance: float = 1e-6
+) -> list[tuple[float, float]]:
     points: list[tuple[float, float]] = []
     for pocket in iter_polygons(pockets):
         contact_geom = pocket.exterior.intersection(hull.boundary)
@@ -532,7 +562,9 @@ def _debug_steps_plotter(
             y = float(room["y"])
             w = float(room["x_end"]) - x
             h = float(room["y_end"]) - y
-            rect = plt.Rectangle((x, y), w, h, facecolor="lightblue", edgecolor="black", alpha=0.4)
+            rect = MplRectangle(
+                (x, y), w, h, facecolor="lightblue", edgecolor="black", alpha=0.4
+            )
             ax.add_patch(rect)
 
     def _draw_polygon(ax: Any, polygon: Any, **kwargs: Any) -> None:
@@ -568,8 +600,12 @@ def _debug_steps_plotter(
     pockets_info = pockets_info
     hull_contact_points = hull_contact_points
 
-    all_x = [float(room["x"]) for room in rooms] + [float(room["x_end"]) for room in rooms]
-    all_y = [float(room["y"]) for room in rooms] + [float(room["y_end"]) for room in rooms]
+    all_x = [float(room["x"]) for room in rooms] + [
+        float(room["x_end"]) for room in rooms
+    ]
+    all_y = [float(room["y"]) for room in rooms] + [
+        float(room["y_end"]) for room in rooms
+    ]
     padding = max(1.0, max(all_x) - min(all_x), max(all_y) - min(all_y))
     x_min = min(all_x) - padding * 0.05
     x_max = max(all_x) + padding * 0.05
@@ -601,9 +637,9 @@ def _debug_steps_plotter(
     _draw_polygon(axes[0], pockets, facecolor="red", edgecolor="darkred", alpha=0.25)
     axes[0].legend(
         [
-            plt.Line2D([0], [0], color="lightblue", lw=10, alpha=0.4),
-            plt.Line2D([0], [0], color="black", lw=2, linestyle="--"),
-            plt.Line2D([0], [0], color="red", lw=10, alpha=0.25),
+            MplLine2D([0], [0], color="lightblue", lw=10, alpha=0.4),
+            MplLine2D([0], [0], color="black", lw=2, linestyle="--"),
+            MplLine2D([0], [0], color="red", lw=10, alpha=0.25),
         ],
         ["rooms", "convex hull", "pockets"],
         frameon=False,
@@ -616,23 +652,44 @@ def _debug_steps_plotter(
 
     for pocket_info in pockets_info:
         wall_color = "yellow" if len(pocket_info["outer_segments"]) == 2 else "red"
-        _draw_segments(axes[1], pocket_info["outer_segments"], color=wall_color, linewidth=4)
-        _draw_segments(axes[1], pocket_info["hull_segments"], color="green", linewidth=3)
+        _draw_segments(
+            axes[1], pocket_info["outer_segments"], color=wall_color, linewidth=4
+        )
+        _draw_segments(
+            axes[1], pocket_info["hull_segments"], color="green", linewidth=3
+        )
 
     if hull_contact_points:
         xs, ys = zip(*hull_contact_points)
-        axes[1].scatter(xs, ys, color="magenta", edgecolor="black", linewidth=1.5, s=120, zorder=6)
+        axes[1].scatter(
+            xs, ys, color="magenta", edgecolor="black", linewidth=1.5, s=120, zorder=6
+        )
 
     axes[1].legend(
         [
-            plt.Line2D([0], [0], color="lightblue", lw=10, alpha=0.4),
-            plt.Line2D([0], [0], color="black", lw=2, linestyle="--"),
-            plt.Line2D([0], [0], color="yellow", lw=4),
-            plt.Line2D([0], [0], color="red", lw=4),
-            plt.Line2D([0], [0], color="green", lw=3),
-            plt.Line2D([0], [0], marker="o", color="magenta", linestyle="", markersize=10, markeredgecolor="black"),
+            MplLine2D([0], [0], color="lightblue", lw=10, alpha=0.4),
+            MplLine2D([0], [0], color="black", lw=2, linestyle="--"),
+            MplLine2D([0], [0], color="yellow", lw=4),
+            MplLine2D([0], [0], color="red", lw=4),
+            MplLine2D([0], [0], color="green", lw=3),
+            MplLine2D(
+                [0],
+                [0],
+                marker="o",
+                color="magenta",
+                linestyle="",
+                markersize=10,
+                markeredgecolor="black",
+            ),
         ],
-        ["rooms", "convex hull", "2-wall pockets", "other pocket walls", "pocket convex lines", "hull contact points"],
+        [
+            "rooms",
+            "convex hull",
+            "2-wall pockets",
+            "other pocket walls",
+            "pocket convex lines",
+            "hull contact points",
+        ],
         frameon=False,
     )
 
@@ -642,15 +699,19 @@ def _debug_steps_plotter(
     for pocket_info in pockets_info:
         if not pocket_info["is_red_pocket"]:
             continue
-        _draw_segments(axes[2], pocket_info["hull_segments"], color="green", linewidth=3)
-        _draw_segments(axes[2], pocket_info["opposing_segments"], color="purple", linewidth=4)
+        _draw_segments(
+            axes[2], pocket_info["hull_segments"], color="green", linewidth=3
+        )
+        _draw_segments(
+            axes[2], pocket_info["opposing_segments"], color="purple", linewidth=4
+        )
 
     axes[2].legend(
         [
-            plt.Line2D([0], [0], color="lightblue", lw=10, alpha=0.4),
-            plt.Line2D([0], [0], color="red", lw=10, alpha=0.25),
-            plt.Line2D([0], [0], color="green", lw=3),
-            plt.Line2D([0], [0], color="purple", lw=4),
+            MplLine2D([0], [0], color="lightblue", lw=10, alpha=0.4),
+            MplLine2D([0], [0], color="red", lw=10, alpha=0.25),
+            MplLine2D([0], [0], color="green", lw=3),
+            MplLine2D([0], [0], color="purple", lw=4),
         ],
         ["rooms", "pockets", "pocket convex lines", "opposing walls"],
         frameon=False,

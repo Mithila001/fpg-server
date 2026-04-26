@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from ortools.sat.python import cp_model
 
 from app.core.fpg_rooms.config_fpg import (
@@ -21,13 +23,13 @@ def _non_empty_sides(apply_sides: set[str]) -> set[str]:
 
 
 def _axis_overlap_bool(
-    model: cp_model.CpModel,
+    model: Any,
     a_start: cp_model.IntVar,
     a_end: cp_model.IntVar,
     b_start: cp_model.IntVar,
     b_end: cp_model.IntVar,
     name: str,
-) -> cp_model.BoolVar:
+) -> cp_model.IntVar:
     overlap = model.NewBoolVar(name)
 
     a_before_b = model.NewBoolVar(f"{name}_a_before_b")
@@ -47,11 +49,11 @@ def _axis_overlap_bool(
 
 
 def _ordered_bool(
-    model: cp_model.CpModel,
+    model: Any,
     lhs: cp_model.IntVar,
     rhs: cp_model.IntVar,
     strict_less_name: str,
-) -> cp_model.BoolVar:
+) -> cp_model.IntVar:
     lhs_less_rhs = model.NewBoolVar(strict_less_name)
     model.Add(lhs <= rhs - 1).OnlyEnforceIf(lhs_less_rhs)
     model.Add(lhs >= rhs).OnlyEnforceIf(lhs_less_rhs.Not())
@@ -59,10 +61,10 @@ def _ordered_bool(
 
 
 def _or_of_literals(
-    model: cp_model.CpModel,
-    literals: list[cp_model.BoolVar],
+    model: Any,
+    literals: list[cp_model.IntVar],
     name: str,
-) -> cp_model.BoolVar:
+) -> cp_model.IntVar:
     if not literals:
         literal = model.NewBoolVar(name)
         model.Add(literal == 0)
@@ -76,11 +78,11 @@ def _or_of_literals(
 
 
 def _and_of_literals(
-    model: cp_model.CpModel,
-    left: cp_model.BoolVar,
-    right: cp_model.BoolVar,
+    model: Any,
+    left: cp_model.IntVar,
+    right: cp_model.IntVar,
     name: str,
-) -> cp_model.BoolVar:
+) -> cp_model.IntVar:
     out = model.NewBoolVar(name)
     model.AddBoolAnd([left, right]).OnlyEnforceIf(out)
     model.AddBoolOr([left.Not(), right.Not()]).OnlyEnforceIf(out.Not())
@@ -88,9 +90,9 @@ def _and_of_literals(
 
 
 def _enforce_positive_gap_bounds(
-    model: cp_model.CpModel,
+    model: Any,
     gap_var: cp_model.IntVar,
-    is_exterior: cp_model.BoolVar,
+    is_exterior: cp_model.IntVar,
     min_gap: int,
     max_gap: int,
     prefix: str,
@@ -110,7 +112,7 @@ def _enforce_positive_gap_bounds(
 
 
 def add_envelope_staircase_constraints(
-    model: cp_model.CpModel,
+    model: Any,
     rooms: list[Room],
     floor_width: int,
     floor_height: int,
@@ -125,7 +127,7 @@ def add_envelope_staircase_constraints(
         max_gap = min_gap
 
     excluded = {t.lower() for t in (exclude_types or ENVELOPE_EXCLUDE_TYPES)}
-    sides = _non_empty_sides(apply_sides or ENVELOPE_APPLY_SIDES)
+    sides = _non_empty_sides(set(apply_sides or ENVELOPE_APPLY_SIDES))
     if not sides:
         return
 
@@ -144,14 +146,20 @@ def add_envelope_staircase_constraints(
     model.AddMaxEquality(top_outer, [room.y_end for room in eligible_rooms])
 
     for room in eligible_rooms:
-        left_blockers: list[cp_model.BoolVar] = []
-        right_blockers: list[cp_model.BoolVar] = []
-        bottom_blockers: list[cp_model.BoolVar] = []
-        top_blockers: list[cp_model.BoolVar] = []
+        assert room.x is not None and room.y is not None
+        assert room.x_end is not None and room.y_end is not None
+
+        left_blockers: list[cp_model.IntVar] = []
+        right_blockers: list[cp_model.IntVar] = []
+        bottom_blockers: list[cp_model.IntVar] = []
+        top_blockers: list[cp_model.IntVar] = []
 
         for other in eligible_rooms:
             if other is room:
                 continue
+
+            assert other.x is not None and other.y is not None
+            assert other.x_end is not None and other.y_end is not None
 
             y_overlap = _axis_overlap_bool(
                 model,

@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.algorithms.fpg_rooms.fpg_score import ScoreReport
+from ..openings import OpeningRunResult
 
 
 @dataclass
@@ -13,6 +14,10 @@ class FpgEvaluationResult:
     score_report: ScoreReport | None = None
     status: str = "UNKNOWN"
     message: str = ""
+    quick_post_process_result: dict[str, Any] | None = None
+    opening_result: OpeningRunResult | None = None
+    refine_status: str = ""
+    refine_message: str = ""
 
 
 @dataclass

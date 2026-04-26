@@ -7,7 +7,7 @@ from ...utils.seed_layout import build_seed_layout_context
 
 
 def apply_seed_layout_hints_with_wiggle(
-    model: cp_model.CpModel,
+    model: Any,
     rooms: list[Room],
     seed_layout: list[dict[str, Any]],
     floor_plan_width: float,

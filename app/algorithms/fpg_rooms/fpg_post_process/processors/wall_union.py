@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+from typing import Any
+
 from shapely.geometry import box
 from shapely.ops import unary_union
 
-from ..types import RoomBoundaryPayload, RoomWallsPayload, WallSegmentPayload, WallUnionResultPayload
+from app.algorithms.types import (
+    RoomBoundaryPayload,
+    WallSegmentPayload,
+    WallUnionResultPayload,
+    RoomWallsPayload,
+)
 from ..utils import extract_unique_segments
 
 
@@ -18,7 +25,7 @@ def run_wall_union(
             "room_walls": {},
         }
 
-    room_polygons: dict[str, object] = {
+    room_polygons: dict[str, Any] = {
         room["name"]: box(room["x"], room["y"], room["x_end"], room["y_end"])
         for room in rooms
     }
@@ -30,7 +37,9 @@ def run_wall_union(
     for room in rooms:
         room_name = room["name"]
         clipped = merged_boundaries.intersection(room_polygons[room_name].boundary)
-        unique_room_walls: list[WallSegmentPayload] = extract_unique_segments(clipped, tolerance=tolerance)
+        unique_room_walls: list[WallSegmentPayload] = extract_unique_segments(
+            clipped, tolerance=tolerance
+        )
         room_walls[room_name] = {
             "room_name": room_name,
             "room_type": room["type"],

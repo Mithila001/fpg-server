@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import random
-from typing import Any
+from typing import Any, cast
 
 from ortools.sat.python import cp_model
 
@@ -39,7 +39,9 @@ from .constraints.hard.basic_constraints import add_basic_constraints
 from .constraints.hard.envelope_staircase import add_envelope_staircase_constraints
 from .constraints.hard.floor_area_coverage import add_minimum_area_coverage
 from .constraints.hard.hallway_constraints import add_hallway_constraints
-from .constraints.hard.hard_dining_room_relation import add_hard_dining_room_relation_constraint
+from .constraints.hard.hard_dining_room_relation import (
+    add_hard_dining_room_relation_constraint,
+)
 from .constraints.hard.hard_veranda_placement import add_veranda_placement_constraints
 from .constraints.hard.hard_garage_placement import add_garage_placement_constraints
 from .constraints.hard.kitchen_hallway_back_wall_setback import (
@@ -47,21 +49,32 @@ from .constraints.hard.kitchen_hallway_back_wall_setback import (
 )
 from .constraints.hard.room_adjacency_hard import apply_hard_room_adjacency_constraints
 from .constraints.hard.room_location_hard import add_living_room_bottom_most_constraint
-from .constraints.hard.room_shared_wall_constraints import add_room_shared_wall_constraints
+from .constraints.hard.room_shared_wall_constraints import (
+    add_room_shared_wall_constraints,
+)
 from .constraints.hard.room_size_hierarchy_constraints import add_room_size_hierarchy
-from .constraints.soft.bathroom_location_preference import build_bathroom_location_preference_penalty
+from .constraints.soft.bathroom_location_preference import (
+    build_bathroom_location_preference_penalty,
+)
 from .constraints.soft.compact_layout import add_center_proximity_objective
 from .constraints.soft.layout_dead_space_penalty import build_layout_dead_space_penalty
 from .constraints.soft.recessed_facade_penalty import build_recessed_facade_penalty
-from .constraints.soft.room_shared_wall_soft_refine import build_room_shared_wall_refine_penalty
-from .constraints.soft.seed_facade_alignment_penalty import build_seed_facade_alignment_penalty
+from .constraints.soft.room_shared_wall_soft_refine import (
+    build_room_shared_wall_refine_penalty,
+)
+from .constraints.soft.seed_facade_alignment_penalty import (
+    build_seed_facade_alignment_penalty,
+)
 from .constraints.soft.seed_facade_depth_penalty import build_seed_facade_depth_penalty
 from .constraints.soft.seed_layout_hints import apply_seed_layout_hints_with_wiggle
-from .constraints.soft.soft_room_adjacency import build_soft_room_adjacency_preference_vars
+from .constraints.soft.soft_room_adjacency import (
+    build_soft_room_adjacency_preference_vars,
+)
 from .rules import normalize_requirements
 from .solver_models.room import Room
-from .types.room import FpgRequirements
-from .types.room_relations_constraints import RoomRelationsConstraint
+from ..types import FpgRequirements, RoomRelationsConstraint
+from app.algorithms.types.solvers.cp_model_like import CpModelLike
+from app.schemas.db.room_relations_constraints import RoomRelationsConstraintBase
 from .utils.generator.util_hallway_rooms import (
     generate_hallway_rooms,
     prepare_requirements_for_hallway_rules,
@@ -71,7 +84,11 @@ from .utils.seed_layout import build_seed_layout_context
 
 
 class FpgrCore:
-    def __init__(self, requirements: FpgRequirements, control_panel: ConstraintControlPanel | None = None):
+    def __init__(
+        self,
+        requirements: FpgRequirements,
+        control_panel: ConstraintControlPanel | None = None,
+    ):
         requirements = normalize_requirements(requirements)
         requirements = prepare_requirements_for_hallway_rules(requirements)
         self.requirements = requirements
@@ -84,17 +101,27 @@ class FpgrCore:
         self.floor_plan_height: float = cfg.floor_plan_height
         self.min_coverage: float = cfg.min_coverage
         self.hallway_count: int = max(0, int(cfg.hallway_count))
-        self.envelope_enabled: bool = bool(getattr(cfg, "envelope_enabled", ENVELOPE_ENABLED))
-        self.envelope_min_gap: int = max(1, int(getattr(cfg, "envelope_min_gap", ENVELOPE_MIN_GAP)))
+        self.envelope_enabled: bool = bool(
+            getattr(cfg, "envelope_enabled", ENVELOPE_ENABLED)
+        )
+        self.envelope_min_gap: int = max(
+            1, int(getattr(cfg, "envelope_min_gap", ENVELOPE_MIN_GAP))
+        )
         self.envelope_max_gap: int = max(
             self.envelope_min_gap,
             int(getattr(cfg, "envelope_max_gap", ENVELOPE_MAX_GAP)),
         )
         self.envelope_exclude_types: set[str] = {
-            str(t).lower() for t in (getattr(cfg, "envelope_exclude_types", ENVELOPE_EXCLUDE_TYPES) or [])
+            str(t).lower()
+            for t in (
+                getattr(cfg, "envelope_exclude_types", ENVELOPE_EXCLUDE_TYPES) or []
+            )
         }
         self.envelope_apply_sides: set[str] = {
-            str(side).lower() for side in (getattr(cfg, "envelope_apply_sides", ENVELOPE_APPLY_SIDES) or [])
+            str(side).lower()
+            for side in (
+                getattr(cfg, "envelope_apply_sides", ENVELOPE_APPLY_SIDES) or []
+            )
         }
         self.kitchen_hallway_back_wall_setback_min_gap: int = max(
             1,
@@ -123,7 +150,16 @@ class FpgrCore:
         self.last_status_name: str = "NOT_RUN"
 
         self.rooms: list[Room] = [
-            Room(r.name, r.min_w, r.min_h, r.max_w, r.max_h, r.type, r.is_extender, r.parent_room_name)
+            Room(
+                r.name,
+                r.min_w,
+                r.min_h,
+                r.max_w,
+                r.max_h,
+                r.type,
+                r.is_extender,
+                r.parent_room_name,
+            )
             for r in self.requirements.rooms
         ]
 
@@ -181,24 +217,32 @@ class FpgrCore:
         hard_and_relation_constraints: list[RoomRelationsConstraint] = []
 
         for relation in self.relation_constraints:
-            relation_obj = RoomRelationsConstraint.model_validate(relation)
-            level = str(getattr(relation_obj, "constraint_level", "soft") or "soft").strip().lower()
+            level = (
+                str(getattr(relation, "constraint_level", "soft") or "soft")
+                .strip()
+                .lower()
+            )
             if level == "hard_and":
-                hard_and_relation_constraints.append(relation_obj)
+                hard_and_relation_constraints.append(relation)
             elif level == "hard_or":
-                hard_or_relation_constraints.append(relation_obj)
+                hard_or_relation_constraints.append(relation)
             else:
-                soft_relation_constraints.append(relation_obj)
+                soft_relation_constraints.append(relation)
 
-        hard_and_relation_constraints = self.mandatory_relations + hard_and_relation_constraints
-        
+        hard_and_relation_constraints = (
+            self.mandatory_relations + hard_and_relation_constraints
+        )
 
         if panel.hard_room_adjacency:
             apply_hard_room_adjacency_constraints(
                 self.model,
                 self.rooms,
-                hard_and_relations=hard_and_relation_constraints,
-                hard_or_relations=hard_or_relation_constraints,
+                hard_and_relations=cast(
+                    list[RoomRelationsConstraintBase], hard_and_relation_constraints
+                ),
+                hard_or_relations=cast(
+                    list[RoomRelationsConstraintBase], hard_or_relation_constraints
+                ),
                 min_overlap=GENERATOR_ADJACENCY_MIN_OVERLAP,
             )
 
@@ -206,7 +250,9 @@ class FpgrCore:
             build_soft_room_adjacency_preference_vars(
                 self.model,
                 self.rooms,
-                soft_relations=soft_relation_constraints,
+                soft_relations=cast(
+                    list[RoomRelationsConstraintBase], soft_relation_constraints
+                ),
                 min_overlap=GENERATOR_ADJACENCY_MIN_OVERLAP,
             )
 
@@ -312,10 +358,7 @@ class FpgrCore:
                 )
             )
 
-        if (
-            panel.soft_seed_facade_depth_penalty
-            and seed_context is not None
-        ):
+        if panel.soft_seed_facade_depth_penalty and seed_context is not None:
             objective_terms.append(
                 build_seed_facade_depth_penalty(
                     self.model,
@@ -327,10 +370,7 @@ class FpgrCore:
                 )
             )
 
-        if (
-            panel.soft_seed_facade_alignment_penalty
-            and seed_context is not None
-        ):
+        if panel.soft_seed_facade_alignment_penalty and seed_context is not None:
             objective_terms.append(
                 build_seed_facade_alignment_penalty(
                     self.model,
@@ -343,10 +383,7 @@ class FpgrCore:
                 )
             )
 
-        if (
-            panel.soft_recessed_facade_penalty
-            and seed_context is not None
-        ):
+        if panel.soft_recessed_facade_penalty and seed_context is not None:
             objective_terms.append(
                 build_recessed_facade_penalty(
                     self.model,
@@ -383,7 +420,7 @@ class FpgrCore:
 
         if objective_terms:
             total_cost = cp_model.LinearExpr.Sum(objective_terms)  # type: ignore
-            self.model.Minimize(total_cost)
+            cast(Any, self.model).Minimize(total_cost)
 
         print("\n === Solver Core Run")
         self.solver.parameters.max_time_in_seconds = max(0.1, float(max_time_seconds))

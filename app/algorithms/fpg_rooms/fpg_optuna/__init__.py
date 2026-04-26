@@ -1,4 +1,4 @@
 from .runner import run_optuna_optimization
-from .types import FpgEvaluationResult, OptunaOptimizationResult
+from app.algorithms.types.solvers import FpgEvaluationResult, OptunaOptimizationResult
 
 __all__ = ["run_optuna_optimization", "FpgEvaluationResult", "OptunaOptimizationResult"]

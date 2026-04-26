@@ -1,13 +1,15 @@
 from __future__ import annotations
 
-from ...types import GraphNode
+from app.algorithms.types.solvers import GraphNode
 
 
 def _nodes_of_type(nodes: list[GraphNode], room_type: str) -> list[GraphNode]:
     return [node for node in nodes if node.room_type == room_type]
 
 
-def _is_direction_clear(node: GraphNode, all_nodes: list[GraphNode], direction: str) -> bool:
+def _is_direction_clear(
+    node: GraphNode, all_nodes: list[GraphNode], direction: str
+) -> bool:
     for other in all_nodes:
         if other.id == node.id:
             continue

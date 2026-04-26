@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from app.core.fpg_rooms.config_fpg import DEFAULT_SOLVER_MAX_TIME_SECONDS
 
 from .constraint_control_panel import ConstraintControlPanel
 from .fpgr_core import FpgrCore
-from .types.room import FpgRequirements
+from ..types import FpgRequirements
 
 
 @dataclass
@@ -20,12 +21,14 @@ class RefineResult:
 
 def run_refine_profile_1(
     requirements: FpgRequirements,
-    initial_rooms: list[dict[str, Any]],
+    initial_rooms: Sequence[Mapping[str, Any]],
     wiggle_room: int = 10,
     verbose: bool = False,
 ) -> RefineResult:
     """Profile 2 (refine): seeded bounded solve focused on refinement soft features."""
-    if not initial_rooms:
+    initial_rooms_list = [dict(room) for room in initial_rooms]
+
+    if not initial_rooms_list:
         return RefineResult(
             solved=False,
             rooms=[],
@@ -36,7 +39,7 @@ def run_refine_profile_1(
     control_panel = ConstraintControlPanel.refine_profile_1()
     core = FpgrCore(requirements, control_panel=control_panel)
     solved = core.solve(
-        seed_layout=initial_rooms,
+        seed_layout=initial_rooms_list,
         wiggle_room=wiggle_room,
         max_time_seconds=max(1.0, float(DEFAULT_SOLVER_MAX_TIME_SECONDS)),
         debug_log=verbose,
@@ -45,7 +48,7 @@ def run_refine_profile_1(
     if not solved:
         return RefineResult(
             solved=False,
-            rooms=initial_rooms,
+            rooms=initial_rooms_list,
             status=core.last_status_name,
             message="Refine stage returned non-feasible status; keeping stage-1 layout",
         )

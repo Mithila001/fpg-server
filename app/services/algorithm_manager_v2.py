@@ -1,32 +1,35 @@
 import contextlib
 import io
+from collections.abc import Mapping, Sequence
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from app.algorithms.fpg_opening import generate_openings
 from app.algorithms.fpg_rooms import FloorPlanGenerator
 from app.algorithms.fpg_rooms.fpg_optuna import (
-    FpgEvaluationResult,
     run_optuna_optimization,
 )
+from app.algorithms.fpg_rooms.utils.extender_injection import (
+    inject_extenders_into_requirements,
+)
+from app.algorithms.types import FpgRequirements
+from app.algorithms.types import OpeningRunResult
 from app.algorithms.fpg_rooms.fpg_post_process import (
     run_final_post_process,
     run_quick_post_process,
 )
+from app.algorithms.types.solvers.optimization import FpgEvaluationResult
+from app.dev.dev_print import debug_log_data
 from app.util.logger.system_logger import SystemLogger
 
 from app.algorithms.fpg_rooms.fpg_score import score_layout
 from app.algorithms.fpg_rooms.fpgr_p_refine_1 import run_refine_profile_1
 from app.algorithms.fpg_rooms.fpgr_p_refine_extender import run_refine_profile_extender
-from app.algorithms.fpg_rooms.types.room import FpgRequirements
-from app.algorithms.fpg_rooms.utils.extender_injection import (
-    inject_extenders_into_requirements,
-)
 from app.core.fpg_rooms.config_fpg import (
     DEFAULT_OPTUNA_STUDY_NAME,
     DEFAULT_OPTUNA_TRIALS,
-    TRIAL_EARLY_STOP_SCORE_THRESHOLD,
+    MINIMUM_REQUIRED_FPG_SCORE,
     DEFAULT_OPTUNA_STORAGE_ENABLED,
     DEFAULT_OPTUNA_STORAGE_URL,
     WIGGLE_ROOM,
@@ -56,6 +59,12 @@ EMPTY_OPENING_LAYOUT = {
 FPG_SOLVER_RUN_COUNT = 2
 
 
+def _normalize_room_dicts(
+    rooms: Sequence[Mapping[str, Any]] | Sequence[Any],
+) -> list[dict[str, Any]]:
+    return [dict(room) for room in rooms if isinstance(room, Mapping)]
+
+
 def _plot_refine_before_after_dev(
     stage1_rooms: list[dict[str, Any]],
     stage2_rooms: list[dict[str, Any]],
@@ -83,7 +92,7 @@ def _plot_refine_before_after_dev(
 
         module = module_from_spec(spec)
         spec.loader.exec_module(module)
-        plot_fn = getattr(module, "plot_refine_three_generations", None)
+        plot_fn: Any = getattr(module, "plot_refine_three_generations", None)
         if not callable(plot_fn):
             print("\n\n 33\n\n")
             plot_fn = getattr(module, "plot_refine_before_after", None)
@@ -97,19 +106,25 @@ def _plot_refine_before_after_dev(
         output_dir.mkdir(parents=True, exist_ok=True)
 
         if plot_fn.__name__ == "plot_refine_three_generations":
-            return plot_fn(
+            return cast(
+                str | None,
+                plot_fn(
+                    before_rooms=stage1_rooms,
+                    middle_rooms=stage2_rooms,
+                    after_rooms=stage3_rooms,
+                    output_dir=output_dir,
+                    show=False,
+                ),
+            )
+
+        return cast(
+            str | None,
+            plot_fn(
                 before_rooms=stage1_rooms,
-                middle_rooms=stage2_rooms,
                 after_rooms=stage3_rooms,
                 output_dir=output_dir,
                 show=False,
-            )
-
-        return plot_fn(
-            before_rooms=stage1_rooms,
-            after_rooms=stage3_rooms,
-            output_dir=output_dir,
-            show=False,
+            ),
         )
     except Exception:
         return None
@@ -148,7 +163,7 @@ def _run_single_fpg_solve(
         {"rooms": solution, "openings": []}
     )
     print("\n run quick post process")
-    stage1_rooms = quick_post_process_result["rooms"]
+    stage1_rooms = _normalize_room_dicts(quick_post_process_result["rooms"])
 
     # --- PASS 1: Standard Refine ---
     refine_result1 = run_refine_profile_1(
@@ -169,14 +184,17 @@ def _run_single_fpg_solve(
         wiggle_room=5,
         verbose=False,
     )
-    print(f"Requirements: {requirements}\n")
-    print(f"Requirements with extenders: {requirements_with_extenders}\n")
+    # print(f"Requirements: {requirements}\n")
+    # print(f"Requirements with extenders: {requirements_with_extenders}\n")
     print("\n run_refine_profile_extender (Pass 2)")
-    extender_rooms = refine_result_extender.rooms if refine_result_extender.rooms else stage2_rooms
+    extender_rooms = (
+        refine_result_extender.rooms if refine_result_extender.rooms else stage2_rooms
+    )
+    # print(f"Final extender rooms: {extender_rooms}\n")
 
     # --- PASS 3: Standard Refine (The "rest") ---
     refine_result2 = run_refine_profile_1(
-        requirements=requirements,
+        requirements=requirements_with_extenders,
         initial_rooms=extender_rooms,
         wiggle_room=5,
         verbose=False,
@@ -186,7 +204,7 @@ def _run_single_fpg_solve(
 
     # --- PASS 4: Standard Refine ---
     refine_result3 = run_refine_profile_1(
-        requirements=requirements,
+        requirements=requirements_with_extenders,
         initial_rooms=stage3_rooms,
         wiggle_room=5,
         verbose=False,
@@ -196,7 +214,7 @@ def _run_single_fpg_solve(
 
     # --- PASS 5: Standard Refine ---
     refine_result4 = run_refine_profile_1(
-        requirements=requirements,
+        requirements=requirements_with_extenders,
         initial_rooms=stage4_rooms,
         wiggle_room=5,
         verbose=False,
@@ -247,7 +265,7 @@ def _run_single_fpg_solve(
         message="Solver found a layout",
     )
     result.quick_post_process_result = scoring_input
-    result.opening_result = opening_result
+    result.opening_result = cast(OpeningRunResult, opening_result)
     result.refine_status = refine_status
     result.refine_message = refine_message
     return result
@@ -283,16 +301,19 @@ def run_solver_with_hints(
             f"status={current_result.status} score={current_score:.2f}"
         )
 
-        if current_score >= TRIAL_EARLY_STOP_SCORE_THRESHOLD:
+        if current_score >= MINIMUM_REQUIRED_FPG_SCORE:
             print(
                 f"[SolverLoop] early-stop pass: score={current_score:.2f} "
-                f">= threshold={TRIAL_EARLY_STOP_SCORE_THRESHOLD:.2f}"
+                f">= threshold={MINIMUM_REQUIRED_FPG_SCORE:.2f}"
             )
             SystemLogger.log_event(
                 tag="SOLVER",
                 event="solver_early_stop",
                 level="INFO",
-                data={"score": current_score, "threshold": TRIAL_EARLY_STOP_SCORE_THRESHOLD},
+                data={
+                    "score": current_score,
+                    "threshold": MINIMUM_REQUIRED_FPG_SCORE,
+                },
             )
             return current_result
 
@@ -300,7 +321,11 @@ def run_solver_with_hints(
             tag="SOLVER",
             event="solver_low_score",
             level="INFO",
-            data={"attempt": attempt_index + 1, "score": current_score, "status": current_result.status},
+            data={
+                "attempt": attempt_index + 1,
+                "score": current_score,
+                "status": current_result.status,
+            },
         )
         if current_score > best_score:
             best_score = current_score
@@ -406,7 +431,6 @@ def run_fpg_pipeline_api(
         level="INFO",
         data={"status": "working"},
     )
-
     print(
         f"\n DATA DEBUG ::\n<Initial> Floor Width = {floor_width}, Floor Height = {floor_height}, Room Template = {room_template} "
     )
@@ -418,7 +442,8 @@ def run_fpg_pipeline_api(
             floor_height=floor_height,
             room_template=room_template,
         )
-        # print(f"\n DATA DEBUG :\n After Build Requirements = {requirements}")
+        debug_log_data(requirements, "INITIAL_REQUIREMENTS")
+        print(f"\n DATA DEBUG :\n After Build Requirements = {requirements}")
 
         # Step 2: Validate floor dimensions (Will Throw an Exception)
         validation_result = validate_and_compute_floor_bounds(
@@ -469,11 +494,11 @@ def run_fpg_pipeline_api(
             pass
 
             SystemLogger.log_event(
-            tag="SOLVER",
-            event="solver_run_complete",
-            level="INFO",
-            data={"status": run_result.status, "solved": run_result.solved},
-        )
+                tag="SOLVER",
+                event="solver_run_complete",
+                level="INFO",
+                data={"status": run_result.status, "solved": run_result.solved},
+            )
         # Step 4: Build and return formatted payload
         payload = _build_payload_from_solver_result(run_result)
         return payload

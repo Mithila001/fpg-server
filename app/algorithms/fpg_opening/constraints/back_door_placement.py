@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from ortools.sat.python import cp_model
 
-from app.algorithms.fpg_opening.types.opening import NormalizedRoom
-from app.algorithms.fpg_opening.types.opening_solver import BackDoorCandidate, BackDoorDecisionVars
+from app.algorithms.types import NormalizedRoom
+from app.algorithms.types.solvers.cp_model_like import CpModelLike
+from app.algorithms.types.solvers import BackDoorCandidate, BackDoorDecisionVars
 from app.algorithms.fpg_opening.utils import get_exterior_sides
 from app.core.fpg_opening_config import (
     BACK_DOOR_ELIGIBLE_ROOM_TYPES,
@@ -253,7 +254,9 @@ def build_back_door_candidates(
             key=lambda c: (
                 _room_type_priority(c["room_type"]),
                 c["room_name"],
-                0 if c["side"] in ("south", "north") else (1 if c["side"] == "west" else 2),
+                0
+                if c["side"] in ("south", "north")
+                else (1 if c["side"] == "west" else 2),
             )
         )
         return all_fallback_candidates
@@ -262,7 +265,7 @@ def build_back_door_candidates(
 
 
 def add_back_door_placement_constraint(
-    model: cp_model.CpModel,
+    model: CpModelLike,
     candidates: list[BackDoorCandidate],
 ) -> BackDoorDecisionVars:
     """Select exactly one back-door candidate when candidate list is non-empty."""
@@ -278,9 +281,9 @@ def add_back_door_placement_constraint(
 
     if len(selected_vars) > 1:
         model.Minimize(
-            cp_model.LinearExpr.Sum([
-                index * selected for index, selected in enumerate(selected_vars)
-            ])
+            cp_model.LinearExpr.Sum(
+                [index * selected for index, selected in enumerate(selected_vars)]
+            )
         )
 
     return {"selected": selected_vars}

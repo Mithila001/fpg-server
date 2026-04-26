@@ -6,7 +6,7 @@ Reuses utilities from hard constraint for overlap/touch detection consistency.
 
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from ortools.sat.python import cp_model
 
@@ -23,11 +23,12 @@ from app.algorithms.fpg_rooms.constraints.hard.room_shared_wall_constraints impo
 
 from ...solver_models.room import Room
 
+# TODO: Look at this. Suspicious
 _WIGGLE_SCALE = 1
 
 
 def build_room_shared_wall_refine_penalty(
-    model: cp_model.CpModel,
+    model: Any,
     rooms: List[Room],
     refine_rules: Dict[str, dict] | None = None,
     refine_weight: int | None = None,
@@ -119,10 +120,18 @@ def build_room_shared_wall_refine_penalty(
                 f"{room.name}_{other.name}_h_sr",
             )
 
-            right_overlap = model.NewIntVar(0, coord_ub, f"sr_ov_right_{room.name}_{other.name}")  # type: ignore
-            left_overlap = model.NewIntVar(0, coord_ub, f"sr_ov_left_{room.name}_{other.name}")  # type: ignore
-            top_overlap = model.NewIntVar(0, coord_ub, f"sr_ov_top_{room.name}_{other.name}")  # type: ignore
-            bottom_overlap = model.NewIntVar(0, coord_ub, f"sr_ov_bottom_{room.name}_{other.name}")  # type: ignore
+            right_overlap = model.NewIntVar(
+                0, coord_ub, f"sr_ov_right_{room.name}_{other.name}"
+            )  # type: ignore
+            left_overlap = model.NewIntVar(
+                0, coord_ub, f"sr_ov_left_{room.name}_{other.name}"
+            )  # type: ignore
+            top_overlap = model.NewIntVar(
+                0, coord_ub, f"sr_ov_top_{room.name}_{other.name}"
+            )  # type: ignore
+            bottom_overlap = model.NewIntVar(
+                0, coord_ub, f"sr_ov_bottom_{room.name}_{other.name}"
+            )  # type: ignore
 
             model.Add(right_overlap == vertical_overlap).OnlyEnforceIf(touches["right"])  # type: ignore
             model.Add(right_overlap == 0).OnlyEnforceIf(touches["right"].Not())  # type: ignore
@@ -133,7 +142,9 @@ def build_room_shared_wall_refine_penalty(
             model.Add(top_overlap == horizontal_overlap).OnlyEnforceIf(touches["top"])  # type: ignore
             model.Add(top_overlap == 0).OnlyEnforceIf(touches["top"].Not())  # type: ignore
 
-            model.Add(bottom_overlap == horizontal_overlap).OnlyEnforceIf(touches["bottom"])  # type: ignore
+            model.Add(bottom_overlap == horizontal_overlap).OnlyEnforceIf(
+                touches["bottom"]
+            )  # type: ignore
             model.Add(bottom_overlap == 0).OnlyEnforceIf(touches["bottom"].Not())  # type: ignore
 
             side_overlap_terms["right"].append(right_overlap)
@@ -154,7 +165,9 @@ def build_room_shared_wall_refine_penalty(
 
         for side, side_length in side_lengths.items():
             side_terms = side_overlap_terms[side]
-            total_overlap = model.NewIntVar(0, side_total_ub, f"sr_total_ov_{room.name}_{side}")  # type: ignore
+            total_overlap = model.NewIntVar(
+                0, side_total_ub, f"sr_total_ov_{room.name}_{side}"
+            )  # type: ignore
             model.Add(total_overlap == cp_model.LinearExpr.Sum(side_terms))  # type: ignore
 
             covered_len = model.NewIntVar(0, coord_ub, f"sr_cov_len_{room.name}_{side}")  # type: ignore
@@ -164,16 +177,23 @@ def build_room_shared_wall_refine_penalty(
             selected_flags[side] = selected
 
             if rule.min_walls > 0:
-                selected_required = model.NewIntVar(0, coord_ub, f"sr_sel_req_{room.name}_{side}")  # type: ignore
+                selected_required = model.NewIntVar(
+                    0, coord_ub, f"sr_sel_req_{room.name}_{side}"
+                )  # type: ignore
                 model.Add(selected_required == side_length).OnlyEnforceIf(selected)  # type: ignore
                 model.Add(selected_required == 0).OnlyEnforceIf(selected.Not())  # type: ignore
 
-                selected_covered = model.NewIntVar(0, coord_ub, f"sr_sel_cov_{room.name}_{side}")  # type: ignore
+                selected_covered = model.NewIntVar(
+                    0, coord_ub, f"sr_sel_cov_{room.name}_{side}"
+                )  # type: ignore
                 model.Add(selected_covered == covered_len).OnlyEnforceIf(selected)  # type: ignore
                 model.Add(selected_covered == 0).OnlyEnforceIf(selected.Not())  # type: ignore
 
                 required_scale = _WIGGLE_SCALE - rule.wiggle_pct
-                model.Add(_WIGGLE_SCALE * selected_covered == required_scale * selected_required).OnlyEnforceIf(selected)  # type: ignore
+                model.Add(
+                    _WIGGLE_SCALE * selected_covered
+                    == required_scale * selected_required
+                ).OnlyEnforceIf(selected)  # type: ignore
 
             selected_count.append(selected)
 

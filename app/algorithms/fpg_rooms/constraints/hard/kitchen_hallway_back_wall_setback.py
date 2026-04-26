@@ -11,6 +11,8 @@ Coordinate reference:
 
 from __future__ import annotations
 
+from typing import Any
+
 from ortools.sat.python import cp_model
 
 from app.core.fpg_rooms.config_fpg import (
@@ -21,13 +23,13 @@ from ...solver_models.room import Room
 
 
 def _axis_overlap_bool(
-    model: cp_model.CpModel,
+    model: Any,
     a_start: cp_model.IntVar,
     a_end: cp_model.IntVar,
     b_start: cp_model.IntVar,
     b_end: cp_model.IntVar,
     name: str,
-) -> cp_model.BoolVar:
+) -> cp_model.IntVar:
     overlap = model.NewBoolVar(name)
 
     a_before_b = model.NewBoolVar(f"{name}_a_before_b")
@@ -46,11 +48,11 @@ def _axis_overlap_bool(
 
 
 def _ordered_bool(
-    model: cp_model.CpModel,
+    model: Any,
     lhs: cp_model.IntVar,
-    rhs: cp_model.IntVar,
+    rhs: Any,
     strict_less_name: str,
-) -> cp_model.BoolVar:
+) -> cp_model.IntVar:
     lhs_less_rhs = model.NewBoolVar(strict_less_name)
     model.Add(lhs <= rhs - 1).OnlyEnforceIf(lhs_less_rhs)
     model.Add(lhs >= rhs).OnlyEnforceIf(lhs_less_rhs.Not())
@@ -58,11 +60,11 @@ def _ordered_bool(
 
 
 def _and_of_literals(
-    model: cp_model.CpModel,
-    left: cp_model.BoolVar,
-    right: cp_model.BoolVar,
+    model: Any,
+    left: cp_model.IntVar,
+    right: cp_model.IntVar,
     name: str,
-) -> cp_model.BoolVar:
+) -> cp_model.IntVar:
     out = model.NewBoolVar(name)
     model.AddBoolAnd([left, right]).OnlyEnforceIf(out)
     model.AddBoolOr([left.Not(), right.Not()]).OnlyEnforceIf(out.Not())
@@ -70,10 +72,10 @@ def _and_of_literals(
 
 
 def _or_of_literals(
-    model: cp_model.CpModel,
-    literals: list[cp_model.BoolVar],
+    model: Any,
+    literals: list[cp_model.IntVar],
     name: str,
-) -> cp_model.BoolVar:
+) -> cp_model.IntVar:
     if not literals:
         out = model.NewBoolVar(name)
         model.Add(out == 0)
@@ -87,7 +89,7 @@ def _or_of_literals(
 
 
 def add_kitchen_hallway_back_wall_setback_constraint(
-    model: cp_model.CpModel,
+    model: Any,
     rooms: list[Room],
     floor_height: int,
     min_gap: int = KITCHEN_HALLWAY_BACK_WALL_SETBACK_MIN_GAP,
@@ -98,15 +100,13 @@ def add_kitchen_hallway_back_wall_setback_constraint(
     max_gap = max(min_gap, int(max_gap))
 
     target_rooms = [
-        room
-        for room in rooms
-        if str(room.type).lower() in {"kitchen", "hallway"}
+        room for room in rooms if str(room.type).lower() in {"kitchen", "hallway"}
     ]
     if not target_rooms:
         return
 
     floor_h = max(1, int(floor_height))
-    candidate_clear_literals: list[cp_model.BoolVar] = []
+    candidate_clear_literals: list[cp_model.IntVar] = []
 
     for room in target_rooms:
         assert room.x is not None and room.y_end is not None
@@ -120,7 +120,7 @@ def add_kitchen_hallway_back_wall_setback_constraint(
         model.Add(top_gap >= min_gap).OnlyEnforceIf(room_clear)
         model.Add(top_gap <= max_gap).OnlyEnforceIf(room_clear)
 
-        blockers: list[cp_model.BoolVar] = []
+        blockers: list[cp_model.IntVar] = []
         for other in rooms:
             if other is room:
                 continue

@@ -4,19 +4,20 @@ import math
 from random import Random
 from typing import Any
 
-from app.algorithms.fpg_rooms.types.room import FpgRequirements, RoomData
+from app.algorithms.types import FpgRequirements, RoomData
 from app.core.fpg_rooms.config_fpg import (
     DEFAULT_HALLWAY_COUNT,
     HALLWAY_GENERATOR_MIN_HEIGHT,
     HALLWAY_GENERATOR_MIN_WIDTH,
     HALLWAY_LONG_SIDE_MIN,
     PUBLIC_ROOM_TYPES,
-    PRIVATE_ROOM_TYPES
+    PRIVATE_ROOM_TYPES,
 )
 
-from .types import GraphBoundary, GraphEdge, GraphNode
+from app.algorithms.types.solvers import GraphBoundary, GraphEdge, GraphNode
 
-UNIQUE_RELATION_REQUIRED_ROOM_TYPES = ['attachedBathroom']
+UNIQUE_RELATION_REQUIRED_ROOM_TYPES = ["attachedBathroom"]
+
 
 def _midpoint(value_a: float, value_b: float) -> float:
     return (float(value_a) + float(value_b)) / 2.0
@@ -52,8 +53,14 @@ def build_nodes(
         )
 
     existing_hallways = sum(1 for node in nodes if node.room_type == "hallway")
-    config_hallway_count = int(getattr(requirements.config, "hallway_count", DEFAULT_HALLWAY_COUNT))
-    target_hallway_count = hallway_count_override if hallway_count_override is not None else config_hallway_count
+    config_hallway_count = int(
+        getattr(requirements.config, "hallway_count", DEFAULT_HALLWAY_COUNT)
+    )
+    target_hallway_count = (
+        hallway_count_override
+        if hallway_count_override is not None
+        else config_hallway_count
+    )
     target_hallway_count = max(0, target_hallway_count)
 
     missing_hallways = max(0, target_hallway_count - existing_hallways)
@@ -62,7 +69,8 @@ def build_nodes(
         min(
             _midpoint(HALLWAY_GENERATOR_MIN_WIDTH, HALLWAY_LONG_SIDE_MIN),
             _midpoint(HALLWAY_GENERATOR_MIN_HEIGHT, HALLWAY_LONG_SIDE_MIN),
-        ) / 2.0,
+        )
+        / 2.0,
     )
 
     for index in range(missing_hallways):
@@ -120,7 +128,7 @@ def build_edges(
             return
         low_id, high_id = sorted((source_id, target_id))
         key = (low_id, high_id)
-        
+
         edge = weighted_pairs.get(key)
         if edge is None or weight > edge.weight:
             weighted_pairs[key] = GraphEdge(
@@ -133,30 +141,43 @@ def build_edges(
     # 1. Process explicit Relation Constraints (Keep your existing logic here)
     for raw_rule in relation_constraints:
         relation = _coerce_relation(raw_rule)
-        if relation is None: continue
+        if relation is None:
+            continue
         room_type, related_types, constraint_level = relation
         weight = _default_weight_for_level(constraint_level)
         subjects = nodes_by_type.get(room_type, [])
         for subject in subjects:
             for rel_type in related_types:
                 targets = nodes_by_type.get(rel_type, [])
-                if not targets: continue
+                if not targets:
+                    continue
                 best_target = None
                 if room_type in UNIQUE_RELATION_REQUIRED_ROOM_TYPES:
                     available_targets = [t for t in targets if t.id not in assignments]
-                    best_target = min(available_targets, key=lambda t: pair_distance(subject, t)) if available_targets else min(targets, key=lambda t: pair_distance(subject, t))
+                    best_target = (
+                        min(available_targets, key=lambda t: pair_distance(subject, t))
+                        if available_targets
+                        else min(targets, key=lambda t: pair_distance(subject, t))
+                    )
                 else:
                     best_target = min(targets, key=lambda t: pair_distance(subject, t))
                 if best_target:
-                    add_pair(subject.id, best_target.id, weight, constraint_level or "relation")
+                    add_pair(
+                        subject.id,
+                        best_target.id,
+                        weight,
+                        constraint_level or "relation",
+                    )
                     assignments.setdefault(best_target.id, []).append(subject.id)
 
     # 2. NEW Hallway Logic
     hallways = nodes_by_type.get("hallway", [])
     hallway_count = len(hallways)
-    
+
     # Gather all potential room nodes excluding hallways and verandas
-    all_rooms = [n for n in nodes if n.room_type != "hallway" and n.room_type != "veranda"]
+    all_rooms = [
+        n for n in nodes if n.room_type != "hallway" and n.room_type != "veranda"
+    ]
     public_rooms = [n for n in all_rooms if n.room_type in PUBLIC_ROOM_TYPES]
     private_rooms = [n for n in all_rooms if n.room_type in PRIVATE_ROOM_TYPES]
 
@@ -171,7 +192,7 @@ def build_edges(
         # Rule: One to Public, One to Private
         h_public = hallways[0]
         h_private = hallways[1]
-        
+
         for room in public_rooms:
             add_pair(room.id, h_public.id, 1.0, "hallway_public")
         for room in private_rooms:
@@ -200,14 +221,14 @@ def build_edges(
         if kitchens:
             closest_kitchen = min(kitchens, key=lambda r: pair_distance(dining, r))
             add_pair(dining.id, closest_kitchen.id, 1.1, "dining_path")
-            
+
     # 4. Custom Room Connections
     living_rooms = nodes_by_type.get("livingRoom", [])
     verandas = nodes_by_type.get("veranda", [])
-    
+
     for living in living_rooms:
         for veranda in verandas:
-            # Setting weight to 1.3 to make it stronger than dining (1.1) 
+            # Setting weight to 1.3 to make it stronger than dining (1.1)
             # and hard_AND rules (1.2)
             add_pair(living.id, veranda.id, 1.3, "living_veranda_connection")
 

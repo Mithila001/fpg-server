@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from ortools.sat.python import cp_model
 
-from app.algorithms.fpg_opening.types.opening_solver import InternalDoorCandidate, InternalDoorDecisionVars
+from app.algorithms.types.solvers import (
+    InternalDoorCandidate,
+    InternalDoorDecisionVars,
+)
+from app.algorithms.types.solvers.cp_model_like import CpModelLike
 from app.core.fpg_opening_config import (
     INTERNAL_DOOR_ALLOWED_ROOM_PAIRS,
     MAX_INTERNAL_DOORS_BY_ROOM_TYPE,
@@ -27,7 +31,7 @@ def _is_allowed_connection(room_type_a: str, room_type_b: str) -> bool:
 
 
 def add_internal_doors_placement_constraint(
-    model: cp_model.CpModel,
+    model: CpModelLike,
     candidates: list[InternalDoorCandidate],
 ) -> InternalDoorDecisionVars:
     """Whitelist internal door pairings by room type.
@@ -86,10 +90,9 @@ def add_internal_doors_placement_constraint(
         if room_type != "bedroom":
             continue
 
-        social_vars = (
-            bedroom_to_hallway_vars.get(bedroom_name, [])
-            + bedroom_to_livingroom_vars.get(bedroom_name, [])
-        )
+        social_vars = bedroom_to_hallway_vars.get(
+            bedroom_name, []
+        ) + bedroom_to_livingroom_vars.get(bedroom_name, [])
         if social_vars:
             model.Add(sum(social_vars) <= 1)
 

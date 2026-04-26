@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 import math
 
 import matplotlib.pyplot as plt
@@ -19,8 +19,10 @@ def _to_dict(value: Any) -> dict[str, Any]:
         return value
     model_dump = getattr(value, "model_dump", None)
     if callable(model_dump):
-        return model_dump()
-    return dict(value.__dict__) if hasattr(value, "__dict__") else {}
+        return cast(dict[str, Any], model_dump())
+    if hasattr(value, "__dict__"):
+        return {str(key): item for key, item in value.__dict__.items()}
+    return {}
 
 
 def _safe_float(value: Any) -> float | None:
@@ -32,7 +34,9 @@ def _safe_float(value: Any) -> float | None:
         return None
 
 
-def plot_floor_plan_payload(payload: Mapping[str, Any], show: bool = False) -> str | None:
+def plot_floor_plan_payload(
+    payload: Mapping[str, Any], show: bool = False
+) -> str | None:
     """Plot walls, separate doors/windows, and room labels from API payload and save image to test/outputs/final_results."""
     payload_dict = _to_dict(payload)
     rooms = payload_dict.get("rooms", {}) or {}
@@ -49,14 +53,16 @@ def plot_floor_plan_payload(payload: Mapping[str, Any], show: bool = False) -> s
     y_points: list[float] = []
 
     # Draw latest solver union walls, with fallback to legacy root-level walls
-    global_walls = payload_dict.get("union_walls") or payload_dict.get("walls", []) or []
+    global_walls = (
+        payload_dict.get("union_walls") or payload_dict.get("walls", []) or []
+    )
     for wall in global_walls:
         wall = _to_dict(wall)
         x1 = _safe_float(wall.get("x1"))
         y1 = _safe_float(wall.get("y1"))
         x2 = _safe_float(wall.get("x2"))
         y2 = _safe_float(wall.get("y2"))
-        if None in (x1, y1, x2, y2):
+        if x1 is None or y1 is None or x2 is None or y2 is None:
             continue
         ax.plot([x1, x2], [y1, y2], color="black", linewidth=1.2, alpha=0.55)
         x_points.extend([x1, x2])
@@ -69,13 +75,20 @@ def plot_floor_plan_payload(payload: Mapping[str, Any], show: bool = False) -> s
         y1 = _safe_float(opening.get("y1"))
         x2 = _safe_float(opening.get("x2"))
         y2 = _safe_float(opening.get("y2"))
-        if None in (x1, y1, x2, y2):
+        if x1 is None or y1 is None or x2 is None or y2 is None:
             continue
         opening_type = (opening.get("opening_type") or "opening").lower()
         is_window = "window" in opening_type
         color = "tab:blue" if is_window else "tab:red"
         linestyle = "--" if is_window else "-"
-        ax.plot([x1, x2], [y1, y2], color=color, linewidth=4, linestyle=linestyle, alpha=0.95)
+        ax.plot(
+            [x1, x2],
+            [y1, y2],
+            color=color,
+            linewidth=4,
+            linestyle=linestyle,
+            alpha=0.95,
+        )
         x_points.extend([x1, x2])
         y_points.extend([y1, y2])
 
@@ -93,7 +106,7 @@ def plot_floor_plan_payload(payload: Mapping[str, Any], show: bool = False) -> s
             y1 = _safe_float(wall.get("y1"))
             x2 = _safe_float(wall.get("x2"))
             y2 = _safe_float(wall.get("y2"))
-            if None in (x1, y1, x2, y2):
+            if x1 is None or y1 is None or x2 is None or y2 is None:
                 continue
             ax.plot([x1, x2], [y1, y2], color="black", linewidth=1.2, alpha=0.55)
             room_x.extend([x1, x2])
@@ -107,7 +120,7 @@ def plot_floor_plan_payload(payload: Mapping[str, Any], show: bool = False) -> s
             y1 = _safe_float(opening.get("y1"))
             x2 = _safe_float(opening.get("x2"))
             y2 = _safe_float(opening.get("y2"))
-            if None in (x1, y1, x2, y2):
+            if x1 is None or y1 is None or x2 is None or y2 is None:
                 continue
             opening_type = (opening.get("opening_type") or "opening").lower()
             color = "tab:blue" if "window" in opening_type else "tab:red"
@@ -149,8 +162,6 @@ def plot_floor_plan_payload(payload: Mapping[str, Any], show: bool = False) -> s
     fig.tight_layout()
     fig.savefig(output_path, dpi=200)
 
-    if show:
-        plt.show()
     plt.close(fig)
     return str(output_path)
 
@@ -163,15 +174,25 @@ def plot_final_floor_plan(payload: Mapping[str, Any], show: bool = False) -> str
 def _build_payload_from_solver_result(run_result: Any) -> dict[str, Any]:
     """Reconstruct payload format used by API from an FpgEvaluationResult."""
     if not run_result or not getattr(run_result, "solved", False):
-        return {"status": getattr(run_result, "status", "ERROR"), "message": getattr(run_result, "message", ""), "union_walls": [], "rooms": {}, "doors": [], "windows": []}
+        return {
+            "status": getattr(run_result, "status", "ERROR"),
+            "message": getattr(run_result, "message", ""),
+            "union_walls": [],
+            "rooms": {},
+            "doors": [],
+            "windows": [],
+        }
 
     quick_post_process_result = getattr(run_result, "quick_post_process_result", None)
     if quick_post_process_result is not None:
         post_processed_layout = quick_post_process_result.get("rooms", [])
-        wall_union_result = quick_post_process_result.get("wall_union", {
-            "walls": [],
-            "room_walls": {},
-        })
+        wall_union_result = quick_post_process_result.get(
+            "wall_union",
+            {
+                "walls": [],
+                "room_walls": {},
+            },
+        )
     else:
         post_processed_layout = getattr(run_result, "solution", [])
         wall_union_result = {"walls": [], "room_walls": {}}
@@ -199,4 +220,3 @@ def plot_final_solver_result(run_result: Any, show: bool = False) -> str | None:
     """Builds final payload from solver result and renders it with final plotter."""
     payload = _build_payload_from_solver_result(run_result)
     return plot_final_floor_plan(payload, show=show)
-

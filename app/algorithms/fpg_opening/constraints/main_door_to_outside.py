@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from ortools.sat.python import cp_model
 
-from app.algorithms.fpg_opening.types.opening_solver import MainDoorCpSatVariables, ScaledRoomBounds
+from app.algorithms.types.solvers import MainDoorCpSatVariables, ScaledRoomBounds
+from app.algorithms.types.solvers.cp_model_like import CpModelLike
 from app.core.fpg_opening_config import CARDINAL_SIDES
 
 
@@ -26,7 +27,7 @@ def _priority_rank_map(side_priority: tuple[str, ...]) -> dict[str, int]:
 
 
 def add_main_door_to_outside_constraint(
-    model: cp_model.CpModel,
+    model: CpModelLike,
     room: ScaledRoomBounds,
     exterior_sides: set[str],
     side_priority: tuple[str, ...],
@@ -50,10 +51,7 @@ def add_main_door_to_outside_constraint(
     x2 = model.NewIntVar(room_x, room_x_end, "door_x2")
     y2 = model.NewIntVar(room_y, room_y_end, "door_y2")
 
-    side_selected = {
-        side: model.NewBoolVar(f"select_{side}")
-        for side in _SIDES
-    }
+    side_selected = {side: model.NewBoolVar(f"select_{side}") for side in _SIDES}
 
     exterior_normalized = {side.strip().lower() for side in exterior_sides}
     for side in _SIDES:

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import math
+from typing import Any, Mapping, Sequence
 
 EPS = 1e-9
 Point = tuple[float, float]
 
 
-def to_open_polygon_tuples(raw_points: list[dict]) -> list[Point]:
+def to_open_polygon_tuples(raw_points: Sequence[Mapping[str, Any]]) -> list[Point]:
     points = [(point["x"], point["y"]) for point in raw_points]
     if len(points) > 1 and points[0] == points[-1]:
         points = points[:-1]

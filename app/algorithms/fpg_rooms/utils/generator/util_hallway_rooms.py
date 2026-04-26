@@ -7,10 +7,12 @@ from app.core.fpg_rooms.config_fpg import (
     HALLWAY_GENERATOR_MIN_WIDTH,
     HALLWAY_RULE_TARGET_ROOM_TYPES,
 )
-from ...types.room import FpgRequirements
+from ....types import FpgRequirements
 
 
-def prepare_requirements_for_hallway_rules(requirements: FpgRequirements) -> FpgRequirements:
+def prepare_requirements_for_hallway_rules(
+    requirements: FpgRequirements,
+) -> FpgRequirements:
     """Return one copied requirements object updated with hallway-related relation rules.
 
     If hallway_count > 0, for hard_OR rules on bedroom/kitchen/bathroom,
@@ -40,7 +42,10 @@ def prepare_requirements_for_hallway_rules(requirements: FpgRequirements) -> Fpg
         room_type_norm = str(room_type or "").strip().lower()
         constraint_level_norm = str(constraint_level or "").strip().lower()
 
-        if constraint_level_norm != "hard_or" or room_type_norm not in target_room_types:
+        if (
+            constraint_level_norm != "hard_or"
+            or room_type_norm not in target_room_types
+        ):
             continue
 
         related_room: list[str] = []

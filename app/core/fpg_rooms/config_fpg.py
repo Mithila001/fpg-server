@@ -36,7 +36,7 @@ INWARD_POCKET_MAX_LENGTH = 20.0
 ENVELOPE_ENABLED = True
 ENVELOPE_MIN_GAP = 5
 ENVELOPE_MAX_GAP = 20
-ENVELOPE_EXCLUDE_TYPES = [] # Non eligible room types for envelope checking
+ENVELOPE_EXCLUDE_TYPES = []  # Non eligible room types for envelope checking
 ENVELOPE_APPLY_SIDES = ["left", "right", "top", "bottom"]
 
 # Garage placement settings
@@ -49,8 +49,8 @@ VERANDA_OUTDOOR_SPACE_MAX_W = 100
 VERANDA_OUTDOOR_SPACE_MAX_H = 100
 
 # Adjacency constraint settings
-DEFAULT_ADJACENCY_MIN_OVERLAP = 10 # Default value when no value is given
-GENERATOR_ADJACENCY_MIN_OVERLAP = 10 # Actual using value
+DEFAULT_ADJACENCY_MIN_OVERLAP = 10  # Default value when no value is given
+GENERATOR_ADJACENCY_MIN_OVERLAP = 10  # Actual using value
 
 # Room location/bathroom preferences
 BATHROOM_LOCATION_WEIGHT = 1
@@ -84,8 +84,12 @@ CONSTRAINT_SOFT_RECESSED_FACADE_PENALTY = True
 CONSTRAINT_SOFT_ROOM_SHARED_WALL_REFINE = True
 
 # Extender room constraints (hard and soft)
-CONSTRAINT_HARD_EXTENDER_WALL_ATTACHMENT = False  # Disabled by default; enabled only in refine_profile_extender
-CONSTRAINT_SOFT_EXTENDER_PLACEMENT_PENALTY = False  # Disabled by default; enabled only in refine_profile_extender
+CONSTRAINT_HARD_EXTENDER_WALL_ATTACHMENT = (
+    False  # Disabled by default; enabled only in refine_profile_extender
+)
+CONSTRAINT_SOFT_EXTENDER_PLACEMENT_PENALTY = (
+    False  # Disabled by default; enabled only in refine_profile_extender
+)
 
 # Soft-constraint tuning constants
 SOFT_LAYOUT_DEAD_SPACE_WEIGHT = 12
@@ -109,13 +113,13 @@ DEFAULT_MAX_H = 70
 
 # Room size hierarchy (% of living room area)
 ROOM_SIZE_HIERARCHY = {
-    "bedroom": (60, 75),          # Increased from (50, 70)
-    "kitchen": (45, 55),          # Tightened from (40, 50)
-    "bathroom": (20, 30),         # Refined from (15, 30)
-    "attachedBathroom": (20, 25), # Refined from (15, 30)
-    "veranda": (55, 70),          # Lifted from (40, 70)
-    "garage": (100, 120),         # Major change: Garage is larger than Living Room
-    "diningRoom": (70, 75)        # Major change: Increased from (30, 50)
+    "bedroom": (60, 75),  # Increased from (50, 70)
+    "kitchen": (45, 55),  # Tightened from (40, 50)
+    "bathroom": (20, 30),  # Refined from (15, 30)
+    "attachedBathroom": (20, 25),  # Refined from (15, 30)
+    "veranda": (55, 70),  # Lifted from (40, 70)
+    "garage": (100, 120),  # Major change: Garage is larger than Living Room
+    "diningRoom": (70, 75),  # Major change: Increased from (30, 50)
 }
 
 # Room types used by hallway-related generation rules.
@@ -129,9 +133,11 @@ DEFAULT_OPTUNA_STUDY_NAME = "FPG_study"
 DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
 
 # Trial optimization control
-TRIAL_EARLY_STOP_SCORE_THRESHOLD = 90  # Stop trials if score exceeds this
+MINIMUM_REQUIRED_FPG_SCORE = 90  # Stop trials if score exceeds this
 TRIAL_OPTIMIZATION_TIMEOUT_SECONDS = 120  # Hard deadline for all trials
-TRIAL_GRAPH_SOLVER_GATE_THRESHOLD = 70  # Invoke solver only when graph score reaches this
+TRIAL_GRAPH_SOLVER_GATE_THRESHOLD = (
+    70  # Invoke solver only when graph score reaches this
+)
 
 # Default generator config
 DEFAULT_ASPECT_RATIO_MAX = 16.0
@@ -250,7 +256,7 @@ __all__ = [
     "DEFAULT_OPTUNA_TRIALS",
     "DEFAULT_OPTUNA_STORAGE_ENABLED",
     "DEFAULT_OPTUNA_STORAGE_URL",
-    "TRIAL_EARLY_STOP_SCORE_THRESHOLD",
+    "MINIMUM_REQUIRED_FPG_SCORE",
     "TRIAL_OPTIMIZATION_TIMEOUT_SECONDS",
     "TRIAL_GRAPH_SOLVER_GATE_THRESHOLD",
     "DEFAULT_ASPECT_RATIO_MAX",
@@ -274,5 +280,5 @@ __all__ = [
     "ROOM_SHARED_WALL_RULES",
     "ROOM_SHARED_WALL_RULES_REFINE",
     "PRIVATE_ROOM_TYPES",
-    "PUBLIC_ROOM_TYPES"
+    "PUBLIC_ROOM_TYPES",
 ]

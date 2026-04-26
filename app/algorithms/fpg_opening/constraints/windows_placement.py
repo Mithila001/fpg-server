@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any
-
 from ortools.sat.python import cp_model
 
-from app.algorithms.fpg_opening.types.opening import NormalizedRoom, OpeningPayload
-from app.algorithms.fpg_opening.types.opening_solver import WindowCandidate, WindowDecisionVars
+from app.algorithms.types import NormalizedRoom, OpeningPayload
+from app.algorithms.types.solvers.cp_model_like import CpModelLike
+from app.algorithms.types.solvers import WindowCandidate, WindowDecisionVars
 from app.core.fpg_opening_config import (
     CARDINAL_SIDES,
     GEOMETRIC_TOLERANCE,
@@ -14,18 +13,29 @@ from app.core.fpg_opening_config import (
     normalize_room_type,
 )
 
+
 def is_window_eligible_room(room_type: str) -> bool:
     return normalize_room_type(room_type) in WINDOW_ELIGIBLE_ROOM_TYPES
 
 
-def _get_axis_interval(side: str, opening: dict[str, Any]) -> tuple[float, float]:
+def _get_axis_interval(
+    side: str, opening: OpeningPayload | WindowCandidate
+) -> tuple[float, float]:
     if side in ("south", "north"):
-        start = float(min(opening["x1"], opening["x2"]))
-        end = float(max(opening["x1"], opening["x2"]))
+        x1 = opening.get("x1")
+        x2 = opening.get("x2")
+        if x1 is None or x2 is None:
+            raise ValueError("Opening is missing x coordinates.")
+        start = float(min(x1, x2))
+        end = float(max(x1, x2))
         return start, end
 
-    start = float(min(opening["y1"], opening["y2"]))
-    end = float(max(opening["y1"], opening["y2"]))
+    y1 = opening.get("y1")
+    y2 = opening.get("y2")
+    if y1 is None or y2 is None:
+        raise ValueError("Opening is missing y coordinates.")
+    start = float(min(y1, y2))
+    end = float(max(y1, y2))
     return start, end
 
 
@@ -38,11 +48,13 @@ def _has_conflict_with_door(
     if door["room_name"] != candidate["room_name"]:
         return False
 
-    if door["side"] != candidate["side"]:
+    door_side = door.get("side")
+    if door_side != candidate["side"]:
         return False
 
-    cand_start, cand_end = _get_axis_interval(candidate["side"], candidate)
-    door_start, door_end = _get_axis_interval(candidate["side"], door)
+    cand_side = candidate["side"]
+    cand_start, cand_end = _get_axis_interval(cand_side, candidate)
+    door_start, door_end = _get_axis_interval(cand_side, door)
 
     # Hard reject if overlap or if nearest gap is below required clearance.
     if cand_start <= door_end + tolerance and door_start <= cand_end + tolerance:
@@ -109,7 +121,7 @@ def build_window_candidates_for_room(
         has_conflict = any(
             _has_conflict_with_door(candidate, opening, door_clearance, tolerance)
             for opening in existing_openings
-            if opening["opening_type"] in ("mainDoor", "internalDoor")
+            if opening.get("opening_type") in ("mainDoor", "internalDoor")
         )
         if not has_conflict:
             candidates.append(candidate)
@@ -118,7 +130,7 @@ def build_window_candidates_for_room(
 
 
 def add_windows_placement_constraint(
-    model: cp_model.CpModel,
+    model: CpModelLike,
     candidates: list[WindowCandidate],
 ) -> WindowDecisionVars:
     """Select exactly one window candidate for each room with feasible options."""

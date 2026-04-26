@@ -3,13 +3,13 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, Mapping, Sequence
 
-from app.algorithms.fpg_rooms.fpg_post_process.types import (
+from app.algorithms.types import (
     QuickPostProcessOutputPayload,
+    FpgRequirements,
 )
 from app.algorithms.fpg_rooms.fpg_score.score_critical.inward_pocket import (
     detect_inward_pocket_violation_v2,
 )
-from app.algorithms.fpg_rooms.types.room import FpgRequirements
 from app.core.fpg_rooms.config_fpg import (
     ENVELOPE_APPLY_SIDES,
     ENVELOPE_ENABLED,
@@ -88,7 +88,9 @@ def _resolve_scoring_inputs(
         maybe_openings = quick_post_process_result.get("openings")
         if isinstance(maybe_openings, list):
             openings = [
-                opening for opening in maybe_openings if isinstance(opening, Mapping)
+                dict(opening)
+                for opening in maybe_openings
+                if isinstance(opening, Mapping)
             ]
 
     source_rooms: Sequence[Mapping[str, Any]] = post_rooms if post_rooms else solution

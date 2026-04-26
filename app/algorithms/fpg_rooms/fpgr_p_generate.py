@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .fpgr_core import FpgrCore
 from .constraint_control_panel import ConstraintControlPanel
-from .types.room import FpgRequirements
+from ..types import FpgRequirements
 from .utils.point_hints_seed_layout import build_seed_layout_from_point_hints
 
 
@@ -10,7 +10,9 @@ class FloorPlanGenerator:
     """Profile 1 (generate): build a fresh layout from requirements."""
 
     def __init__(self, requirements: FpgRequirements):
-        self._core = FpgrCore(requirements, control_panel=ConstraintControlPanel.generate_profile())
+        self._core = FpgrCore(
+            requirements, control_panel=ConstraintControlPanel.generate_profile()
+        )
         self.last_status: int | None = None
         self.last_status_name: str = "NOT_RUN"
 

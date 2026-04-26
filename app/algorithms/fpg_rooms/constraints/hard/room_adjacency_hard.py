@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import Any, List, Sequence
 
 from ortools.sat.python import cp_model
 
@@ -9,7 +9,7 @@ from ...solver_models.room import Room
 
 
 def add_conditional_room_touch_constraint(
-    model: cp_model.CpModel,
+    model: Any,
     room1: Room,
     room2: Room,
     enforcer: Any | None = None,
@@ -39,7 +39,9 @@ def add_conditional_room_touch_constraint(
     model.Add(room1.y_end != room2.y).OnlyEnforceIf(conds + [touch_bottom.Not()])  # type: ignore
 
     if enforcer is not None:
-        model.AddBoolOr([touch_right, touch_left, touch_top, touch_bottom]).OnlyEnforceIf(enforcer)  # type: ignore[attr-defined]
+        model.AddBoolOr(
+            [touch_right, touch_left, touch_top, touch_bottom]
+        ).OnlyEnforceIf(enforcer)  # type: ignore[attr-defined]
     else:
         model.AddBoolOr([touch_right, touch_left, touch_top, touch_bottom])  # type: ignore[attr-defined]
 
@@ -53,13 +55,15 @@ def add_conditional_room_touch_constraint(
 
 
 def add_hard_and_room_adjacency_constraints(
-    model: cp_model.CpModel,
+    model: Any,
     rooms_list: List[Room],
-    hard_and_relations: List[RoomRelationsConstraintBase],
+    hard_and_relations: Sequence[RoomRelationsConstraintBase],
     min_overlap: int = DEFAULT_ADJACENCY_MIN_OVERLAP,
 ) -> None:
     for room in rooms_list:
-        matching_rules = [rel for rel in hard_and_relations if rel.room_type == room.type]
+        matching_rules = [
+            rel for rel in hard_and_relations if rel.room_type == room.type
+        ]
         if not matching_rules:
             continue
 
@@ -94,13 +98,15 @@ def add_hard_and_room_adjacency_constraints(
 
 
 def add_hard_or_room_adjacency_constraints(
-    model: cp_model.CpModel,
+    model: Any,
     rooms_list: List[Room],
-    hard_or_relations: List[RoomRelationsConstraintBase],
+    hard_or_relations: Sequence[RoomRelationsConstraintBase],
     min_overlap: int = DEFAULT_ADJACENCY_MIN_OVERLAP,
 ) -> None:
     for room in rooms_list:
-        matching_rules = [rel for rel in hard_or_relations if rel.room_type == room.type]
+        matching_rules = [
+            rel for rel in hard_or_relations if rel.room_type == room.type
+        ]
         if not matching_rules:
             continue
 
@@ -138,13 +144,13 @@ def add_hard_or_room_adjacency_constraints(
 
 
 def apply_hard_room_adjacency_constraints(
-    model: cp_model.CpModel,
+    model: Any,
     rooms_list: List[Room],
-    hard_and_relations: List[RoomRelationsConstraintBase] | None = None,
-    hard_or_relations: List[RoomRelationsConstraintBase] | None = None,
+    hard_and_relations: Sequence[RoomRelationsConstraintBase] | None = None,
+    hard_or_relations: Sequence[RoomRelationsConstraintBase] | None = None,
     min_overlap: int = DEFAULT_ADJACENCY_MIN_OVERLAP,
 ) -> None:
-    if isinstance(hard_and_relations, list) and hard_and_relations:
+    if hard_and_relations:
         add_hard_and_room_adjacency_constraints(
             model,
             rooms_list,
@@ -152,7 +158,7 @@ def apply_hard_room_adjacency_constraints(
             min_overlap=min_overlap,
         )
 
-    if isinstance(hard_or_relations, list) and hard_or_relations:
+    if hard_or_relations:
         add_hard_or_room_adjacency_constraints(
             model,
             rooms_list,

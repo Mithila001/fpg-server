@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Sequence
 
 from ortools.sat.python import cp_model
 
@@ -12,16 +12,18 @@ from ..hard.room_adjacency_hard import add_conditional_room_touch_constraint
 def build_soft_room_adjacency_preference_vars(
     model: cp_model.CpModel,
     rooms_list: List[Room],
-    soft_relations: List[RoomRelationsConstraintBase] | None = None,
+    soft_relations: Sequence[RoomRelationsConstraintBase] | None = None,
     min_overlap: int = DEFAULT_ADJACENCY_MIN_OVERLAP,
 ) -> List[cp_model.IntVar]:
     preference_vars: List[cp_model.IntVar] = []
 
-    if not isinstance(soft_relations, list) or not soft_relations:
+    if not soft_relations:
         return preference_vars
 
     for room in rooms_list:
-        matching_rules = [relation for relation in soft_relations if relation.room_type == room.type]
+        matching_rules = [
+            relation for relation in soft_relations if relation.room_type == room.type
+        ]
         if not matching_rules:
             continue
 
