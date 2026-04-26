@@ -6,7 +6,7 @@ Reuses utilities from hard constraint for overlap/touch detection consistency.
 
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from ortools.sat.python import cp_model
 
@@ -28,7 +28,7 @@ _WIGGLE_SCALE = 1
 
 
 def build_room_shared_wall_refine_penalty(
-    model: cp_model.CpModel,
+    model: Any,
     rooms: List[Room],
     refine_rules: Dict[str, dict] | None = None,
     refine_weight: int | None = None,

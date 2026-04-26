@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from ortools.sat.python import cp_model
 
@@ -35,11 +35,13 @@ def _normalize_rule(raw_rule: object) -> SharedWallRule | None:
         min_walls = max_walls
 
     wiggle_pct = max(0, min(100, wiggle_pct))
-    return SharedWallRule(min_walls=min_walls, max_walls=max_walls, wiggle_pct=wiggle_pct)
+    return SharedWallRule(
+        min_walls=min_walls, max_walls=max_walls, wiggle_pct=wiggle_pct
+    )
 
 
 def _touch_constraints(
-    model: cp_model.CpModel,
+    model: Any,
     room1: Room,
     room2: Room,
 ) -> Dict[str, cp_model.IntVar]:
@@ -64,7 +66,7 @@ def _touch_constraints(
 
 
 def _axis_overlap_length(
-    model: cp_model.CpModel,
+    model: Any,
     start1: cp_model.IntVar,
     end1: cp_model.IntVar,
     start2: cp_model.IntVar,
@@ -86,7 +88,7 @@ def _axis_overlap_length(
 
 
 def add_room_shared_wall_constraints(
-    model: cp_model.CpModel,
+    model: Any,
     rooms: List[Room],
 ) -> None:
     normalized_rules: Dict[str, SharedWallRule] = {}
@@ -147,10 +149,18 @@ def add_room_shared_wall_constraints(
                 f"{room.name}_{other.name}_h",
             )
 
-            right_overlap = model.NewIntVar(0, coord_ub, f"rs_ov_right_{room.name}_{other.name}")  # type: ignore
-            left_overlap = model.NewIntVar(0, coord_ub, f"rs_ov_left_{room.name}_{other.name}")  # type: ignore
-            top_overlap = model.NewIntVar(0, coord_ub, f"rs_ov_top_{room.name}_{other.name}")  # type: ignore
-            bottom_overlap = model.NewIntVar(0, coord_ub, f"rs_ov_bottom_{room.name}_{other.name}")  # type: ignore
+            right_overlap = model.NewIntVar(
+                0, coord_ub, f"rs_ov_right_{room.name}_{other.name}"
+            )  # type: ignore
+            left_overlap = model.NewIntVar(
+                0, coord_ub, f"rs_ov_left_{room.name}_{other.name}"
+            )  # type: ignore
+            top_overlap = model.NewIntVar(
+                0, coord_ub, f"rs_ov_top_{room.name}_{other.name}"
+            )  # type: ignore
+            bottom_overlap = model.NewIntVar(
+                0, coord_ub, f"rs_ov_bottom_{room.name}_{other.name}"
+            )  # type: ignore
 
             model.Add(right_overlap == vertical_overlap).OnlyEnforceIf(touches["right"])  # type: ignore
             model.Add(right_overlap == 0).OnlyEnforceIf(touches["right"].Not())  # type: ignore
@@ -161,7 +171,9 @@ def add_room_shared_wall_constraints(
             model.Add(top_overlap == horizontal_overlap).OnlyEnforceIf(touches["top"])  # type: ignore
             model.Add(top_overlap == 0).OnlyEnforceIf(touches["top"].Not())  # type: ignore
 
-            model.Add(bottom_overlap == horizontal_overlap).OnlyEnforceIf(touches["bottom"])  # type: ignore
+            model.Add(bottom_overlap == horizontal_overlap).OnlyEnforceIf(
+                touches["bottom"]
+            )  # type: ignore
             model.Add(bottom_overlap == 0).OnlyEnforceIf(touches["bottom"].Not())  # type: ignore
 
             side_overlap_terms["right"].append(right_overlap)
@@ -183,7 +195,9 @@ def add_room_shared_wall_constraints(
 
         for side, side_length in side_lengths.items():
             side_terms = side_overlap_terms[side]
-            total_overlap = model.NewIntVar(0, side_total_ub, f"rs_total_ov_{room.name}_{side}")  # type: ignore
+            total_overlap = model.NewIntVar(
+                0, side_total_ub, f"rs_total_ov_{room.name}_{side}"
+            )  # type: ignore
             model.Add(total_overlap == cp_model.LinearExpr.Sum(side_terms))  # type: ignore
 
             covered_len = model.NewIntVar(0, coord_ub, f"rs_cov_len_{room.name}_{side}")  # type: ignore
@@ -191,18 +205,24 @@ def add_room_shared_wall_constraints(
 
             fully_shared = model.NewBoolVar(f"rs_fully_shared_{room.name}_{side}")  # type: ignore
             model.Add(total_overlap >= side_length).OnlyEnforceIf(fully_shared)  # type: ignore
-            model.Add(total_overlap <= side_length - 1).OnlyEnforceIf(fully_shared.Not())  # type: ignore
+            model.Add(total_overlap <= side_length - 1).OnlyEnforceIf(
+                fully_shared.Not()
+            )  # type: ignore
             fully_shared_sides.append(fully_shared)
 
             selected = model.NewBoolVar(f"rs_selected_{room.name}_{side}")  # type: ignore
             selected_flags[side] = selected
 
-            selected_required = model.NewIntVar(0, coord_ub, f"rs_sel_req_{room.name}_{side}")  # type: ignore
+            selected_required = model.NewIntVar(
+                0, coord_ub, f"rs_sel_req_{room.name}_{side}"
+            )  # type: ignore
             model.Add(selected_required == side_length).OnlyEnforceIf(selected)  # type: ignore
             model.Add(selected_required == 0).OnlyEnforceIf(selected.Not())  # type: ignore
             selected_required_terms.append(selected_required)
 
-            selected_covered = model.NewIntVar(0, coord_ub, f"rs_sel_cov_{room.name}_{side}")  # type: ignore
+            selected_covered = model.NewIntVar(
+                0, coord_ub, f"rs_sel_cov_{room.name}_{side}"
+            )  # type: ignore
             model.Add(selected_covered == covered_len).OnlyEnforceIf(selected)  # type: ignore
             model.Add(selected_covered == 0).OnlyEnforceIf(selected.Not())  # type: ignore
             selected_covered_terms.append(selected_covered)
@@ -210,14 +230,28 @@ def add_room_shared_wall_constraints(
         model.Add(cp_model.LinearExpr.Sum(fully_shared_sides) <= rule.max_walls)  # type: ignore
 
         if rule.min_walls > 0:
-            model.Add(cp_model.LinearExpr.Sum(list(selected_flags.values())) == rule.min_walls)  # type: ignore
+            model.Add(
+                cp_model.LinearExpr.Sum(list(selected_flags.values())) == rule.min_walls
+            )  # type: ignore
 
-            selected_required_len = model.NewIntVar(0, 4 * coord_ub, f"rs_req_len_{room.name}")  # type: ignore
-            selected_covered_len = model.NewIntVar(0, 4 * coord_ub, f"rs_cov_len_{room.name}")  # type: ignore
-            model.Add(selected_required_len == cp_model.LinearExpr.Sum(selected_required_terms))  # type: ignore
-            model.Add(selected_covered_len == cp_model.LinearExpr.Sum(selected_covered_terms))  # type: ignore
+            selected_required_len = model.NewIntVar(
+                0, 4 * coord_ub, f"rs_req_len_{room.name}"
+            )  # type: ignore
+            selected_covered_len = model.NewIntVar(
+                0, 4 * coord_ub, f"rs_cov_len_{room.name}"
+            )  # type: ignore
+            model.Add(
+                selected_required_len
+                == cp_model.LinearExpr.Sum(selected_required_terms)
+            )  # type: ignore
+            model.Add(
+                selected_covered_len == cp_model.LinearExpr.Sum(selected_covered_terms)
+            )  # type: ignore
 
             required_scale = _WIGGLE_SCALE - rule.wiggle_pct
-            model.Add(_WIGGLE_SCALE * selected_covered_len >= required_scale * selected_required_len)
+            model.Add(
+                _WIGGLE_SCALE * selected_covered_len
+                >= required_scale * selected_required_len
+            )
         else:
             model.Add(cp_model.LinearExpr.Sum(list(selected_flags.values())) == 0)  # type: ignore

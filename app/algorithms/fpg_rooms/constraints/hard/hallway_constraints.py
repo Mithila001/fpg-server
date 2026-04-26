@@ -17,7 +17,7 @@ _MIN_OVERLAP = HALLWAY_NARROW_SIDE
 
 
 def _touch_constraints(
-    model: cp_model.CpModel,
+    model: Any,
     room1: Room,
     room2: Room,
     enforcer=None,
@@ -61,7 +61,7 @@ def _touch_constraints(
 
 
 def _axis_overlap_length(
-    model: cp_model.CpModel,
+    model: Any,
     start1: cp_model.IntVar,
     end1: cp_model.IntVar,
     start2: cp_model.IntVar,
@@ -83,7 +83,7 @@ def _axis_overlap_length(
 
 
 def add_hallway_constraints(
-    model: cp_model.CpModel,
+    model: Any,
     rooms: List[Room],
 ) -> Dict[str, Any]:
     hallways = [room for room in rooms if room.type == "hallway"]
@@ -137,10 +137,18 @@ def add_hallway_constraints(
                 f"{hallway.name}_{room.name}_h",
             )
 
-            right_overlap = model.NewIntVar(0, coord_ub, f"h_ov_right_{hallway.name}_{room.name}")  # type: ignore
-            left_overlap = model.NewIntVar(0, coord_ub, f"h_ov_left_{hallway.name}_{room.name}")  # type: ignore
-            top_overlap = model.NewIntVar(0, coord_ub, f"h_ov_top_{hallway.name}_{room.name}")  # type: ignore
-            bottom_overlap = model.NewIntVar(0, coord_ub, f"h_ov_bottom_{hallway.name}_{room.name}")  # type: ignore
+            right_overlap = model.NewIntVar(
+                0, coord_ub, f"h_ov_right_{hallway.name}_{room.name}"
+            )  # type: ignore
+            left_overlap = model.NewIntVar(
+                0, coord_ub, f"h_ov_left_{hallway.name}_{room.name}"
+            )  # type: ignore
+            top_overlap = model.NewIntVar(
+                0, coord_ub, f"h_ov_top_{hallway.name}_{room.name}"
+            )  # type: ignore
+            bottom_overlap = model.NewIntVar(
+                0, coord_ub, f"h_ov_bottom_{hallway.name}_{room.name}"
+            )  # type: ignore
 
             model.Add(right_overlap == vertical_overlap).OnlyEnforceIf(touches["right"])  # type: ignore
             model.Add(right_overlap == 0).OnlyEnforceIf(touches["right"].Not())  # type: ignore
@@ -151,7 +159,9 @@ def add_hallway_constraints(
             model.Add(top_overlap == horizontal_overlap).OnlyEnforceIf(touches["top"])  # type: ignore
             model.Add(top_overlap == 0).OnlyEnforceIf(touches["top"].Not())  # type: ignore
 
-            model.Add(bottom_overlap == horizontal_overlap).OnlyEnforceIf(touches["bottom"])  # type: ignore
+            model.Add(bottom_overlap == horizontal_overlap).OnlyEnforceIf(
+                touches["bottom"]
+            )  # type: ignore
             model.Add(bottom_overlap == 0).OnlyEnforceIf(touches["bottom"].Not())  # type: ignore
 
             side_overlap_terms["right"].append(right_overlap)
@@ -206,6 +216,8 @@ def add_hallway_constraints(
             model.Add(total_overlap >= side_length).OnlyEnforceIf(covered)  # type: ignore
             model.Add(total_overlap <= side_length - 1).OnlyEnforceIf(covered.Not())  # type: ignore
 
-        model.Add(cp_model.LinearExpr.Sum(hallway_side_covered) >= required_shared_walls)  # type: ignore
+        model.Add(
+            cp_model.LinearExpr.Sum(hallway_side_covered) >= required_shared_walls
+        )  # type: ignore
 
     return {"hallway_rooms": hallways}

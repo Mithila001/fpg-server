@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from shapely.geometry import box
 from shapely.ops import unary_union
 
@@ -23,7 +25,7 @@ def run_wall_union(
             "room_walls": {},
         }
 
-    room_polygons: dict[str, object] = {
+    room_polygons: dict[str, Any] = {
         room["name"]: box(room["x"], room["y"], room["x_end"], room["y_end"])
         for room in rooms
     }

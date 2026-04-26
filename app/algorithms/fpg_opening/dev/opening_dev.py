@@ -41,8 +41,12 @@ def run_dev_main_door_plot(
     # determine bounds
     min_x = min(room["x"] for room in rooms_solver)
     min_y = min(room["y"] for room in rooms_solver)
-    max_x = max(room.get("x_end", room["x"] + room.get("w", 0)) for room in rooms_solver)
-    max_y = max(room.get("y_end", room["y"] + room.get("h", 0)) for room in rooms_solver)
+    max_x = max(
+        room.get("x_end", room["x"] + room.get("w", 0)) for room in rooms_solver
+    )
+    max_y = max(
+        room.get("y_end", room["y"] + room.get("h", 0)) for room in rooms_solver
+    )
 
     for room in rooms_solver:
         x = float(room["x"])
@@ -50,19 +54,38 @@ def run_dev_main_door_plot(
         w = float(room.get("w", room.get("x_end", x) - x))
         h = float(room.get("h", room.get("y_end", y) - y))
 
-        rect = patches.Rectangle((x, y), w, h, linewidth=1, edgecolor="gray", facecolor="none")
+        rect = patches.Rectangle(
+            (x, y), w, h, linewidth=1, edgecolor="gray", facecolor="none"
+        )
         ax.add_patch(rect)
-        ax.text(x + w / 2, y + h / 2, room.get("name", ""), ha="center", va="center", fontsize=8)
+        ax.text(
+            x + w / 2,
+            y + h / 2,
+            room.get("name", ""),
+            ha="center",
+            va="center",
+            fontsize=8,
+        )
 
     for opening in result.get("openings", []):
-        x1 = opening["x1"]
-        y1 = opening["y1"]
-        x2 = opening["x2"]
-        y2 = opening["y2"]
+        x1 = opening.get("x1")
+        y1 = opening.get("y1")
+        x2 = opening.get("x2")
+        y2 = opening.get("y2")
+        if x1 is None or y1 is None or x2 is None or y2 is None:
+            continue
         opening_type = str(opening.get("opening_type", "opening"))
         color = "red" if opening_type == "mainDoor" else "blue"
         ax.plot([x1, x2], [y1, y2], color=color, linewidth=3, solid_capstyle="round")
-        ax.text((x1 + x2) / 2, (y1 + y2) / 2, opening_type, color=color, fontsize=8, ha="center", va="center")
+        ax.text(
+            (x1 + x2) / 2,
+            (y1 + y2) / 2,
+            opening_type,
+            color=color,
+            fontsize=8,
+            ha="center",
+            va="center",
+        )
 
     ax.set_title("FPG Opening Dev: Opening Selection")
     ax.set_xlabel("X")

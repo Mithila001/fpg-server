@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Mapping, Sequence
+from typing import Any, cast
 from ortools.sat.python import cp_model
 
 from .constraints import (
@@ -15,7 +16,9 @@ from .constraints.windows_placement import (
     is_window_eligible_room,
 )
 from .solver_models import from_scaled_int, to_scaled_int
-from ..types import OpeningRunResult
+from ..types import OpeningPayload, OpeningRunResult
+from ..types.solvers.cp_model_like import CpModelLike
+from ..types.solvers import ScaledRoomBounds
 from .utils import (
     get_exterior_sides,
     get_internal_door_candidates,
@@ -33,7 +36,7 @@ class OpeningGenerator:
 
     def __init__(
         self,
-        fpg_room_requirements: list[dict[str, Any]],
+        fpg_room_requirements: Sequence[Mapping[str, Any]],
         side_priority: tuple[str, ...] = ("south", "east", "north", "west"),
         preferred_door_length: float = 8.0,
         window_width: float = 16.0,
@@ -49,7 +52,7 @@ class OpeningGenerator:
 
         self.last_status_name: str = "NOT_RUN"
         self._warnings: list[str] = []
-        self._openings: list[dict[str, Any]] = []
+        self._openings: list[OpeningPayload] = []
 
     def generate(self) -> bool:
         """Compute one mainDoor opening for each livingRoom where possible."""
@@ -73,7 +76,7 @@ class OpeningGenerator:
         if not living_rooms:
             self._warnings = ["No livingRoom found; no mainDoor generated"]
 
-        openings: list[dict[str, Any]] = []
+        openings: list[OpeningPayload] = []
         warnings: list[str] = list(self._warnings)
 
         for living_room in living_rooms:
@@ -89,8 +92,8 @@ class OpeningGenerator:
                 )
                 continue
 
-            model = cp_model.CpModel()
-            scaled_room = {
+            model = cast(CpModelLike, cp_model.CpModel())
+            scaled_room: ScaledRoomBounds = {
                 "x": to_scaled_int(living_room["x"]),
                 "y": to_scaled_int(living_room["y"]),
                 "x_end": to_scaled_int(living_room["x_end"]),
@@ -149,7 +152,7 @@ class OpeningGenerator:
             tolerance=self.tolerance,
         )
         if internal_candidates:
-            internal_model = cp_model.CpModel()
+            internal_model = cast(CpModelLike, cp_model.CpModel())
             internal_decisions = add_internal_doors_placement_constraint(
                 model=internal_model,
                 candidates=internal_candidates,
@@ -188,7 +191,7 @@ class OpeningGenerator:
             tolerance=self.tolerance,
         )
         if back_door_candidates:
-            back_door_model = cp_model.CpModel()
+            back_door_model = cast(CpModelLike, cp_model.CpModel())
             back_door_decisions = add_back_door_placement_constraint(
                 model=back_door_model,
                 candidates=back_door_candidates,
@@ -262,7 +265,7 @@ class OpeningGenerator:
             window_candidates.extend(room_candidates)
 
         if window_candidates:
-            window_model = cp_model.CpModel()
+            window_model = cast(CpModelLike, cp_model.CpModel())
             window_decisions = add_windows_placement_constraint(
                 model=window_model,
                 candidates=window_candidates,
@@ -328,7 +331,7 @@ class OpeningGenerator:
 
 
 def generate_openings(
-    fpg_room_requirements: list[dict[str, Any]],
+    fpg_room_requirements: Sequence[Mapping[str, Any]],
     side_priority: tuple[str, ...] = ("south", "east", "north", "west"),
     preferred_door_length: float = 8.0,
     window_width: float = 16.0,

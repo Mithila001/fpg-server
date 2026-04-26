@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from typing import Any, Dict, Mapping, Sequence, Tuple
 
-from ._helpers import clamp_0_25, normalize_str, opening_on_room_boundary, openings_of_type, room_by_name
+from ._helpers import (
+    clamp_0_25,
+    normalize_str,
+    opening_on_room_boundary,
+    openings_of_type,
+    room_by_name,
+)
 
 
 def evaluate_internal_doors_placement(
@@ -37,11 +43,17 @@ def evaluate_internal_doors_placement(
             if pair in seen_pairs:
                 duplicate_pair_count += 1
             else:
-                seen_pairs.add(pair)
+                seen_pairs.add((pair[0], pair[1]))
 
-    all_have_connected_room = has_internal_doors and with_connected_room_count == len(internal_doors)
-    all_connected_exist = has_internal_doors and connected_room_exists_count == len(internal_doors)
-    all_boundary_valid = has_internal_doors and valid_boundary_count == len(internal_doors)
+    all_have_connected_room = has_internal_doors and with_connected_room_count == len(
+        internal_doors
+    )
+    all_connected_exist = has_internal_doors and connected_room_exists_count == len(
+        internal_doors
+    )
+    all_boundary_valid = has_internal_doors and valid_boundary_count == len(
+        internal_doors
+    )
     no_duplicate_pairs = duplicate_pair_count == 0
 
     checks = [

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from typing import cast
 
 from ..types.land_types import RoadConnectedPayload, SegmentCategory
 from .geometry import Point, inward_normal, is_polygon_ccw
@@ -72,7 +73,9 @@ def _segment_scores(
         "left": ta_tangent,
         "right": (-ta_tangent[0], -ta_tangent[1]),
     }
-    return {category: _dot(segment_normal, target) for category, target in targets.items()}
+    return {
+        category: _dot(segment_normal, target) for category, target in targets.items()
+    }
 
 
 def _ensure_all_categories(
@@ -83,7 +86,9 @@ def _ensure_all_categories(
     counts = {category: assignments.count(category) for category in CATEGORIES}
 
     while True:
-        missing = [category for category in CATEGORIES if counts[category] == 0]
+        missing: list[SegmentCategory] = [
+            category for category in CATEGORIES if counts[category] == 0
+        ]
         if not missing:
             return assignments
 
@@ -138,7 +143,9 @@ def _road_offset_by_segment(
         p2 = (road_segment[1]["x"], road_segment[1]["y"])
         segment_index = _find_segment_index(segments, p1, p2)
         if segment_index is None:
-            raise ValueError("A roadConnected segment does not match any boundary segment.")
+            raise ValueError(
+                "A roadConnected segment does not match any boundary segment."
+            )
 
         road_offsets[segment_index] += bonus
 
@@ -151,7 +158,9 @@ def classify_segments_and_offsets(
     roads: list[RoadConnectedPayload],
 ) -> tuple[list[SegmentCategory], list[float]]:
     if len(polygon) < 4:
-        raise ValueError("At least 4 polygon edges are required for side categorization.")
+        raise ValueError(
+            "At least 4 polygon edges are required for side categorization."
+        )
 
     segments = _build_segments(polygon)
     ta_segment_index = _find_segment_index(segments, ta_segment[0], ta_segment[1])
@@ -169,7 +178,7 @@ def classify_segments_and_offsets(
     for segment in segments:
         normal = inward_normal(segment[0], segment[1], is_ccw)
         scores = _segment_scores(normal, ta_tangent, front_normal)
-        category = max(scores, key=scores.get)
+        category = cast(SegmentCategory, max(scores, key=lambda item: scores[item]))
         assignments.append(category)
         score_table.append(scores)
 

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Mapping, Sequence
 
 from app.algorithms.types import OpeningPayload, RoomBoundaryPayload
 
 
-def normalize_rooms(rooms: list[dict[str, Any]]) -> list[RoomBoundaryPayload]:
+def normalize_rooms(rooms: Sequence[Mapping[str, Any]]) -> list[RoomBoundaryPayload]:
     """Normalize room payloads into strict room boundary records."""
     normalized: list[RoomBoundaryPayload] = []
 
@@ -52,7 +52,7 @@ def normalize_rooms(rooms: list[dict[str, Any]]) -> list[RoomBoundaryPayload]:
     return normalized
 
 
-def normalize_openings(openings: list[dict[str, Any]]) -> list[OpeningPayload]:
+def normalize_openings(openings: Sequence[Mapping[str, Any]]) -> list[OpeningPayload]:
     """Normalize opening payloads with required room_name and optional geometry fields."""
     normalized: list[OpeningPayload] = []
 

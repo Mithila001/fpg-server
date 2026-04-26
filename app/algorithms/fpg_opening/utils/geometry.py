@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from app.algorithms.types import NormalizedRoom
@@ -21,7 +22,7 @@ def _overlap_length(a1: float, a2: float, b1: float, b2: float) -> float:
     return min(a2, b2) - max(a1, b1)
 
 
-def normalize_rooms(room_items: list[dict[str, Any]]) -> list[NormalizedRoom]:
+def normalize_rooms(room_items: Sequence[Mapping[str, Any]]) -> list[NormalizedRoom]:
     normalized: list[NormalizedRoom] = []
 
     for index, room in enumerate(room_items):

@@ -3,6 +3,7 @@ from __future__ import annotations
 from ortools.sat.python import cp_model
 
 from app.algorithms.types import NormalizedRoom
+from app.algorithms.types.solvers.cp_model_like import CpModelLike
 from app.algorithms.types.solvers import BackDoorCandidate, BackDoorDecisionVars
 from app.algorithms.fpg_opening.utils import get_exterior_sides
 from app.core.fpg_opening_config import (
@@ -264,7 +265,7 @@ def build_back_door_candidates(
 
 
 def add_back_door_placement_constraint(
-    model: cp_model.CpModel,
+    model: CpModelLike,
     candidates: list[BackDoorCandidate],
 ) -> BackDoorDecisionVars:
     """Select exactly one back-door candidate when candidate list is non-empty."""

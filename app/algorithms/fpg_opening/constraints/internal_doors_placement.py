@@ -6,6 +6,7 @@ from app.algorithms.types.solvers import (
     InternalDoorCandidate,
     InternalDoorDecisionVars,
 )
+from app.algorithms.types.solvers.cp_model_like import CpModelLike
 from app.core.fpg_opening_config import (
     INTERNAL_DOOR_ALLOWED_ROOM_PAIRS,
     MAX_INTERNAL_DOORS_BY_ROOM_TYPE,
@@ -30,7 +31,7 @@ def _is_allowed_connection(room_type_a: str, room_type_b: str) -> bool:
 
 
 def add_internal_doors_placement_constraint(
-    model: cp_model.CpModel,
+    model: CpModelLike,
     candidates: list[InternalDoorCandidate],
 ) -> InternalDoorDecisionVars:
     """Whitelist internal door pairings by room type.

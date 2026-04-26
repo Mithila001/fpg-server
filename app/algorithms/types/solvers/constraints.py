@@ -51,6 +51,7 @@ class WindowDecisionVars(TypedDict):
 
 
 class BackDoorCandidate(TypedDict):
+    room_name: str
     room_type: str
     side: str
     x1: float

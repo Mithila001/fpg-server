@@ -11,8 +11,13 @@ def _clamp(value: int, lower: int, upper: int) -> int:
 
 def _read_hint_point(hint: dict[str, Any]) -> tuple[int, int] | None:
     try:
-        x = int(hint.get("x"))
-        y = int(hint.get("y"))
+        x_raw = hint.get("x")
+        y_raw = hint.get("y")
+        if x_raw is None or y_raw is None:
+            return None
+
+        x = int(x_raw)
+        y = int(y_raw)
     except (TypeError, ValueError):
         return None
     return x, y

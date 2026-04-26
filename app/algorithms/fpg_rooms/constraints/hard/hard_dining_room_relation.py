@@ -7,6 +7,8 @@ For each diningRoom:
 
 from __future__ import annotations
 
+from typing import Any
+
 from ortools.sat.python import cp_model
 
 from app.core.fpg_rooms.config_fpg import GENERATOR_ADJACENCY_MIN_OVERLAP
@@ -16,25 +18,20 @@ from .room_adjacency_hard import add_conditional_room_touch_constraint
 
 
 def _require_room_geometry(room: Room) -> None:
-    if (
-        room.x is None
-        or room.y is None
-        or room.x_end is None
-        or room.y_end is None
-    ):
+    if room.x is None or room.y is None or room.x_end is None or room.y_end is None:
         raise ValueError(
             f"Room '{room.name}' ({room.type}) has null geometry vars before adjacency encoding."
         )
 
 
 def _adjacent_literal(
-    model: cp_model.CpModel,
+    model: Any,
     room_a: Room,
     room_b: Room,
     *,
     min_overlap: int,
     name: str,
-) -> cp_model.BoolVar:
+) -> cp_model.IntVar:
     _require_room_geometry(room_a)
     _require_room_geometry(room_b)
 
@@ -50,12 +47,12 @@ def _adjacent_literal(
 
 
 def _and_literal(
-    model: cp_model.CpModel,
-    left: cp_model.BoolVar,
-    right: cp_model.BoolVar,
+    model: Any,
+    left: cp_model.IntVar,
+    right: cp_model.IntVar,
     *,
     name: str,
-) -> cp_model.BoolVar:
+) -> cp_model.IntVar:
     both = model.NewBoolVar(name)
     model.AddBoolAnd([left, right]).OnlyEnforceIf(both)
     model.AddBoolOr([left.Not(), right.Not()]).OnlyEnforceIf(both.Not())
@@ -63,15 +60,15 @@ def _and_literal(
 
 
 def _build_target_paths(
-    model: cp_model.CpModel,
+    model: Any,
     dining_room: Room,
     target_rooms: list[Room],
     hallway_rooms: list[Room],
     *,
     min_overlap: int,
     target_label: str,
-) -> list[cp_model.BoolVar]:
-    paths: list[cp_model.BoolVar] = []
+) -> list[cp_model.IntVar]:
+    paths: list[cp_model.IntVar] = []
 
     for target in target_rooms:
         paths.append(
@@ -113,7 +110,7 @@ def _build_target_paths(
 
 
 def add_hard_dining_room_relation_constraint(
-    model: cp_model.CpModel,
+    model: Any,
     rooms: list[Room],
     min_overlap: int = GENERATOR_ADJACENCY_MIN_OVERLAP,
 ) -> None:

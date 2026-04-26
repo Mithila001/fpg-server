@@ -12,7 +12,7 @@ and manages verandaOutdoorSpace expansion for patio/garden visibility.
 
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from ortools.sat.python import cp_model
 
@@ -26,7 +26,7 @@ from ...solver_models.room import Room
 
 
 def _touch_constraints(
-    model: cp_model.CpModel,
+    model: Any,
     room1: Room,
     room2: Room,
 ) -> Dict[str, cp_model.IntVar]:
@@ -64,7 +64,7 @@ def _touch_constraints(
 
 
 def _add_non_overlap_constraint(
-    model: cp_model.CpModel,
+    model: Any,
     room_a: Room,
     room_b: Room,
     name: str,
@@ -89,7 +89,7 @@ def _add_non_overlap_constraint(
 
 
 def _create_veranda_outdoor_space(
-    model: cp_model.CpModel,
+    model: Any,
     veranda: Room,
     land_width: int,
     land_height: int,
@@ -108,7 +108,7 @@ def _create_veranda_outdoor_space(
 
 
 def add_veranda_placement_constraints(
-    model: cp_model.CpModel,
+    model: Any,
     rooms: List[Room],
 ) -> List[Room]:
     """Apply hard veranda frontage and verandaOutdoorSpace placement rules.

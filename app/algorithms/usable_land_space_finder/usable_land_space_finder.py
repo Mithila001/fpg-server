@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from typing import Any
+
 from .types.land_types import (
     CoordinatePayload,
     LandBoundaryPayload,
     SegmentCategory,
+    SegmentCategoryItem,
+    SegmentOffsetItem,
+    UsableLandMetadata,
     UsableLandSpaceResult,
 )
 from .utils.classification import classify_segments_and_offsets
@@ -19,7 +25,9 @@ from .utils.geometry import (
 __all__ = ["find_usable_land_space"]
 
 
-def _extract_ta_segment(land_data: LandBoundaryPayload) -> tuple[CoordinatePayload, CoordinatePayload]:
+def _extract_ta_segment(
+    land_data: Mapping[str, Any],
+) -> tuple[CoordinatePayload, CoordinatePayload]:
     roads = land_data.get("roadConnected", [])
     if not roads:
         raise ValueError("roadConnected cannot be empty; TA segment is required.")
@@ -34,14 +42,13 @@ def _extract_ta_segment(land_data: LandBoundaryPayload) -> tuple[CoordinatePaylo
 def _build_metadata(
     categories: list[SegmentCategory],
     final_offsets: list[float],
-) -> dict:
-    segment_categories = [
+) -> UsableLandMetadata:
+    segment_categories: list[SegmentCategoryItem] = [
         {"index": index, "category": category}
         for index, category in enumerate(categories)
     ]
-    segment_final_offsets = [
-        {"index": index, "offset": offset}
-        for index, offset in enumerate(final_offsets)
+    segment_final_offsets: list[SegmentOffsetItem] = [
+        {"index": index, "offset": offset} for index, offset in enumerate(final_offsets)
     ]
 
     return {
@@ -50,7 +57,7 @@ def _build_metadata(
     }
 
 
-def find_usable_land_space(land_data: LandBoundaryPayload) -> UsableLandSpaceResult:
+def find_usable_land_space(land_data: Mapping[str, Any]) -> UsableLandSpaceResult:
     """Shrink a convex land polygon based on direction and road-aware offsets.
 
     Rules:
@@ -61,7 +68,9 @@ def find_usable_land_space(land_data: LandBoundaryPayload) -> UsableLandSpaceRes
     """
     polygon = to_open_polygon_tuples(land_data.get("segmentsCoordinates", []))
     if len(polygon) < 4:
-        raise ValueError("At least 4 boundary points are required for side categorization.")
+        raise ValueError(
+            "At least 4 boundary points are required for side categorization."
+        )
 
     ensure_convex_polygon(polygon)
 
@@ -79,7 +88,9 @@ def find_usable_land_space(land_data: LandBoundaryPayload) -> UsableLandSpaceRes
     ensure_convex_polygon(shrunk_polygon)
 
     if polygon_area(shrunk_polygon) <= 0:
-        raise ValueError("Shrinking is too aggressive: resulting polygon area is not positive.")
+        raise ValueError(
+            "Shrinking is too aggressive: resulting polygon area is not positive."
+        )
 
     return {
         "shrunkSegmentsCoordinates": [

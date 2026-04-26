@@ -1,8 +1,9 @@
 import contextlib
 import io
+from collections.abc import Mapping, Sequence
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from app.algorithms.fpg_opening import generate_openings
 from app.algorithms.fpg_rooms import FloorPlanGenerator
@@ -13,6 +14,7 @@ from app.algorithms.fpg_rooms.utils.extender_injection import (
     inject_extenders_into_requirements,
 )
 from app.algorithms.types import FpgRequirements
+from app.algorithms.types import OpeningRunResult
 from app.algorithms.fpg_rooms.fpg_post_process import (
     run_final_post_process,
     run_quick_post_process,
@@ -56,6 +58,12 @@ EMPTY_OPENING_LAYOUT = {
 FPG_SOLVER_RUN_COUNT = 2
 
 
+def _normalize_room_dicts(
+    rooms: Sequence[Mapping[str, Any]] | Sequence[Any],
+) -> list[dict[str, Any]]:
+    return [dict(room) for room in rooms if isinstance(room, Mapping)]
+
+
 def _plot_refine_before_after_dev(
     stage1_rooms: list[dict[str, Any]],
     stage2_rooms: list[dict[str, Any]],
@@ -83,7 +91,7 @@ def _plot_refine_before_after_dev(
 
         module = module_from_spec(spec)
         spec.loader.exec_module(module)
-        plot_fn = getattr(module, "plot_refine_three_generations", None)
+        plot_fn: Any = getattr(module, "plot_refine_three_generations", None)
         if not callable(plot_fn):
             print("\n\n 33\n\n")
             plot_fn = getattr(module, "plot_refine_before_after", None)
@@ -97,19 +105,25 @@ def _plot_refine_before_after_dev(
         output_dir.mkdir(parents=True, exist_ok=True)
 
         if plot_fn.__name__ == "plot_refine_three_generations":
-            return plot_fn(
+            return cast(
+                str | None,
+                plot_fn(
+                    before_rooms=stage1_rooms,
+                    middle_rooms=stage2_rooms,
+                    after_rooms=stage3_rooms,
+                    output_dir=output_dir,
+                    show=False,
+                ),
+            )
+
+        return cast(
+            str | None,
+            plot_fn(
                 before_rooms=stage1_rooms,
-                middle_rooms=stage2_rooms,
                 after_rooms=stage3_rooms,
                 output_dir=output_dir,
                 show=False,
-            )
-
-        return plot_fn(
-            before_rooms=stage1_rooms,
-            after_rooms=stage3_rooms,
-            output_dir=output_dir,
-            show=False,
+            ),
         )
     except Exception:
         return None
@@ -148,7 +162,7 @@ def _run_single_fpg_solve(
         {"rooms": solution, "openings": []}
     )
     print("\n run quick post process")
-    stage1_rooms = quick_post_process_result["rooms"]
+    stage1_rooms = _normalize_room_dicts(quick_post_process_result["rooms"])
 
     # --- PASS 1: Standard Refine ---
     refine_result1 = run_refine_profile_1(
@@ -249,7 +263,7 @@ def _run_single_fpg_solve(
         message="Solver found a layout",
     )
     result.quick_post_process_result = scoring_input
-    result.opening_result = opening_result
+    result.opening_result = cast(OpeningRunResult, opening_result)
     result.refine_status = refine_status
     result.refine_message = refine_message
     return result

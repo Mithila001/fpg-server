@@ -14,7 +14,7 @@ This module enforces garage placement so each garage:
 
 from __future__ import annotations
 
-from typing import List
+from typing import Any, List
 
 from ortools.sat.python import cp_model
 
@@ -23,10 +23,10 @@ from ...solver_models.room import Room
 
 
 def add_garage_placement_constraints(
-    model: cp_model.CpModel,
+    model: Any,
     rooms: List[Room],
-  floor_width: int,
-  floor_height: int,
+    floor_width: int,
+    floor_height: int,
 ) -> None:
     """Apply refined hard garage placement rules.
 
@@ -60,11 +60,19 @@ def add_garage_placement_constraints(
         garage_at_left = model.NewBoolVar(f"{garage.name}_at_left_side")  # type: ignore
         garage_at_right = model.NewBoolVar(f"{garage.name}_at_right_side")  # type: ignore
 
-        model.Add(garage.x <= GARAGE_SIDE_ANCHOR_THRESHOLD).OnlyEnforceIf(garage_at_left)
-        model.Add(garage.x > GARAGE_SIDE_ANCHOR_THRESHOLD).OnlyEnforceIf(garage_at_left.Not())
+        model.Add(garage.x <= GARAGE_SIDE_ANCHOR_THRESHOLD).OnlyEnforceIf(
+            garage_at_left
+        )
+        model.Add(garage.x > GARAGE_SIDE_ANCHOR_THRESHOLD).OnlyEnforceIf(
+            garage_at_left.Not()
+        )
 
-        model.Add(garage.x_end >= land_width - GARAGE_SIDE_ANCHOR_THRESHOLD).OnlyEnforceIf(garage_at_right)
-        model.Add(garage.x_end < land_width - GARAGE_SIDE_ANCHOR_THRESHOLD).OnlyEnforceIf(garage_at_right.Not())
+        model.Add(
+            garage.x_end >= land_width - GARAGE_SIDE_ANCHOR_THRESHOLD
+        ).OnlyEnforceIf(garage_at_right)
+        model.Add(
+            garage.x_end < land_width - GARAGE_SIDE_ANCHOR_THRESHOLD
+        ).OnlyEnforceIf(garage_at_right.Not())
 
         model.Add(garage_at_left + garage_at_right == 1)
 

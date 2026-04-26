@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.algorithms.types import RoomData
+from app.algorithms.types import FpgRequirements, RoomData
 from app.algorithms.fpg_rooms.utils.extender_config import LIVING_ROOM_EXTENDER_CONFIGS
 
 
@@ -35,8 +35,8 @@ def build_extender_room_data() -> list[RoomData]:
 
 
 def inject_extenders_into_requirements(
-    requirements: type,
-) -> type:
+    requirements: FpgRequirements,
+) -> FpgRequirements:
     """Inject extender room definitions into FpgRequirements.
 
     Modifies the requirements object to include extender rooms in the room list.

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import random
-from typing import Any
+from typing import Any, cast
 
 from ortools.sat.python import cp_model
 
@@ -73,6 +73,8 @@ from .constraints.soft.soft_room_adjacency import (
 from .rules import normalize_requirements
 from .solver_models.room import Room
 from ..types import FpgRequirements, RoomRelationsConstraint
+from app.algorithms.types.solvers.cp_model_like import CpModelLike
+from app.schemas.db.room_relations_constraints import RoomRelationsConstraintBase
 from .utils.generator.util_hallway_rooms import (
     generate_hallway_rooms,
     prepare_requirements_for_hallway_rules,
@@ -235,8 +237,12 @@ class FpgrCore:
             apply_hard_room_adjacency_constraints(
                 self.model,
                 self.rooms,
-                hard_and_relations=hard_and_relation_constraints,
-                hard_or_relations=hard_or_relation_constraints,
+                hard_and_relations=cast(
+                    list[RoomRelationsConstraintBase], hard_and_relation_constraints
+                ),
+                hard_or_relations=cast(
+                    list[RoomRelationsConstraintBase], hard_or_relation_constraints
+                ),
                 min_overlap=GENERATOR_ADJACENCY_MIN_OVERLAP,
             )
 
@@ -244,7 +250,9 @@ class FpgrCore:
             build_soft_room_adjacency_preference_vars(
                 self.model,
                 self.rooms,
-                soft_relations=soft_relation_constraints,
+                soft_relations=cast(
+                    list[RoomRelationsConstraintBase], soft_relation_constraints
+                ),
                 min_overlap=GENERATOR_ADJACENCY_MIN_OVERLAP,
             )
 
@@ -412,7 +420,7 @@ class FpgrCore:
 
         if objective_terms:
             total_cost = cp_model.LinearExpr.Sum(objective_terms)  # type: ignore
-            self.model.Minimize(total_cost)
+            cast(Any, self.model).Minimize(total_cost)
 
         print("\n === Solver Core Run")
         self.solver.parameters.max_time_in_seconds = max(0.1, float(max_time_seconds))

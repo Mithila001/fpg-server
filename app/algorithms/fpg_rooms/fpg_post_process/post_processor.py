@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from .processors import run_wall_union
@@ -9,6 +10,9 @@ from app.algorithms.types import (
     PostProcessOutputPayload,
     QuickPostProcessOutputPayload,
     RoomBoundaryPayload,
+    RoomOutputPayload,
+    DoorPayload,
+    WindowPayload,
     WallSegmentPayload,
     ProcessContextPayload,
     RoomWallsPayload,
@@ -58,7 +62,7 @@ def _filter_openings(
 
 def _build_room_outputs(
     room_walls: dict[str, RoomWallsPayload],
-) -> dict[str, dict[str, Any]]:
+) -> dict[str, RoomOutputPayload]:
     return {
         room_name: {
             "room_name": room_name,
@@ -71,13 +75,19 @@ def _build_room_outputs(
 
 def _build_doors_and_windows(
     openings: list[OpeningPayload],
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    doors: list[dict[str, Any]] = []
-    windows: list[dict[str, Any]] = []
+) -> tuple[list[DoorPayload], list[WindowPayload]]:
+    doors: list[DoorPayload] = []
+    windows: list[WindowPayload] = []
 
     for opening in openings:
         opening_type = str(opening.get("opening_type") or "").strip()
         normalized_type = _normalize_room_type(opening_type)
+        x1 = opening.get("x1")
+        y1 = opening.get("y1")
+        x2 = opening.get("x2")
+        y2 = opening.get("y2")
+        if x1 is None or y1 is None or x2 is None or y2 is None:
+            continue
 
         if normalized_type == "window":
             windows.append(
@@ -85,10 +95,10 @@ def _build_doors_and_windows(
                     "room_name": opening["room_name"],
                     "room_type": opening.get("room_type", ""),
                     "opening_type": "default_window",
-                    "x1": opening.get("x1"),
-                    "y1": opening.get("y1"),
-                    "x2": opening.get("x2"),
-                    "y2": opening.get("y2"),
+                    "x1": float(x1),
+                    "y1": float(y1),
+                    "x2": float(x2),
+                    "y2": float(y2),
                 }
             )
             continue
@@ -100,10 +110,10 @@ def _build_doors_and_windows(
                 "room2_name": opening.get("connected_room_name", ""),
                 "room2_type": opening.get("connected_room_type", ""),
                 "opening_type": opening_type or "",
-                "x1": opening.get("x1"),
-                "y1": opening.get("y1"),
-                "x2": opening.get("x2"),
-                "y2": opening.get("y2"),
+                "x1": float(x1),
+                "y1": float(y1),
+                "x2": float(x2),
+                "y2": float(y2),
             }
         )
 
@@ -111,7 +121,7 @@ def _build_doors_and_windows(
 
 
 def run_final_post_process(
-    payload: PostProcessInputPayload,
+    payload: Mapping[str, Any],
 ) -> PostProcessOutputPayload:
     """Heavy post processor for final layout payload shape."""
     context: ProcessContextPayload = {
@@ -140,7 +150,7 @@ def run_final_post_process(
 
 
 def run_quick_post_process(
-    payload: PostProcessInputPayload,
+    payload: Mapping[str, Any],
 ) -> QuickPostProcessOutputPayload:
     """Post Process function for iterative post processing for algorithms"""
     context: ProcessContextPayload = {

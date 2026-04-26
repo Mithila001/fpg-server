@@ -1,8 +1,9 @@
 from ortools.sat.python import cp_model
+from typing import Any
 
 
 def build_excess_depth_penalty(
-    model: cp_model.CpModel,
+    model: Any,
     depth_expr: cp_model.LinearExprT,
     threshold: int,
     max_depth: int,
@@ -23,7 +24,7 @@ def build_excess_depth_penalty(
 
 
 def build_side_depth_penalty(
-    model: cp_model.CpModel,
+    model: Any,
     depth_expr: cp_model.LinearExprT,
     name: str,
     max_depth: int,
@@ -58,7 +59,7 @@ def build_side_depth_penalty(
 
 
 def build_excess_count_penalty(
-    model: cp_model.CpModel,
+    model: Any,
     vars_to_count: list[cp_model.IntVar],
     max_allowed: int,
     name: str,
@@ -71,7 +72,9 @@ def build_excess_count_penalty(
     count_var = model.NewIntVar(0, len(vars_to_count), f"{name}_count")  # type: ignore
     model.Add(count_var == cp_model.LinearExpr.Sum(vars_to_count))  # type: ignore
 
-    raw_excess = model.NewIntVar(-len(vars_to_count), len(vars_to_count), f"{name}_raw_excess")  # type: ignore
+    raw_excess = model.NewIntVar(
+        -len(vars_to_count), len(vars_to_count), f"{name}_raw_excess"
+    )  # type: ignore
     model.Add(raw_excess == count_var - max_allowed)
 
     excess = model.NewIntVar(0, len(vars_to_count), f"{name}_excess")  # type: ignore

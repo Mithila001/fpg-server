@@ -88,7 +88,9 @@ def _resolve_scoring_inputs(
         maybe_openings = quick_post_process_result.get("openings")
         if isinstance(maybe_openings, list):
             openings = [
-                opening for opening in maybe_openings if isinstance(opening, Mapping)
+                dict(opening)
+                for opening in maybe_openings
+                if isinstance(opening, Mapping)
             ]
 
     source_rooms: Sequence[Mapping[str, Any]] = post_rooms if post_rooms else solution

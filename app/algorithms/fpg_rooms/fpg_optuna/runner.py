@@ -5,6 +5,7 @@ import time
 from typing import Callable
 
 import optuna
+from optuna.trial import FrozenTrial
 
 from app.algorithms.types import FpgRequirements
 from app.algorithms.fpg_rooms.fpg_graph.api import run_graph_layout
@@ -60,7 +61,7 @@ class OptunaOptimizationController:
         elapsed = self.get_elapsed_time()
         if elapsed > self.timeout_seconds:
             raise TrialTimeoutError(
-                elapsed_time=elapsed, timeout_seconds=self.timeout_seconds
+                elapsed_time=elapsed, timeout_seconds=int(self.timeout_seconds)
             )
 
     def record_best_score(self, score: float) -> None:
@@ -220,7 +221,7 @@ def run_optuna_optimization(
             if tracking_context is not None:
                 tracking_context.clear_trial_id()
 
-    def optimization_callback(study: optuna.Study, trial: optuna.Trial) -> None:
+    def optimization_callback(study: optuna.Study, trial: FrozenTrial) -> None:
         if trial.value is None:
             return
         controller.record_best_score(float(trial.value))
@@ -274,13 +275,13 @@ def run_optuna_optimization(
         )
 
     return OptunaOptimizationResult(
-        study_name=study.study_name,
-        best_value=best_value,
-        best_trial_number=best_trial_number,
-        best_params=best_params,
-        completed_trials=len(study.trials),
-        failed_trials=failed_trials,
-        best_run=best_run,
+        study.study_name,
+        best_value,
+        best_trial_number,
+        best_params,
+        len(study.trials),
+        failed_trials,
+        best_run,
     )
 
 
