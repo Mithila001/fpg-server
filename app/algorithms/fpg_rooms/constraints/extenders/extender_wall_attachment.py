@@ -11,8 +11,6 @@ from __future__ import annotations
 
 from typing import Any, TYPE_CHECKING
 
-from ortools.sat.python import cp_model
-
 from app.dev.dev_print import debug_log_data
 
 if TYPE_CHECKING:

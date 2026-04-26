@@ -24,7 +24,18 @@ def normalize_requirements(req: FpgRequirements) -> FpgRequirements:
         min_h = r.min_h if r.min_h not in (None, "") else DEFAULT_MIN_H
         max_w = r.max_w if r.max_w not in (None, "") else DEFAULT_MAX_W
         max_h = r.max_h if r.max_h not in (None, "") else DEFAULT_MAX_H
-        normalized_rooms.append(RoomData(r.name, r.type, min_w, min_h, max_w, max_h))
+        normalized_rooms.append(
+            RoomData(
+                r.name,
+                r.type,
+                min_w,
+                min_h,
+                max_w,
+                max_h,
+                is_extender=getattr(r, "is_extender", False),
+                parent_room_name=getattr(r, "parent_room_name", None),
+            )
+        )
 
     # Preserve relation constraints when normalizing.
     relation_constraints = getattr(req, "relation_constraints", [])
