@@ -11,6 +11,11 @@ from optuna.trial import FrozenTrial
 from app.algorithms.types import FpgRequirements
 from app.algorithms.fpg_rooms.fpg_graph.api import run_graph_layout
 from app.algorithms.fpg_rooms.fpg_graph.adapters import build_boundary, build_nodes
+from app.algorithms.types.solvers import (
+    FpgEvaluationResult,
+    GraphPhysicsConfig,
+    OptunaOptimizationResult,
+)
 from app.core.fpg_rooms.config_fpg import (
     MINIMUM_REQUIRED_FPG_SCORE,
     TRIAL_GRAPH_SOLVER_GATE_THRESHOLD,
@@ -19,15 +24,18 @@ from app.core.fpg_rooms.config_fpg import (
 from app.core.fpg_rooms.config_optuna import (
     OPTUNA_DEFAULT_STUDY_NAME,
     OPTUNA_DEFAULT_TRIALS,
+    OPTUNA_GRAPH_PHASE1_ITERATIONS,
+    OPTUNA_GRAPH_PHASE1_UNIFORM_RADIUS,
+    OPTUNA_GRAPH_PHASE2_ITERATIONS,
     OPTUNA_HALLWAY_COUNT_MAX,
     OPTUNA_HALLWAY_COUNT_MIN,
+    OPTUNA_NODE_PLACEMENT_SAMPLING_RADIUS,
     OPTUNA_PARAM_KEY_HALLWAY_COUNT,
 )
 from app.dev.dev_print import debug_log_data
 from app.util.tracking import get_tracking_context
 from .exceptions import TrialTimeoutError
 from .sampling_logic import RoomAwareTPESampler, RoomSamplingPolicy
-from app.algorithms.types.solvers import FpgEvaluationResult, OptunaOptimizationResult
 
 EVALUATION_FN = Callable[[FpgRequirements, bool], FpgEvaluationResult]
 OPTUNA_SEARCH_SPACE_GRID_SCALE = 10
@@ -43,6 +51,15 @@ def _weighted_graph_score(graph_total_score: float) -> float:
 
 def _weighted_solver_score(solver_total_score: float) -> float:
     return (_normalize_score(solver_total_score, 100.0) / 100.0) * 10.0
+
+
+def _effective_sampling_radius(boundary_width: float, boundary_height: float) -> float:
+    half_width = max(1.0, boundary_width / 2.0)
+    half_height = max(1.0, boundary_height / 2.0)
+    return max(
+        1.0,
+        min(float(OPTUNA_NODE_PLACEMENT_SAMPLING_RADIUS), half_width, half_height),
+    )
 
 
 class OptunaOptimizationController:
@@ -107,6 +124,11 @@ def run_optuna_optimization(
             )
             # print(f"\nBase Requirements: {base_requirements}\n")
 
+            sampling_radius = _effective_sampling_radius(
+                boundary_width=boundary.width,
+                boundary_height=boundary.height,
+            )
+
             explicit_positions: dict[str, tuple[float, float]] = {}
             sampled_positions: dict[str, dict[str, float | str]] = {}
             used_positions: set[tuple[float, float]] = set()
@@ -117,16 +139,16 @@ def run_optuna_optimization(
                         "room_id": node.id,
                         "room_name": node.name,
                         "room_type": node.room_type,
-                        "radius": node.radius,
+                        "radius": sampling_radius,
                         "floor_width": boundary.width,
                         "floor_height": boundary.height,
                     },
                 )
 
-                min_x = node.radius
-                max_x = max(min_x, boundary.width - node.radius)
-                min_y = node.radius
-                max_y = max(min_y, boundary.height - node.radius)
+                min_x = sampling_radius
+                max_x = max(min_x, boundary.width - sampling_radius)
+                min_y = sampling_radius
+                max_y = max(min_y, boundary.height - sampling_radius)
 
                 min_x_idx = int(math.ceil(min_x / OPTUNA_SEARCH_SPACE_GRID_SCALE))
                 max_x_idx = int(math.floor(max_x / OPTUNA_SEARCH_SPACE_GRID_SCALE))
@@ -158,7 +180,7 @@ def run_optuna_optimization(
                     "type": node.room_type,
                     "x": sample_x,
                     "y": sample_y,
-                    "radius": node.radius,
+                    "radius": sampling_radius,
                 }
                 trial.set_user_attr("fpg_sampled_positions", sampled_positions)
 
@@ -167,6 +189,12 @@ def run_optuna_optimization(
                 requirements=base_requirements,
                 hallway_count_override=hallway_count,
                 explicit_positions=explicit_positions,
+                physics_config=GraphPhysicsConfig(
+                    use_staged_node_sizing=True,
+                    staged_uniform_radius=OPTUNA_GRAPH_PHASE1_UNIFORM_RADIUS,
+                    staged_phase1_iterations=OPTUNA_GRAPH_PHASE1_ITERATIONS,
+                    staged_phase2_iterations=OPTUNA_GRAPH_PHASE2_ITERATIONS,
+                ),
             )
             debug_log_data({"trial_number": trial.number}, tag="[Optuna] Trial Number")
             debug_log_data(graph_result, tag="[Optuna] Graph Result")
