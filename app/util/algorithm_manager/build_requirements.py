@@ -128,8 +128,8 @@ def _calculate_suitable_floor_dimensions(
         if not constraint:
             raise ValueError(f"Missing size constraints for room type: '{r_type}'")
 
-        total_min_area += constraint.min_area
-        total_max_area += constraint.max_area
+        total_min_area += constraint.min_area or 0.0
+        total_max_area += constraint.max_area or 0.0
 
     current_floor_area = floor_width * floor_height
     required_min_total = total_min_area + buffer
