@@ -1,16 +1,17 @@
-"""Soft constraint to encourage extender rooms to be larger.
+"""Soft constraint for extender room sizing behavior.
 
-Penalizes extender rooms that are undersized, encouraging them to use more space
-when placement is feasible.
+Penalizes extenders only when they are active but below configured active minimums.
+Inactive extenders (w=0, h=0) are not penalized.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from ortools.sat.python import cp_model
 
 from app.dev.dev_print import debug_log_data
+from .extender_room_size import EXTENDER_ACTIVE_MIN_H, EXTENDER_ACTIVE_MIN_W
 
 if TYPE_CHECKING:
     from app.algorithms.fpg_rooms.solver_models.room import Room
@@ -21,14 +22,14 @@ DEFAULT_EXTENDER_SIZE_PENALTY_WEIGHT = 10
 
 
 def add_extender_placement_soft_penalty(
-    model: cp_model.CpModel,
+    model: Any,
     rooms: list[Room],
     weight: int | None = None,
 ) -> cp_model.LinearExprT:
-    """Create soft penalty for undersized extender rooms.
+    """Create soft penalty for active extenders that violate active minimums.
 
-    Penalizes extender rooms that don't fully use their max width/height.
-    This encourages the solver to expand extenders to their maximum when space permits.
+    This soft term is intentionally neutral for inactive extenders so optional
+    extenders are not forced active by the objective.
 
     Args:
         model: CP-SAT solver model.
@@ -36,7 +37,7 @@ def add_extender_placement_soft_penalty(
         weight: Penalty weight per unit of underutilized space. Defaults to 10.
 
     Returns:
-        LinearExprT representing the aggregated penalty cost (0 if all extenders maxed out).
+        LinearExprT representing the aggregated penalty cost.
     """
 
     if weight is None:
@@ -61,20 +62,41 @@ def add_extender_placement_soft_penalty(
             )
             continue
 
-        # Penalty: sum of (max_w - actual_w) + (max_h - actual_h)
-        # This incentivizes the solver to make w and h as close to max as possible
         if room.w is not None and room.h is not None:
-            width_underutilization = room.max_w - room.w
-            height_underutilization = room.max_h - room.h
-            penalty_terms.append(
-                cp_model.LinearExpr.Sum(
-                    [
-                        width_underutilization,
-                        height_underutilization,
-                    ]
-                )
-                * weight
+            active_min_w = max(0, int(getattr(room, "min_w", 0)), EXTENDER_ACTIVE_MIN_W)
+            active_min_h = max(0, int(getattr(room, "min_h", 0)), EXTENDER_ACTIVE_MIN_H)
+
+            is_active = model.NewBoolVar(f"{room.name}_soft_is_active")
+            model.Add(room.w >= 1).OnlyEnforceIf(is_active)
+            model.Add(room.h >= 1).OnlyEnforceIf(is_active)
+            model.Add(room.w == 0).OnlyEnforceIf(is_active.Not())
+            model.Add(room.h == 0).OnlyEnforceIf(is_active.Not())
+
+            width_shortfall = model.NewIntVar(
+                0, active_min_w, f"{room.name}_soft_width_shortfall"
             )
+            height_shortfall = model.NewIntVar(
+                0, active_min_h, f"{room.name}_soft_height_shortfall"
+            )
+            model.Add(width_shortfall >= active_min_w - room.w)
+            model.Add(height_shortfall >= active_min_h - room.h)
+
+            active_shortfall = model.NewIntVar(
+                0,
+                active_min_w + active_min_h,
+                f"{room.name}_soft_active_shortfall",
+            )
+            model.Add(active_shortfall == width_shortfall + height_shortfall)
+
+            gated_shortfall = model.NewIntVar(
+                0,
+                active_min_w + active_min_h,
+                f"{room.name}_soft_gated_shortfall",
+            )
+            model.Add(gated_shortfall == active_shortfall).OnlyEnforceIf(is_active)
+            model.Add(gated_shortfall == 0).OnlyEnforceIf(is_active.Not())
+
+            penalty_terms.append(cp_model.LinearExpr.Sum([gated_shortfall]) * weight)
 
     if not penalty_terms:
         return cp_model.LinearExpr.Sum([])

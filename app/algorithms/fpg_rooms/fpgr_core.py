@@ -33,6 +33,7 @@ from app.core.fpg_rooms.config_fpg import (
 from .constraint_control_panel import ConstraintControlPanel
 from .constraints.extenders import (
     add_extender_placement_soft_penalty,
+    add_extender_room_size_constraint,
     add_extender_wall_attachment_constraint,
 )
 from .constraints.hard.basic_constraints import add_basic_constraints
@@ -307,6 +308,11 @@ class FpgrCore:
             )
 
         if panel.hard_extender_wall_attachment:
+            add_extender_room_size_constraint(
+                self.model,
+                self.rooms,
+            )
+
             add_extender_wall_attachment_constraint(
                 self.model,
                 self.rooms,
