@@ -11,7 +11,7 @@ from app.algorithms.types import FpgRequirements
 from app.algorithms.fpg_rooms.fpg_graph.api import run_graph_layout
 from app.algorithms.fpg_rooms.fpg_graph.adapters import build_boundary, build_nodes
 from app.core.fpg_rooms.config_fpg import (
-    TRIAL_EARLY_STOP_SCORE_THRESHOLD,
+    MINIMUM_REQUIRED_FPG_SCORE,
     TRIAL_GRAPH_SOLVER_GATE_THRESHOLD,
     TRIAL_OPTIMIZATION_TIMEOUT_SECONDS,
 )
@@ -48,7 +48,7 @@ class OptunaOptimizationController:
     def __init__(
         self,
         timeout_seconds: float = TRIAL_OPTIMIZATION_TIMEOUT_SECONDS,
-        score_threshold: float = TRIAL_EARLY_STOP_SCORE_THRESHOLD,
+        score_threshold: float = MINIMUM_REQUIRED_FPG_SCORE,
     ):
         self.timeout_seconds = timeout_seconds
         self.score_threshold = score_threshold
@@ -210,7 +210,7 @@ def run_optuna_optimization(
             solver_score = float(run_result.score_report.total_score)
             weighted_solver_score = _weighted_solver_score(solver_score)
             final_composite_score = weighted_graph_score + weighted_solver_score
-            solver_passed = solver_score >= TRIAL_EARLY_STOP_SCORE_THRESHOLD
+            solver_passed = solver_score >= MINIMUM_REQUIRED_FPG_SCORE
 
             trial.set_user_attr("solver_score", solver_score)
             trial.set_user_attr("solver_weighted_score", weighted_solver_score)

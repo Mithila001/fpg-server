@@ -29,7 +29,7 @@ from app.algorithms.fpg_rooms.fpgr_p_refine_extender import run_refine_profile_e
 from app.core.fpg_rooms.config_fpg import (
     DEFAULT_OPTUNA_STUDY_NAME,
     DEFAULT_OPTUNA_TRIALS,
-    TRIAL_EARLY_STOP_SCORE_THRESHOLD,
+    MINIMUM_REQUIRED_FPG_SCORE,
     DEFAULT_OPTUNA_STORAGE_ENABLED,
     DEFAULT_OPTUNA_STORAGE_URL,
     WIGGLE_ROOM,
@@ -300,10 +300,10 @@ def run_solver_with_hints(
             f"status={current_result.status} score={current_score:.2f}"
         )
 
-        if current_score >= TRIAL_EARLY_STOP_SCORE_THRESHOLD:
+        if current_score >= MINIMUM_REQUIRED_FPG_SCORE:
             print(
                 f"[SolverLoop] early-stop pass: score={current_score:.2f} "
-                f">= threshold={TRIAL_EARLY_STOP_SCORE_THRESHOLD:.2f}"
+                f">= threshold={MINIMUM_REQUIRED_FPG_SCORE:.2f}"
             )
             SystemLogger.log_event(
                 tag="SOLVER",
@@ -311,7 +311,7 @@ def run_solver_with_hints(
                 level="INFO",
                 data={
                     "score": current_score,
-                    "threshold": TRIAL_EARLY_STOP_SCORE_THRESHOLD,
+                    "threshold": MINIMUM_REQUIRED_FPG_SCORE,
                 },
             )
             return current_result
