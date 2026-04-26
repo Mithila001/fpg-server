@@ -5,8 +5,8 @@ from typing import Any
 
 from ortools.sat.python import cp_model
 
-from app.algorithms.types.opening import NormalizedRoom, OpeningPayload
-from app.algorithms.types.opening_solver import WindowCandidate, WindowDecisionVars
+from app.algorithms.types import NormalizedRoom, OpeningPayload
+from app.algorithms.types.solvers import WindowCandidate, WindowDecisionVars
 from app.core.fpg_opening_config import (
     CARDINAL_SIDES,
     GEOMETRIC_TOLERANCE,

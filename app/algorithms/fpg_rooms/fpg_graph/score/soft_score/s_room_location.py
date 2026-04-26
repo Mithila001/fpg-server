@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 
 from ..zone_utils import compute_zone, is_in_zone_range
-from app.algorithms.types.graph import GraphNode
+from app.algorithms.types.solvers import GraphNode
 
 from app.core.fpg_rooms.config_fpg import PRIVATE_ROOM_TYPES, PUBLIC_ROOM_TYPES
 

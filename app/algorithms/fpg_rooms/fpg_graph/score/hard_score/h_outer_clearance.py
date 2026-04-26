@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.algorithms.types.graph import GraphNode
+from app.algorithms.types.solvers import GraphNode
 
 
 def _nodes_of_type(nodes: list[GraphNode], room_type: str) -> list[GraphNode]:

@@ -15,7 +15,7 @@ from .constraints.windows_placement import (
     is_window_eligible_room,
 )
 from .solver_models import from_scaled_int, to_scaled_int
-from ..types.opening import OpeningRunResult
+from ..types import OpeningRunResult
 from .utils import (
     get_exterior_sides,
     get_internal_door_candidates,

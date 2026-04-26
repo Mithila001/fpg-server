@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from ortools.sat.python import cp_model
 
-from app.algorithms.types.opening import NormalizedRoom
-from app.algorithms.types.opening_solver import BackDoorCandidate, BackDoorDecisionVars
+from app.algorithms.types import NormalizedRoom
+from app.algorithms.types.solvers import BackDoorCandidate, BackDoorDecisionVars
 from app.algorithms.fpg_opening.utils import get_exterior_sides
 from app.core.fpg_opening_config import (
     BACK_DOOR_ELIGIBLE_ROOM_TYPES,

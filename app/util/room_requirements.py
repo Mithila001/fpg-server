@@ -1,8 +1,8 @@
 import math
 from typing import List, Sequence
 
-from app.algorithms.types.room import FpgRequirements, RoomData
-from app.models.room_size_constraint import RoomSizeConstraint
+from app.algorithms.types import FpgRequirements, RoomData
+from app.types.room_size_constraint import RoomSizeConstraint
 
 
 def floor_values(value: float) -> int:

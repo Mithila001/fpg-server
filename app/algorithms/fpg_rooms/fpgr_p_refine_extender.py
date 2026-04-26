@@ -7,7 +7,7 @@ from app.core.fpg_rooms.config_fpg import DEFAULT_SOLVER_MAX_TIME_SECONDS
 
 from .constraint_control_panel import ConstraintControlPanel
 from .fpgr_core import FpgrCore
-from ..types.room import FpgRequirements
+from ..types import FpgRequirements
 
 
 @dataclass

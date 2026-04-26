@@ -4,7 +4,7 @@ from collections.abc import Iterable
 
 from shapely.geometry import GeometryCollection, LineString, MultiLineString, Polygon
 
-from app.algorithms.types.public import WallSegmentPayload
+from app.algorithms.types import WallSegmentPayload
 
 
 def _snap(value: float, tolerance: float) -> float:

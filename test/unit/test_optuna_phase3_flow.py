@@ -8,7 +8,7 @@ from app.algorithms.fpg_rooms.fpg_optuna.runner import (
     run_optuna_optimization,
 )
 from app.algorithms.fpg_rooms.fpg_optuna.types import FpgEvaluationResult
-from app.algorithms.types.room import ConfigData, FpgRequirements
+from app.algorithms.types import ConfigData, FpgRequirements
 
 
 class _Node:

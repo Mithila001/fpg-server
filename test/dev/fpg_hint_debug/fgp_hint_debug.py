@@ -3,7 +3,7 @@ import os
 import traceback
 
 # Import all necessary types
-from app.algorithms.types.room import FpgRequirements, RoomData, ConfigData
+from app.algorithms.types import FpgRequirements, RoomData, ConfigData
 from app.models.room_relations_constraint import RoomRelationsConstraint
 from app.services.algorithm_manager_v2 import _run_single_fpg_solve
 from test.dev.final_result_plotter import plot_final_solver_result

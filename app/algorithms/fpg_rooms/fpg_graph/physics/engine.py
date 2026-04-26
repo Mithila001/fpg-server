@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 
-from app.algorithms.types.graph import (
+from app.algorithms.types.solvers import (
     GraphBoundary,
     GraphConvergence,
     GraphEdge,

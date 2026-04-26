@@ -9,20 +9,20 @@ from app.algorithms.fpg_rooms import FloorPlanGenerator
 from app.algorithms.fpg_rooms.fpg_optuna import (
     run_optuna_optimization,
 )
-from app.algorithms.types.optuna import FpgEvaluationResult
+from app.algorithms.fpg_rooms.utils.extender_injection import (
+    inject_extenders_into_requirements,
+)
+from app.algorithms.types import FpgRequirements
 from app.algorithms.fpg_rooms.fpg_post_process import (
     run_final_post_process,
     run_quick_post_process,
 )
+from app.algorithms.types.solvers.optimization import FpgEvaluationResult
 from app.util.logger.system_logger import SystemLogger
 
 from app.algorithms.fpg_rooms.fpg_score import score_layout
 from app.algorithms.fpg_rooms.fpgr_p_refine_1 import run_refine_profile_1
 from app.algorithms.fpg_rooms.fpgr_p_refine_extender import run_refine_profile_extender
-from app.algorithms.types.room import FpgRequirements
-from app.algorithms.fpg_rooms.utils.extender_injection import (
-    inject_extenders_into_requirements,
-)
 from app.core.fpg_rooms.config_fpg import (
     DEFAULT_OPTUNA_STUDY_NAME,
     DEFAULT_OPTUNA_TRIALS,

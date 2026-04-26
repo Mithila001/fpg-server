@@ -4,12 +4,12 @@ from typing import Any
 
 import numpy as np
 
-from app.algorithms.types.room import FpgRequirements
+from app.algorithms.types import FpgRequirements
 
 from .adapters import build_boundary, build_edges, build_nodes, initialize_positions
 from .physics.engine import run_force_directed_layout
 from .score.scorer import score_graph_layout
-from app.algorithms.types.graph import (
+from app.algorithms.types.solvers import (
     GraphBoundary,
     GraphLayoutResult,
     GraphNode,

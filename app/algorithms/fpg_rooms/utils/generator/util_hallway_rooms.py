@@ -7,7 +7,7 @@ from app.core.fpg_rooms.config_fpg import (
     HALLWAY_GENERATOR_MIN_WIDTH,
     HALLWAY_RULE_TARGET_ROOM_TYPES,
 )
-from ....types.room import FpgRequirements
+from ....types import FpgRequirements
 
 
 def prepare_requirements_for_hallway_rules(

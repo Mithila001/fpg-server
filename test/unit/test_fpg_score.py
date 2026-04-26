@@ -1,5 +1,5 @@
 from app.algorithms.fpg_rooms.fpg_score import score_layout
-from app.algorithms.types.room import ConfigData, FpgRequirements
+from app.algorithms.types import ConfigData, FpgRequirements
 
 
 def _base_requirements() -> FpgRequirements:

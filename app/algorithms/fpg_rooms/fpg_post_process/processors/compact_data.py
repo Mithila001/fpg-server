@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.algorithms.types.public import (
+from app.algorithms.types import (
     CompactRoomPayload,
     OpeningPayload,
     RoomBoundaryPayload,

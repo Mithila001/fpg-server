@@ -4,7 +4,7 @@ import math
 from random import Random
 from typing import Any
 
-from app.algorithms.types.room import FpgRequirements, RoomData
+from app.algorithms.types import FpgRequirements, RoomData
 from app.core.fpg_rooms.config_fpg import (
     DEFAULT_HALLWAY_COUNT,
     HALLWAY_GENERATOR_MIN_HEIGHT,
@@ -14,7 +14,7 @@ from app.core.fpg_rooms.config_fpg import (
     PRIVATE_ROOM_TYPES,
 )
 
-from app.algorithms.types.graph import GraphBoundary, GraphEdge, GraphNode
+from app.algorithms.types.solvers import GraphBoundary, GraphEdge, GraphNode
 
 UNIQUE_RELATION_REQUIRED_ROOM_TYPES = ["attachedBathroom"]
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .fpgr_core import FpgrCore
 from .constraint_control_panel import ConstraintControlPanel
-from ..types.room import FpgRequirements
+from ..types import FpgRequirements
 from .utils.point_hints_seed_layout import build_seed_layout_from_point_hints
 
 

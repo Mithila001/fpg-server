@@ -1,4 +1,4 @@
-from ..types.room import FpgRequirements, RoomData
+from ..types import FpgRequirements, RoomData
 from app.core.fpg_rooms.config_fpg import (
     DEFAULT_MIN_W,
     DEFAULT_MIN_H,

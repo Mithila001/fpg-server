@@ -3,12 +3,12 @@ from __future__ import annotations
 from shapely.geometry import box
 from shapely.ops import unary_union
 
-from app.algorithms.types.public import (
+from app.algorithms.types import (
     RoomBoundaryPayload,
     WallSegmentPayload,
     WallUnionResultPayload,
+    RoomWallsPayload,
 )
-from app.algorithms.types.processor_outputs import RoomWallsPayload
 from ..utils import extract_unique_segments
 
 

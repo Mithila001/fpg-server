@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.algorithms.types.room import RoomData
+from app.algorithms.types import RoomData
 from app.algorithms.fpg_rooms.utils.extender_config import LIVING_ROOM_EXTENDER_CONFIGS
 
 

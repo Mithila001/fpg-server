@@ -72,8 +72,7 @@ from .constraints.soft.soft_room_adjacency import (
 )
 from .rules import normalize_requirements
 from .solver_models.room import Room
-from ..types.room import FpgRequirements
-from ..types.room_relations_constraints import RoomRelationsConstraint
+from ..types import FpgRequirements, RoomRelationsConstraint
 from .utils.generator.util_hallway_rooms import (
     generate_hallway_rooms,
     prepare_requirements_for_hallway_rules,

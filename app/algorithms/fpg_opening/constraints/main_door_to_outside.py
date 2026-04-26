@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from ortools.sat.python import cp_model
 
-from app.algorithms.types.opening_solver import MainDoorCpSatVariables, ScaledRoomBounds
+from app.algorithms.types.solvers import MainDoorCpSatVariables, ScaledRoomBounds
 from app.core.fpg_opening_config import CARDINAL_SIDES
 
 

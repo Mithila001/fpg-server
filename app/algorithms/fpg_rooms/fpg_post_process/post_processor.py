@@ -3,16 +3,16 @@ from __future__ import annotations
 from typing import Any
 
 from .processors import run_wall_union
-from app.algorithms.types.public import (
+from app.algorithms.types import (
     OpeningPayload,
     PostProcessInputPayload,
     PostProcessOutputPayload,
     QuickPostProcessOutputPayload,
     RoomBoundaryPayload,
     WallSegmentPayload,
+    ProcessContextPayload,
+    RoomWallsPayload,
 )
-from app.algorithms.types.processor_outputs import RoomWallsPayload
-from app.algorithms.types.pipeline import ProcessContextPayload
 from .utils import normalize_openings, normalize_rooms
 
 

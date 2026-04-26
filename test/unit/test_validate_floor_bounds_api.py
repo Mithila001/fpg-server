@@ -1,6 +1,6 @@
 import pytest
 
-from app.algorithms.types.room import ConfigData, FpgRequirements, RoomData
+from app.algorithms.types import ConfigData, FpgRequirements, RoomData
 from app.util.algorithm_manager.validate_floor_bounds import (
     validate_and_compute_floor_bounds,
 )

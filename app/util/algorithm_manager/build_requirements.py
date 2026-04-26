@@ -1,6 +1,6 @@
 import math
 from typing import Tuple, List
-from app.algorithms.types.room import ConfigData, FpgRequirements
+from app.algorithms.types import ConfigData, FpgRequirements
 from app.core.fpg_rooms.config_fpg import (
     DEFAULT_ASPECT_RATIO_MAX,
     DEFAULT_ASPECT_RATIO_MIN,
@@ -16,6 +16,7 @@ from app.core.fpg_rooms.config_fpg import (
 
 # from app.models.room_size_constraint import RoomSizeConstraint
 from app.schemas.db.room_setup_template import RoomSetupTemplateBase
+from app.types.room_size_constraint import RoomSizeConstraint
 from app.util.constraint_pruner import prune_room_relations_constraints_by_template
 from app.util.room_requirements import normalize_db_data_requirements
 from app.util.algorithm_manager.build_rooms_from_template import (
@@ -96,7 +97,7 @@ def _calculate_suitable_floor_dimensions(
     floor_height: float,
     room_template_data: List[dict],
     size_constraints: List[
-        any
+        RoomSizeConstraint
     ],  # Using any for brevity; replace with RoomSizeConstraint
     buffer: float,
 ) -> Tuple[float, float]:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from ortools.sat.python import cp_model
 
-from app.algorithms.types.opening_solver import (
+from app.algorithms.types.solvers import (
     InternalDoorCandidate,
     InternalDoorDecisionVars,
 )

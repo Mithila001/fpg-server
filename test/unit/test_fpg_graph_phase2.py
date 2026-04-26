@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from app.algorithms.fpg_rooms.fpg_graph import GraphEdge, GraphNode, run_graph_layout
 from app.algorithms.fpg_rooms.fpg_graph.score import score_graph_layout
-from app.algorithms.types.room import ConfigData, FpgRequirements, RoomData
+from app.algorithms.types import ConfigData, FpgRequirements, RoomData
 
 
 def _requirements() -> FpgRequirements:

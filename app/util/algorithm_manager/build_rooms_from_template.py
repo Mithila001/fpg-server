@@ -1,4 +1,4 @@
-from app.algorithms.types.room import RoomData
+from app.algorithms.types import RoomData
 from app.core.fpg_rooms.config_fpg import (
     DEFAULT_MAX_H,
     DEFAULT_MAX_W,

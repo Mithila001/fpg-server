@@ -1,5 +1,5 @@
 from ...solver_models.room import Room
-from ....types.room import FpgRequirements
+from ....types import FpgRequirements
 
 
 def _get_living_room_requirements(

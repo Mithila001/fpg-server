@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.algorithms.types.opening import NormalizedRoom
-from app.algorithms.types.opening_solver import InternalDoorCandidate
+from app.algorithms.types import NormalizedRoom
+from app.algorithms.types.solvers import InternalDoorCandidate
 
 
 _MIN_INTERNAL_DOOR_SHARED_WALL_OVERLAP = 10.0
