@@ -6,7 +6,7 @@ from typing import Any, Literal, NotRequired, TypedDict
 OpeningSide = Literal["south", "east", "north", "west"]
 
 
-class NormalizedRoom(TypedDict):
+class NormalizedRoom(TypedDict):  # RoomBoundaryPayload
     name: str
     type: str
     x: float
