@@ -162,8 +162,6 @@ def plot_floor_plan_payload(
     fig.tight_layout()
     fig.savefig(output_path, dpi=200)
 
-    if show:
-        plt.show()
     plt.close(fig)
     return str(output_path)
 

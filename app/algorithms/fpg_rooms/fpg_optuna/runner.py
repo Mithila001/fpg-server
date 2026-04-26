@@ -22,6 +22,7 @@ from app.core.fpg_rooms.config_optuna import (
     OPTUNA_HALLWAY_COUNT_MIN,
     OPTUNA_PARAM_KEY_HALLWAY_COUNT,
 )
+from app.dev.dev_print import debug_log_data
 from app.util.tracking import get_tracking_context
 from .exceptions import TrialTimeoutError
 from app.algorithms.types.solvers import FpgEvaluationResult, OptunaOptimizationResult
@@ -119,6 +120,8 @@ def run_optuna_optimization(
                 hallway_count_override=hallway_count,
                 explicit_positions=explicit_positions,
             )
+            debug_log_data({"trial_number": trial.number}, tag="[Optuna] Trial Number")
+            debug_log_data(graph_result, tag="[Optuna] Graph Result")
 
             graph_score = float(graph_result.score.total_score)
             weighted_graph_score = _weighted_graph_score(graph_score)
@@ -176,13 +179,15 @@ def run_optuna_optimization(
                 }
                 for node in graph_result.nodes
             ]
-
+            debug_log_data(base_requirements, tag="[Optuna] Base Requirements")
             inner_requirements = copy.deepcopy(base_requirements)
             inner_requirements.initial_point_hints = point_hints
 
             # print(f"Inner Requirements: {inner_requirements}\n")
 
             inner_requirements = _update_hallway_count_for_solver(inner_requirements)
+
+            debug_log_data(inner_requirements, tag="[Optuna] Inner Requirements")
 
             # Execute run_solver_with_hints securely.
             trial.set_user_attr("solver_invoked", True)
@@ -193,6 +198,9 @@ def run_optuna_optimization(
             trial.set_user_attr("solved", run_result.solved)
 
             if not run_result.solved or run_result.score_report is None:
+                debug_log_data(
+                    run_result.score_report, tag="[Optuna] Solver Failure Result"
+                )
                 print(
                     f"[Optuna] trial={trial.number} graph={graph_score:.2f} "
                     f"graph_w={weighted_graph_score:.2f} solver=FAILED composite={weighted_graph_score:.2f}"
@@ -209,6 +217,9 @@ def run_optuna_optimization(
             trial.set_user_attr("solver_passed", solver_passed)
             trial.set_user_attr("composite_score", final_composite_score)
 
+            debug_log_data(
+                run_result.score_report, tag="[Optuna] Solver Success Result"
+            )
             print(
                 f"[Optuna] trial={trial.number} graph={graph_score:.2f} graph_w={weighted_graph_score:.2f} "
                 f"solver={solver_score:.2f} solver_w={weighted_solver_score:.2f} "

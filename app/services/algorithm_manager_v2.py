@@ -20,6 +20,7 @@ from app.algorithms.fpg_rooms.fpg_post_process import (
     run_quick_post_process,
 )
 from app.algorithms.types.solvers.optimization import FpgEvaluationResult
+from app.dev.dev_print import debug_log_data
 from app.util.logger.system_logger import SystemLogger
 
 from app.algorithms.fpg_rooms.fpg_score import score_layout
@@ -429,7 +430,6 @@ def run_fpg_pipeline_api(
         level="INFO",
         data={"status": "working"},
     )
-
     print(
         f"\n DATA DEBUG ::\n<Initial> Floor Width = {floor_width}, Floor Height = {floor_height}, Room Template = {room_template} "
     )
@@ -441,7 +441,8 @@ def run_fpg_pipeline_api(
             floor_height=floor_height,
             room_template=room_template,
         )
-        # print(f"\n DATA DEBUG :\n After Build Requirements = {requirements}")
+        debug_log_data(requirements, "INITIAL_REQUIREMENTS")
+        print(f"\n DATA DEBUG :\n After Build Requirements = {requirements}")
 
         # Step 2: Validate floor dimensions (Will Throw an Exception)
         validation_result = validate_and_compute_floor_bounds(
