@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from ortools.sat.python import cp_model
 
 from app.algorithms.types.solvers import (
@@ -33,6 +35,7 @@ def _is_allowed_connection(room_type_a: str, room_type_b: str) -> bool:
 def add_internal_doors_placement_constraint(
     model: CpModelLike,
     candidates: list[InternalDoorCandidate],
+    required_room_type_pairs: Sequence[tuple[str, str]] = (),
 ) -> InternalDoorDecisionVars:
     """Whitelist internal door pairings by room type.
 
@@ -44,6 +47,15 @@ def add_internal_doors_placement_constraint(
     room_name_to_type: dict[str, str] = {}
     bedroom_to_hallway_vars: dict[str, list[cp_model.IntVar]] = {}
     bedroom_to_livingroom_vars: dict[str, list[cp_model.IntVar]] = {}
+    required_pair_to_vars: dict[frozenset[str], list[cp_model.IntVar]] = {
+        frozenset(
+            (
+                normalize_room_type(room_type_a),
+                normalize_room_type(room_type_b),
+            )
+        ): []
+        for room_type_a, room_type_b in required_room_type_pairs
+    }
 
     for index, candidate in enumerate(candidates):
         selected = model.NewBoolVar(f"internal_door_selected_{index}")  # type: ignore
@@ -58,6 +70,9 @@ def add_internal_doors_placement_constraint(
             room_incident_selection_vars.setdefault(room_b_name, []).append(selected)
             room_name_to_type[room_a_name] = room_a_type
             room_name_to_type[room_b_name] = room_b_type
+            candidate_pair = frozenset((room_a_type, room_b_type))
+            if candidate_pair in required_pair_to_vars:
+                required_pair_to_vars[candidate_pair].append(selected)
 
             if room_a_type == "bedroom" and room_b_type == "hallway":
                 bedroom_to_hallway_vars.setdefault(room_a_name, []).append(selected)
@@ -95,6 +110,9 @@ def add_internal_doors_placement_constraint(
         ) + bedroom_to_livingroom_vars.get(bedroom_name, [])
         if social_vars:
             model.Add(sum(social_vars) <= 1)
+
+    for vars_for_required_pair in required_pair_to_vars.values():
+        model.Add(sum(vars_for_required_pair) >= 1)
 
     hallway_priority_vars: list[cp_model.IntVar] = []
     for hallway_vars in bedroom_to_hallway_vars.values():

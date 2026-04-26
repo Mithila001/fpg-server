@@ -27,6 +27,25 @@ from .utils import (
 )
 
 
+_VERANDA_MAIN_DOOR_PAIR: tuple[str, str] = ("livingRoom", "veranda")
+
+
+def _is_living_veranda_candidate(candidate: Mapping[str, Any]) -> bool:
+    room_a_type = str(candidate.get("room_a_type") or "").strip().lower()
+    room_b_type = str(candidate.get("room_b_type") or "").strip().lower()
+    return {room_a_type, room_b_type} == {"livingroom", "veranda"}
+
+
+def _opposite_side(side: str) -> str:
+    opposite = {
+        "south": "north",
+        "north": "south",
+        "east": "west",
+        "west": "east",
+    }
+    return opposite.get(side, side)
+
+
 class OpeningGenerator:
     """Generate opening payloads from room-layout rectangles.
 
@@ -40,7 +59,7 @@ class OpeningGenerator:
         side_priority: tuple[str, ...] = ("south", "east", "north", "west"),
         preferred_door_length: float = 8.0,
         window_width: float = 16.0,
-        window_door_clearance: float = 4.0,
+        window_door_clearance: float = 5.0,
         tolerance: float = 1e-6,
     ) -> None:
         self.fpg_room_requirements = fpg_room_requirements
@@ -78,73 +97,75 @@ class OpeningGenerator:
 
         openings: list[OpeningPayload] = []
         warnings: list[str] = list(self._warnings)
+        has_veranda = any(is_room_type(room, "veranda") for room in normalized_rooms)
 
-        for living_room in living_rooms:
-            exterior_sides = get_exterior_sides(
-                target_room=living_room,
-                all_rooms=normalized_rooms,
-                tolerance=self.tolerance,
-            )
-
-            if not exterior_sides:
-                warnings.append(
-                    f"No valid exterior wall for livingRoom '{living_room['name']}'"
+        if not has_veranda:
+            for living_room in living_rooms:
+                exterior_sides = get_exterior_sides(
+                    target_room=living_room,
+                    all_rooms=normalized_rooms,
+                    tolerance=self.tolerance,
                 )
-                continue
 
-            model = cast(CpModelLike, cp_model.CpModel())
-            scaled_room: ScaledRoomBounds = {
-                "x": to_scaled_int(living_room["x"]),
-                "y": to_scaled_int(living_room["y"]),
-                "x_end": to_scaled_int(living_room["x_end"]),
-                "y_end": to_scaled_int(living_room["y_end"]),
-            }
+                if not exterior_sides:
+                    warnings.append(
+                        f"No valid exterior wall for livingRoom '{living_room['name']}'"
+                    )
+                    continue
 
-            preferred_len_int = to_scaled_int(self.preferred_door_length)
-            decision_vars, priority_cost = add_main_door_to_outside_constraint(
-                model=model,
-                room=scaled_room,
-                exterior_sides=exterior_sides,
-                side_priority=self.side_priority,
-                preferred_door_length=preferred_len_int,
-            )
-            model.Minimize(priority_cost)
-
-            solver = cp_model.CpSolver()
-            solver.parameters.max_time_in_seconds = 1.0
-            solver.parameters.num_search_workers = 1
-            status = solver.Solve(model)
-
-            if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-                warnings.append(
-                    f"No valid CP-SAT opening for livingRoom '{living_room['name']}'"
-                )
-                continue
-
-            selected_side = None
-            for side, bool_var in decision_vars["side_selected"].items():
-                if solver.Value(bool_var) == 1:
-                    selected_side = side
-                    break
-
-            if selected_side is None:
-                warnings.append(
-                    f"CP-SAT did not pick a side for livingRoom '{living_room['name']}'"
-                )
-                continue
-
-            openings.append(
-                {
-                    "room_name": living_room["name"],
-                    "room_type": living_room["type"],
-                    "opening_type": "mainDoor",
-                    "side": selected_side,  # type: ignore[typeddict-item]
-                    "x1": from_scaled_int(solver.Value(decision_vars["x1"])),
-                    "y1": from_scaled_int(solver.Value(decision_vars["y1"])),
-                    "x2": from_scaled_int(solver.Value(decision_vars["x2"])),
-                    "y2": from_scaled_int(solver.Value(decision_vars["y2"])),
+                model = cast(CpModelLike, cp_model.CpModel())
+                scaled_room: ScaledRoomBounds = {
+                    "x": to_scaled_int(living_room["x"]),
+                    "y": to_scaled_int(living_room["y"]),
+                    "x_end": to_scaled_int(living_room["x_end"]),
+                    "y_end": to_scaled_int(living_room["y_end"]),
                 }
-            )
+
+                preferred_len_int = to_scaled_int(self.preferred_door_length)
+                decision_vars, priority_cost = add_main_door_to_outside_constraint(
+                    model=model,
+                    room=scaled_room,
+                    exterior_sides=exterior_sides,
+                    side_priority=self.side_priority,
+                    preferred_door_length=preferred_len_int,
+                )
+                model.Minimize(priority_cost)
+
+                solver = cp_model.CpSolver()
+                solver.parameters.max_time_in_seconds = 1.0
+                solver.parameters.num_search_workers = 1
+                status = solver.Solve(model)
+
+                if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                    warnings.append(
+                        f"No valid CP-SAT opening for livingRoom '{living_room['name']}'"
+                    )
+                    continue
+
+                selected_side = None
+                for side, bool_var in decision_vars["side_selected"].items():
+                    if solver.Value(bool_var) == 1:
+                        selected_side = side
+                        break
+
+                if selected_side is None:
+                    warnings.append(
+                        f"CP-SAT did not pick a side for livingRoom '{living_room['name']}'"
+                    )
+                    continue
+
+                openings.append(
+                    {
+                        "room_name": living_room["name"],
+                        "room_type": living_room["type"],
+                        "opening_type": "mainDoor",
+                        "side": selected_side,  # type: ignore[typeddict-item]
+                        "x1": from_scaled_int(solver.Value(decision_vars["x1"])),
+                        "y1": from_scaled_int(solver.Value(decision_vars["y1"])),
+                        "x2": from_scaled_int(solver.Value(decision_vars["x2"])),
+                        "y2": from_scaled_int(solver.Value(decision_vars["y2"])),
+                    }
+                )
 
         internal_candidates = get_internal_door_candidates(
             all_rooms=normalized_rooms,
@@ -152,10 +173,23 @@ class OpeningGenerator:
             tolerance=self.tolerance,
         )
         if internal_candidates:
+            living_veranda_candidates = [
+                candidate
+                for candidate in internal_candidates
+                if _is_living_veranda_candidate(candidate)
+            ]
+            if has_veranda and not living_veranda_candidates:
+                warnings.append(
+                    "No feasible livingRoom-veranda door candidate while veranda is present"
+                )
+
             internal_model = cast(CpModelLike, cp_model.CpModel())
             internal_decisions = add_internal_doors_placement_constraint(
                 model=internal_model,
                 candidates=internal_candidates,
+                required_room_type_pairs=(_VERANDA_MAIN_DOOR_PAIR,)
+                if has_veranda
+                else (),
             )
 
             internal_solver = cp_model.CpSolver()
@@ -164,26 +198,63 @@ class OpeningGenerator:
             internal_status = internal_solver.Solve(internal_model)
 
             if internal_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                selected_living_veranda_index: int | None = None
+                if has_veranda:
+                    for index, selected_var in enumerate(
+                        internal_decisions["selected"]
+                    ):
+                        if internal_solver.Value(selected_var) != 1:
+                            continue
+                        if _is_living_veranda_candidate(internal_candidates[index]):
+                            selected_living_veranda_index = index
+                            break
+
                 for index, selected_var in enumerate(internal_decisions["selected"]):
                     if internal_solver.Value(selected_var) != 1:
                         continue
                     candidate = internal_candidates[index]
+                    is_main_door = (
+                        has_veranda and selected_living_veranda_index == index
+                    )
+                    room_name = candidate["room_a_name"]
+                    room_type = candidate["room_a_type"]
+                    connected_room_name = candidate["room_b_name"]
+                    connected_room_type = candidate["room_b_type"]
+                    side = candidate["side"]
+                    if is_main_door and room_type.strip().lower() != "livingroom":
+                        room_name = candidate["room_b_name"]
+                        room_type = candidate["room_b_type"]
+                        connected_room_name = candidate["room_a_name"]
+                        connected_room_type = candidate["room_a_type"]
+                        side = _opposite_side(side)
+
                     openings.append(
                         {
-                            "room_name": candidate["room_a_name"],
-                            "room_type": candidate["room_a_type"],
-                            "opening_type": "internalDoor",
-                            "side": candidate["side"],  # type: ignore[typeddict-item]
+                            "room_name": room_name,
+                            "room_type": room_type,
+                            "opening_type": "mainDoor"
+                            if is_main_door
+                            else "internalDoor",
+                            "side": side,  # type: ignore[typeddict-item]
                             "x1": candidate["x1"],
                             "y1": candidate["y1"],
                             "x2": candidate["x2"],
                             "y2": candidate["y2"],
-                            "connected_room_name": candidate["room_b_name"],
-                            "connected_room_type": candidate["room_b_type"],
+                            "connected_room_name": connected_room_name,
+                            "connected_room_type": connected_room_type,
                         }
+                    )
+
+                if has_veranda and selected_living_veranda_index is None:
+                    warnings.append(
+                        "No selected livingRoom-veranda main door while veranda is present"
                     )
             else:
                 warnings.append("Internal door constraint solve failed")
+        elif has_veranda:
+            warnings.append(
+                "No internal door candidates found while veranda is present"
+            )
 
         back_door_candidates = build_back_door_candidates(
             all_rooms=normalized_rooms,
@@ -335,7 +406,7 @@ def generate_openings(
     side_priority: tuple[str, ...] = ("south", "east", "north", "west"),
     preferred_door_length: float = 8.0,
     window_width: float = 16.0,
-    window_door_clearance: float = 4.0,
+    window_door_clearance: float = 5.0,
     tolerance: float = 1e-6,
 ) -> OpeningRunResult:
     """Convenience wrapper used by pipeline orchestration code."""
