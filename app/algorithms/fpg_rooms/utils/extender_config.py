@@ -44,9 +44,33 @@ LIVING_ROOM_EXTENDER_CONFIGS: list[ExtenderDef] = [
     ),
 ]
 
+KITCHEN_EXTENDER_CONFIGS: list[ExtenderDef] = [
+    ExtenderDef(
+        name="kitchen_ext",
+        parent_room_name="kitchen",
+        min_w=0,
+        min_h=0,
+        max_w=15,
+        max_h=15,
+    ),
+]
+
+BEDROOM_EXTENDER_CONFIGS: list[ExtenderDef] = [
+    ExtenderDef(
+        name="bedroom_ext",
+        parent_room_name="bedroom",
+        min_w=0,
+        min_h=0,
+        max_w=15,
+        max_h=15,
+    ),
+]
+
 # Map of parent room types to their extender configurations.
 EXTENDER_CONFIGS_BY_PARENT: dict[str, list[ExtenderDef]] = {
     "livingRoom": LIVING_ROOM_EXTENDER_CONFIGS,
+    "kitchen": KITCHEN_EXTENDER_CONFIGS,
+    "bedroom": BEDROOM_EXTENDER_CONFIGS,
 }
 
 

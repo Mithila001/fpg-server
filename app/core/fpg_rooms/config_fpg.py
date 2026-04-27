@@ -179,7 +179,7 @@ ROOM_SHARED_WALL_RULES = {
     "kitchen": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
     "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 0},
     "veranda": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 10},
-    "garage": {"min_walls": 2, "max_walls": 2, "wiggle_pct": 10},
+    "garage": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 10},
     "diningRoom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
 }
 # Refinement phase shared-wall rules (tighter minimum requirements for refine_1).
@@ -191,7 +191,7 @@ ROOM_SHARED_WALL_RULES_REFINE = {
     "kitchen": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
     "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 0},
     "veranda": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 10},
-    "garage": {"min_walls": 2, "max_walls": 2, "wiggle_pct": 10},
+    "garage": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 10},
     "diningRoom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
 }
 
