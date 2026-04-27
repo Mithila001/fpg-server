@@ -4,6 +4,10 @@ import math
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from app.core.fpg_rooms.config_fpg import (
+    OPTUNA_NODE_PLACEMENT_FRONT,
+    OPTUNA_NODE_PLACEMENT_PRIVATE,
+)
 from app.core.fpg_rooms.config_optuna import (
     OPTUNA_ROOM_BACK_BAND_DEPTH,
     OPTUNA_ROOM_PROXIMITY_SLACK,
@@ -25,7 +29,8 @@ SampledRoomPosition = dict[str, float | str]
 
 @dataclass(frozen=True, slots=True)
 class RoomSamplingPolicy:
-    front_room_types: frozenset[str] = frozenset({"veranda", "garage"})
+    front_room_types: tuple[str, ...] = tuple(OPTUNA_NODE_PLACEMENT_FRONT)
+    private_room_types: tuple[str, ...] = tuple(OPTUNA_NODE_PLACEMENT_PRIVATE)
     back_room_types: frozenset[str] = frozenset({"kitchen", "bathroom"})
     proximity_pairs: tuple[tuple[str, str], ...] = (
         ("livingRoom", "veranda"),
@@ -63,9 +68,20 @@ class RoomSamplingPolicy:
 
         room_type = context.room_type.strip()
 
+        base_window: tuple[float, float] = (min_y, max_y)
+        zone_window = self._zone_half_bounds(
+            room_type=room_type,
+            min_y=min_y,
+            max_y=max_y,
+        )
+        if zone_window is not None:
+            intersected = self._intersect_bounds(base_window, zone_window)
+            if intersected is not None:
+                base_window = intersected
+
         if room_type in self.front_room_types:
-            y = min_y
-            return self._sanitize_bounds(y, y, min_y=min_y, max_y=max_y)
+            low, high = base_window
+            return self._sanitize_bounds(low, high, min_y=min_y, max_y=max_y)
 
         if room_type in self.back_room_types:
             back_high = max_y
@@ -76,9 +92,14 @@ class RoomSamplingPolicy:
                 context, sampled_positions
             )
             if anchored_bounds is None:
+                intersected = self._intersect_bounds((back_low, back_high), base_window)
+                if intersected is None:
+                    low, high = base_window
+                    return self._sanitize_bounds(low, high, min_y=min_y, max_y=max_y)
+                low, high = intersected
                 return self._sanitize_bounds(
-                    back_low,
-                    back_high,
+                    low,
+                    high,
                     min_y=min_y,
                     max_y=max_y,
                 )
@@ -86,6 +107,19 @@ class RoomSamplingPolicy:
             low, high = anchored_bounds
             intersect_low = max(back_low, low)
             intersect_high = min(back_high, high)
+            intersected = self._intersect_bounds(
+                (intersect_low, intersect_high),
+                base_window,
+            )
+            if intersected is not None:
+                low, high = intersected
+                return self._sanitize_bounds(
+                    low,
+                    high,
+                    min_y=min_y,
+                    max_y=max_y,
+                )
+
             if intersect_low <= intersect_high:
                 return self._sanitize_bounds(
                     intersect_low,
@@ -95,9 +129,14 @@ class RoomSamplingPolicy:
                 )
 
             # If back-band and proximity do not overlap, preserve hard back rule.
+            intersected = self._intersect_bounds((back_low, back_high), base_window)
+            if intersected is None:
+                low, high = base_window
+                return self._sanitize_bounds(low, high, min_y=min_y, max_y=max_y)
+            low, high = intersected
             return self._sanitize_bounds(
-                back_low,
-                back_high,
+                low,
+                high,
                 min_y=min_y,
                 max_y=max_y,
             )
@@ -105,9 +144,42 @@ class RoomSamplingPolicy:
         anchored_bounds = self._bounds_from_related_rooms(context, sampled_positions)
         if anchored_bounds is not None:
             low, high = anchored_bounds
+            intersected = self._intersect_bounds((low, high), base_window)
+            if intersected is not None:
+                low, high = intersected
+            else:
+                low, high = base_window
             return self._sanitize_bounds(low, high, min_y=min_y, max_y=max_y)
 
-        return self._sanitize_bounds(min_y, max_y, min_y=min_y, max_y=max_y)
+        low, high = base_window
+        return self._sanitize_bounds(low, high, min_y=min_y, max_y=max_y)
+
+    def _zone_half_bounds(
+        self,
+        *,
+        room_type: str,
+        min_y: float,
+        max_y: float,
+    ) -> tuple[float, float] | None:
+        midpoint = (float(min_y) + float(max_y)) / 2.0
+
+        # Front rule has precedence when room type belongs to multiple groups.
+        if room_type in self.front_room_types:
+            return min_y, midpoint
+        if room_type in self.private_room_types:
+            return midpoint, max_y
+        return None
+
+    def _intersect_bounds(
+        self,
+        first: tuple[float, float],
+        second: tuple[float, float],
+    ) -> tuple[float, float] | None:
+        low = max(float(first[0]), float(second[0]))
+        high = min(float(first[1]), float(second[1]))
+        if low <= high:
+            return low, high
+        return None
 
     def _sanitize_bounds(
         self,

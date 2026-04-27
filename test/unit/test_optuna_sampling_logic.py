@@ -14,7 +14,7 @@ from app.algorithms.fpg_rooms.fpg_optuna.sampling_logic.sampler import (
 )
 
 
-def test_front_rooms_anchor_to_front_boundary() -> None:
+def test_front_rooms_stay_in_bottom_half() -> None:
     policy = RoomSamplingPolicy()
     context = RoomSamplingContext(
         room_id="room_0",
@@ -27,7 +27,8 @@ def test_front_rooms_anchor_to_front_boundary() -> None:
 
     low, high = policy.get_y_bounds(context, {})
 
-    assert low == high == 15.2
+    assert low == 15.2
+    assert high == 75.0
 
 
 def test_back_rooms_stay_near_back_boundary() -> None:
@@ -46,6 +47,40 @@ def test_back_rooms_stay_near_back_boundary() -> None:
     assert high == 138.0
     assert low >= 126.0
     assert low <= high
+
+
+def test_private_rooms_stay_in_top_half() -> None:
+    policy = RoomSamplingPolicy()
+    context = RoomSamplingContext(
+        room_id="room_4",
+        room_name="attachedBathroom1",
+        room_type="attachedBathroom",
+        radius=12.0,
+        floor_width=100.0,
+        floor_height=150.0,
+    )
+
+    low, high = policy.get_y_bounds(context, {})
+
+    assert low >= 75.0
+    assert high <= 138.0
+
+
+def test_front_overrides_private_for_overlap_type() -> None:
+    policy = RoomSamplingPolicy()
+    context = RoomSamplingContext(
+        room_id="room_5",
+        room_name="garage1",
+        room_type="garage",
+        radius=12.0,
+        floor_width=100.0,
+        floor_height=150.0,
+    )
+
+    low, high = policy.get_y_bounds(context, {})
+
+    assert low == 12.0
+    assert high == 75.0
 
 
 def test_living_room_tracks_veranda_proximity() -> None:
@@ -158,16 +193,16 @@ def test_sampler_returns_deterministic_value_for_collapsed_range() -> None:
                         "room_id": "room_0",
                         "room_name": "veranda1",
                         "room_type": "veranda",
-                        "radius": 15.2,
+                        "radius": 15.0,
                         "floor_width": 100.0,
-                        "floor_height": 150.0,
+                        "floor_height": 30.0,
                     },
                     "fpg_sampled_positions": {},
                 }
             ),
         ),
         param_name="room_0_y",
-        param_distribution=FloatDistribution(low=15.2, high=134.8),
+        param_distribution=FloatDistribution(low=15.0, high=15.0),
     )
 
-    assert value == 15.2
+    assert value == 15.0

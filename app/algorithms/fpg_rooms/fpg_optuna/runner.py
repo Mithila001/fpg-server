@@ -18,6 +18,8 @@ from app.algorithms.types.solvers import (
 )
 from app.core.fpg_rooms.config_fpg import (
     MINIMUM_REQUIRED_FPG_SCORE,
+    OPTUNA_NODE_PLACEMENT_PRIVATE,
+    OPTUNA_NODE_PLACEMENT_PUBLIC,
     TRIAL_GRAPH_SOLVER_GATE_THRESHOLD,
     TRIAL_OPTIMIZATION_TIMEOUT_SECONDS,
 )
@@ -39,6 +41,47 @@ from .sampling_logic import RoomAwareTPESampler, RoomSamplingPolicy
 
 EVALUATION_FN = Callable[[FpgRequirements, bool], FpgEvaluationResult]
 OPTUNA_SEARCH_SPACE_GRID_SCALE = 10
+OPTUNA_PARAM_KEY_PRIVATE_SIDE = "private_side"
+
+
+def _opposite_side(side: str) -> str:
+    return "right" if side == "left" else "left"
+
+
+def _resolve_room_side_lock(
+    room_type: str,
+    private_side: str,
+    public_side: str,
+) -> str | None:
+    normalized_room_type = room_type.strip()
+    if normalized_room_type in OPTUNA_NODE_PLACEMENT_PRIVATE:
+        return private_side
+    if normalized_room_type in OPTUNA_NODE_PLACEMENT_PUBLIC:
+        return public_side
+    return None
+
+
+def _apply_side_lock_to_x_bounds(
+    min_x: float,
+    max_x: float,
+    side: str | None,
+) -> tuple[float, float]:
+    if side is None:
+        return min_x, max_x
+
+    midpoint = (float(min_x) + float(max_x)) / 2.0
+    if side == "left":
+        clamped_min = float(min_x)
+        clamped_max = min(float(max_x), midpoint)
+        if clamped_min <= clamped_max:
+            return clamped_min, clamped_max
+        return midpoint, midpoint
+
+    clamped_min = max(float(min_x), midpoint)
+    clamped_max = float(max_x)
+    if clamped_min <= clamped_max:
+        return clamped_min, clamped_max
+    return midpoint, midpoint
 
 
 def _normalize_score(score: float, max_score: float) -> float:
@@ -111,6 +154,13 @@ def run_optuna_optimization(
             tracking_context.next_trial_id()
 
         try:
+            private_side = trial.suggest_categorical(
+                OPTUNA_PARAM_KEY_PRIVATE_SIDE, ["left", "right"]
+            )
+            public_side = _opposite_side(str(private_side))
+            trial.set_user_attr("fpg_private_side", private_side)
+            trial.set_user_attr("fpg_public_side", public_side)
+
             hallway_count = trial.suggest_int(
                 OPTUNA_PARAM_KEY_HALLWAY_COUNT,
                 OPTUNA_HALLWAY_COUNT_MIN,
@@ -150,6 +200,17 @@ def run_optuna_optimization(
                 max_x = max(min_x, boundary.width - sampling_radius)
                 min_y = sampling_radius
                 max_y = max(min_y, boundary.height - sampling_radius)
+
+                room_side_lock = _resolve_room_side_lock(
+                    room_type=node.room_type,
+                    private_side=str(private_side),
+                    public_side=public_side,
+                )
+                min_x, max_x = _apply_side_lock_to_x_bounds(
+                    min_x=min_x,
+                    max_x=max_x,
+                    side=room_side_lock,
+                )
 
                 min_x_idx = int(math.ceil(min_x / OPTUNA_SEARCH_SPACE_GRID_SCALE))
                 max_x_idx = int(math.floor(max_x / OPTUNA_SEARCH_SPACE_GRID_SCALE))
