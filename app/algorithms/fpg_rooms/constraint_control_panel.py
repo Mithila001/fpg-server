@@ -17,7 +17,6 @@ from app.core.fpg_rooms.config_fpg import (
     CONSTRAINT_HARD_VERANDA_PLACEMENT,
     CONSTRAINT_SOFT_BATHROOM_LOCATION_PREFERENCE,
     CONSTRAINT_SOFT_COMPACT_LAYOUT_CENTER_PROXIMITY,
-    CONSTRAINT_SOFT_EXTENDER_PLACEMENT_PENALTY,
     CONSTRAINT_SOFT_LAYOUT_DEAD_SPACE_PENALTY,
     CONSTRAINT_SOFT_RECESSED_FACADE_PENALTY,
     CONSTRAINT_SOFT_ROOM_ADJACENCY_PREFERENCE,
@@ -52,7 +51,6 @@ class ConstraintControlPanel:
     soft_seed_facade_alignment_penalty: bool = CONSTRAINT_SOFT_SEED_FACADE_ALIGNMENT_PENALTY
     soft_recessed_facade_penalty: bool = CONSTRAINT_SOFT_RECESSED_FACADE_PENALTY
     soft_room_shared_wall_refine_penalty: bool = CONSTRAINT_SOFT_ROOM_SHARED_WALL_REFINE
-    soft_extender_placement_penalty: bool = CONSTRAINT_SOFT_EXTENDER_PLACEMENT_PENALTY
 
     @classmethod
     def generate_profile(cls) -> ConstraintControlPanel:
@@ -94,7 +92,6 @@ class ConstraintControlPanel:
             soft_recessed_facade_penalty=True,
             soft_room_shared_wall_refine_penalty=True,
             hard_extender_wall_attachment=True,
-            soft_extender_placement_penalty=True,
         )
 
     def with_overrides(self, **changes: bool) -> ConstraintControlPanel:

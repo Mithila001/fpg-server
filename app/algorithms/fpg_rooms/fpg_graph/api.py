@@ -26,7 +26,6 @@ def _with_iterations(config: GraphPhysicsConfig, iterations: int) -> GraphPhysic
 
 def run_graph_layout(
     requirements: FpgRequirements,
-    hallway_count_override: int | None = None,
     seed: int | None = None,
     explicit_positions: dict[str, tuple[float, float]] | None = None,
     relation_constraints: list[Any] | None = None,
@@ -34,7 +33,8 @@ def run_graph_layout(
     plot_base_name: str = "layout_comparison",
 ) -> GraphLayoutResult:
     boundary = build_boundary(requirements)
-    nodes = build_nodes(requirements, hallway_count_override=hallway_count_override)
+    print(f"\nGraph Received Requirements: {requirements}\n")
+    nodes = build_nodes(requirements)
 
     relations = relation_constraints
     if relations is None:

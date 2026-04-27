@@ -38,7 +38,6 @@ def build_boundary(requirements: FpgRequirements) -> GraphBoundary:
 
 def build_nodes(
     requirements: FpgRequirements,
-    hallway_count_override: int | None = None,
 ) -> list[GraphNode]:
     nodes: list[GraphNode] = []
 
@@ -56,12 +55,7 @@ def build_nodes(
     config_hallway_count = int(
         getattr(requirements.config, "hallway_count", DEFAULT_HALLWAY_COUNT)
     )
-    target_hallway_count = (
-        hallway_count_override
-        if hallway_count_override is not None
-        else config_hallway_count
-    )
-    target_hallway_count = max(0, target_hallway_count)
+    target_hallway_count = max(0, config_hallway_count)
 
     missing_hallways = max(0, target_hallway_count - existing_hallways)
     hallway_radius = max(

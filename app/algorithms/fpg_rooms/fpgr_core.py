@@ -32,7 +32,6 @@ from app.core.fpg_rooms.config_fpg import (
 
 from .constraint_control_panel import ConstraintControlPanel
 from .constraints.extenders import (
-    add_extender_placement_soft_penalty,
     add_extender_room_size_constraint,
     add_extender_wall_attachment_constraint,
 )
@@ -74,7 +73,6 @@ from .constraints.soft.soft_room_adjacency import (
 from .rules import normalize_requirements
 from .solver_models.room import Room
 from ..types import FpgRequirements, RoomRelationsConstraint
-from app.algorithms.types.solvers.cp_model_like import CpModelLike
 from app.schemas.db.room_relations_constraints import RoomRelationsConstraintBase
 from .utils.generator.util_hallway_rooms import (
     generate_hallway_rooms,
@@ -413,14 +411,6 @@ class FpgrCore:
                     self.model,
                     self.rooms,
                     refine_weight=SOFT_ROOM_SHARED_WALL_REFINE_WEIGHT,
-                )
-            )
-
-        if panel.soft_extender_placement_penalty:
-            objective_terms.append(
-                add_extender_placement_soft_penalty(
-                    self.model,
-                    self.rooms,
                 )
             )
 

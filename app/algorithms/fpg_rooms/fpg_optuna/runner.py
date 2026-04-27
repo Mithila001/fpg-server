@@ -119,8 +119,9 @@ def run_optuna_optimization(
 
             boundary = build_boundary(base_requirements)
             print(f"\nHallway Count {hallway_count}\n")
+            base_requirements.config.hallway_count = hallway_count
             trial_nodes = sampling_policy.sort_nodes_for_sampling(
-                build_nodes(base_requirements, hallway_count_override=hallway_count)
+                build_nodes(base_requirements)
             )
             # print(f"\nBase Requirements: {base_requirements}\n")
 
@@ -187,7 +188,6 @@ def run_optuna_optimization(
             # Stage 1: Fast Graph Construction
             graph_result = run_graph_layout(
                 requirements=base_requirements,
-                hallway_count_override=hallway_count,
                 explicit_positions=explicit_positions,
                 plot_base_name=f"trial_{trial.number}_phase_layout",
                 physics_config=GraphPhysicsConfig(

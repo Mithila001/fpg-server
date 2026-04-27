@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from app.algorithms.types.solvers import GraphLayoutResult, GraphNode
+from app.util.tracking import get_tracking_ids
 
 
 def _draw_on_axis(
@@ -117,8 +118,11 @@ def plot_graph_layout(
     """Plot graph snapshots, preferring Phase 1 vs Phase 2 for staged trials."""
     output_dir = os.path.join("test", "outputs", "graph_results")
     os.makedirs(output_dir, exist_ok=True)
+    request_id, trial_id = get_tracking_ids()
+    filename_parts = [part for part in (request_id, trial_id, base_name) if part]
+    filename_parts.append(time.strftime("%Y%m%d-%H%M%S"))
     save_path = os.path.join(
-        output_dir, f"{base_name}_{time.strftime('%Y%m%d-%H%M%S')}.png"
+        output_dir, f"{'_'.join(filename_parts)}.png"
     )
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(24, 11))
