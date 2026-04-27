@@ -39,8 +39,8 @@ LIVING_ROOM_EXTENDER_CONFIGS: list[ExtenderDef] = [
         parent_room_name="livingRoom",
         min_w=0,  # 0 allows solver to deactivate (w=0, h=0 feasible)
         min_h=0,
-        max_w=20,
-        max_h=20,
+        max_w=10,
+        max_h=10,
     ),
 ]
 
