@@ -163,6 +163,11 @@ NOT_PRUNE_ROOMS = ["livingRoom", "hallway"]
 PUBLIC_ROOM_TYPES = ["garage", "kitchen", "diningRoom"]
 PRIVATE_ROOM_TYPES = ["bathroom", "bedroom", "attachedBathroom"]
 
+
+OPTUNA_NODE_PLACEMENT_PRIVATE = ['bedroom', 'bathroom', 'attachedBathroom']
+OPTUNA_NODE_PLACEMENT_PUBLIC = ['garage', 'kitchen', 'diningRoom', 'livingRoom']
+OPTUNA_NODE_PLACEMENT_FRONT = ['veranda', 'garage']
+
 # Per-type room shared-wall requirements.
 # - min_walls/max_walls count fully shared sides.
 # - wiggle_pct relaxes minimum shared coverage length across the selected
@@ -175,7 +180,7 @@ ROOM_SHARED_WALL_RULES = {
     "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 0},
     "veranda": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 10},
     "garage": {"min_walls": 2, "max_walls": 2, "wiggle_pct": 10},
-    "dining": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
+    "diningRoom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
 }
 # Refinement phase shared-wall rules (tighter minimum requirements for refine_1).
 # Applied as soft constraint with penalties for violations.
@@ -187,7 +192,7 @@ ROOM_SHARED_WALL_RULES_REFINE = {
     "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 0},
     "veranda": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 10},
     "garage": {"min_walls": 2, "max_walls": 2, "wiggle_pct": 10},
-    "dining": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
+    "diningRoom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
 }
 
 __all__ = [

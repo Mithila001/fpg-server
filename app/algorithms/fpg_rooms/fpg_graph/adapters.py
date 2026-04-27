@@ -182,34 +182,59 @@ def build_edges(
     public_rooms = [n for n in all_rooms if n.room_type in PUBLIC_ROOM_TYPES]
     private_rooms = [n for n in all_rooms if n.room_type in PRIVATE_ROOM_TYPES]
 
-    if hallway_count == 1 or hallway_count > 4:
-        # Rule: Connect single/many hallways to ALL rooms (except veranda)
+    def _hallways_by_index_parity() -> tuple[list[GraphNode], list[GraphNode]]:
+        odd_hallways: list[GraphNode] = []
+        even_hallways: list[GraphNode] = []
+        for index, hallway in enumerate(hallways, start=1):
+            if index % 2 == 0:
+                even_hallways.append(hallway)
+            else:
+                odd_hallways.append(hallway)
+        return odd_hallways, even_hallways
+
+    def _connect_rooms(
+        rooms: list[GraphNode],
+        hallway_targets: list[GraphNode],
+        rule_kind: str,
+        *,
+        connect_all_targets: bool,
+    ) -> None:
+        if not rooms or not hallway_targets:
+            return
+
+        for room in rooms:
+            if connect_all_targets:
+                for hallway in hallway_targets:
+                    add_pair(room.id, hallway.id, 1.0, rule_kind)
+            else:
+                closest_hallway = min(
+                    hallway_targets,
+                    key=lambda hallway: pair_distance(room, hallway),
+                )
+                add_pair(room.id, closest_hallway.id, 1.0, rule_kind)
+
+    if hallway_count == 1:
+        # Rule: Single hallway connects to all non-veranda rooms.
         for room in all_rooms:
-            # Connect to the closest available hallway (relevant if count > 4)
             closest_hallway = min(hallways, key=lambda h: pair_distance(room, h))
             add_pair(room.id, closest_hallway.id, 1.0, "hallway_universal")
+    elif hallway_count >= 2:
+        # Rule: odd-indexed hallways serve private rooms, even-indexed hallways serve public rooms.
+        private_hallways, public_hallways = _hallways_by_index_parity()
+        connect_all_targets = hallway_count == 4
 
-    elif hallway_count == 2:
-        # Rule: One to Public, One to Private
-        h_public = hallways[0]
-        h_private = hallways[1]
-
-        for room in public_rooms:
-            add_pair(room.id, h_public.id, 1.0, "hallway_public")
-        for room in private_rooms:
-            add_pair(room.id, h_private.id, 1.0, "hallway_private")
-
-    elif hallway_count == 3:
-        # Rule: Give it to PRIVATE_ROOM_TYPES
-        for room in private_rooms:
-            closest_hallway = min(hallways, key=lambda h: pair_distance(room, h))
-            add_pair(room.id, closest_hallway.id, 1.0, "hallway_private_cluster")
-
-    elif hallway_count == 4:
-        # Rule: Give it to PUBLIC_ROOM_TYPES
-        for room in public_rooms:
-            closest_hallway = min(hallways, key=lambda h: pair_distance(room, h))
-            add_pair(room.id, closest_hallway.id, 1.0, "hallway_public_cluster")
+        _connect_rooms(
+            public_rooms,
+            public_hallways,
+            "hallway_public_even",
+            connect_all_targets=connect_all_targets,
+        )
+        _connect_rooms(
+            private_rooms,
+            private_hallways,
+            "hallway_private_odd",
+            connect_all_targets=connect_all_targets,
+        )
 
     # Ensure every hallway participates in the graph connectivity when possible.
     living_rooms = nodes_by_type.get("livingRoom", [])
@@ -244,10 +269,10 @@ def build_edges(
     for dining in dining_rooms:
         if living_rooms:
             closest_living = min(living_rooms, key=lambda r: pair_distance(dining, r))
-            add_pair(dining.id, closest_living.id, 1.1, "dining_path")
+            add_pair(dining.id, closest_living.id, 1.3, "dining_path")
         if kitchens:
             closest_kitchen = min(kitchens, key=lambda r: pair_distance(dining, r))
-            add_pair(dining.id, closest_kitchen.id, 1.1, "dining_path")
+            add_pair(dining.id, closest_kitchen.id, 1.3, "dining_path")
 
     # 4. Custom Room Connections
     living_rooms = nodes_by_type.get("livingRoom", [])
