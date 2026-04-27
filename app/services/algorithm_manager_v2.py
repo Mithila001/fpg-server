@@ -4,14 +4,13 @@ from collections.abc import Mapping, Sequence
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from typing import Any, cast
+import time
 
 from app.algorithms.fpg_opening import generate_openings
+from app.algorithms.fpg_post_processor.workspace import process_floor_plan
 from app.algorithms.fpg_rooms import FloorPlanGenerator
 from app.algorithms.fpg_rooms.fpg_optuna import (
     run_optuna_optimization,
-)
-from app.algorithms.fpg_rooms.utils.extender_injection import (
-    inject_extenders_into_requirements,
 )
 from app.algorithms.types import FpgRequirements
 from app.algorithms.types import OpeningRunResult
@@ -25,7 +24,6 @@ from app.util.logger.system_logger import SystemLogger
 
 from app.algorithms.fpg_rooms.fpg_score import score_layout
 from app.algorithms.fpg_rooms.fpgr_p_refine_1 import run_refine_profile_1
-from app.algorithms.fpg_rooms.fpgr_p_refine_extender import run_refine_profile_extender
 from app.core.fpg_rooms.config_fpg import (
     DEFAULT_OPTUNA_STUDY_NAME,
     DEFAULT_OPTUNA_TRIALS,
@@ -169,61 +167,57 @@ def _run_single_fpg_solve(
     refine_result1 = run_refine_profile_1(
         requirements=requirements,
         initial_rooms=stage1_rooms,
-        wiggle_room=5,
+        wiggle_room=WIGGLE_ROOM,
         verbose=False,
     )
     print("\n run_refine_profile_1 (Pass 1)")
     stage2_rooms = refine_result1.rooms if refine_result1.rooms else stage1_rooms
 
-    # --- PASS 2: Extender Profile ---
-    # We move this up to run immediately after the first refinement pass
-    requirements_with_extenders = inject_extenders_into_requirements(requirements)
-    refine_result_extender = run_refine_profile_extender(
-        requirements=requirements_with_extenders,
-        initial_rooms=stage2_rooms,
-        wiggle_room=5,
-        verbose=False,
-    )
-    # print(f"Requirements: {requirements}\n")
-    # print(f"Requirements with extenders: {requirements_with_extenders}\n")
-    print("\n run_refine_profile_extender (Pass 2)")
-    extender_rooms = (
-        refine_result_extender.rooms if refine_result_extender.rooms else stage2_rooms
-    )
-    # print(f"Final extender rooms: {extender_rooms}\n")
-
-    # --- PASS 3: Standard Refine (The "rest") ---
+    # --- PASS 2: Standard Refine ---
     refine_result2 = run_refine_profile_1(
-        requirements=requirements_with_extenders,
-        initial_rooms=extender_rooms,
-        wiggle_room=5,
+        requirements=requirements,
+        initial_rooms=stage2_rooms,
+        wiggle_room=WIGGLE_ROOM,
         verbose=False,
     )
-    print("\n run_refine_profile_2 (Pass 3)")
-    stage3_rooms = refine_result2.rooms if refine_result2.rooms else extender_rooms
+    print("\n run_refine_profile_2 (Pass 2)")
+    stage3_rooms = refine_result2.rooms if refine_result2.rooms else stage2_rooms
 
-    # --- PASS 4: Standard Refine ---
+    # --- PASS 3: Standard Refine ---
     refine_result3 = run_refine_profile_1(
-        requirements=requirements_with_extenders,
+        requirements=requirements,
         initial_rooms=stage3_rooms,
-        wiggle_room=5,
+        wiggle_room=WIGGLE_ROOM,
         verbose=False,
     )
-    print("\n run_refine_profile_3 (Pass 4)")
+    print("\n run_refine_profile_3 (Pass 3)")
     stage4_rooms = refine_result3.rooms if refine_result3.rooms else stage3_rooms
 
-    # --- PASS 5: Standard Refine ---
+    # --- PASS 4: Standard Refine ---
     refine_result4 = run_refine_profile_1(
-        requirements=requirements_with_extenders,
+        requirements=requirements,
         initial_rooms=stage4_rooms,
-        wiggle_room=5,
+        wiggle_room=WIGGLE_ROOM,
         verbose=False,
     )
-    print("\n run_refine_profile_4 (Pass 5)")
-    final_rooms = refine_result4.rooms if refine_result4.rooms else stage4_rooms
+    print("\n run_refine_profile_4 (Pass 4)")
+    stage5_rooms = refine_result4.rooms if refine_result4.rooms else stage4_rooms
 
+    # --- PASS 5: Standard Refine ---
+    refine_result5 = run_refine_profile_1(
+        requirements=requirements,
+        initial_rooms=stage5_rooms,
+        wiggle_room=WIGGLE_ROOM,
+        verbose=False,
+    )
+    print("\n run_refine_profile_5 (Pass 5)")
+    final_rooms = refine_result5.rooms if refine_result5.rooms else stage5_rooms
+    print(f"\n Final Refined Rooms: {final_rooms}")
+    # Provide a timestamped filename so the post-processor saves a plot for inspection
+    timestamp = int(time.time())
+    process_floor_plan(final_rooms, filename=f"refine_{timestamp}.png")
     plot_refine_floor_plan(
-        stage1_rooms=stage1_rooms, stage2_rooms=extender_rooms, stage4_rooms=final_rooms
+        stage1_rooms=stage1_rooms, stage2_rooms=stage2_rooms, stage4_rooms=final_rooms
     )
     # _plot_refine_before_after_dev(
     #     stage1_rooms=stage1_rooms,
@@ -232,11 +226,16 @@ def _run_single_fpg_solve(
     # )
 
     # Combined status/message from refine passes for diagnostics
-    refine_status = f"{refine_result1.status} -> {refine_result_extender.status}"
+    refine_status = (
+        f"{refine_result1.status} -> {refine_result2.status} -> "
+        f"{refine_result3.status} -> {refine_result4.status} -> {refine_result5.status}"
+    )
     refine_message = (
         f"Refine pass 1: {refine_result1.message}; "
         f"Refine pass 2: {refine_result2.message}; "
-        f"Refine extender: {refine_result_extender.message}"
+        f"Refine pass 3: {refine_result3.message}; "
+        f"Refine pass 4: {refine_result4.message}; "
+        f"Refine pass 5: {refine_result5.message}"
     )
 
     final_quick_post_process_result = run_quick_post_process(

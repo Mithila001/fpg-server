@@ -1,0 +1,1 @@
+This `app\algorithms\fpg_post_processor` directory is in Alpha Development Phase. Not connected to the main project and use `app\algorithms\fpg_post_processor\dev\mock_data\floorPlans.json` to simulate the input data it will receive in the future.

@@ -1,0 +1,3 @@
+- If the gap is very small, move the room with full overlapp of the hole to cover that hole
+- Veranda adjustment
+-
