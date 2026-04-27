@@ -121,7 +121,7 @@ def build_window_candidates_for_room(
         has_conflict = any(
             _has_conflict_with_door(candidate, opening, door_clearance, tolerance)
             for opening in existing_openings
-            if opening.get("opening_type") in ("mainDoor", "internalDoor")
+            if opening.get("opening_type") in ("mainDoor", "internalDoor", "backDoor")
         )
         if not has_conflict:
             candidates.append(candidate)

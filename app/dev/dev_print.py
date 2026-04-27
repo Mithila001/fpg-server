@@ -11,7 +11,6 @@ def debug_log_data(data, tag="NO_TAG"):
     # --- CONFIGURATION ---
     ENABLE_FILTER = True  # The bool flag
     TAG_FILTER = [
-        "EXTENDER_PLACEMENT_SOFT",
         "EXTENDER_WALL_ATTACHMENT",
         "NO_TAG",
     ]  # Hardcoded list of allowed tags

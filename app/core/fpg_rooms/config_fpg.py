@@ -66,7 +66,7 @@ CONSTRAINT_HARD_LIVING_ROOM_LOCATION = False
 CONSTRAINT_HARD_VERANDA_PLACEMENT = True
 CONSTRAINT_HARD_GARAGE_PLACEMENT = True
 CONSTRAINT_HARD_ENVELOPE_STAIRCASE = True
-CONSTRAINT_HARD_KITCHEN_HALLWAY_BACK_WALL_SETBACK = False
+CONSTRAINT_HARD_KITCHEN_HALLWAY_BACK_WALL_SETBACK = True
 
 # Kitchen/hallway back-wall door setback settings
 KITCHEN_HALLWAY_BACK_WALL_SETBACK_MIN_GAP = 5
@@ -85,9 +85,6 @@ CONSTRAINT_SOFT_ROOM_SHARED_WALL_REFINE = True
 
 # Extender room constraints (hard and soft)
 CONSTRAINT_HARD_EXTENDER_WALL_ATTACHMENT = (
-    False  # Disabled by default; enabled only in refine_profile_extender
-)
-CONSTRAINT_SOFT_EXTENDER_PLACEMENT_PENALTY = (
     False  # Disabled by default; enabled only in refine_profile_extender
 )
 
@@ -166,6 +163,11 @@ NOT_PRUNE_ROOMS = ["livingRoom", "hallway"]
 PUBLIC_ROOM_TYPES = ["garage", "kitchen", "diningRoom"]
 PRIVATE_ROOM_TYPES = ["bathroom", "bedroom", "attachedBathroom"]
 
+
+OPTUNA_NODE_PLACEMENT_PRIVATE = ['bedroom', 'bathroom', 'attachedBathroom']
+OPTUNA_NODE_PLACEMENT_PUBLIC = ['garage', 'kitchen', 'diningRoom', 'livingRoom']
+OPTUNA_NODE_PLACEMENT_FRONT = ['veranda', 'garage']
+
 # Per-type room shared-wall requirements.
 # - min_walls/max_walls count fully shared sides.
 # - wiggle_pct relaxes minimum shared coverage length across the selected
@@ -177,8 +179,8 @@ ROOM_SHARED_WALL_RULES = {
     "kitchen": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
     "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 0},
     "veranda": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 10},
-    "garage": {"min_walls": 2, "max_walls": 2, "wiggle_pct": 10},
-    "dining": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
+    "garage": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 10},
+    "diningRoom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
 }
 # Refinement phase shared-wall rules (tighter minimum requirements for refine_1).
 # Applied as soft constraint with penalties for violations.
@@ -189,8 +191,8 @@ ROOM_SHARED_WALL_RULES_REFINE = {
     "kitchen": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
     "attachedBathroom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 0},
     "veranda": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 10},
-    "garage": {"min_walls": 2, "max_walls": 2, "wiggle_pct": 10},
-    "dining": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
+    "garage": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 10},
+    "diningRoom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
 }
 
 __all__ = [
@@ -281,4 +283,7 @@ __all__ = [
     "ROOM_SHARED_WALL_RULES_REFINE",
     "PRIVATE_ROOM_TYPES",
     "PUBLIC_ROOM_TYPES",
+    "OPTUNA_NODE_PLACEMENT_PRIVATE",
+    "OPTUNA_NODE_PLACEMENT_PUBLIC",
+    "OPTUNA_NODE_PLACEMENT_FRONT",
 ]

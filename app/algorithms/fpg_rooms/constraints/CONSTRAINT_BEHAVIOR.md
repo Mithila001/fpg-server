@@ -313,7 +313,9 @@ No direct objective term, but strongly affects search trajectory.
 ## Description
 
 Identifies extender rooms by `is_extender=True` and `parent_room_name`.
-Matches the parent target by room type and forces the extender to attach on exactly one side.
+When extender is active, matches the parent target by room type and forces the extender to attach on exactly one side.
+When extender is inactive, wall attachment checks are disabled.
+If parent metadata is missing or no candidate parent is found, the extender is forced inactive (`w=0`, `h=0`).
 The normalization step now preserves extender metadata so extenders are not mistaken for regular rooms.
 
 ## Parameters
@@ -323,8 +325,9 @@ rooms
 
 ## Constraint Impact
 
-Prevents extender rooms from floating independently.
-Keeps the optional extension tied to the chosen parent room.
+Prevents active extender rooms from floating independently.
+Keeps active optional extension tied to the chosen parent room.
+Makes invalid extender metadata fail safe by forcing inactive dimensions.
 Relies on extender metadata surviving requirement normalization.
 
 # Extender Room Size Activation (extenders/extender_room_size.py)
@@ -351,28 +354,23 @@ Prevents ambiguous partial extenders with tiny non-zero dimensions.
 Allows true opt-out behavior by forcing exact zero-size inactive state.
 Stabilizes extender semantics before wall-attachment and objective scoring.
 
-# Extender Placement Soft Penalty (extenders/extender_placement_soft.py)
+# Extender Placement Soft Penalty (legacy)
 
 - Type: Soft
-- Currently Used: Yes when soft_extender_placement_penalty toggle is on
+- Currently Used: No (module removed)
 
 ## Description
 
-Applies penalty only when an extender is active and below active minimum size.
-Inactive extenders (w=0, h=0) receive zero extender-size penalty.
-Uses active-state gating to avoid forcing optional extenders active through objective pressure.
+This legacy soft constraint has been removed.
+Extender behavior is now fully controlled by hard constraints only.
 
 ## Parameters
 
-model
-rooms
-weight
+N/A
 
 ## Constraint Impact
 
-Avoids negative objective pressure on inactive optional extenders.
-Keeps soft scoring aligned with active/inactive hard sizing behavior.
-Reduces risk of objective conflict with explicit minimum width/height rules.
+No current solver impact.
 
 # Soft Room Adjacency Preference (soft_room_adjacency.py)
 

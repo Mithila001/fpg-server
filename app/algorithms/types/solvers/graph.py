@@ -40,6 +40,10 @@ class GraphPhysicsConfig:
     max_speed: float = 8.0
     convergence_epsilon: float = 0.08
     stable_steps_required: int = 8
+    use_staged_node_sizing: bool = False
+    staged_uniform_radius: float = 0.0
+    staged_phase1_iterations: int = 210
+    staged_phase2_iterations: int = 90
 
 
 @dataclass

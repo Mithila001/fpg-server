@@ -42,15 +42,27 @@ def add_extender_wall_attachment_constraint(
         if not room.is_extender:
             rooms_by_type.setdefault(room.type, []).append(room)
 
-    print("\n\n Current Rooms:")
-    for room in rooms:
-        print(
-            f"- {room.name} (type={room.type}, is_extender={room.is_extender}, parent_target={room.parent_room_name})"
-        )
-
     # Find all extender rooms and attach them to a candidate parent
     for room in rooms:
-        if not room.is_extender or not room.parent_room_name:
+        if not room.is_extender:
+            continue
+
+        if room.w is None or room.h is None:
+            continue
+
+        extender_is_active = model.NewBoolVar(f"{room.name}_attachment_is_active")
+        model.Add(room.w >= 1).OnlyEnforceIf(extender_is_active)
+        model.Add(room.h >= 1).OnlyEnforceIf(extender_is_active)
+        model.Add(room.w == 0).OnlyEnforceIf(extender_is_active.Not())
+        model.Add(room.h == 0).OnlyEnforceIf(extender_is_active.Not())
+
+        if not room.parent_room_name:
+            debug_log_data(
+                f"WARNING - Extender '{room.name}' missing parent_room_name. Forcing inactive.",
+                tag="EXTENDER_WALL_ATTACHMENT",
+            )
+            model.Add(room.w == 0)
+            model.Add(room.h == 0)
             continue
 
         target_type = room.parent_room_name
@@ -61,17 +73,24 @@ def add_extender_wall_attachment_constraint(
                 f"WARNING - No parent rooms of type '{target_type}' found for extender '{room.name}'",
                 tag="EXTENDER_WALL_ATTACHMENT",
             )
+            model.Add(room.w == 0)
+            model.Add(room.h == 0)
             continue
 
         if len(candidates) == 1:
-            # Only one candidate exists, apply constraint unconditionally
+            # Only enforce wall attachment when extender is active.
             debug_log_data(
                 f"Attaching extender '{room.name}' to single parent '{candidates[0].name}'",
                 tag="EXTENDER_WALL_ATTACHMENT",
             )
-            add_single_extender_wall_constraint(model, candidates[0], room)
+            add_single_extender_wall_constraint(
+                model,
+                candidates[0],
+                room,
+                is_enforced_var=extender_is_active,
+            )
         else:
-            # Multiple candidates exist, extender must choose exactly ONE
+            # Multiple candidates exist, active extender must choose exactly ONE.
             debug_log_data(
                 f"Extender '{room.name}' has {len(candidates)} candidate parents of type '{target_type}'",
                 tag="EXTENDER_WALL_ATTACHMENT",
@@ -87,18 +106,22 @@ def add_extender_wall_attachment_constraint(
 
                 # Apply the wall constraints conditionally based on is_chosen
                 add_single_extender_wall_constraint(
-                    model, candidate, room, is_active_var=is_chosen
+                    model,
+                    candidate,
+                    room,
+                    is_enforced_var=is_chosen,
                 )
 
-            # Constraint: Exactly one candidate must be chosen as the parent
-            model.AddExactlyOne(choice_vars)
+            # Active: exactly one chosen parent. Inactive: no parent choices.
+            model.Add(sum(choice_vars) == 1).OnlyEnforceIf(extender_is_active)
+            model.Add(sum(choice_vars) == 0).OnlyEnforceIf(extender_is_active.Not())
 
 
 def add_single_extender_wall_constraint(
     model: Any,
     parent: Room,
     extender: Room,
-    is_active_var: Any = None,
+    is_enforced_var: Any = None,
 ) -> None:
     """Add constraint for a single extender-parent pair.
 
@@ -109,8 +132,8 @@ def add_single_extender_wall_constraint(
         model: CP-SAT solver model.
         parent: Parent room.
         extender: Extender room.
-        is_active_var: Optional boolean variable. If provided, these constraints
-                       are only enforced if is_active_var is True.
+        is_enforced_var: Optional boolean variable. If provided, these constraints
+                         are only enforced if is_enforced_var is True.
     """
     assert parent.x is not None
     assert parent.y is not None
@@ -136,11 +159,11 @@ def add_single_extender_wall_constraint(
 
     sides = [south_side, north_side, east_side, west_side]
 
-    if is_active_var is not None:
-        # If this parent IS chosen, exactly one side must be true
-        model.Add(sum(sides) == 1).OnlyEnforceIf(is_active_var)
-        # If this parent IS NOT chosen, all sides must be false (disables adjacency checks below)
-        model.Add(sum(sides) == 0).OnlyEnforceIf(is_active_var.Not())
+    if is_enforced_var is not None:
+        # If this pair is active/chosen, exactly one side must be true.
+        model.Add(sum(sides) == 1).OnlyEnforceIf(is_enforced_var)
+        # If this pair is not active/chosen, all sides remain false.
+        model.Add(sum(sides) == 0).OnlyEnforceIf(is_enforced_var.Not())
     else:
         # Exactly one side must be chosen unconditionally
         model.Add(sum(sides) == 1)
