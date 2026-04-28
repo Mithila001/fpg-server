@@ -33,7 +33,7 @@ def run_graph_layout(
     plot_base_name: str = "layout_comparison",
 ) -> GraphLayoutResult:
     boundary = build_boundary(requirements)
-    print(f"\nGraph Received Requirements: {requirements}\n")
+
     nodes = build_nodes(requirements)
 
     relations = relation_constraints

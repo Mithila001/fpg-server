@@ -53,10 +53,10 @@ For initial implementation, these are will be the path we simulate
 
 
 ## Other Details
-- This specific scoring logic will place at `app/algorithms/fpg_rooms/fpg_score/score_extra/path_simulation`. All the files (Including Uitl files and Type files) should be placed withing `app/algorithms/fpg_rooms/fpg_score/score_extra/path_simulation` folder. This setup should not import existing util functions from outside of  `/score_extra/path_simulation` 
+- This specific scoring logic will place at `app/algorithms/fpg_rooms/fpg_score/score_functional/path_simulation`. All the files (Including Uitl files and Type files) should be placed withing `app/algorithms/fpg_rooms/fpg_score/score_functional/path_simulation` folder. This setup should not import existing util functions from outside of  `/score_functional/path_simulation` 
 
 # Temp Dev Section
-I created `app/algorithms/fpg_rooms/fpg_score/score_extra/path_simulation/dev` for you to implement a isolated temporary dev section. Here the main goal is to visualize the path simulation for debug. 
+I created `app/algorithms/fpg_rooms/fpg_score/score_functional/path_simulation/dev` for you to implement a isolated temporary dev section. Here the main goal is to visualize the path simulation for debug. 
 
 ## How dev should work
 - For each Scoring, Using matplotlib, create a image of showing all the simulated pathe (color coded based on Simulation Points)

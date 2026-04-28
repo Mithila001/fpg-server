@@ -19,7 +19,6 @@ from app.core.fpg_rooms.config_fpg import (
     SCORE_WEIGHTS,
 )
 from .score_critical import (
-    detect_inward_pocket_violation,
     validate_adjacency_relations,
     validate_empty_space,
     validate_envelope_staircase_bounds,
@@ -415,30 +414,6 @@ def score_layout(
         f"critical_room_total={critical_room_total}, gate2_passed={critical_room_threshold_passed}"
     )
 
-    if not critical_room_threshold_passed:
-        print(
-            "\n[score_manager] gating out functional and extra because critical+room < 40"
-        )
-        SystemLogger.log_event(
-            tag="SCORE",
-            event="score_gate_blocked",
-            level="INFO",
-            data={
-                "reason": "critical_room_below_threshold",
-                "critical_score": round(critical_score, 2),
-                "room_score": round(room_score, 2),
-                "critical_room_total": round(critical_room_total, 2),
-                "threshold": 40.0,
-            },
-        )
-        return ScoreReport(
-            valid=True,
-            total_score=round(critical_room_total, 2),
-            component_scores=component_scores,
-            hard_violations=[],
-            diagnostics=diagnostics,
-        )
-
     functional_score, functional_diag = score_functional_section(
         scoring_rooms,
         openings=openings,
@@ -454,6 +429,30 @@ def score_layout(
                 {"name": evaluator["name"], "score": evaluator["score"]}
                 for evaluator in functional_diag.get("evaluators", [])
             ],
+        },
+    )
+
+    extra_score, extra_diag = score_extra_section(scoring_rooms)
+
+    component_scores["functional"] = round(float(functional_score), 2)
+    component_scores["extra"] = round(float(extra_score), 2)
+    diagnostics["functional"] = functional_diag
+    diagnostics["extra"] = extra_diag
+
+    if not critical_room_threshold_passed:
+        print(
+            "\n[score_manager] gating out functional and extra because critical+room < 40"
+        )
+        SystemLogger.log_event(
+            tag="SCORE",
+            event="score_gate_blocked",
+            level="INFO",
+            data={
+                "reason": "critical_room_below_threshold",
+                "critical_score": round(critical_score, 2),
+                "room_score": round(room_score, 2),
+                "critical_room_total": round(critical_room_total, 2),
+                "threshold": 40.0,
         },
     )
 
