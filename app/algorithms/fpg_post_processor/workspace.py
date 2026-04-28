@@ -3,6 +3,10 @@ import matplotlib.pyplot as plt
 from shapely.geometry import box, MultiPolygon, Polygon, LineString
 from shapely.ops import unary_union
 
+from app.algorithms.fpg_post_processor.dev.dev_step_plotter import (
+    plot_step_progression,
+)
+
 # --- CONSTANTS & CONFIGURATION ---
 
 ROOM_COLOR_MAP = {
@@ -97,6 +101,7 @@ def process_floor_plan(floor_plan_data, filename=None):
     )
 
     all_chosen_segments = []
+    hierarchy_snapshots = []
 
     for room_type in ROOM_EXPAND_HIERARCHY:
         if room_type not in ROOM_EXPANSION_CONFIG:
@@ -166,17 +171,33 @@ def process_floor_plan(floor_plan_data, filename=None):
             if expanded_patches:
                 room_geoms[i] = unary_union([current_poly] + expanded_patches)
 
-    if filename:
-        _plot_side_by_side(
-            floor_plan_data,
-            orig_envelope,
-            orig_holes,
-            orig_voids,
-            orig_recesses,
-            all_chosen_segments,
-            room_geoms,
-            filename,
+        hierarchy_snapshots.append(
+            {
+                "step_name": room_type,
+                "room_geoms": room_geoms.copy(),
+                "chosen_segments": list(chosen_segments),
+                "all_chosen_segments": list(all_chosen_segments),
+            }
         )
+
+    if filename:
+        plot_step_progression(
+            floor_plan_data,
+            hierarchy_snapshots,
+            filename=filename,
+        )
+
+    # if filename:
+    #     _plot_side_by_side(
+    #         floor_plan_data,
+    #         orig_envelope,
+    #         orig_holes,
+    #         orig_voids,
+    #         orig_recesses,
+    #         all_chosen_segments,
+    #         room_geoms,
+    #         filename,
+    #     )
 
     return [room_geoms[i] for i in range(len(floor_plan_data))]
 
