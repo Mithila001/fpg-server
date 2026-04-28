@@ -18,35 +18,33 @@ ROOM_COLOR_MAP = {
     "livingRoom": "#87CEEB",  # Sky Blue
 }
 
-# The order in which rooms will attempt to expand into voids/recesses
 ROOM_EXPAND_HIERARCHY = ["livingRoom", "kitchen", "hallway", "bedroom"]
 
-# Granular configuration per room type
 ROOM_EXPANSION_CONFIG = {
     "livingRoom": {
         "MIN_WALL_LENGTH": 10,
-        "MAX_WALL_LENGTH": float("inf"),
+        "MAX_WALL_LENGTH": 20,
         "MAX_ROOMS_TO_EXPAND": 1,
         "MAX_SELECTIONS": 2,
-        "EXPANSION_PERCENTAGE": 0.50,  # Expands up to 50% of the wall length
+        "EXPANSION_PERCENTAGE": 0.50,
     },
     "kitchen": {
         "MIN_WALL_LENGTH": 8,
-        "MAX_WALL_LENGTH": 40,
+        "MAX_WALL_LENGTH": 20,
         "MAX_ROOMS_TO_EXPAND": 1,
         "MAX_SELECTIONS": 1,
         "EXPANSION_PERCENTAGE": 0.40,
     },
     "hallway": {
         "MIN_WALL_LENGTH": 5,
-        "MAX_WALL_LENGTH": float("inf"),
+        "MAX_WALL_LENGTH": 20,
         "MAX_ROOMS_TO_EXPAND": 2,
         "MAX_SELECTIONS": 2,
-        "EXPANSION_PERCENTAGE": 0.30,
+        "EXPANSION_PERCENTAGE": 0.50,
     },
     "bedroom": {
         "MIN_WALL_LENGTH": 10,
-        "MAX_WALL_LENGTH": 50,
+        "MAX_WALL_LENGTH": 20,
         "MAX_ROOMS_TO_EXPAND": 2,
         "MAX_SELECTIONS": 1,
         "EXPANSION_PERCENTAGE": 0.50,
@@ -55,10 +53,10 @@ ROOM_EXPANSION_CONFIG = {
 
 
 def _get_spaces(polygons):
-    """Helper to calculate the current union, voids, and recesses."""
+    """Helper to calculate current union, voids, and orthogonal recesses."""
     floor_union = unary_union(polygons)
 
-    # 1. Identify Internal Voids
+    # 1. Identify Internal Voids (Holes inside the building)
     internal_voids_list = []
     if isinstance(floor_union, Polygon):
         internal_voids_list = [Polygon(i) for i in floor_union.interiors]
@@ -67,58 +65,52 @@ def _get_spaces(polygons):
             internal_voids_list.extend([Polygon(i) for i in poly.interiors])
     internal_voids = MultiPolygon(internal_voids_list)
 
-    # 2. Identify External Recesses
-    convex_poly = floor_union.convex_hull
-    all_holes = convex_poly.difference(floor_union)
+    # 2. Identify External Recesses (Option B: Orthogonal Constraint)
+    # We use .envelope instead of .convex_hull to ensure axis-aligned (square) boundaries
+    orthogonal_envelope = floor_union.envelope
+    all_holes = orthogonal_envelope.difference(floor_union)
 
+    # Define a shrinked area to filter out tiny perimeter gaps
     minx, miny, maxx, maxy = floor_union.bounds
     shrinked_bbox = box(minx + 10, miny + 10, maxx - 10, maxy - 10)
 
     external_recesses_list = []
     hole_geoms = getattr(all_holes, "geoms", [all_holes])
     for hole in hole_geoms:
+        # Only consider gaps that are somewhat "internal" to the footprint
         if hole and not hole.is_empty and hole.intersects(shrinked_bbox):
             external_recesses_list.append(hole)
     external_recesses = MultiPolygon(external_recesses_list)
 
-    return floor_union, convex_poly, all_holes, internal_voids, external_recesses
+    return floor_union, orthogonal_envelope, all_holes, internal_voids, external_recesses
 
 
 def process_floor_plan(floor_plan_data, filename=None):
-    # Initialize geometries map based on original floor plan data
     room_geoms = {
         i: box(room["x"], room["y"], room["x_end"], room["y_end"])
         for i, room in enumerate(floor_plan_data)
     }
 
-    # Keep a snapshot of original state for the left-side Diagnostic Plot
-    orig_union, orig_hull, orig_holes, orig_voids, orig_recesses = _get_spaces(
+    # Snapshot for Diagnostic Plot
+    orig_union, orig_envelope, orig_holes, orig_voids, orig_recesses = _get_spaces(
         list(room_geoms.values())
     )
 
     all_chosen_segments = []
 
-    # --- HIERARCHICAL EXPANSION LOGIC ---
     for room_type in ROOM_EXPAND_HIERARCHY:
         if room_type not in ROOM_EXPANSION_CONFIG:
             continue
 
         config = ROOM_EXPANSION_CONFIG[room_type]
-
-        # 1. Gather all rooms of this type
         eligible_rooms = [
             (i, r) for i, r in enumerate(floor_plan_data) if r["type"] == room_type
         ]
-
-        # 2. Sort by current area (smallest first)
         eligible_rooms.sort(key=lambda item: room_geoms[item[0]].area)
-
-        # 3. Trim to max allowed expanding rooms of this type
         rooms_to_process = eligible_rooms[: config["MAX_ROOMS_TO_EXPAND"]]
 
+    # --- EXPANSION LOOP ---
         for i, room in rooms_to_process:
-            # Re-evaluate spaces BEFORE expanding this specific room,
-            # so it "sees" the remaining empty spaces left by previous expansions
             _, _, _, internal_voids, external_recesses = _get_spaces(
                 list(room_geoms.values())
             )
@@ -153,19 +145,17 @@ def process_floor_plan(floor_plan_data, filename=None):
                                 }
                             )
 
-            # Prioritize Internal Voids over External, then by segment length (longest to shortest)
             expandable_segments.sort(
                 key=lambda x: (0 if x["type"] == "internal" else 1, -x["length"])
             )
 
-            # Pick max selections based on config
             chosen_segments = expandable_segments[: config["MAX_SELECTIONS"]]
             all_chosen_segments.extend(chosen_segments)
 
-            # Generate expansion patches
             expanded_patches = []
             for seg in chosen_segments:
                 max_dist = seg["length"] * config["EXPANSION_PERCENTAGE"]
+                # cap_style=2 keeps it rectangular
                 patch = (
                     seg["line"]
                     .buffer(max_dist, cap_style=2)
@@ -173,31 +163,27 @@ def process_floor_plan(floor_plan_data, filename=None):
                 )
                 expanded_patches.append(patch)
 
-            # Update the specific room's geometry in our running dictionary
             if expanded_patches:
                 room_geoms[i] = unary_union([current_poly] + expanded_patches)
 
-    # --- PLOTTING ---
     if filename:
         _plot_side_by_side(
             floor_plan_data,
-            orig_hull,
+            orig_envelope,
             orig_holes,
             orig_voids,
             orig_recesses,
             all_chosen_segments,
-            room_geoms,  # Passing the full dictionary of updated rooms
+            room_geoms,
             filename,
         )
 
-    # Return the dictionary or list of updated polygons if needed by your parent caller
-    # Here we convert it back to a list in the original order
     return [room_geoms[i] for i in range(len(floor_plan_data))]
 
 
 def _plot_side_by_side(
     floor_plan_data,
-    hull,
+    envelope,
     all_holes,
     voids,
     recesses,
@@ -215,7 +201,6 @@ def _plot_side_by_side(
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(22, 11), facecolor="#FAFAFA")
 
-    # --- Helper to handle Polygon/MultiPolygon plotting safely ---
     def plot_geom_fill(ax, geom, color, alpha, label="", hatch=None, edgecolor=None):
         if geom is None or geom.is_empty:
             return
@@ -238,7 +223,6 @@ def _plot_side_by_side(
                 ROOM_COLOR_MAP.get(r_type, "#EEEEEE") if use_color_map else "#E0E7FF"
             )
 
-            # Use updated geometry if available, otherwise fallback to original box
             if geoms_dict is not None and i in geoms_dict:
                 geom = geoms_dict[i]
             else:
@@ -263,17 +247,17 @@ def _plot_side_by_side(
                 color="#2D3748",
             )
 
-    # --- LEFT PLOT: DIAGNOSTIC (Neutral Rooms) ---
-    ax1.set_title("STEP 1: EXPANSION ANALYSIS", fontsize=14, fontweight="bold", pad=15)
+    # --- LEFT PLOT: DIAGNOSTIC ---
+    ax1.set_title("STEP 1: EXPANSION ANALYSIS (ORTHOGONAL)", fontsize=14, fontweight="bold", pad=15)
 
-    if not hull.is_empty:
+    if not envelope.is_empty:
         ax1.plot(
-            *hull.exterior.xy,
+            *envelope.exterior.xy,
             color="#2E7D32",
             linestyle="--",
             linewidth=1.2,
             alpha=0.6,
-            label="Convex Hull",
+            label="Bounding Envelope",
         )
 
     plot_geom_fill(ax1, all_holes, "#FF5252", 0.05, label="All Empty Spaces")
@@ -295,7 +279,7 @@ def _plot_side_by_side(
             label="Chosen Wall" if i == 0 else "_nolegend_",
         )
 
-    # --- RIGHT PLOT: FINAL RESULT (Color Coded) ---
+    # --- RIGHT PLOT: FINAL RESULT ---
     ax2.set_title(
         "STEP 2: FINAL OPTIMIZED PLAN", fontsize=14, fontweight="bold", pad=15
     )
@@ -320,3 +304,6 @@ def _plot_side_by_side(
     plt.savefig(save_path, dpi=200, facecolor=fig.get_facecolor())
     plt.close()
     print(f"Success: Analysis saved to {save_path}")
+    
+    
+    

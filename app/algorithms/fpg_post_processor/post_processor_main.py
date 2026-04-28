@@ -41,6 +41,7 @@ def process_floor_plans():
     for i, plan in enumerate(all_plans):
         # 1. Get the geometry from workspace
         process_floor_plan(plan, filename=f"plan_analysis_{i}.png")
+        print(f"Finished processing plan {i}\n")
 
 
 def _start_post_processing(room_data):

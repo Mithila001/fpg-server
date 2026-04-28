@@ -215,6 +215,7 @@ def _run_single_fpg_solve(
     # Provide a timestamped filename so the post-processor saves a plot for inspection
     timestamp = int(time.time())
     process_floor_plan(final_rooms, filename=f"refine_{timestamp}.png")
+    print(f"\n Final Refined Rooms: {final_rooms}")
     plot_refine_floor_plan(
         stage1_rooms=stage1_rooms, stage2_rooms=stage2_rooms, stage4_rooms=final_rooms
     )
