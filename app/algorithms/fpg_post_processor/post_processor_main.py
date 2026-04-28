@@ -4,7 +4,8 @@ import os
 from app.algorithms.fpg_post_processor.dev.dev_visualizer_plotter import (
     plot_and_save_results,
 )
-from app.algorithms.fpg_post_processor.workspace import process_floor_plan
+from app.algorithms.fpg_post_processor.extend_walls import process_floor_plan
+from app.algorithms.fpg_post_processor.workspace import modify_veranda_layout
 
 
 def _load_mock_floor_plans():
@@ -38,12 +39,13 @@ def process_floor_plans():
     if not all_plans:
         return
 
-    target_indices = [2, 3, 5, 6]
+    target_indices = [2, 3]
     for i, plan in enumerate(all_plans):
         # if i not in target_indices:
         #     continue
         # 1. Get the geometry from workspace
-        process_floor_plan(plan, filename=f"plan_analysis_{i}.png")
+        verandaUpdatedPlan = modify_veranda_layout(plan)
+        process_floor_plan(verandaUpdatedPlan, filename=f"plan_analysis_{i}.png")
         print(f"Finished processing plan {i}\n")
 
 
