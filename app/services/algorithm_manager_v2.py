@@ -8,7 +8,7 @@ import time
 
 from app.algorithms.fpg_opening import generate_openings
 from app.algorithms.fpg_post_processor.post_processor_main import process_floor_plan
-from app.algorithms.fpg_post_processor.workspace import modify_veranda_layout
+from app.algorithms.fpg_post_processor.veranda_post_process import modify_veranda_layout
 from app.algorithms.fpg_rooms import FloorPlanGenerator
 from app.algorithms.fpg_rooms.fpg_optuna import (
     run_optuna_optimization,

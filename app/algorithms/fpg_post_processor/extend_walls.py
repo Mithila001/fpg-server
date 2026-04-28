@@ -358,7 +358,7 @@ def process_floor_plan(floor_plan_data, filename=None):
             filename,
         )
 
-    return [room_geoms[i] for i in range(len(floor_plan_data))]
+    return
 
 
 ## Plotter Function Below
