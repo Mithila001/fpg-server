@@ -125,11 +125,7 @@ def run_graph_layout(
         },
     )
 
-    # For Optuna staged runs, always emit phase1 vs phase2 plots per trial.
-    should_plot = staged_sizing_used or (
-        score.total_score > TRIAL_GRAPH_SOLVER_GATE_THRESHOLD
-    )
-    if should_plot:
+    if  score.total_score > TRIAL_GRAPH_SOLVER_GATE_THRESHOLD:
         try:
             from test.dev.graph_plotter import plot_graph_layout
 

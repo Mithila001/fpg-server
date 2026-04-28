@@ -1,0 +1,3 @@
+- If the gap is very small, move the room with full overlapp of the hole to cover that hole
+- Veranda adjustment
+- Limit the expand if the overladed wall is too large ( might not need this)
