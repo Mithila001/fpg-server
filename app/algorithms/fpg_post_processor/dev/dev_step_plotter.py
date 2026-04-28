@@ -71,79 +71,52 @@ def _plot_step_panel(axis, floor_plan_data, snapshot):
     step_name = snapshot.get("step_name", "step")
     chosen_segments = snapshot.get("chosen_segments", [])
     room_geoms = snapshot.get("room_geoms", {})
+    
+    # Extract the new spatial geometries
+    internal_voids = snapshot.get("internal_voids")
+    external_recesses = snapshot.get("external_recesses")
 
     axis.set_title(step_name, fontsize=13, fontweight="bold", pad=12)
 
+    # 1. Plot External Recesses (Light Blue/Gray)
+    if external_recesses and not external_recesses.is_empty:
+        _fill_geom(axis, external_recesses, color="#E3F2FD", alpha=0.6, label="Recess", hatch='//')
+
+    # 2. Plot Internal Voids (Light Red/Pink)
+    if internal_voids and not internal_voids.is_empty:
+        _fill_geom(axis, internal_voids, color="#FFEBEE", alpha=0.7, label="Void", hatch='..')
+
+    # 3. Plot Rooms
     for index, room in enumerate(floor_plan_data):
         geom = room_geoms.get(index)
         if geom is None or geom.is_empty:
             continue
-
         color = ROOM_COLOR_MAP.get(room["type"], "#E0E7FF")
-        _fill_geom(axis, geom, color=color, alpha=0.8)
+        _fill_geom(axis, geom, color=color, alpha=0.9)
 
+        # Label Room Names
         center_x, center_y = geom.centroid.x, geom.centroid.y
-        axis.text(
-            center_x,
-            center_y,
-            room["name"],
-            fontsize=7,
-            fontweight="bold",
-            ha="center",
-            color="#2D3748",
-            zorder=5  # Ensure text is above grid
-        )
+        axis.text(center_x, center_y, room["name"], fontsize=7, fontweight="bold", 
+                  ha="center", color="#2D3748", zorder=5)
 
-    for segment_index, segment in enumerate(chosen_segments):
+    # 4. Plot Chosen Segments (Green Highlight)
+    for segment in chosen_segments:
         x_coords, y_coords = segment["line"].xy
-        axis.plot(
-            x_coords,
-            y_coords,
-            color="#00C853",
-            linewidth=6,
-            solid_capstyle="round",
-            alpha=0.95,
-            zorder=10 # Ensure lines are above grid
-        )
-        if segment_index == 0:
-            midpoint = segment["line"].interpolate(0.5, normalized=True)
-            axis.text(
-                midpoint.x,
-                midpoint.y,
-                "chosen",
-                fontsize=7,
-                fontweight="bold",
-                color="#1B5E20",
-                ha="center",
-                va="bottom",
-                zorder=11
-            )
+        axis.plot(x_coords, y_coords, color="#00C853", linewidth=4, zorder=10)
 
-    axis.text(
-        0.02,
-        0.98,
-        f"Chosen walls: {len(chosen_segments)}",
-        transform=axis.transAxes,
-        fontsize=10,
-        fontweight="bold",
-        ha="left",
-        va="top",
-        bbox={"facecolor": "white", "alpha": 0.75, "edgecolor": "none"},
-        zorder=12
-    )
-
-
-def _fill_geom(axis, geom, color, alpha):
+def _fill_geom(axis, geom, color, alpha, label=None, hatch=None):
+    """Enhanced helper to handle MultiPolygons and hatch patterns."""
     geoms = getattr(geom, "geoms", [geom])
     for polygon in geoms:
-        if isinstance(polygon, Polygon):
+        if isinstance(polygon, Polygon) and not polygon.is_empty:
             axis.fill(
                 *polygon.exterior.xy,
                 color=color,
                 alpha=alpha,
-                edgecolor="#2D3748",
-                linewidth=1.1,
-                zorder=2 # Ensure rooms are above grid
+                edgecolor="#546E7A" if hatch else "#2D3748",
+                linewidth=0.8,
+                hatch=hatch,
+                zorder=1 if hatch else 2 # Voids/Recesses stay behind rooms
             )
 
 

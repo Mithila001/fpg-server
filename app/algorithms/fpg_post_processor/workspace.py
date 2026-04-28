@@ -113,6 +113,8 @@ def process_floor_plan(floor_plan_data, filename=None):
         ]
         eligible_rooms.sort(key=lambda item: room_geoms[item[0]].area)
         rooms_to_process = eligible_rooms[: config["MAX_ROOMS_TO_EXPAND"]]
+        
+        floor_union, _, _, internal_voids, external_recesses = _get_spaces(list(room_geoms.values()))
 
     # --- EXPANSION LOOP ---
         for i, room in rooms_to_process:
@@ -176,6 +178,8 @@ def process_floor_plan(floor_plan_data, filename=None):
                 "step_name": room_type,
                 "room_geoms": room_geoms.copy(),
                 "chosen_segments": list(chosen_segments),
+                "internal_voids": internal_voids, # <--- NEW
+                "external_recesses": external_recesses, # <--- NEW
                 "all_chosen_segments": list(all_chosen_segments),
             }
         )
