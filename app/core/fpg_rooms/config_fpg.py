@@ -133,7 +133,7 @@ DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
 MINIMUM_REQUIRED_FPG_SCORE = 90  # Stop trials if score exceeds this
 TRIAL_OPTIMIZATION_TIMEOUT_SECONDS = 120  # Hard deadline for all trials
 TRIAL_GRAPH_SOLVER_GATE_THRESHOLD = (
-    70  # Invoke solver only when graph score reaches this
+    80  # Invoke solver only when graph score reaches this
 )
 
 # Default generator config
