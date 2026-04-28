@@ -50,7 +50,12 @@ def score_functional_section(
     opening_avg = (
         (sum(evaluator_scores) / len(evaluator_scores)) if evaluator_scores else 0.0
     )
-    opening_score = _clamp_0_15((opening_avg / 25.0) * 15.0) if evaluator_scores else 0.0
+    opening_score = (
+        _clamp_0_15((opening_avg / 25.0) * 15.0) if evaluator_scores else 0.0
+    )
+
+    print(f"\n\nSolution Data: {solution}")
+    print(f"\nOpening Data: {opening_data}")
 
     path_score, path_diag = evaluate_path_simulation(
         solution,
