@@ -38,7 +38,10 @@ def process_floor_plans():
     if not all_plans:
         return
 
+    target_indices = [2, 3, 5, 6]
     for i, plan in enumerate(all_plans):
+        # if i not in target_indices:
+        #     continue
         # 1. Get the geometry from workspace
         process_floor_plan(plan, filename=f"plan_analysis_{i}.png")
         print(f"Finished processing plan {i}\n")

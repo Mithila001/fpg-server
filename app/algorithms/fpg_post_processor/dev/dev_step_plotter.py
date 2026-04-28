@@ -18,20 +18,26 @@ ROOM_COLOR_MAP = {
 }
 
 
-def plot_step_progression(floor_plan_data, hierarchy_snapshots, filename="floor_plan_analysis.png"):
+def plot_step_progression(
+    floor_plan_data, hierarchy_snapshots, filename="floor_plan_analysis.png"
+):
     if not hierarchy_snapshots:
         return
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
     output_dir = os.path.abspath(
-        os.path.join(current_dir, "../../../../test/outputs/post_process/dev_step_plotter/")
+        os.path.join(
+            current_dir, "../../../../test/outputs/post_process/dev_step_plotter/"
+        )
     )
     os.makedirs(output_dir, exist_ok=True)
     save_path = os.path.join(output_dir, filename)
 
     panel_count = len(hierarchy_snapshots)
     fig_width = max(6.0 * panel_count, 8.0)
-    fig, axes = plt.subplots(1, panel_count, figsize=(fig_width, 7.5), facecolor="#FAFAFA")
+    fig, axes = plt.subplots(
+        1, panel_count, figsize=(fig_width, 7.5), facecolor="#FAFAFA"
+    )
     if panel_count == 1:
         axes = [axes]
 
@@ -42,12 +48,19 @@ def plot_step_progression(floor_plan_data, hierarchy_snapshots, filename="floor_
         axis.set_xlim(x_min, x_max)
         axis.set_ylim(y_min, y_max)
         axis.set_aspect("equal")
-        
+
         # --- Grid Configuration ---
         # Ensure ticks are visible to show the grid, but hide labels if you want a clean look
         axis.xaxis.set_major_locator(ticker.MultipleLocator(2.0))
         axis.yaxis.set_major_locator(ticker.MultipleLocator(2.0))
-        axis.grid(True, which='major', color="#545454", linestyle='--', linewidth=0.5, alpha=0.5)
+        axis.grid(
+            True,
+            which="major",
+            color="#545454",
+            linestyle="--",
+            linewidth=0.5,
+            alpha=0.5,
+        )
         # Hide the numeric tick labels to keep the "off" aesthetic while keeping the grid
         axis.set_xticklabels([])
         axis.set_yticklabels([])
@@ -61,7 +74,7 @@ def plot_step_progression(floor_plan_data, hierarchy_snapshots, filename="floor_
         y=0.98,
         fontweight="bold",
     )
-    plt.tight_layout(rect=[0, 0.02, 1, 0.94])
+    plt.tight_layout(rect=[0, 0.02, 1, 0.94])  # type: ignore
     plt.savefig(save_path, dpi=220, facecolor=fig.get_facecolor())
     plt.close(fig)
     print(f"Step progression plot saved: {save_path}")
@@ -71,7 +84,7 @@ def _plot_step_panel(axis, floor_plan_data, snapshot):
     step_name = snapshot.get("step_name", "step")
     chosen_segments = snapshot.get("chosen_segments", [])
     room_geoms = snapshot.get("room_geoms", {})
-    
+
     # Extract the new spatial geometries
     internal_voids = snapshot.get("internal_voids")
     external_recesses = snapshot.get("external_recesses")
@@ -80,11 +93,20 @@ def _plot_step_panel(axis, floor_plan_data, snapshot):
 
     # 1. Plot External Recesses (Light Blue/Gray)
     if external_recesses and not external_recesses.is_empty:
-        _fill_geom(axis, external_recesses, color="#E3F2FD", alpha=0.6, label="Recess", hatch='//')
+        _fill_geom(
+            axis,
+            external_recesses,
+            color="#E3F2FD",
+            alpha=0.6,
+            label="Recess",
+            hatch="//",
+        )
 
     # 2. Plot Internal Voids (Light Red/Pink)
     if internal_voids and not internal_voids.is_empty:
-        _fill_geom(axis, internal_voids, color="#FFEBEE", alpha=0.7, label="Void", hatch='..')
+        _fill_geom(
+            axis, internal_voids, color="#FFEBEE", alpha=0.7, label="Void", hatch=".."
+        )
 
     # 3. Plot Rooms
     for index, room in enumerate(floor_plan_data):
@@ -96,13 +118,22 @@ def _plot_step_panel(axis, floor_plan_data, snapshot):
 
         # Label Room Names
         center_x, center_y = geom.centroid.x, geom.centroid.y
-        axis.text(center_x, center_y, room["name"], fontsize=7, fontweight="bold", 
-                  ha="center", color="#2D3748", zorder=5)
+        axis.text(
+            center_x,
+            center_y,
+            room["name"],
+            fontsize=7,
+            fontweight="bold",
+            ha="center",
+            color="#2D3748",
+            zorder=5,
+        )
 
     # 4. Plot Chosen Segments (Green Highlight)
     for segment in chosen_segments:
         x_coords, y_coords = segment["line"].xy
         axis.plot(x_coords, y_coords, color="#00C853", linewidth=4, zorder=10)
+
 
 def _fill_geom(axis, geom, color, alpha, label=None, hatch=None):
     """Enhanced helper to handle MultiPolygons and hatch patterns."""
@@ -116,7 +147,7 @@ def _fill_geom(axis, geom, color, alpha, label=None, hatch=None):
                 edgecolor="#546E7A" if hatch else "#2D3748",
                 linewidth=0.8,
                 hatch=hatch,
-                zorder=1 if hatch else 2 # Voids/Recesses stay behind rooms
+                zorder=1 if hatch else 2,  # Voids/Recesses stay behind rooms
             )
 
 

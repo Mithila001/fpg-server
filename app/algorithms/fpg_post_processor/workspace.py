@@ -1,7 +1,8 @@
 import os
 import matplotlib.pyplot as plt
+from shapely import envelope
 from shapely.geometry import box, MultiPolygon, Polygon, LineString
-from shapely.ops import unary_union
+from shapely.ops import unary_union, substring
 
 from app.algorithms.fpg_post_processor.dev.dev_step_plotter import (
     plot_step_progression,
@@ -27,31 +28,35 @@ ROOM_EXPAND_HIERARCHY = ["livingRoom", "kitchen", "hallway", "bedroom"]
 ROOM_EXPANSION_CONFIG = {
     "livingRoom": {
         "MIN_WALL_LENGTH": 10,
-        "MAX_WALL_LENGTH": 20,
+        "MAX_WALL_LENGTH": 30,
         "MAX_ROOMS_TO_EXPAND": 1,
         "MAX_SELECTIONS": 2,
         "EXPANSION_PERCENTAGE": 0.50,
+        "EXPANSION_MAX_DISTANCE": 20,
     },
     "kitchen": {
-        "MIN_WALL_LENGTH": 8,
-        "MAX_WALL_LENGTH": 20,
+        "MIN_WALL_LENGTH": 10,
+        "MAX_WALL_LENGTH": 30,
         "MAX_ROOMS_TO_EXPAND": 1,
         "MAX_SELECTIONS": 1,
         "EXPANSION_PERCENTAGE": 0.40,
+        "EXPANSION_MAX_DISTANCE": 10,
     },
     "hallway": {
         "MIN_WALL_LENGTH": 5,
-        "MAX_WALL_LENGTH": 20,
-        "MAX_ROOMS_TO_EXPAND": 2,
-        "MAX_SELECTIONS": 2,
+        "MAX_WALL_LENGTH": 40,
+        "MAX_ROOMS_TO_EXPAND": 3,
+        "MAX_SELECTIONS": 3,
         "EXPANSION_PERCENTAGE": 0.50,
+        "EXPANSION_MAX_DISTANCE": 10,
     },
     "bedroom": {
         "MIN_WALL_LENGTH": 10,
-        "MAX_WALL_LENGTH": 20,
-        "MAX_ROOMS_TO_EXPAND": 2,
+        "MAX_WALL_LENGTH": 40,
+        "MAX_ROOMS_TO_EXPAND": 3,
         "MAX_SELECTIONS": 1,
         "EXPANSION_PERCENTAGE": 0.50,
+        "EXPANSION_MAX_DISTANCE": 10,
     },
 }
 
@@ -86,7 +91,13 @@ def _get_spaces(polygons):
             external_recesses_list.append(hole)
     external_recesses = MultiPolygon(external_recesses_list)
 
-    return floor_union, orthogonal_envelope, all_holes, internal_voids, external_recesses
+    return (
+        floor_union,
+        orthogonal_envelope,
+        all_holes,
+        internal_voids,
+        external_recesses,
+    )
 
 
 def process_floor_plan(floor_plan_data, filename=None):
@@ -95,13 +106,12 @@ def process_floor_plan(floor_plan_data, filename=None):
         for i, room in enumerate(floor_plan_data)
     }
 
-    # Snapshot for Diagnostic Plot
-    orig_union, orig_envelope, orig_holes, orig_voids, orig_recesses = _get_spaces(
-        list(room_geoms.values())
-    )
-
     all_chosen_segments = []
     hierarchy_snapshots = []
+
+    print("\n" + "=" * 50)
+    print("STARTING HIERARCHY EXPANSION PROCESS")
+    print("=" * 50)
 
     for room_type in ROOM_EXPAND_HIERARCHY:
         if room_type not in ROOM_EXPANSION_CONFIG:
@@ -113,11 +123,14 @@ def process_floor_plan(floor_plan_data, filename=None):
         ]
         eligible_rooms.sort(key=lambda item: room_geoms[item[0]].area)
         rooms_to_process = eligible_rooms[: config["MAX_ROOMS_TO_EXPAND"]]
-        
-        floor_union, _, _, internal_voids, external_recesses = _get_spaces(list(room_geoms.values()))
 
-    # --- EXPANSION LOOP ---
+        print(f"\n--- Checking Room Type: {room_type.upper()} ---")
+
+        # Track chosen segments for this specific hierarchy step snapshot
+        step_chosen_segments = []
+
         for i, room in rooms_to_process:
+            # We call _get_spaces here to get the current state of the floor
             _, _, _, internal_voids, external_recesses = _get_spaces(
                 list(room_geoms.values())
             )
@@ -125,6 +138,8 @@ def process_floor_plan(floor_plan_data, filename=None):
             current_poly = room_geoms[i]
             current_boundary = current_poly.boundary
             expandable_segments = []
+
+            print(f" Processing Room #{i} ({room_type})")
 
             for space_type, geom in [
                 ("internal", internal_voids),
@@ -136,18 +151,25 @@ def process_floor_plan(floor_plan_data, filename=None):
                 inter = current_boundary.intersection(geom.buffer(0.2))
                 lines = getattr(inter, "geoms", [inter])
 
-                for line in lines:
+                for line_idx, line in enumerate(lines):
                     if isinstance(line, LineString):
-                        if (
-                            config["MIN_WALL_LENGTH"]
-                            <= line.length
-                            <= config["MAX_WALL_LENGTH"]
-                        ):
+                        original_length = line.length
+                        work_line = line
+
+                        is_truncated = False
+                        if original_length > config["MAX_WALL_LENGTH"]:
+                            work_line = substring(line, 0, config["MAX_WALL_LENGTH"])
+                            is_truncated = True
+
+                        current_length = work_line.length
+                        is_valid = current_length >= config["MIN_WALL_LENGTH"]
+
+                        if is_valid:
                             expandable_segments.append(
                                 {
-                                    "line": line,
+                                    "line": work_line,
                                     "type": space_type,
-                                    "length": line.length,
+                                    "length": current_length,
                                     "target_geom": geom,
                                 }
                             )
@@ -155,55 +177,67 @@ def process_floor_plan(floor_plan_data, filename=None):
             expandable_segments.sort(
                 key=lambda x: (0 if x["type"] == "internal" else 1, -x["length"])
             )
-
             chosen_segments = expandable_segments[: config["MAX_SELECTIONS"]]
-            all_chosen_segments.extend(chosen_segments)
 
-            expanded_patches = []
-            for seg in chosen_segments:
-                max_dist = seg["length"] * config["EXPANSION_PERCENTAGE"]
-                # cap_style=2 keeps it rectangular
-                patch = (
-                    seg["line"]
-                    .buffer(max_dist, cap_style=2)
-                    .intersection(seg["target_geom"])
-                )
-                expanded_patches.append(patch)
+            if chosen_segments:
+                all_chosen_segments.extend(chosen_segments)
+                step_chosen_segments.extend(chosen_segments)
+                expanded_patches = []
+                for seg in chosen_segments:
+                    calculated_dist = seg["length"] * config["EXPANSION_PERCENTAGE"]
+                    max_dist = min(calculated_dist, config["EXPANSION_MAX_DISTANCE"])
 
-            if expanded_patches:
+                    patch = (
+                        seg["line"]
+                        .buffer(max_dist, cap_style=2)
+                        .intersection(seg["target_geom"])
+                    )
+                    expanded_patches.append(patch)
+
                 room_geoms[i] = unary_union([current_poly] + expanded_patches)
 
+        # Snapshot for the step plotter
         hierarchy_snapshots.append(
             {
                 "step_name": room_type,
                 "room_geoms": room_geoms.copy(),
-                "chosen_segments": list(chosen_segments),
-                "internal_voids": internal_voids, # <--- NEW
-                "external_recesses": external_recesses, # <--- NEW
-                "all_chosen_segments": list(all_chosen_segments),
+                "chosen_segments": step_chosen_segments,
             }
         )
 
+    # --- FIX: Calculate final spaces for the side-by-side plot ---
+    (
+        floor_union,
+        orthogonal_envelope,
+        all_holes,
+        final_internal_voids,
+        final_external_recesses,
+    ) = _get_spaces(list(room_geoms.values()))
+
+    print("\n" + "=" * 50)
+    print("EXPANSION PROCESS COMPLETE")
+    print("=" * 50 + "\n")
+
     if filename:
-        plot_step_progression(
+        # 1. Step Progression Plot (Requires its own internal logic)
+        plot_step_progression(floor_plan_data, hierarchy_snapshots, filename=filename)
+
+        # 2. Final Side-by-Side Analysis Plot
+        _plot_side_by_side(
             floor_plan_data,
-            hierarchy_snapshots,
-            filename=filename,
+            orthogonal_envelope,
+            all_holes,
+            final_internal_voids,
+            final_external_recesses,
+            all_chosen_segments,  # Pass the accumulated list
+            room_geoms,
+            filename,
         )
 
-    # if filename:
-    #     _plot_side_by_side(
-    #         floor_plan_data,
-    #         orig_envelope,
-    #         orig_holes,
-    #         orig_voids,
-    #         orig_recesses,
-    #         all_chosen_segments,
-    #         room_geoms,
-    #         filename,
-    #     )
-
     return [room_geoms[i] for i in range(len(floor_plan_data))]
+
+
+## Plotter Function Below
 
 
 def _plot_side_by_side(
@@ -273,7 +307,12 @@ def _plot_side_by_side(
             )
 
     # --- LEFT PLOT: DIAGNOSTIC ---
-    ax1.set_title("STEP 1: EXPANSION ANALYSIS (ORTHOGONAL)", fontsize=14, fontweight="bold", pad=15)
+    ax1.set_title(
+        "STEP 1: EXPANSION ANALYSIS (ORTHOGONAL)",
+        fontsize=14,
+        fontweight="bold",
+        pad=15,
+    )
 
     if not envelope.is_empty:
         ax1.plot(
@@ -329,6 +368,3 @@ def _plot_side_by_side(
     plt.savefig(save_path, dpi=200, facecolor=fig.get_facecolor())
     plt.close()
     print(f"Success: Analysis saved to {save_path}")
-    
-    
-    
