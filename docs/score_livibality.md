@@ -15,11 +15,11 @@ Instead of static geometric analysis, we will simulate "Heuristic Walking Paths"
 ## 3. Technical Implementation Strategy
 
 ### A. The Walkable Mesh
-* **Tool:** `Shapely`
+* **Tool:** `Shapely`(Already Installed to python virtual environment)
 * **Logic:** Subtract all "Wall" polygons from the "Total Floor" polygon to create a "Navigation Mesh" (the walkable area).
 
 ### B. Pathfinding & Smoothing
-* **Tool:** `NetworkX` + `Scipy.interpolate`
+* **Tool:** `NetworkX` + `Scipy.interpolate` (Already Installed to python virtual environment)
 * **Algorithm:** 1. Generate a fine-grained grid or graph over the walkable area.
     2. Use **A* (A-Star)** to find the shortest path between Point A and B.
     3. Apply **Chaikin’s Smoothing** or **Bézier Curves** to the path coordinates to create "Curvy/Natural" human movement.
@@ -66,3 +66,5 @@ I created `app/algorithms/fpg_rooms/fpg_score/score_extra/path_simulation/dev` f
 Overall, Single Saved png image, with 3 side by side plot (so it easier to look)
 Image wil save at `test/outputs/path_score` folder with YYYY-MM-DD-HH-MM-SS-ms File Name 
 
+Implement the scoring process at app/algorithms/fpg_rooms/fpg_score/score_functional/path_simulations
+The score will be out of 10 of the total score_functional_section score value
