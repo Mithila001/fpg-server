@@ -8,6 +8,7 @@ import time
 
 from app.algorithms.fpg_opening import generate_openings
 from app.algorithms.fpg_post_processor.extend_walls import extend_floor_plan_walls
+from app.algorithms.fpg_post_processor.snap_floor_plan_to_grid import snap_floor_plan_to_grid
 from app.algorithms.fpg_post_processor.veranda_post_process import modify_veranda_layout
 from app.algorithms.fpg_rooms import FloorPlanGenerator
 from app.algorithms.fpg_rooms.fpg_optuna import (
@@ -219,6 +220,7 @@ def _run_single_fpg_solve(
     timestamp = int(time.time())
     verandaUpdatedPlan = modify_veranda_layout(final_rooms)
     processed_floor_plan: list[ProcessedRoomData] = extend_floor_plan_walls(verandaUpdatedPlan, filename=f"refine_{timestamp}.png")
+    grid_snapped_floor_plan: list[ProcessedRoomData] = snap_floor_plan_to_grid(processed_floor_plan)
     print(f"\n Final Refined Rooms: {final_rooms}")
     plot_refine_floor_plan(
         stage1_rooms=stage1_rooms, stage2_rooms=stage2_rooms, stage4_rooms=final_rooms
