@@ -6,6 +6,7 @@ from app.algorithms.fpg_post_processor.dev.dev_visualizer_plotter import (
 )
 from app.algorithms.fpg_post_processor.extend_walls import process_floor_plan
 from app.algorithms.fpg_post_processor.veranda_post_process import modify_veranda_layout
+from app.algorithms.types.domain import ProcessedRoomData
 
 
 def _load_mock_floor_plans():
@@ -45,8 +46,8 @@ def process_floor_plans():
             continue
         # 1. Get the geometry from workspace
         verandaUpdatedPlan = modify_veranda_layout(plan)
-        process_floor_plan(verandaUpdatedPlan, filename=f"plan_analysis_{i}.png")
-        print(f"Finished processing plan {i}\n")
+        processed_floor_plan: list[ProcessedRoomData] = process_floor_plan(verandaUpdatedPlan, filename=f"plan_analysis_{i}.png")
+        print(f"Finished processing plan {processed_floor_plan}\n")
 
 
 def _start_post_processing(room_data):

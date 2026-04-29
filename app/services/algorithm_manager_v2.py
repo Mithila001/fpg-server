@@ -33,6 +33,7 @@ from app.core.fpg_rooms.config_fpg import (
     DEFAULT_OPTUNA_STORAGE_URL,
     WIGGLE_ROOM,
 )
+from app.algorithms.types.domain import ProcessedRoomData
 from app.schemas.db.room_setup_template import RoomSetupTemplateBase
 from app.util.algorithm_manager import (
     build_requirements,
@@ -41,6 +42,7 @@ from app.util.algorithm_manager import (
 )
 from test.dev.final_result_plotter import plot_final_solver_result
 from test.dev.plot_refiner import plot_refine_floor_plan
+
 
 EMPTY_POST_PROCESS_LAYOUT = {
     "union_walls": [],
@@ -216,7 +218,7 @@ def _run_single_fpg_solve(
     # Provide a timestamped filename so the post-processor saves a plot for inspection
     timestamp = int(time.time())
     verandaUpdatedPlan = modify_veranda_layout(final_rooms)
-    process_floor_plan(verandaUpdatedPlan, filename=f"refine_{timestamp}.png")
+    processed_floor_plan: list[ProcessedRoomData] = process_floor_plan(verandaUpdatedPlan, filename=f"refine_{timestamp}.png")
     print(f"\n Final Refined Rooms: {final_rooms}")
     plot_refine_floor_plan(
         stage1_rooms=stage1_rooms, stage2_rooms=stage2_rooms, stage4_rooms=final_rooms

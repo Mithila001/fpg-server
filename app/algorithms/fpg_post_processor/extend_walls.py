@@ -1,8 +1,10 @@
 import os
+from typing import List, Tuple, TypedDict
 import matplotlib.pyplot as plt
 from shapely.affinity import translate
 from shapely.geometry import box, MultiPolygon, Polygon, LineString
 from shapely.ops import unary_union, substring
+from app.algorithms.types.domain import ProcessedRoomData
 
 from app.algorithms.fpg_post_processor.dev.dev_step_plotter import (
     plot_step_progression,
@@ -194,7 +196,7 @@ def _extrude_wall_patch(line, target_geom, max_distance, debug_label):
     return extrusion.intersection(target_geom)
 
 
-def process_floor_plan(floor_plan_data, filename=None):
+def process_floor_plan(floor_plan_data, filename=None) -> List[ProcessedRoomData]:
     print("\n" + "=" * 60)
     print(
         f"INITIALIZING HIERARCHY EXPANSION | Rooms to process: {len(floor_plan_data)}"
@@ -357,8 +359,32 @@ def process_floor_plan(floor_plan_data, filename=None):
             room_geoms,
             filename,
         )
+    final_plan = _get_reconstructed_data(floor_plan_data, room_geoms)
+    print(f"\n Original Floor Plan Data: {floor_plan_data}\n")
+    print(f"\n Final Plan Data (with vertices): {final_plan}\n")
+    return final_plan
 
-    return
+def _get_reconstructed_data(floor_plan_data, room_geoms) -> List[ProcessedRoomData]:
+    reconstructed = []
+    
+    for i, room in enumerate(floor_plan_data):
+        poly = room_geoms[i]
+        
+        # Extract the exterior coordinates as a list of (x, y) tuples
+        # exterior.coords gives the sequence of points defining the wall
+        vertices = list(poly.exterior.coords)
+        
+        # Create a new dictionary that preserves metadata but replaces bounds with vertices
+        room_entry = ProcessedRoomData(
+            type=room["type"],
+            name=room.get("name", "NO_NAME"), # Default to type if name is missing
+            original_index=i,
+            vertices=vertices,
+            area=poly.area
+        )
+        reconstructed.append(room_entry)
+        
+    return reconstructed
 
 
 ## Plotter Function Below
