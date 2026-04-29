@@ -196,7 +196,7 @@ def _extrude_wall_patch(line, target_geom, max_distance, debug_label):
     return extrusion.intersection(target_geom)
 
 
-def process_floor_plan(floor_plan_data, filename=None) -> List[ProcessedRoomData]:
+def extend_floor_plan_walls(floor_plan_data, filename=None) -> List[ProcessedRoomData]:
     print("\n" + "=" * 60)
     print(
         f"INITIALIZING HIERARCHY EXPANSION | Rooms to process: {len(floor_plan_data)}"
