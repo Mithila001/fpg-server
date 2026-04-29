@@ -299,6 +299,14 @@ def run_solver_with_hints(
     best_score = float("-inf")
     last_result: FpgEvaluationResult | None = None
 
+    # TODO: Remove hallways from Hint DEBUG
+    requirements.initial_point_hints = [
+        hint
+        for hint in requirements.initial_point_hints
+        if hint.get("type") != "hallway"
+    ]
+    print(f"Updated Hints: {requirements.initial_point_hints}")
+
     for attempt_index in range(safe_run_count):
         current_result = _run_single_fpg_solve(
             requirements=requirements, verbose=verbose

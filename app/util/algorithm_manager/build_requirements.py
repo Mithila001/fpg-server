@@ -96,87 +96,66 @@ def _calculate_suitable_floor_dimensions(
     floor_width: float,
     floor_height: float,
     room_template_data: List[dict],
-    size_constraints: List[
-        RoomSizeConstraint
-    ],  # Using any for brevity; replace with RoomSizeConstraint
+    size_constraints: List[RoomSizeConstraint],  # RoomSizeConstraint
     buffer: float,
 ) -> Tuple[float, float]:
     """
-    Calculates optimized floor dimensions based on strict area requirements and
-    aspect ratio constraints.
+    Calculates the largest rectangle with a 10:16 aspect ratio that fits
+    within the original floor dimensions and falls within the min/max area range.
     """
 
-    # Check if template data exists
     if not room_template_data:
         raise ValueError("Room template data is empty or missing.")
 
-    # 1. Calculate min and max areas from template
-    total_min_area = 0
-    total_max_area = 0
-
-    # Create a lookup for performance
+    # 1. Calculate area boundaries
+    total_min_area = 0.0
+    total_max_area = 0.0
     constraint_map = {c.type: c for c in size_constraints}
 
     for room in room_template_data:
         r_type = room.get("type")
-        if not r_type:
-            raise ValueError(f"Room entry missing 'type' key: {room}")
-
         constraint = constraint_map.get(r_type)
-
-        # ERROR: Throw error if size constraint for a room type is missing
         if not constraint:
             raise ValueError(f"Missing size constraints for room type: '{r_type}'")
 
         total_min_area += constraint.min_area or 0.0
         total_max_area += constraint.max_area or 0.0
 
-    current_floor_area = floor_width * floor_height
     required_min_total = total_min_area + buffer
     required_max_total = total_max_area + buffer
 
-    # 2. Check if minimum area fits
-    if required_min_total > current_floor_area:
+    # 2. Geometric Logic for 10:16 (W:H)
+    # Ratio is 10/16 = 0.625. So H = W / 0.625  OR  H = W * 1.6
+    ratio_factor = 1.6
+
+    # We need to find the maximum Width (W) such that:
+    #   1. W <= floor_width
+    #   2. W * 1.6 <= floor_height  =>  W <= floor_height / 1.6
+    #   3. W * (W * 1.6) <= max_area =>  W <= sqrt(max_area / 1.6)
+
+    limit_by_width = floor_width
+    limit_by_height = floor_height / ratio_factor
+    limit_by_max_area = math.sqrt(required_max_total / ratio_factor)
+
+    # The largest width that satisfies ALL constraints
+    best_w = min(limit_by_width, limit_by_height, limit_by_max_area)
+    best_h = best_w * ratio_factor
+    calculated_area = best_w * best_h
+
+    # 3. Validation
+    # Check if this "largest possible" rectangle meets the minimum area requirement
+    if calculated_area < required_min_total:
+        # If the largest possible 10:16 rectangle is still smaller than the minimum area,
+        # it means the building is too small or the ratio is too restrictive for these rooms.
         raise ValueError(
-            f"Insufficient Floor Space: Required minimum {required_min_total} "
-            f"exceeds available {current_floor_area}."
+            f"Constraint Conflict: The largest 10:16 rectangle that fits the building "
+            f"({calculated_area:.2f}) is smaller than the required minimum area ({required_min_total:.2f})."
         )
 
-    # 3. Geometric Logic: Find the largest rectangle with 10:16 ratio
-    # W:H = 10:16 -> W = 10k, H = 16k -> Area = 160k^2
-    k = math.sqrt(required_max_total / 160)
-    target_w = 10 * k
-    target_h = 16 * k
+    print(f"--- Final 10:16 Floor Dimensions Picked ---")
+    print(f"Target Area Range: {required_min_total:.2f} - {required_max_total:.2f}")
+    print(f"Resulting Width: {best_w:.2f}, Height: {best_h:.2f}")
+    print(f"Resulting Area: {calculated_area:.2f}")
+    print(f"-------------------------------------------")
 
-    # Logic for fitting into given floor dimensions
-    if target_w <= floor_width and target_h <= floor_height:
-        # Fits perfectly with 10:16 ratio
-        floor_plan_width, floor_plan_height = target_w, target_h
-    else:
-        # Use max width as rectangle width and calculate available height needed for max area
-        floor_plan_width = floor_width
-        needed_h = required_max_total / floor_plan_width
-
-        if needed_h <= floor_height:
-            floor_plan_height = needed_h
-        else:
-            # Fallback to provided floor dimensions if max area doesn't fit the logic
-            floor_plan_width = floor_width
-            floor_plan_height = floor_height
-
-    # 4. Aspect Ratio Validation (Must not be higher than 1:2)
-    # Higher than 1:2 means the ratio of long-side to short-side is > 2.0
-    if floor_plan_width > 0 and floor_plan_height > 0:
-        max_dim = max(floor_plan_width, floor_plan_height)
-        min_dim = min(floor_plan_width, floor_plan_height)
-        actual_ratio = max_dim / min_dim
-
-        if actual_ratio > 2.0:
-            raise ValueError(
-                f"Invalid Floor Geometry: Aspect ratio {actual_ratio:.2f} is higher "
-                f"than the 1:2 limit."
-            )
-    else:
-        raise ValueError("Calculated floor dimensions must be greater than zero.")
-
-    return floor_plan_width, floor_plan_height
+    return best_w, best_h
