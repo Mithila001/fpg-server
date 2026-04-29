@@ -107,3 +107,15 @@ class ProcessedRoomData:
     original_index: int
     vertices: list[Tuple[float, float]]
     area: float
+    
+    
+@dataclass
+class WallSegment:
+    start: Tuple[float, float]
+    end: Tuple[float, float]
+    length: float
+
+@dataclass
+class UnifiedFloorPlan:
+    segments: list[WallSegment]
+    total_wall_length: float
