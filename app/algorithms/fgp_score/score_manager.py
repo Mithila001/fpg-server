@@ -11,6 +11,7 @@ from app.algorithms.fgp_score.score_critical.empty_space import (
 from app.algorithms.fgp_score.score_critical.inward_pocket import (
     detect_inward_pocket_violation_v2,
 )
+from app.algorithms.fgp_score.dev.critical_plot import save_critical_score_plot
 from app.algorithms.types.domain import FpgRequirements, ProcessedRoomData
 from app.core.fpg_rooms.config_score import SCORE_VALIDATION_MIN_OVERLAP
 from app.util.verify_post_processed_floor_plan import verify_post_processed_floor_plan
@@ -140,6 +141,24 @@ def score_manager(
         "empty_space": empty_diag,
         "inward_pocket": inward_diag,
     }
+
+    try:
+        critical_plot_path = save_critical_score_plot(
+            scoring_plan,
+            relation_constraints,
+            floor_width,
+            floor_height,
+            inward_pocket_max_length,
+            min_overlap=int(SCORE_VALIDATION_MIN_OVERLAP),
+            tolerance=tolerance,
+        )
+        diagnostics["critical_plot_path"] = critical_plot_path
+        print(f"[fgp_score/score_manager] critical plot saved: {critical_plot_path}")
+    except Exception as exc:
+        print(
+            "[fgp_score/score_manager] critical plot generation failed: "
+            f"{exc}"
+        )
 
     return {
         "critical_score": round(float(critical_score), 2),
