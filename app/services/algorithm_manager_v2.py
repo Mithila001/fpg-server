@@ -7,9 +7,14 @@ from typing import Any, cast
 import time
 
 from app.algorithms.fpg_opening import generate_openings
+from app.algorithms.fpg_opening_v2.fpg_opening_generator import generate_fpg_openings
 from app.algorithms.fpg_post_processor.extend_walls import extend_floor_plan_walls
-from app.algorithms.fpg_post_processor.simplify_rectilinear_vertices import clean_floorplan_rectilinearity
-from app.algorithms.fpg_post_processor.snap_floor_plan_to_grid import snap_floor_plan_to_grid
+from app.algorithms.fpg_post_processor.simplify_rectilinear_vertices import (
+    clean_floorplan_rectilinearity,
+)
+from app.algorithms.fpg_post_processor.snap_floor_plan_to_grid import (
+    snap_floor_plan_to_grid,
+)
 from app.algorithms.fpg_post_processor.veranda_post_process import modify_veranda_layout
 from app.algorithms.fpg_rooms import FloorPlanGenerator
 from app.algorithms.fpg_rooms.fpg_optuna import (
@@ -221,20 +226,21 @@ def _run_single_fpg_solve(
     # Provide a timestamped filename so the post-processor saves a plot for inspection
     timestamp = int(time.time())
     verandaUpdatedPlan = modify_veranda_layout(final_rooms)
-    processed_floor_plan: list[ProcessedRoomData] = extend_floor_plan_walls(verandaUpdatedPlan, filename=f"refine_{timestamp}.png")
-    grid_snapped_floor_plan: list[ProcessedRoomData] = snap_floor_plan_to_grid(processed_floor_plan)
-    print(f"Before Clean Up Vertices: {grid_snapped_floor_plan}")
-    cleaned_floor_plan = clean_floorplan_rectilinearity(grid_snapped_floor_plan)
-    print(f"\n After Clean Up Vertices: {cleaned_floor_plan}")
+    processed_floor_plan: list[ProcessedRoomData] = extend_floor_plan_walls(
+        verandaUpdatedPlan, filename=f"refine_{timestamp}.png"
+    )
+    grid_snapped_floor_plan: list[ProcessedRoomData] = snap_floor_plan_to_grid(
+        processed_floor_plan
+    )
+    cleaned_floor_plan: list[ProcessedRoomData] = clean_floorplan_rectilinearity(
+        grid_snapped_floor_plan
+    )
     score_manager(cleaned_floor_plan, requirements)
+
+    floor_plan_with_openings = generate_fpg_openings(requirements, cleaned_floor_plan)
     plot_refine_floor_plan(
         stage1_rooms=stage1_rooms, stage2_rooms=stage2_rooms, stage4_rooms=final_rooms
     )
-    # _plot_refine_before_after_dev(
-    #     stage1_rooms=stage1_rooms,
-    #     stage2_rooms=stage2_rooms,
-    #     stage3_rooms=stage3_rooms,
-    # )
 
     # Combined status/message from refine passes for diagnostics
     refine_status = (

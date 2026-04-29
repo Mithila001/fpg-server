@@ -368,30 +368,31 @@ def extend_floor_plan_walls(floor_plan_data, filename=None) -> List[ProcessedRoo
             filename,
         )
     final_plan = _get_reconstructed_data(floor_plan_data, room_geoms)
-    print(f"\n Original Floor Plan Data: {floor_plan_data}\n")
-    print(f"\n Final Plan Data (with vertices): {final_plan}\n")
+    # print(f"\n Original Floor Plan Data: {floor_plan_data}\n")
+    # print(f"\n Final Plan Data (with vertices): {final_plan}\n")
     return final_plan
+
 
 def _get_reconstructed_data(floor_plan_data, room_geoms) -> List[ProcessedRoomData]:
     reconstructed = []
-    
+
     for i, room in enumerate(floor_plan_data):
         poly = room_geoms[i]
-        
+
         # Extract the exterior coordinates as a list of (x, y) tuples
         # exterior.coords gives the sequence of points defining the wall
         vertices = list(poly.exterior.coords)
-        
+
         # Create a new dictionary that preserves metadata but replaces bounds with vertices
         room_entry = ProcessedRoomData(
             type=room["type"],
-            name=room.get("name", "NO_NAME"), # Default to type if name is missing
+            name=room.get("name", "NO_NAME"),  # Default to type if name is missing
             original_index=i,
             vertices=vertices,
-            area=poly.area
+            area=poly.area,
         )
         reconstructed.append(room_entry)
-        
+
     return reconstructed
 
 

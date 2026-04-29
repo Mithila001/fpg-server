@@ -418,6 +418,5 @@ def generate_openings(
         window_door_clearance=window_door_clearance,
         tolerance=tolerance,
     )
-    print(f"fpg_room_requirements: {fpg_room_requirements}")
     generator.generate()
     return generator.get_solution()
