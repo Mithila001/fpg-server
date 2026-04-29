@@ -8,6 +8,7 @@ import time
 
 from app.algorithms.fpg_opening import generate_openings
 from app.algorithms.fpg_post_processor.extend_walls import extend_floor_plan_walls
+from app.algorithms.fpg_post_processor.simplify_rectilinear_vertices import clean_floorplan_rectilinearity
 from app.algorithms.fpg_post_processor.snap_floor_plan_to_grid import snap_floor_plan_to_grid
 from app.algorithms.fpg_post_processor.veranda_post_process import modify_veranda_layout
 from app.algorithms.fpg_rooms import FloorPlanGenerator
@@ -24,6 +25,7 @@ from app.algorithms.types.solvers.optimization import FpgEvaluationResult
 from app.dev.dev_print import debug_log_data
 from app.util.logger.system_logger import SystemLogger
 
+from app.algorithms.fgp_score.score_manager import score_manager
 from app.algorithms.fpg_rooms.fpg_score import score_layout
 from app.algorithms.fpg_rooms.fpgr_p_refine_1 import run_refine_profile_1
 from app.core.fpg_rooms.config_fpg import (
@@ -221,7 +223,10 @@ def _run_single_fpg_solve(
     verandaUpdatedPlan = modify_veranda_layout(final_rooms)
     processed_floor_plan: list[ProcessedRoomData] = extend_floor_plan_walls(verandaUpdatedPlan, filename=f"refine_{timestamp}.png")
     grid_snapped_floor_plan: list[ProcessedRoomData] = snap_floor_plan_to_grid(processed_floor_plan)
-    print(f"\n Final Refined Rooms: {final_rooms}")
+    print(f"Before Clean Up Vertices: {grid_snapped_floor_plan}")
+    cleaned_floor_plan = clean_floorplan_rectilinearity(grid_snapped_floor_plan)
+    print(f"\n After Clean Up Vertices: {cleaned_floor_plan}")
+    score_manager(cleaned_floor_plan, requirements)
     plot_refine_floor_plan(
         stage1_rooms=stage1_rooms, stage2_rooms=stage2_rooms, stage4_rooms=final_rooms
     )

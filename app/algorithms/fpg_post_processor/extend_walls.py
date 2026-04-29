@@ -25,7 +25,7 @@ ROOM_COLOR_MAP = {
     "livingRoom": "#87CEEB",  # Sky Blue
 }
 
-ROOM_EXPAND_HIERARCHY = ["livingRoom", "kitchen", "hallway", "bedroom"]
+ROOM_EXPAND_HIERARCHY = ["livingRoom", "veranda", "kitchen", "hallway", "bedroom"]
 
 ROOM_EXPANSION_CONFIG = {
     "livingRoom": {
@@ -53,6 +53,14 @@ ROOM_EXPANSION_CONFIG = {
         "EXPANSION_MAX_DISTANCE": 10,
     },
     "bedroom": {
+        "MIN_WALL_LENGTH": 10,
+        "MAX_WALL_LENGTH": 40,
+        "MAX_ROOMS_TO_EXPAND": 3,
+        "MAX_SELECTIONS": 1,
+        "EXPANSION_PERCENTAGE": 0.50,
+        "EXPANSION_MAX_DISTANCE": 10,
+    },
+    "veranda": {
         "MIN_WALL_LENGTH": 10,
         "MAX_WALL_LENGTH": 40,
         "MAX_ROOMS_TO_EXPAND": 3,

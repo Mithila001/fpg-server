@@ -1,20 +1,149 @@
-# This is the public facing entry file for FPG Scoring System.
+from __future__ import annotations
 
-# post_processed_floor_plan is list[ProcessedRoomData]
+from typing import Any, Dict, List
 
-# We will strictly work with only Rectilinear Polygons for scoring.
+from app.algorithms.fgp_score.score_critical.adjacency_relations import (
+    validate_adjacency_relations,
+)
+from app.algorithms.fgp_score.score_critical.empty_space import (
+    validate_empty_space,
+)
+from app.algorithms.fgp_score.score_critical.inward_pocket import (
+    detect_inward_pocket_violation_v2,
+)
+from app.algorithms.types.domain import FpgRequirements, ProcessedRoomData
+from app.core.fpg_rooms.config_score import SCORE_VALIDATION_MIN_OVERLAP
+from app.util.verify_post_processed_floor_plan import verify_post_processed_floor_plan
 
-from app.algorithms.types.domain import ProcessedRoomData
+
+def _clamp_0_25(value: float) -> float:
+    return max(0.0, min(25.0, float(value)))
 
 
-def score_manager(post_processed_floor_plan: list[ProcessedRoomData]) :
-    """Main entry point for the FPG scoring system V2."""
-    # app/algorithms/fgp_score/score_critical can only 25 score points Max.
+def score_manager(
+    post_processed_floor_plan: list[ProcessedRoomData],
+    requirements: FpgRequirements,
+) -> dict[str, Any] | int:
+    """Rectilinear gate + standalone critical scoring (out of 25).
+
+    For now this only computes the critical section and prints results.
+    """
     
+    scoring_plan = [
+        room for room in post_processed_floor_plan 
+        if room.type != 'verandaOutdoorSpace' and len(room.vertices) >= 4
+    ]
     
-    
-    
-def _score_critical():
-    """Scores critical rules and returns the score out of 25"""
-    # Examples: Room Adjacency, Minimum Area Coverage, Hallway Rules
-    pass
+    tolerance = float(
+        getattr(requirements.config, "score_geometry_tolerance", 1e-6)
+    )
+    print(f"[fgp_score/score_manager] Floor plan for verification: {scoring_plan}")
+    rectilinear_ok = verify_post_processed_floor_plan(
+        scoring_plan, tolerance=tolerance
+    )
+
+    if not rectilinear_ok:
+        print(
+            "\n[fgp_score/score_manager] rectilinearity verification FAILED. "
+            "Returning -1."
+        )
+        return -1
+
+    cfg = requirements.config
+    floor_width = float(getattr(cfg, "floor_plan_width", 0.0))
+    floor_height = float(getattr(cfg, "floor_plan_height", 0.0))
+    inward_pocket_max_length = float(
+        getattr(cfg, "inward_pocket_max_length", 20.0)
+    )
+    relation_constraints = getattr(requirements, "relation_constraints", []) or []
+
+    # --- Critical checks (each contributes 1 slot out of 25) ---
+    adjacency_violations = validate_adjacency_relations(
+        scoring_plan,
+        relation_constraints,
+        min_overlap=int(SCORE_VALIDATION_MIN_OVERLAP),
+        tolerance=tolerance,
+    )
+    adjacency_passed = len(adjacency_violations) == 0
+
+    empty_violations, empty_diag = validate_empty_space(
+        scoring_plan,
+        floor_width,
+        floor_height,
+        tolerance=tolerance,
+    )
+    empty_passed = len(empty_violations) == 0
+
+    pocket_violation, inward_diag = detect_inward_pocket_violation_v2(
+        scoring_plan,
+        max_inward_length=inward_pocket_max_length,
+        tolerance=tolerance,
+    )
+    inward_passed = not pocket_violation
+    inward_violations: list[str]
+    if inward_passed:
+        inward_violations = []
+    else:
+        max_delta = float(inward_diag.get("max_inward_segment_length", 0.0))
+        inward_violations = [
+            "Inward pocket violation detected "
+            f"(max_delta={max_delta:.2f}, threshold={inward_pocket_max_length:.2f})"
+        ]
+
+    checks: List[Dict[str, Any]] = [
+        {
+            "name": "adjacency_relations",
+            "passed": adjacency_passed,
+            "violations": adjacency_violations,
+        },
+        {
+            "name": "empty_space",
+            "passed": empty_passed,
+            "violations": empty_violations,
+        },
+        {
+            "name": "inward_pocket",
+            "passed": inward_passed,
+            "violations": inward_violations,
+        },
+    ]
+
+    critical_violations: List[str] = []
+    passed_checks = 0
+    for check in checks:
+        if check["passed"]:
+            passed_checks += 1
+        else:
+            critical_violations.extend(list(check.get("violations", [])))
+
+    total_checks = len(checks)
+    critical_score = _clamp_0_25(
+        (25.0 * passed_checks / total_checks) if total_checks > 0 else 0.0
+    )
+
+    # --- Printing (explicit + stable keys for manual debugging) ---
+    print(
+        "\n[fgp_score/score_manager] critical_report "
+        f"critical_score={critical_score:.2f} "
+        f"passed={passed_checks}/{total_checks}"
+    )
+    for check in checks:
+        print(
+            f"[fgp_score/score_manager] check={check['name']} "
+            f"passed={check['passed']} violations={len(check['violations'])}"
+        )
+
+    diagnostics: Dict[str, Any] = {
+        "executed_checks": total_checks,
+        "passed_checks": passed_checks,
+        "adjacency": {"violations": adjacency_violations},
+        "empty_space": empty_diag,
+        "inward_pocket": inward_diag,
+    }
+
+    return {
+        "critical_score": round(float(critical_score), 2),
+        "checks": checks,
+        "critical_violations": critical_violations,
+        "diagnostics": diagnostics,
+    }
