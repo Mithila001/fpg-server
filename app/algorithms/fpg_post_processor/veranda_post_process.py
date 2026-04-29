@@ -2,9 +2,45 @@ import json
 
 
 def modify_veranda_layout(floor_plan):
+    # Normalize rooms: ensure x_end/w and y_end/h and area exist to avoid KeyErrors
+    def _normalize_room(r):
+        # Horizontal
+        x = r.get("x")
+        x_end = r.get("x_end")
+        w = r.get("w")
+        if w is None and x is not None and x_end is not None:
+            r["w"] = x_end - x
+        if x_end is None and x is not None and r.get("w") is not None:
+            r["x_end"] = x + r["w"]
+        if x is None and x_end is not None and r.get("w") is not None:
+            r["x"] = x_end - r["w"]
+
+        # Vertical
+        y = r.get("y")
+        y_end = r.get("y_end")
+        h = r.get("h")
+        if h is None and y is not None and y_end is not None:
+            r["h"] = y_end - y
+        if y_end is None and y is not None and r.get("h") is not None:
+            r["y_end"] = y + r["h"]
+        if y is None and y_end is not None and r.get("h") is not None:
+            r["y"] = y_end - r["h"]
+
+        # Area
+        try:
+            if r.get("w") is not None and r.get("h") is not None:
+                r["area"] = r.get("w") * r.get("h")
+        except Exception:
+            r["area"] = r.get("area", 0)
+
+    for room in floor_plan:
+        _normalize_room(room)
+
     # --- Step 1: Extract the specific rooms ---
-    veranda = next((r for r in floor_plan if r["type"] == "veranda"), None)
-    outdoor = next((r for r in floor_plan if r["type"] == "verandaOutdoorSpace"), None)
+    veranda = next((r for r in floor_plan if r.get("type") == "veranda"), None)
+    outdoor = next(
+        (r for r in floor_plan if r.get("type") == "verandaOutdoorSpace"), None
+    )
 
     if not veranda or not outdoor:
         print("[DEBUG] Missing veranda or verandaOutdoorSpace. No action taken.")
