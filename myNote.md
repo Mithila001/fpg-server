@@ -3,7 +3,7 @@
 2. We need an Api Endpoint to Force Stop the Solving Process.
 3. Hallway generation should be consist
 
-4. Optuna Search Space Scaling si not working
+4. Optuna -> Use Floats, not Ints: Don't just give 2 points per sub-point. Use a continuous calculation
 
 # Keep in Check
 

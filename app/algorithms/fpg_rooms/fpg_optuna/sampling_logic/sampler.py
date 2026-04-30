@@ -6,7 +6,24 @@ from typing import Any
 import optuna
 from optuna.distributions import FloatDistribution
 
+from app.core.fpg_rooms.config_fpg import OPTUNA_SEARCH_SPACE_GRID_SCALE
 from .policy import RoomSamplingContext, RoomSamplingPolicy
+
+
+def _snap_bounds_to_grid(
+    low: float,
+    high: float,
+    grid_scale: float,
+) -> tuple[float, float]:
+    """Snap narrowed bounds to the nearest grid alignment."""
+    step = max(1.0, float(grid_scale))
+    snapped_low = ((float(low) + step - 1e-9) // step) * step
+    snapped_high = (float(high) // step) * step
+
+    if snapped_low > snapped_high:
+        return float(low), float(high)
+
+    return float(snapped_low), float(snapped_high)
 
 
 class RoomAwareTPESampler(optuna.samplers.TPESampler):
@@ -70,6 +87,10 @@ class RoomAwareTPESampler(optuna.samplers.TPESampler):
 
             if narrowed_low == narrowed_high:
                 return narrowed_low
+
+            narrowed_low, narrowed_high = _snap_bounds_to_grid(
+                narrowed_low, narrowed_high, OPTUNA_SEARCH_SPACE_GRID_SCALE
+            )
 
             narrowed = FloatDistribution(
                 low=narrowed_low,
