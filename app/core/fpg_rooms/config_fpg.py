@@ -137,7 +137,7 @@ TRIAL_GRAPH_SOLVER_GATE_THRESHOLD = (
 )
 
 # Optuna search space grid scale
-OPTUNA_SEARCH_SPACE_GRID_SCALE = 10  # Reduce search space resolution by this interval
+OPTUNA_SEARCH_SPACE_GRID_SCALE = 30  # Reduce search space resolution by this interval
 
 # Default generator config
 DEFAULT_ASPECT_RATIO_MAX = 16.0

@@ -251,6 +251,28 @@ Main value is historical reference for earlier combined frontage behavior.
 Keeping it visible helps avoid duplicate reimplementation by agents.
 Safe to ignore for live feasibility debugging unless revived.
 
+# Optuna Duplicate Coordinate Guard (fpg_rooms/fpg_optuna/runner.py)
+
+- Type: Soft-to-hard optimization guard
+- Currently Used: Yes (wired through Optuna `constraints_func` and an early objective return)
+
+## Description
+
+Rejects trials where two or more sampled rooms or hallways land on the same normalized coordinate pair.
+Uses the frozen trial's stored `fpg_sampled_positions` to detect duplicate integer coordinates.
+If a collision is found, the trial is marked infeasible for Optuna ranking and the objective returns immediately.
+
+## Parameters
+
+trial user attrs
+fpg_sampled_positions
+
+## Constraint Impact
+
+Reduces wasted solver work on duplicate placements.
+Encourages Optuna to explore coordinate-unique layouts instead of repeating the same point.
+Does not fully prevent duplicates at suggestion time, but penalizes them through sampler constraints and short-circuits scoring.
+
 # Envelope Staircase Constraints (envelope_staircase.py)
 
 - Type: Hard

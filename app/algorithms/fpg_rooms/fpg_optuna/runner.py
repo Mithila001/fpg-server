@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 import time
-from typing import Any, Callable
+from typing import Any, Callable, Sequence
 
 import optuna
 from optuna.trial import FrozenTrial
@@ -30,8 +30,10 @@ from app.core.fpg_rooms.config_optuna import (
 from app.dev.dev_print import debug_log_data
 from app.util.tracking import get_tracking_context
 from .exceptions import TrialTimeoutError
+from .sampling_logic import RoomAwareTPESampler
 
 EVALUATION_FN = Callable[[FpgRequirements, bool], FpgEvaluationResult]
+CONSTRAINTS_FN = Callable[[FrozenTrial], Sequence[float]]
 
 
 def _opposite_side(side: str) -> str:
@@ -127,6 +129,44 @@ def _snap_search_bounds_to_grid(
         return float(min_value), float(max_value)
 
     return float(snapped_min), float(snapped_max)
+
+
+def _normalized_coordinate_key(
+    position_data: dict[str, float | str],
+) -> tuple[int, int] | None:
+    try:
+        return (
+            int(round(float(position_data["x"]))),
+            int(round(float(position_data["y"]))),
+        )
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _duplicate_coordinate_count(
+    sampled_positions: dict[str, dict[str, float | str]],
+) -> float:
+    seen_coordinates: set[tuple[int, int]] = set()
+    duplicate_count = 0
+
+    for position_data in sampled_positions.values():
+        coordinate_key = _normalized_coordinate_key(position_data)
+        if coordinate_key is None:
+            continue
+        if coordinate_key in seen_coordinates:
+            duplicate_count += 1
+            continue
+        seen_coordinates.add(coordinate_key)
+
+    return float(duplicate_count)
+
+
+def _trial_coordinate_constraints(trial: FrozenTrial) -> Sequence[float]:
+    sampled_positions = trial.user_attrs.get("fpg_sampled_positions")
+    if not isinstance(sampled_positions, dict):
+        return (0.0,)
+
+    return (_duplicate_coordinate_count(sampled_positions),)
 
 
 class OptunaOptimizationController:
@@ -298,6 +338,26 @@ def run_optuna_optimization(
                 }
                 trial.set_user_attr("fpg_sampled_positions", sampled_positions)
 
+            duplicate_coordinate_count = _duplicate_coordinate_count(sampled_positions)
+            if duplicate_coordinate_count > 0:
+                trial.set_user_attr("optuna_score", 0.0)
+                trial.set_user_attr("optuna_section_scores", {})
+                trial.set_user_attr("optuna_usable_layout", False)
+                trial.set_user_attr("solver_score", 0.0)
+                trial.set_user_attr("solver_weighted_score", 0.0)
+                trial.set_user_attr("solver_invoked", False)
+                trial.set_user_attr("solver_passed", False)
+                trial.set_user_attr(
+                    "duplicate_coordinate_count", duplicate_coordinate_count
+                )
+                trial.set_user_attr("status", "duplicate_coordinate_rejected")
+                trial.set_user_attr("composite_score", 0.0)
+                print(
+                    f"[Optuna] trial={trial.number} score=0.00 solver=SKIP reason=duplicate_coordinate_rejected "
+                    f"duplicates={duplicate_coordinate_count:.0f} composite=0.00"
+                )
+                return 0.0
+
             score_result = score_optuna_layout(
                 requirements=base_requirements,
                 sampled_positions=sampled_positions,
@@ -412,6 +472,7 @@ def run_optuna_optimization(
     study = optuna.create_study(
         direction="maximize",
         study_name=study_name,
+        sampler=RoomAwareTPESampler(constraints_func=_trial_coordinate_constraints),
         storage=storage,
         load_if_exists=True,
     )
