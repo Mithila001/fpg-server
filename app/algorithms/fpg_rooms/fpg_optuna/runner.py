@@ -17,6 +17,7 @@ from app.core.fpg_rooms.config_fpg import (
     MINIMUM_REQUIRED_FPG_SCORE,
     OPTUNA_NODE_PLACEMENT_PRIVATE,
     OPTUNA_NODE_PLACEMENT_PUBLIC,
+    OPTUNA_SEARCH_SPACE_GRID_SCALE,
     TRIAL_OPTIMIZATION_TIMEOUT_SECONDS,
 )
 from app.core.fpg_rooms.config_optuna import (
@@ -113,6 +114,21 @@ def _hallway_names(hallway_count: int) -> list[str]:
     return [f"hallway{index}" for index in range(1, max(0, int(hallway_count)) + 1)]
 
 
+def _snap_search_bounds_to_grid(
+    min_value: float,
+    max_value: float,
+    grid_scale: float,
+) -> tuple[float, float]:
+    step = max(1.0, float(grid_scale))
+    snapped_min = ((float(min_value) + step - 1e-9) // step) * step
+    snapped_max = (float(max_value) // step) * step
+
+    if snapped_min > snapped_max:
+        return float(min_value), float(max_value)
+
+    return float(snapped_min), float(snapped_max)
+
+
 class OptunaOptimizationController:
     """Controller to manage trial optimization early stopping and timeout logic."""
 
@@ -204,8 +220,19 @@ def run_optuna_optimization(
                     float(base_requirements.config.floor_plan_height) - sampling_radius,
                 )
 
-                sample_x = trial.suggest_float(f"{room.name}_x", min_x, max_x)
-                sample_y = trial.suggest_float(f"{room.name}_y", min_y, max_y)
+                min_x, max_x = _snap_search_bounds_to_grid(
+                    min_x, max_x, OPTUNA_SEARCH_SPACE_GRID_SCALE
+                )
+                min_y, max_y = _snap_search_bounds_to_grid(
+                    min_y, max_y, OPTUNA_SEARCH_SPACE_GRID_SCALE
+                )
+
+                sample_x = trial.suggest_float(
+                    f"{room.name}_x", min_x, max_x, step=OPTUNA_SEARCH_SPACE_GRID_SCALE
+                )
+                sample_y = trial.suggest_float(
+                    f"{room.name}_y", min_y, max_y, step=OPTUNA_SEARCH_SPACE_GRID_SCALE
+                )
 
                 explicit_positions[room.name] = (float(sample_x), float(sample_y))
                 sampled_positions[room.name] = {
@@ -242,8 +269,25 @@ def run_optuna_optimization(
                     float(base_requirements.config.floor_plan_height) - sampling_radius,
                 )
 
-                sample_x = trial.suggest_float(f"{hallway_name}_x", min_x, max_x)
-                sample_y = trial.suggest_float(f"{hallway_name}_y", min_y, max_y)
+                min_x, max_x = _snap_search_bounds_to_grid(
+                    min_x, max_x, OPTUNA_SEARCH_SPACE_GRID_SCALE
+                )
+                min_y, max_y = _snap_search_bounds_to_grid(
+                    min_y, max_y, OPTUNA_SEARCH_SPACE_GRID_SCALE
+                )
+
+                sample_x = trial.suggest_float(
+                    f"{hallway_name}_x",
+                    min_x,
+                    max_x,
+                    step=OPTUNA_SEARCH_SPACE_GRID_SCALE,
+                )
+                sample_y = trial.suggest_float(
+                    f"{hallway_name}_y",
+                    min_y,
+                    max_y,
+                    step=OPTUNA_SEARCH_SPACE_GRID_SCALE,
+                )
 
                 explicit_positions[hallway_name] = (float(sample_x), float(sample_y))
                 sampled_positions[hallway_name] = {

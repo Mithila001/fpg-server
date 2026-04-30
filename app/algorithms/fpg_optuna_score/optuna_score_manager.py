@@ -4,7 +4,10 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping
 
 from app.algorithms.types import FpgRequirements
-from app.core.fpg_rooms.config_fpg import TRIAL_GRAPH_SOLVER_GATE_THRESHOLD
+from app.core.fpg_rooms.config_fpg import (
+    TRIAL_GRAPH_SOLVER_GATE_THRESHOLD,
+    OPTUNA_SEARCH_SPACE_GRID_SCALE,
+)
 from pathlib import Path
 
 from .dev.plotters import save_relation_graph_plot, save_relation_path_plot
@@ -38,12 +41,21 @@ def score_optuna_layout(
         "outer_clearance": clearance_result.score,
         "room_relations": relation_result.score,
     }
-    print(" | ".join([f"{k.replace('_', ' ').title()}: {v:.1f}/{m}" for k, v, m in zip(section_scores.keys(), section_scores.values(), [30, 20, 40])]))
+    print(
+        " | ".join(
+            [
+                f"{k.replace('_', ' ').title()}: {v:.1f}/{m}"
+                for k, v, m in zip(
+                    section_scores.keys(), section_scores.values(), [30, 20, 40]
+                )
+            ]
+        )
+    )
     total_score = sum(section_scores.values())
     usable_layout = total_score >= float(TRIAL_GRAPH_SOLVER_GATE_THRESHOLD)
 
     # Save relation plots when requested and score passes the gate threshold
-    if save_debug_plots and total_score> TRIAL_GRAPH_SOLVER_GATE_THRESHOLD:
+    if save_debug_plots and total_score > TRIAL_GRAPH_SOLVER_GATE_THRESHOLD:
         try:
             print("Saving room relation graph and path plots...")
             output_root = Path("test/outputs/optuna_score")
@@ -53,8 +65,22 @@ def score_optuna_layout(
             if graph is not None:
                 floor_width = float(requirements.config.floor_plan_width)
                 floor_height = float(requirements.config.floor_plan_height)
-                save_relation_graph_plot(graph, room_points, output_root / "graph", floor_width=floor_width, floor_height=floor_height)
-                save_relation_path_plot(graph, room_points, path_summaries, output_root / "pathing", floor_width=floor_width, floor_height=floor_height)
+                save_relation_graph_plot(
+                    graph,
+                    room_points,
+                    output_root / "graph",
+                    floor_width=floor_width,
+                    floor_height=floor_height,
+                    grid_scale=OPTUNA_SEARCH_SPACE_GRID_SCALE,
+                )
+                save_relation_path_plot(
+                    graph,
+                    room_points,
+                    path_summaries,
+                    output_root / "pathing",
+                    floor_width=floor_width,
+                    floor_height=floor_height,
+                )
         except Exception:
             # avoid breaking scoring if plotting fails
             pass

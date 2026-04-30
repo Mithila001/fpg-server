@@ -131,10 +131,13 @@ DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
 
 # Trial optimization control
 MINIMUM_REQUIRED_FPG_SCORE = 90  # Stop trials if score exceeds this
-TRIAL_OPTIMIZATION_TIMEOUT_SECONDS = 60  # Hard deadline for all trials
+TRIAL_OPTIMIZATION_TIMEOUT_SECONDS = 15  # Hard deadline for all trials
 TRIAL_GRAPH_SOLVER_GATE_THRESHOLD = (
     80  # Invoke solver only when graph score reaches this
 )
+
+# Optuna search space grid scale
+OPTUNA_SEARCH_SPACE_GRID_SCALE = 10  # Reduce search space resolution by this interval
 
 # Default generator config
 DEFAULT_ASPECT_RATIO_MAX = 16.0
@@ -261,6 +264,7 @@ __all__ = [
     "MINIMUM_REQUIRED_FPG_SCORE",
     "TRIAL_OPTIMIZATION_TIMEOUT_SECONDS",
     "TRIAL_GRAPH_SOLVER_GATE_THRESHOLD",
+    "OPTUNA_SEARCH_SPACE_GRID_SCALE",
     "DEFAULT_ASPECT_RATIO_MAX",
     "DEFAULT_ASPECT_RATIO_MIN",
     "DEFAULT_HALLWAY_COUNT",
