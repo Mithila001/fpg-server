@@ -66,6 +66,8 @@ def build_room_points(
     sampled_positions: Mapping[str, Any],
 ) -> list[OptunaScorePoint]:
     room_points: list[OptunaScorePoint] = []
+    used_names: set[str] = set()
+
     for room in requirements.rooms:
         position = coerce_position(sampled_positions.get(room.name))
         if position is None:
@@ -77,6 +79,35 @@ def build_room_points(
         x, y = position
         room_points.append(
             OptunaScorePoint(name=room.name, room_type=room.type, x=x, y=y)
+        )
+        used_names.add(room.name)
+
+    # Include extra sampled nodes that are not in requirements.rooms,
+    # such as hallway1/hallway2 generated from sampled hallway_count.
+    for sampled_name, sampled_value in sampled_positions.items():
+        if sampled_name in used_names:
+            continue
+
+        position = coerce_position(sampled_value)
+        if position is None:
+            continue
+
+        sampled_room_type: str | None = None
+        if isinstance(sampled_value, Mapping):
+            raw_type = sampled_value.get("type")
+            if raw_type is not None:
+                sampled_room_type = str(raw_type)
+
+        if sampled_room_type is None:
+            if sampled_name.lower().startswith("hallway"):
+                sampled_room_type = ROOM_TYPE_HALLWAY
+            else:
+                # Unknown extra point without a room type; skip safely.
+                continue
+
+        x, y = position
+        room_points.append(
+            OptunaScorePoint(name=str(sampled_name), room_type=sampled_room_type, x=x, y=y)
         )
 
     return room_points

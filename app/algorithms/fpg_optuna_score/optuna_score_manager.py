@@ -35,14 +35,12 @@ def score_optuna_layout(
         room_points,
         save_plots=save_debug_plots,
     )
-    print(f"Requirements: {requirements}")
-    print(f"Sampled Positions: {sampled_positions}")
-    print(f"Room Points: {room_points}")
     section_scores = {
         "floor_plan_zones": zone_result.score,
         "outer_clearance": clearance_result.score,
         "room_relations": relation_result.score,
     }
+    print(" | ".join([f"{k.replace('_', ' ').title()}: {v:.1f}/{m}" for k, v, m in zip(section_scores.keys(), section_scores.values(), [30, 20, 40])]))
     total_score = sum(section_scores.values())
     usable_layout = total_score >= float(TRIAL_GRAPH_SOLVER_GATE_THRESHOLD)
 

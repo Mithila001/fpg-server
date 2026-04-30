@@ -166,9 +166,9 @@ def score_room_relations(
 ) -> SectionScore:
     room_map = room_types_by_name(room_points)
     
-    print(f"\nRequirements From Score Room Relations: {requirements}")
-    print(f"Room Points From Score Room Relations: {room_points}\n")
-    print(f"Room Map: {room_map}\n")
+    # print(f"\nRequirements From Score Room Relations: {requirements}")
+    # print(f"Room Points From Score Room Relations: {room_points}\n")
+    # print(f"Room Map: {room_map}\n")
     graph = _build_graph(room_points)
     point_by_name = {point.name: point for point in room_points}
     query_weight = ROOM_RELATIONS_MAX_SCORE / max(1, len(PATH_QUERIES))
@@ -272,7 +272,7 @@ def score_room_relations(
             f"Room relation score normalized from {raw_score:.2f} to {normalized:.2f}"
         )
 
-    if save_plots:
+    if save_plots and normalized > 80:
         output_root = Path(plot_output_root)
         save_relation_graph_plot(graph, room_points, output_root / "graph")
         save_relation_path_plot(graph, room_points, path_summaries, output_root / "pathing")

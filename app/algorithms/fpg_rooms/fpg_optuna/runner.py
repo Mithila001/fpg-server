@@ -32,7 +32,7 @@ from .exceptions import TrialTimeoutError
 from .sampling_logic import RoomAwareTPESampler, RoomSamplingPolicy
 
 EVALUATION_FN = Callable[[FpgRequirements, bool], FpgEvaluationResult]
-OPTUNA_SEARCH_SPACE_GRID_SCALE = 10
+OPTUNA_SEARCH_SPACE_GRID_SCALE = 1
 
 
 def _opposite_side(side: str) -> str:
@@ -109,6 +109,10 @@ def _sorted_rooms_for_sampling(requirements: FpgRequirements) -> list[Any]:
         requirements.rooms,
         key=lambda room: (priority_map.get(getattr(room, "type", ""), 3), room.name),
     )
+
+
+def _hallway_names(hallway_count: int) -> list[str]:
+    return [f"hallway{index}" for index in range(1, max(0, int(hallway_count)) + 1)]
 
 
 class OptunaOptimizationController:
@@ -204,9 +208,39 @@ def run_optuna_optimization(
                 }
                 trial.set_user_attr("fpg_sampled_positions", sampled_positions)
 
+            for hallway_name in _hallway_names(hallway_count):
+                trial.set_user_attr(
+                    "fpg_current_room_context",
+                    {
+                        "room_id": hallway_name,
+                        "room_name": hallway_name,
+                        "room_type": "hallway",
+                        "radius": sampling_radius,
+                        "floor_width": float(base_requirements.config.floor_plan_width),
+                        "floor_height": float(base_requirements.config.floor_plan_height),
+                    },
+                )
+
+                min_x = sampling_radius
+                max_x = max(min_x, float(base_requirements.config.floor_plan_width) - sampling_radius)
+                min_y = sampling_radius
+                max_y = max(min_y, float(base_requirements.config.floor_plan_height) - sampling_radius)
+
+                sample_x = trial.suggest_float(f"{hallway_name}_x", min_x, max_x)
+                sample_y = trial.suggest_float(f"{hallway_name}_y", min_y, max_y)
+
+                explicit_positions[hallway_name] = (float(sample_x), float(sample_y))
+                sampled_positions[hallway_name] = {
+                    "type": "hallway",
+                    "x": float(sample_x),
+                    "y": float(sample_y),
+                    "radius": sampling_radius,
+                }
+                trial.set_user_attr("fpg_sampled_positions", sampled_positions)
+
             score_result = score_optuna_layout(
                 requirements=base_requirements,
-                sampled_positions=explicit_positions,
+                sampled_positions=sampled_positions,
                 save_debug_plots=True,
             )
             debug_log_data({"trial_number": trial.number}, tag="[Optuna] Trial Number")
@@ -233,14 +267,12 @@ def run_optuna_optimization(
             # Stage 2: Inner Solver Evaluation (Inject Hint Logic)
             point_hints = [
                 {
-                    "name": room.name,
-                    "type": room.type,
-                    "x": int(round(position[0])),
-                    "y": int(round(position[1])),
+                    "name": room_name,
+                    "type": str(position_data["type"]),
+                    "x": int(round(float(position_data["x"]))),
+                    "y": int(round(float(position_data["y"]))),
                 }
-                for room, position in (
-                    (room, explicit_positions[room.name]) for room in base_requirements.rooms
-                )
+                for room_name, position_data in sampled_positions.items()
             ]
             inner_requirements = copy.deepcopy(base_requirements)
             inner_requirements.initial_point_hints = point_hints
