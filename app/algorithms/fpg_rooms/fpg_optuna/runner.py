@@ -29,7 +29,6 @@ from app.core.fpg_rooms.config_optuna import (
 from app.dev.dev_print import debug_log_data
 from app.util.tracking import get_tracking_context
 from .exceptions import TrialTimeoutError
-from .sampling_logic import RoomAwareTPESampler, RoomSamplingPolicy
 
 EVALUATION_FN = Callable[[FpgRequirements, bool], FpgEvaluationResult]
 OPTUNA_SEARCH_SPACE_GRID_SCALE = 1
@@ -153,7 +152,6 @@ def run_optuna_optimization(
     """Run graph-first Optuna trials and invoke solver only for high-scoring graph candidates."""
     best_run_by_trial: dict[int, FpgEvaluationResult] = {}
     controller = OptunaOptimizationController()
-    sampling_policy = RoomSamplingPolicy()
 
     optuna.logging.set_verbosity(optuna.logging.WARN)
 
@@ -349,10 +347,8 @@ def run_optuna_optimization(
         except TrialTimeoutError:
             study.stop()
 
-    sampler = RoomAwareTPESampler(policy=sampling_policy)
     study = optuna.create_study(
         direction="maximize",
-        sampler=sampler,
         study_name=study_name,
         storage=storage,
         load_if_exists=True,
