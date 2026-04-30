@@ -2,14 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import hypot
-from pathlib import Path
 from typing import Any
 
 import networkx as nx
 
 from app.algorithms.types import FpgRequirements
 
-from ..dev.plotters import save_relation_graph_plot, save_relation_path_plot
 from ..util.scoring_common import (
     ROOM_TYPE_BATHROOM,
     ROOM_TYPE_BEDROOM,
@@ -160,9 +158,6 @@ def _match_nodes(room_points: list[OptunaScorePoint], room_type: str) -> list[Op
 def score_room_relations(
     requirements: FpgRequirements,
     room_points: list[OptunaScorePoint],
-    *,
-    save_plots: bool = False,
-    plot_output_root: str | Path = "test/outputs/optuna_score",
 ) -> SectionScore:
     room_map = room_types_by_name(room_points)
     
@@ -271,11 +266,7 @@ def score_room_relations(
         warnings.append(
             f"Room relation score normalized from {raw_score:.2f} to {normalized:.2f}"
         )
-
-    if save_plots and normalized > 80:
-        output_root = Path(plot_output_root)
-        save_relation_graph_plot(graph, room_points, output_root / "graph")
-        save_relation_path_plot(graph, room_points, path_summaries, output_root / "pathing")
+    # expose graph so caller can decide to save plots (based on threshold)
 
     return SectionScore(
         score=normalized,
@@ -285,6 +276,7 @@ def score_room_relations(
             "graph_nodes": graph.number_of_nodes(),
             "graph_edges": graph.number_of_edges(),
             "path_summaries": path_summaries,
+            "graph": graph,
         },
         warnings=warnings,
     )
