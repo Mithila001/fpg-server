@@ -31,7 +31,6 @@ from app.util.tracking import get_tracking_context
 from .exceptions import TrialTimeoutError
 
 EVALUATION_FN = Callable[[FpgRequirements, bool], FpgEvaluationResult]
-OPTUNA_SEARCH_SPACE_GRID_SCALE = 200
 
 
 def _opposite_side(side: str) -> str:
@@ -168,7 +167,9 @@ def run_optuna_optimization(
                 OPTUNA_HALLWAY_COUNT_MAX,
             )
             print(f"\nHallway Count {hallway_count}\n")
-            print(f"Floor Plan Width and Height: W {base_requirements.config.floor_plan_width} | H {base_requirements.config.floor_plan_height}")
+            print(
+                f"Floor Plan Width and Height: W {base_requirements.config.floor_plan_width} | H {base_requirements.config.floor_plan_height}"
+            )
             base_requirements.config.hallway_count = hallway_count
             sampling_radius = _effective_sampling_radius(
                 boundary_width=float(base_requirements.config.floor_plan_width),
@@ -186,14 +187,22 @@ def run_optuna_optimization(
                         "room_type": room.type,
                         "radius": sampling_radius,
                         "floor_width": float(base_requirements.config.floor_plan_width),
-                        "floor_height": float(base_requirements.config.floor_plan_height),
+                        "floor_height": float(
+                            base_requirements.config.floor_plan_height
+                        ),
                     },
                 )
 
                 min_x = sampling_radius
-                max_x = max(min_x, float(base_requirements.config.floor_plan_width) - sampling_radius)
+                max_x = max(
+                    min_x,
+                    float(base_requirements.config.floor_plan_width) - sampling_radius,
+                )
                 min_y = sampling_radius
-                max_y = max(min_y, float(base_requirements.config.floor_plan_height) - sampling_radius)
+                max_y = max(
+                    min_y,
+                    float(base_requirements.config.floor_plan_height) - sampling_radius,
+                )
 
                 sample_x = trial.suggest_float(f"{room.name}_x", min_x, max_x)
                 sample_y = trial.suggest_float(f"{room.name}_y", min_y, max_y)
@@ -216,14 +225,22 @@ def run_optuna_optimization(
                         "room_type": "hallway",
                         "radius": sampling_radius,
                         "floor_width": float(base_requirements.config.floor_plan_width),
-                        "floor_height": float(base_requirements.config.floor_plan_height),
+                        "floor_height": float(
+                            base_requirements.config.floor_plan_height
+                        ),
                     },
                 )
 
                 min_x = sampling_radius
-                max_x = max(min_x, float(base_requirements.config.floor_plan_width) - sampling_radius)
+                max_x = max(
+                    min_x,
+                    float(base_requirements.config.floor_plan_width) - sampling_radius,
+                )
                 min_y = sampling_radius
-                max_y = max(min_y, float(base_requirements.config.floor_plan_height) - sampling_radius)
+                max_y = max(
+                    min_y,
+                    float(base_requirements.config.floor_plan_height) - sampling_radius,
+                )
 
                 sample_x = trial.suggest_float(f"{hallway_name}_x", min_x, max_x)
                 sample_y = trial.suggest_float(f"{hallway_name}_y", min_y, max_y)

@@ -131,7 +131,7 @@ DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
 
 # Trial optimization control
 MINIMUM_REQUIRED_FPG_SCORE = 90  # Stop trials if score exceeds this
-TRIAL_OPTIMIZATION_TIMEOUT_SECONDS = 120  # Hard deadline for all trials
+TRIAL_OPTIMIZATION_TIMEOUT_SECONDS = 60  # Hard deadline for all trials
 TRIAL_GRAPH_SOLVER_GATE_THRESHOLD = (
     80  # Invoke solver only when graph score reaches this
 )
@@ -164,9 +164,9 @@ PUBLIC_ROOM_TYPES = ["garage", "kitchen", "diningRoom"]
 PRIVATE_ROOM_TYPES = ["bathroom", "bedroom", "attachedBathroom"]
 
 
-OPTUNA_NODE_PLACEMENT_PRIVATE = ['bedroom', 'bathroom', 'attachedBathroom']
-OPTUNA_NODE_PLACEMENT_PUBLIC = ['garage', 'kitchen', 'diningRoom', 'livingRoom']
-OPTUNA_NODE_PLACEMENT_FRONT = ['veranda', 'garage']
+OPTUNA_NODE_PLACEMENT_PRIVATE = ["bedroom", "bathroom", "attachedBathroom"]
+OPTUNA_NODE_PLACEMENT_PUBLIC = ["garage", "kitchen", "diningRoom", "livingRoom"]
+OPTUNA_NODE_PLACEMENT_FRONT = ["veranda", "garage"]
 
 # Per-type room shared-wall requirements.
 # - min_walls/max_walls count fully shared sides.
