@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import List
+from app.algorithms.types.fpg_score import (
+    ScoreManagerResult,
+    CheckResult,
+    ScoringDiagnostics,
+)
 
 from app.algorithms.fgp_score.score_critical.adjacency_relations import (
     validate_adjacency_relations,
@@ -13,6 +18,7 @@ from app.algorithms.fgp_score.score_critical.inward_pocket import (
 )
 from app.algorithms.fgp_score.dev.critical_plot import save_critical_score_plot
 from app.algorithms.types.domain import FpgRequirements, ProcessedRoomData
+from app.algorithms.types.openings import FloorPlanWithOpenings
 from app.core.fpg_rooms.config_score import SCORE_VALIDATION_MIN_OVERLAP
 from app.util.verify_post_processed_floor_plan import verify_post_processed_floor_plan
 
@@ -22,26 +28,30 @@ def _clamp_0_25(value: float) -> float:
 
 
 def score_manager(
-    post_processed_floor_plan: list[ProcessedRoomData],
+    floor_plan_with_openings: FloorPlanWithOpenings | list[ProcessedRoomData],
     requirements: FpgRequirements,
-) -> dict[str, Any] | int:
+) -> ScoreManagerResult | int:
     """Rectilinear gate + standalone critical scoring (out of 25).
 
     For now this only computes the critical section and prints results.
     """
-    
+
+    # Accept either the newer FloorPlanWithOpenings or the older plain list
+    if isinstance(floor_plan_with_openings, list):
+        post_processed_floor_plan = floor_plan_with_openings
+    else:
+        # dataclass FloorPlanWithOpenings exposes `.floor_plan`
+        post_processed_floor_plan = getattr(floor_plan_with_openings, "floor_plan", [])
+
     scoring_plan = [
-        room for room in post_processed_floor_plan 
-        if room.type != 'verandaOutdoorSpace' and len(room.vertices) >= 4
+        room
+        for room in post_processed_floor_plan
+        if room.type != "verandaOutdoorSpace" and len(room.vertices) >= 4
     ]
-    
-    tolerance = float(
-        getattr(requirements.config, "score_geometry_tolerance", 1e-6)
-    )
+
+    tolerance = float(getattr(requirements.config, "score_geometry_tolerance", 1e-6))
     print(f"[fgp_score/score_manager] Floor plan for verification: {scoring_plan}")
-    rectilinear_ok = verify_post_processed_floor_plan(
-        scoring_plan, tolerance=tolerance
-    )
+    rectilinear_ok = verify_post_processed_floor_plan(scoring_plan, tolerance=tolerance)
 
     if not rectilinear_ok:
         print(
@@ -53,9 +63,7 @@ def score_manager(
     cfg = requirements.config
     floor_width = float(getattr(cfg, "floor_plan_width", 0.0))
     floor_height = float(getattr(cfg, "floor_plan_height", 0.0))
-    inward_pocket_max_length = float(
-        getattr(cfg, "inward_pocket_max_length", 20.0)
-    )
+    inward_pocket_max_length = float(getattr(cfg, "inward_pocket_max_length", 20.0))
     relation_constraints = getattr(requirements, "relation_constraints", []) or []
 
     # --- Critical checks (each contributes 1 slot out of 25) ---
@@ -91,31 +99,27 @@ def score_manager(
             f"(max_delta={max_delta:.2f}, threshold={inward_pocket_max_length:.2f})"
         ]
 
-    checks: List[Dict[str, Any]] = [
-        {
-            "name": "adjacency_relations",
-            "passed": adjacency_passed,
-            "violations": adjacency_violations,
-        },
-        {
-            "name": "empty_space",
-            "passed": empty_passed,
-            "violations": empty_violations,
-        },
-        {
-            "name": "inward_pocket",
-            "passed": inward_passed,
-            "violations": inward_violations,
-        },
+    checks: List[CheckResult] = [
+        CheckResult(
+            name="adjacency_relations",
+            passed=adjacency_passed,
+            violations=adjacency_violations,
+        ),
+        CheckResult(
+            name="empty_space", passed=empty_passed, violations=empty_violations
+        ),
+        CheckResult(
+            name="inward_pocket", passed=inward_passed, violations=inward_violations
+        ),
     ]
 
     critical_violations: List[str] = []
     passed_checks = 0
     for check in checks:
-        if check["passed"]:
+        if check.passed:
             passed_checks += 1
         else:
-            critical_violations.extend(list(check.get("violations", [])))
+            critical_violations.extend(list(check.violations or []))
 
     total_checks = len(checks)
     critical_score = _clamp_0_25(
@@ -130,17 +134,17 @@ def score_manager(
     )
     for check in checks:
         print(
-            f"[fgp_score/score_manager] check={check['name']} "
-            f"passed={check['passed']} violations={len(check['violations'])}"
+            f"[fgp_score/score_manager] check={check.name} "
+            f"passed={check.passed} violations={len(check.violations)}"
         )
 
-    diagnostics: Dict[str, Any] = {
-        "executed_checks": total_checks,
-        "passed_checks": passed_checks,
-        "adjacency": {"violations": adjacency_violations},
-        "empty_space": empty_diag,
-        "inward_pocket": inward_diag,
-    }
+    diagnostics = ScoringDiagnostics(
+        executed_checks=total_checks,
+        passed_checks=passed_checks,
+        adjacency={"violations": adjacency_violations},
+        empty_space=empty_diag,
+        inward_pocket=inward_diag,
+    )
 
     try:
         critical_plot_path = save_critical_score_plot(
@@ -152,17 +156,14 @@ def score_manager(
             min_overlap=int(SCORE_VALIDATION_MIN_OVERLAP),
             tolerance=tolerance,
         )
-        diagnostics["critical_plot_path"] = critical_plot_path
+        diagnostics.critical_plot_path = critical_plot_path
         print(f"[fgp_score/score_manager] critical plot saved: {critical_plot_path}")
     except Exception as exc:
-        print(
-            "[fgp_score/score_manager] critical plot generation failed: "
-            f"{exc}"
-        )
+        print(f"[fgp_score/score_manager] critical plot generation failed: {exc}")
 
-    return {
-        "critical_score": round(float(critical_score), 2),
-        "checks": checks,
-        "critical_violations": critical_violations,
-        "diagnostics": diagnostics,
-    }
+    return ScoreManagerResult(
+        critical_score=round(float(critical_score), 2),
+        checks=checks,
+        critical_violations=critical_violations,
+        diagnostics=diagnostics,
+    )

@@ -26,12 +26,14 @@ from app.algorithms.fpg_rooms.fpg_post_process import (
     run_final_post_process,
     run_quick_post_process,
 )
+from app.algorithms.types.openings import FloorPlanWithOpenings
 from app.algorithms.types.solvers.optimization import FpgEvaluationResult
 from app.dev.dev_print import debug_log_data
 from app.util.logger.system_logger import SystemLogger
 
 from app.algorithms.fgp_score.score_manager import score_manager
 from app.algorithms.fpg_rooms.fpg_score import score_layout
+from app.algorithms.types.fpg_score import ScoreManagerResult
 from app.algorithms.fpg_rooms.fpgr_p_refine_1 import run_refine_profile_1
 from app.core.fpg_rooms.config_fpg import (
     DEFAULT_OPTUNA_STUDY_NAME,
@@ -223,6 +225,10 @@ def _run_single_fpg_solve(
     )
     print("\n run_refine_profile_5 (Pass 5)")
     final_rooms = refine_result5.rooms if refine_result5.rooms else stage5_rooms
+
+    plot_refine_floor_plan(
+        stage1_rooms=stage1_rooms, stage2_rooms=stage2_rooms, stage4_rooms=final_rooms
+    )
     # Provide a timestamped filename so the post-processor saves a plot for inspection
     timestamp = int(time.time())
     verandaUpdatedPlan = modify_veranda_layout(final_rooms)
@@ -235,12 +241,15 @@ def _run_single_fpg_solve(
     cleaned_floor_plan: list[ProcessedRoomData] = clean_floorplan_rectilinearity(
         grid_snapped_floor_plan
     )
-    score_manager(cleaned_floor_plan, requirements)
-
-    floor_plan_with_openings = generate_fpg_openings(requirements, cleaned_floor_plan)
-    plot_refine_floor_plan(
-        stage1_rooms=stage1_rooms, stage2_rooms=stage2_rooms, stage4_rooms=final_rooms
+    floor_plan_with_openings: FloorPlanWithOpenings = generate_fpg_openings(
+        requirements, cleaned_floor_plan
     )
+
+    fpg_score_results: ScoreManagerResult | int = score_manager(
+        floor_plan_with_openings, requirements
+    )
+
+    print(f"\n Floor plan with openings : {floor_plan_with_openings}\n")
 
     # Combined status/message from refine passes for diagnostics
     refine_status = (
@@ -255,18 +264,18 @@ def _run_single_fpg_solve(
         f"Refine pass 5: {refine_result5.message}"
     )
 
-    final_quick_post_process_result = run_quick_post_process(
+    final_quick_post_process_result = run_quick_post_process(  # Old and deprecated
         {"rooms": final_rooms, "openings": []}
     )
     print("\n run_quick_post_process")
 
-    opening_result = generate_openings(final_rooms)
+    opening_result = generate_openings(final_rooms)  # Old and deprecated
     scoring_input = {
         **final_quick_post_process_result,
         "openings": opening_result.get("openings", []),
     }
 
-    score_report = score_layout(
+    score_report = score_layout(  # Old and deprecated
         solution=final_rooms,
         quick_post_process_result=scoring_input,
         requirements=requirements,

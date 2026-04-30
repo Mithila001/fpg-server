@@ -41,7 +41,9 @@ def _zone_name(cell_x: int, cell_y: int) -> str:
     return f"({cell_x}, {cell_y})"
 
 
-def _evaluate_zone_rule(room: OptunaScorePoint, cell: tuple[int, int]) -> tuple[bool, str]:
+def _evaluate_zone_rule(
+    room: OptunaScorePoint, cell: tuple[int, int]
+) -> tuple[bool, str]:
     if room.room_type == ROOM_TYPE_VERANDA:
         passed = cell in BOTTOM_ROW_ZONES
         return passed, "veranda must be in bottom row"
@@ -86,6 +88,14 @@ def score_floor_plan_zones(
         passed, reason = _evaluate_zone_rule(room, cell)
         awarded = room_weight if passed else 0.0
         raw_score += awarded
+
+        if passed:
+            raw_score += room_weight
+        else:
+            print("\n[score_floor_plan_zones] Room failed zone check:")
+            print(
+                f"Room '{room.name}' failed: {reason} (Current zone: {_zone_name(*cell)})\n\n"
+            )
 
         scored_room_details[room.name] = {
             "type": room.room_type,
