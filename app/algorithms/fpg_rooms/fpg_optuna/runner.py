@@ -1,37 +1,29 @@
 from __future__ import annotations
 
 import copy
-import math
 import time
-from typing import Callable
+from typing import Any, Callable
 
 import optuna
 from optuna.trial import FrozenTrial
 
+from app.algorithms.fpg_optuna_score import score_optuna_layout
 from app.algorithms.types import FpgRequirements
-from app.algorithms.fpg_rooms.fpg_graph.api import run_graph_layout
-from app.algorithms.fpg_rooms.fpg_graph.adapters import build_boundary, build_nodes
 from app.algorithms.types.solvers import (
     FpgEvaluationResult,
-    GraphPhysicsConfig,
     OptunaOptimizationResult,
 )
 from app.core.fpg_rooms.config_fpg import (
     MINIMUM_REQUIRED_FPG_SCORE,
     OPTUNA_NODE_PLACEMENT_PRIVATE,
     OPTUNA_NODE_PLACEMENT_PUBLIC,
-    TRIAL_GRAPH_SOLVER_GATE_THRESHOLD,
     TRIAL_OPTIMIZATION_TIMEOUT_SECONDS,
 )
 from app.core.fpg_rooms.config_optuna import (
     OPTUNA_DEFAULT_STUDY_NAME,
     OPTUNA_DEFAULT_TRIALS,
-    OPTUNA_GRAPH_PHASE1_ITERATIONS,
-    OPTUNA_GRAPH_PHASE1_UNIFORM_RADIUS,
-    OPTUNA_GRAPH_PHASE2_ITERATIONS,
     OPTUNA_HALLWAY_COUNT_MAX,
     OPTUNA_HALLWAY_COUNT_MIN,
-    OPTUNA_NODE_PLACEMENT_SAMPLING_RADIUS,
     OPTUNA_PARAM_KEY_HALLWAY_COUNT,
 )
 from app.dev.dev_print import debug_log_data
@@ -41,7 +33,6 @@ from .sampling_logic import RoomAwareTPESampler, RoomSamplingPolicy
 
 EVALUATION_FN = Callable[[FpgRequirements, bool], FpgEvaluationResult]
 OPTUNA_SEARCH_SPACE_GRID_SCALE = 10
-OPTUNA_PARAM_KEY_PRIVATE_SIDE = "private_side"
 
 
 def _opposite_side(side: str) -> str:
@@ -101,7 +92,22 @@ def _effective_sampling_radius(boundary_width: float, boundary_height: float) ->
     half_height = max(1.0, boundary_height / 2.0)
     return max(
         1.0,
-        min(float(OPTUNA_NODE_PLACEMENT_SAMPLING_RADIUS), half_width, half_height),
+        min(8.0, half_width, half_height),
+    )
+
+
+def _sorted_rooms_for_sampling(requirements: FpgRequirements) -> list[Any]:
+    priority_map = {
+        "veranda": 0,
+        "garage": 0,
+        "livingRoom": 1,
+        "diningRoom": 2,
+        "kitchen": 3,
+        "bathroom": 4,
+    }
+    return sorted(
+        requirements.rooms,
+        key=lambda room: (priority_map.get(getattr(room, "type", ""), 3), room.name),
     )
 
 
@@ -154,165 +160,95 @@ def run_optuna_optimization(
             tracking_context.next_trial_id()
 
         try:
-            private_side = trial.suggest_categorical(
-                OPTUNA_PARAM_KEY_PRIVATE_SIDE, ["left", "right"]
-            )
-            public_side = _opposite_side(str(private_side))
-            trial.set_user_attr("fpg_private_side", private_side)
-            trial.set_user_attr("fpg_public_side", public_side)
-
             hallway_count = trial.suggest_int(
                 OPTUNA_PARAM_KEY_HALLWAY_COUNT,
                 OPTUNA_HALLWAY_COUNT_MIN,
                 OPTUNA_HALLWAY_COUNT_MAX,
             )
-
-            boundary = build_boundary(base_requirements)
             print(f"\nHallway Count {hallway_count}\n")
             base_requirements.config.hallway_count = hallway_count
-            trial_nodes = sampling_policy.sort_nodes_for_sampling(
-                build_nodes(base_requirements)
-            )
-            # print(f"\nBase Requirements: {base_requirements}\n")
-
             sampling_radius = _effective_sampling_radius(
-                boundary_width=boundary.width,
-                boundary_height=boundary.height,
+                boundary_width=float(base_requirements.config.floor_plan_width),
+                boundary_height=float(base_requirements.config.floor_plan_height),
             )
 
             explicit_positions: dict[str, tuple[float, float]] = {}
             sampled_positions: dict[str, dict[str, float | str]] = {}
-            used_positions: set[tuple[float, float]] = set()
-            for node in trial_nodes:
+            for room in _sorted_rooms_for_sampling(base_requirements):
                 trial.set_user_attr(
                     "fpg_current_room_context",
                     {
-                        "room_id": node.id,
-                        "room_name": node.name,
-                        "room_type": node.room_type,
+                        "room_id": room.name,
+                        "room_name": room.name,
+                        "room_type": room.type,
                         "radius": sampling_radius,
-                        "floor_width": boundary.width,
-                        "floor_height": boundary.height,
+                        "floor_width": float(base_requirements.config.floor_plan_width),
+                        "floor_height": float(base_requirements.config.floor_plan_height),
                     },
                 )
 
                 min_x = sampling_radius
-                max_x = max(min_x, boundary.width - sampling_radius)
+                max_x = max(min_x, float(base_requirements.config.floor_plan_width) - sampling_radius)
                 min_y = sampling_radius
-                max_y = max(min_y, boundary.height - sampling_radius)
+                max_y = max(min_y, float(base_requirements.config.floor_plan_height) - sampling_radius)
 
-                room_side_lock = _resolve_room_side_lock(
-                    room_type=node.room_type,
-                    private_side=str(private_side),
-                    public_side=public_side,
-                )
-                min_x, max_x = _apply_side_lock_to_x_bounds(
-                    min_x=min_x,
-                    max_x=max_x,
-                    side=room_side_lock,
-                )
+                sample_x = trial.suggest_float(f"{room.name}_x", min_x, max_x)
+                sample_y = trial.suggest_float(f"{room.name}_y", min_y, max_y)
 
-                min_x_idx = int(math.ceil(min_x / OPTUNA_SEARCH_SPACE_GRID_SCALE))
-                max_x_idx = int(math.floor(max_x / OPTUNA_SEARCH_SPACE_GRID_SCALE))
-                if min_x_idx > max_x_idx:
-                    x_idx = min_x_idx
-                else:
-                    x_idx = trial.suggest_int(f"{node.id}_x_idx", min_x_idx, max_x_idx)
-
-                if min_y > max_y:
-                    sample_y = float(min_y)
-                else:
-                    sample_y = trial.suggest_float(f"{node.id}_y", min_y, max_y)
-
-                sample_x = float(x_idx * OPTUNA_SEARCH_SPACE_GRID_SCALE)
-                sampled_position = (sample_x, sample_y)
-
-                if sampled_position in used_positions:
-                    trial.set_user_attr("status", "duplicate_grid_position")
-                    trial.set_user_attr("composite_score", 0.0)
-                    print(
-                        f"[Optuna] trial={trial.number} solver=SKIP reason=duplicate_grid_position "
-                        f"node={node.id} position={sampled_position}"
-                    )
-                    return 0.0
-
-                used_positions.add(sampled_position)
-                explicit_positions[node.id] = (sample_x, sample_y)
-                sampled_positions[node.id] = {
-                    "type": node.room_type,
-                    "x": sample_x,
-                    "y": sample_y,
+                explicit_positions[room.name] = (float(sample_x), float(sample_y))
+                sampled_positions[room.name] = {
+                    "type": room.type,
+                    "x": float(sample_x),
+                    "y": float(sample_y),
                     "radius": sampling_radius,
                 }
                 trial.set_user_attr("fpg_sampled_positions", sampled_positions)
 
-            # Stage 1: Fast Graph Construction
-            graph_result = run_graph_layout(
+            score_result = score_optuna_layout(
                 requirements=base_requirements,
-                explicit_positions=explicit_positions,
-                plot_base_name=f"trial_{trial.number}_phase_layout",
-                physics_config=GraphPhysicsConfig(
-                    use_staged_node_sizing=True,
-                    staged_uniform_radius=OPTUNA_GRAPH_PHASE1_UNIFORM_RADIUS,
-                    staged_phase1_iterations=OPTUNA_GRAPH_PHASE1_ITERATIONS,
-                    staged_phase2_iterations=OPTUNA_GRAPH_PHASE2_ITERATIONS,
-                ),
+                sampled_positions=explicit_positions,
+                save_debug_plots=True,
             )
             debug_log_data({"trial_number": trial.number}, tag="[Optuna] Trial Number")
-            debug_log_data(graph_result, tag="[Optuna] Graph Result")
+            debug_log_data(score_result, tag="[Optuna] Optuna Score Result")
 
-            graph_score = float(graph_result.score.total_score)
-            weighted_graph_score = _weighted_graph_score(graph_score)
-
-            trial.set_user_attr("graph_score", graph_score)
-            trial.set_user_attr("graph_weighted_score", weighted_graph_score)
-            trial.set_user_attr("graph_nodes", len(graph_result.nodes))
+            optuna_score = float(score_result.total_score)
+            trial.set_user_attr("optuna_score", optuna_score)
+            trial.set_user_attr("optuna_section_scores", score_result.section_scores)
+            trial.set_user_attr("optuna_usable_layout", score_result.usable_layout)
             trial.set_user_attr("solver_score", 0.0)
             trial.set_user_attr("solver_weighted_score", 0.0)
             trial.set_user_attr("solver_invoked", False)
             trial.set_user_attr("solver_passed", False)
 
-            if not graph_result.score.usable_layout:
-                trial.set_user_attr("status", "graph_unusable")
-                trial.set_user_attr("composite_score", 0.0)
+            if not score_result.usable_layout:
+                trial.set_user_attr("status", "score_below_solver_gate")
+                trial.set_user_attr("composite_score", optuna_score)
                 print(
-                    f"[Optuna] trial={trial.number} graph={graph_score:.2f} "
-                    f"graph_w={weighted_graph_score:.2f} solver=SKIP reason=graph_unusable "
-                    f"composite=0.00"
+                    f"[Optuna] trial={trial.number} score={optuna_score:.2f} solver=SKIP reason=score_below_gate "
+                    f"composite={optuna_score:.2f}"
                 )
-                return 0.0
-
-            if graph_score <= TRIAL_GRAPH_SOLVER_GATE_THRESHOLD:
-                trial.set_user_attr("status", "graph_below_solver_gate")
-                trial.set_user_attr("composite_score", 0.0)
-                print(
-                    f"[Optuna] trial={trial.number} graph={graph_score:.2f} "
-                    f"graph_w={weighted_graph_score:.2f} solver=SKIP reason=graph_below_gate "
-                    f"gate={TRIAL_GRAPH_SOLVER_GATE_THRESHOLD:.2f} composite=0.00"
-                )
-                return 0.0
+                return optuna_score
 
             # Stage 2: Inner Solver Evaluation (Inject Hint Logic)
             point_hints = [
                 {
-                    "name": node.name,
-                    "type": node.room_type,
-                    "x": int(round(node.x)),
-                    "y": int(round(node.y)),
+                    "name": room.name,
+                    "type": room.type,
+                    "x": int(round(position[0])),
+                    "y": int(round(position[1])),
                 }
-                for node in graph_result.nodes
+                for room, position in (
+                    (room, explicit_positions[room.name]) for room in base_requirements.rooms
+                )
             ]
-            debug_log_data(base_requirements, tag="[Optuna] Base Requirements")
             inner_requirements = copy.deepcopy(base_requirements)
             inner_requirements.initial_point_hints = point_hints
-
-            # print(f"Inner Requirements: {inner_requirements}\n")
 
             inner_requirements = _update_hallway_count_for_solver(inner_requirements)
 
             debug_log_data(inner_requirements, tag="[Optuna] Inner Requirements")
 
-            # Execute run_solver_with_hints securely.
             trial.set_user_attr("solver_invoked", True)
             run_result = evaluator(inner_requirements, False)
             trial.set_user_attr("status", run_result.status)
@@ -322,12 +258,11 @@ def run_optuna_optimization(
                 debug_log_data(
                     run_result.score_report, tag="[Optuna] Solver Failure Result"
                 )
-                trial.set_user_attr("composite_score", 0.0)
+                trial.set_user_attr("composite_score", optuna_score)
                 print(
-                    f"[Optuna] trial={trial.number} graph={graph_score:.2f} "
-                    f"graph_w={weighted_graph_score:.2f} solver=FAILED composite=0.00"
+                    f"[Optuna] trial={trial.number} score={optuna_score:.2f} solver=FAILED composite={optuna_score:.2f}"
                 )
-                return 0.0
+                return optuna_score
 
             solver_score = float(run_result.score_report.total_score)
             weighted_solver_score = _weighted_solver_score(solver_score)
@@ -338,15 +273,14 @@ def run_optuna_optimization(
             trial.set_user_attr("solver_passed", solver_passed)
 
             if not solver_passed:
-                trial.set_user_attr("composite_score", 0.0)
+                trial.set_user_attr("composite_score", optuna_score)
                 print(
-                    f"[Optuna] trial={trial.number} graph={graph_score:.2f} graph_w={weighted_graph_score:.2f} "
-                    f"solver={solver_score:.2f} solver_w={weighted_solver_score:.2f} "
-                    f"composite=0.00 solver_passed=False"
+                    f"[Optuna] trial={trial.number} score={optuna_score:.2f} solver={solver_score:.2f} "
+                    f"solver_w={weighted_solver_score:.2f} composite={optuna_score:.2f} solver_passed=False"
                 )
-                return 0.0
+                return optuna_score
 
-            final_composite_score = weighted_graph_score + weighted_solver_score
+            final_composite_score = optuna_score
             trial.set_user_attr("composite_score", final_composite_score)
 
             best_run_by_trial[trial.number] = run_result
@@ -355,9 +289,8 @@ def run_optuna_optimization(
                 run_result.score_report, tag="[Optuna] Solver Success Result"
             )
             print(
-                f"[Optuna] trial={trial.number} graph={graph_score:.2f} graph_w={weighted_graph_score:.2f} "
-                f"solver={solver_score:.2f} solver_w={weighted_solver_score:.2f} "
-                f"composite={final_composite_score:.2f} solver_passed={solver_passed}"
+                f"[Optuna] trial={trial.number} score={optuna_score:.2f} solver={solver_score:.2f} "
+                f"solver_w={weighted_solver_score:.2f} composite={final_composite_score:.2f} solver_passed={solver_passed}"
             )
 
             return final_composite_score
@@ -375,12 +308,7 @@ def run_optuna_optimization(
             study.stop()
             return
 
-        try:
-            solver_score = float(trial.user_attrs.get("solver_score", 0.0))
-        except (TypeError, ValueError):
-            solver_score = 0.0
-
-        if solver_score >= controller.score_threshold:
+        if float(trial.value) >= controller.score_threshold:
             study.stop()
             return
 
