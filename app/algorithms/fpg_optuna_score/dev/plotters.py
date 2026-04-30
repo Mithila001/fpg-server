@@ -10,6 +10,7 @@ import matplotlib
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import networkx as nx
 
 from ..util.scoring_common import OptunaScorePoint
@@ -34,13 +35,35 @@ def save_relation_graph_plot(
     room_points: Sequence[OptunaScorePoint],
     output_dir: str | Path,
     filename_prefix: str = "graph",
+    floor_width: float | None = None,
+    floor_height: float | None = None,
 ) -> Path:
     output_path = _ensure_output_dir(output_dir)
     stamp = _timestamp()
     file_path = output_path / f"{filename_prefix}_{stamp}.png"
 
     positions = _positions(room_points)
-    fig, ax = plt.subplots(figsize=(12, 10))
+    
+    # Calculate figsize based on floor aspect ratio
+    if floor_width is not None and floor_height is not None:
+        aspect_ratio = float(floor_width) / float(floor_height)
+        # Base height of 10 inches, width scales with aspect ratio
+        fig_height = 10
+        fig_width = fig_height * aspect_ratio
+    else:
+        fig_width, fig_height = 12, 10
+    
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+    
+    # Draw floor boundary if provided
+    if floor_width is not None and floor_height is not None:
+        floor_rect = patches.Rectangle(
+            (0, 0), floor_width, floor_height,
+            linewidth=2.5, edgecolor="#d32f2f", facecolor="none", linestyle="--",
+            label=f"Floor Boundary ({floor_width:.1f}x{floor_height:.1f})"
+        )
+        ax.add_patch(floor_rect)
+    
     nx.draw_networkx_nodes(graph, positions, node_size=900, node_color="#f4d35e", ax=ax)
     nx.draw_networkx_labels(graph, positions, font_size=8, ax=ax)
     nx.draw_networkx_edges(graph, positions, edge_color="#5c677d", width=1.5, ax=ax)
@@ -51,6 +74,15 @@ def save_relation_graph_plot(
     nx.draw_networkx_edge_labels(
         graph, positions, edge_labels=edge_labels, font_size=7, ax=ax
     )
+    
+    # Set axis limits and aspect ratio
+    if floor_width is not None and floor_height is not None:
+        margin = 5
+        ax.set_xlim(-margin, floor_width + margin)
+        ax.set_ylim(-margin, floor_height + margin)
+        ax.set_aspect('auto')  # Use actual coordinate scaling
+        ax.legend(loc="upper right", fontsize=9)
+    
     ax.set_title("Optuna relation graph")
     ax.set_axis_off()
     fig.tight_layout()
@@ -65,6 +97,8 @@ def save_relation_path_plot(
     path_entries: Sequence[dict[str, Any]],
     output_dir: str | Path,
     filename_prefix: str = "pathing",
+    floor_width: float | None = None,
+    floor_height: float | None = None,
 ) -> Path:
     output_path = _ensure_output_dir(output_dir)
     stamp = _timestamp()
@@ -74,12 +108,33 @@ def save_relation_path_plot(
     total = max(1, len(path_entries))
     columns = max(1, ceil(total / 2))
     rows = 2 if total > 1 else 1
+    
+    # Calculate figsize based on floor aspect ratio
+    if floor_width is not None and floor_height is not None:
+        aspect_ratio = float(floor_width) / float(floor_height)
+        # Base size per subplot
+        subplot_width = 6 * aspect_ratio
+        subplot_height = 6
+        fig_width = subplot_width * columns
+        fig_height = subplot_height * rows
+    else:
+        fig_width = 6 * columns
+        fig_height = 6 * rows
 
-    fig, axes = plt.subplots(rows, columns, figsize=(6 * columns, 6 * rows))
+    fig, axes = plt.subplots(rows, columns, figsize=(fig_width, fig_height))
     axes_list = list(axes.flat) if hasattr(axes, "flat") else [axes]
 
     for index, entry in enumerate(path_entries):
         axis = axes_list[index]
+        
+        # Draw floor boundary if provided
+        if floor_width is not None and floor_height is not None:
+            floor_rect = patches.Rectangle(
+                (0, 0), floor_width, floor_height,
+                linewidth=1.5, edgecolor="#d32f2f", facecolor="none", linestyle="--",
+            )
+            axis.add_patch(floor_rect)
+        
         nx.draw_networkx_nodes(
             graph, positions, node_size=700, node_color="#d9d9d9", ax=axis
         )
@@ -106,6 +161,13 @@ def save_relation_path_plot(
                 width=3.0,
                 ax=axis,
             )
+
+        # Set axis limits and aspect ratio
+        if floor_width is not None and floor_height is not None:
+            margin = 3
+            axis.set_xlim(-margin, floor_width + margin)
+            axis.set_ylim(-margin, floor_height + margin)
+            axis.set_aspect('auto')  # Use actual coordinate scaling
 
         axis.set_title(
             f"{entry.get('label', 'path')}\nscore={entry.get('score', 0.0):.2f} cost={entry.get('cost', 0.0):.2f}"

@@ -51,8 +51,10 @@ def score_optuna_layout(
             graph = details.get("graph")
             path_summaries = details.get("path_summaries", [])
             if graph is not None:
-                save_relation_graph_plot(graph, room_points, output_root / "graph")
-                save_relation_path_plot(graph, room_points, path_summaries, output_root / "pathing")
+                floor_width = float(requirements.config.floor_plan_width)
+                floor_height = float(requirements.config.floor_plan_height)
+                save_relation_graph_plot(graph, room_points, output_root / "graph", floor_width=floor_width, floor_height=floor_height)
+                save_relation_path_plot(graph, room_points, path_summaries, output_root / "pathing", floor_width=floor_width, floor_height=floor_height)
         except Exception:
             # avoid breaking scoring if plotting fails
             pass
