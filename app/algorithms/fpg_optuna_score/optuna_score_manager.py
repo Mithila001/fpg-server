@@ -48,7 +48,7 @@ def score_optuna_layout(
         "room_relations": relation_result.score,
     }
     print(
-        f"Untouched Hallways: {clearance_result.details.get('uncrossed_hallways', -1)}"
+        f"Untouched Hallways: {relation_result.details.get('uncrossed_hallways', [])}"
     )
     print(f"Section Scores: {section_scores}")
     print(f"Clearance Score: {clearance_result.score:.1f}/{clearance_result.max_score}")

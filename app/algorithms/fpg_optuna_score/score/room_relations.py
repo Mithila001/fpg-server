@@ -150,7 +150,10 @@ def _build_graph(room_points: list[OptunaScorePoint]) -> nx.Graph:
             for other in room_points:
                 if other.name == hw.name:
                     continue
-                if other.room_type in connectable_types or other.room_type == ROOM_TYPE_HALLWAY:
+                if (
+                    other.room_type in connectable_types
+                    or other.room_type == ROOM_TYPE_HALLWAY
+                ):
                     graph.add_edge(
                         hw.name,
                         other.name,
@@ -203,9 +206,7 @@ def score_room_relations(
 
     # 3. Calculate weight based on valid queries only
     num_valid = len(valid_queries)
-    query_weight = (
-        ROOM_PATHING_MAX_SCORE / max(1, num_valid) if num_valid > 0 else 0.0
-    )
+    query_weight = ROOM_PATHING_MAX_SCORE / max(1, num_valid) if num_valid > 0 else 0.0
 
     max_cost = max(
         1.0,
@@ -223,7 +224,8 @@ def score_room_relations(
     # Track hallway crossing data
     hallway_crossing_data = {
         hw.name: {"public": 0, "private": 0, "queries": []}
-        for hw in room_points if hw.room_type == ROOM_TYPE_HALLWAY
+        for hw in room_points
+        if hw.room_type == ROOM_TYPE_HALLWAY
     }
 
     # We will accumulate debug reasons here
@@ -314,16 +316,18 @@ def score_room_relations(
     # Hallway privacy score calculation
     hallways = [p for p in room_points if p.room_type == ROOM_TYPE_HALLWAY]
     hallway_privacy_score = 0.0
-    
+
     crossed_hallways = [
-        hw_name for hw_name, data in hallway_crossing_data.items() 
+        hw_name
+        for hw_name, data in hallway_crossing_data.items()
         if (data["public"] + data["private"]) > 0
     ]
     uncrossed_hallway_points = [
-        point_by_name[hw_name] for hw_name, data in hallway_crossing_data.items() 
+        point_by_name[hw_name]
+        for hw_name, data in hallway_crossing_data.items()
         if (data["public"] + data["private"]) == 0
     ]
-    
+
     if len(hallways) == 0:
         hallway_privacy_score = HALLWAY_PRIVACY_MAX_SCORE
     else:
@@ -333,13 +337,13 @@ def score_room_relations(
                 pub = hallway_crossing_data[hw_name]["public"]
                 priv = hallway_crossing_data[hw_name]["private"]
                 total = pub + priv
-                
+
                 if total == 1:
                     total_hw_score += 1.0
                 else:
                     hw_score = abs(pub - priv) / total
                     total_hw_score += hw_score
-            
+
             avg_hw_score = total_hw_score / len(crossed_hallways)
             hallway_privacy_score = avg_hw_score * HALLWAY_PRIVACY_MAX_SCORE
         else:
@@ -369,7 +373,8 @@ def score_room_relations(
         for reason in debug_reasons:
             print(f"  - {reason}")
     # --------------------------------
-
+    # print(f"FUNC: Hallway Crossing Data: {hallway_crossing_data}")
+    # print(f"FUNC: Uncrossed Hallways: {[hw.name for hw in uncrossed_hallway_points]}")
     return SectionScore(
         score=normalized,
         max_score=ROOM_RELATIONS_MAX_SCORE,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 import time
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 import optuna
 from optuna.trial import FrozenTrial
@@ -165,6 +165,41 @@ def _trial_coordinate_constraints(trial: FrozenTrial) -> Sequence[float]:
         return (0.0,)
 
     return (_duplicate_coordinate_count(sampled_positions),)
+
+
+def _uncrossed_hallway_names_from_diagnostics(
+    diagnostics: Mapping[str, Any] | None,
+) -> set[str]:
+    if not isinstance(diagnostics, Mapping):
+        return set()
+
+    room_relations = diagnostics.get("room_relations")
+    if not isinstance(room_relations, Mapping):
+        return set()
+
+    uncrossed_hallways = room_relations.get("uncrossed_hallways", [])
+    hallway_names: set[str] = set()
+
+    if not isinstance(uncrossed_hallways, Sequence) or isinstance(
+        uncrossed_hallways, (str, bytes)
+    ):
+        return hallway_names
+
+    for hallway in uncrossed_hallways:
+        hallway_name: str | None = None
+        if isinstance(hallway, Mapping):
+            name_value = hallway.get("name")
+            if name_value is not None:
+                hallway_name = str(name_value)
+        else:
+            name_value = getattr(hallway, "name", None)
+            if name_value is not None:
+                hallway_name = str(name_value)
+
+        if hallway_name:
+            hallway_names.add(hallway_name)
+
+    return hallway_names
 
 
 class OptunaOptimizationController:
@@ -375,6 +410,20 @@ def run_optuna_optimization(
                 return optuna_score
 
             # Stage 2: Inner Solver Evaluation (Inject Hint Logic)
+            uncrossed_hallway_names = _uncrossed_hallway_names_from_diagnostics(
+                score_result.diagnostics
+            )
+
+            hallway_hint_names = [
+                room_name
+                for room_name, position_data in sampled_positions.items()
+                if str(position_data.get("type", "")) == "hallway"
+            ]
+            print(
+                f"[Optuna] trial={trial.number} hallway_hints_before_filter="
+                f"{hallway_hint_names}"
+            )
+
             point_hints = [
                 {
                     "name": room_name,
@@ -383,7 +432,23 @@ def run_optuna_optimization(
                     "y": int(round(float(position_data["y"]))),
                 }
                 for room_name, position_data in sampled_positions.items()
+                if not (
+                    str(position_data.get("type", "")) == "hallway"
+                    and room_name in uncrossed_hallway_names
+                )
             ]
+
+            filtered_hallway_names = [
+                hint["name"]
+                for hint in point_hints
+                if str(hint.get("type", "")) == "hallway"
+            ]
+            print(
+                f"[Optuna] trial={trial.number} hallway_hints_after_filter="
+                f"{filtered_hallway_names} "
+                f"filtered_out={len(hallway_hint_names) - len(filtered_hallway_names)}"
+            )
+
             inner_requirements = copy.deepcopy(base_requirements)
             inner_requirements.initial_point_hints = point_hints
 
@@ -408,7 +473,10 @@ def run_optuna_optimization(
 
             fpg_score = run_result.fpg_score_results
             try:
-                solver_score = float(getattr(fpg_score, "critical_score", fpg_score))
+                solver_score_value: Any = getattr(fpg_score, "critical_score", None)
+                solver_score = (
+                    float(solver_score_value) if solver_score_value is not None else 0.0
+                )
             except Exception:
                 solver_score = 0.0
 

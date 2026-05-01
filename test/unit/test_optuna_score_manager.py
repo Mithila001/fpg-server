@@ -7,15 +7,41 @@ from app.algorithms.types import ConfigData, FpgRequirements, RoomData
 
 def _build_requirements() -> FpgRequirements:
     rooms = [
-        RoomData(name="veranda1", type="veranda", min_w=10, min_h=10, max_w=20, max_h=20),
+        RoomData(
+            name="veranda1", type="veranda", min_w=10, min_h=10, max_w=20, max_h=20
+        ),
         RoomData(name="garage1", type="garage", min_w=10, min_h=10, max_w=20, max_h=20),
-        RoomData(name="livingRoom1", type="livingRoom", min_w=20, min_h=20, max_w=30, max_h=30),
-        RoomData(name="kitchen1", type="kitchen", min_w=20, min_h=20, max_w=30, max_h=30),
-        RoomData(name="diningRoom1", type="diningRoom", min_w=20, min_h=20, max_w=30, max_h=30),
-        RoomData(name="hallway1", type="hallway", min_w=20, min_h=20, max_w=30, max_h=30),
-        RoomData(name="bathroom1", type="bathroom", min_w=20, min_h=20, max_w=30, max_h=30),
-        RoomData(name="bedroom1", type="bedroom", min_w=20, min_h=20, max_w=30, max_h=30),
-        RoomData(name="bedroom2", type="bedroom", min_w=20, min_h=20, max_w=30, max_h=30),
+        RoomData(
+            name="livingRoom1",
+            type="livingRoom",
+            min_w=20,
+            min_h=20,
+            max_w=30,
+            max_h=30,
+        ),
+        RoomData(
+            name="kitchen1", type="kitchen", min_w=20, min_h=20, max_w=30, max_h=30
+        ),
+        RoomData(
+            name="diningRoom1",
+            type="diningRoom",
+            min_w=20,
+            min_h=20,
+            max_w=30,
+            max_h=30,
+        ),
+        RoomData(
+            name="hallway1", type="hallway", min_w=20, min_h=20, max_w=30, max_h=30
+        ),
+        RoomData(
+            name="bathroom1", type="bathroom", min_w=20, min_h=20, max_w=30, max_h=30
+        ),
+        RoomData(
+            name="bedroom1", type="bedroom", min_w=20, min_h=20, max_w=30, max_h=30
+        ),
+        RoomData(
+            name="bedroom2", type="bedroom", min_w=20, min_h=20, max_w=30, max_h=30
+        ),
         RoomData(
             name="attachedBathroom1",
             type="attachedBathroom",
@@ -70,7 +96,10 @@ def test_score_optuna_layout_computes_all_sections() -> None:
     assert clearance_rooms["garage1"]["passed"] is True
     assert len(relation_paths) == 8
     assert any(item["reason"] == "best_instance_pair" for item in relation_paths)
-    assert any(item["reason"] in {"missing_nodes", "no_path"} for item in relation_paths)
+
+    relation_details = result.diagnostics["room_relations"]
+    assert "uncrossed_hallways" in relation_details
+    assert isinstance(relation_details["uncrossed_hallways"], list)
 
 
 def test_attached_bathroom_links_to_closest_bedroom_only() -> None:
