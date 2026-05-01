@@ -29,6 +29,10 @@ from app.algorithms.fpg_rooms.fpg_post_process import (
 from app.algorithms.types.openings import FloorPlanWithOpenings
 from app.algorithms.types.solvers.optimization import FpgEvaluationResult
 from app.dev.dev_print import debug_log_data
+from app.util.algorithm_manager.fpg_procesors.union_floor_plan import (
+    UnionFloorPlanResult,
+    union_floor_plan,
+)
 from app.util.logger.system_logger import SystemLogger
 
 from app.algorithms.fgp_score.score_manager import score_manager
@@ -245,11 +249,13 @@ def _run_single_fpg_solve(
         requirements, cleaned_floor_plan
     )
 
+    union_results: UnionFloorPlanResult = union_floor_plan(floor_plan_with_openings)
+
     fpg_score_results: ScoreManagerResult | int = score_manager(
         floor_plan_with_openings, requirements
     )
 
-    print(f"\n Floor plan with openings : {floor_plan_with_openings}\n")
+    print(f"\n union_results : {union_results}\n")
 
     # Combined status/message from refine passes for diagnostics
     refine_status = (
@@ -309,11 +315,11 @@ def run_solver_with_hints(
     last_result: FpgEvaluationResult | None = None
 
     # TODO: Remove hallways from Hint DEBUG
-    requirements.initial_point_hints = [
-        hint
-        for hint in requirements.initial_point_hints
-        if hint.get("type") != "hallway"
-    ]
+    # requirements.initial_point_hints = [
+    #     hint
+    #     for hint in requirements.initial_point_hints
+    #     if hint.get("type") != "hallway"
+    # ]
     print(f"Updated Hints: {requirements.initial_point_hints}")
 
     for attempt_index in range(safe_run_count):
