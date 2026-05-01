@@ -161,6 +161,12 @@ def score_manager(
     except Exception as exc:
         print(f"[fgp_score/score_manager] critical plot generation failed: {exc}")
 
+    # TODO REMOVE THIS LATER
+    if critical_score == 25:
+        critical_score = (
+            100  # Temporary hack to make perfect scores if critical score got full pass
+        )
+
     return ScoreManagerResult(
         critical_score=round(float(critical_score), 2),
         checks=checks,

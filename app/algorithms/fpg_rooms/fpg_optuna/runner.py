@@ -406,9 +406,9 @@ def run_optuna_optimization(
             trial.set_user_attr("status", run_result.status)
             trial.set_user_attr("solved", run_result.solved)
 
-            if not run_result.solved or run_result.score_report is None:
+            if not run_result.solved or run_result.fpg_score_results is None:
                 debug_log_data(
-                    run_result.score_report, tag="[Optuna] Solver Failure Result"
+                    run_result.fpg_score_results, tag="[Optuna] Solver Failure Result"
                 )
                 trial.set_user_attr("composite_score", optuna_score)
                 print(
@@ -416,7 +416,12 @@ def run_optuna_optimization(
                 )
                 return optuna_score
 
-            solver_score = float(run_result.score_report.total_score)
+            fpg_score = run_result.fpg_score_results
+            try:
+                solver_score = float(getattr(fpg_score, "critical_score", fpg_score))
+            except Exception:
+                solver_score = 0.0
+
             weighted_solver_score = _weighted_solver_score(solver_score)
             solver_passed = solver_score >= MINIMUM_REQUIRED_FPG_SCORE
 
@@ -438,7 +443,7 @@ def run_optuna_optimization(
             best_run_by_trial[trial.number] = run_result
 
             debug_log_data(
-                run_result.score_report, tag="[Optuna] Solver Success Result"
+                run_result.fpg_score_results, tag="[Optuna] Solver Success Result"
             )
             print(
                 f"[Optuna] trial={trial.number} score={optuna_score:.2f} solver={solver_score:.2f} "

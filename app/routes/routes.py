@@ -25,56 +25,11 @@ _last_format_v2_request: dict[str, float] = {}
 _rate_limit_seconds = 2
 
 
-class PointResponse(BaseModel):
-    x: float
-    y: float
-
-
-class WallSegmentResponse(BaseModel):
-    x1: float
-    y1: float
-    x2: float
-    y2: float
-
-
-class RoomResponse(BaseModel):
-    room_name: str
-    room_type: str
-    room_walls: List[WallSegmentResponse]
-
-
-class DoorResponse(BaseModel):
-    room1_name: str
-    room1_type: str | None = None
-    room2_name: str | None = None
-    room2_type: str | None = None
-    opening_type: str
-    x1: float | None = None
-    y1: float | None = None
-    x2: float | None = None
-    y2: float | None = None
-
-
-class WindowResponse(BaseModel):
-    room_name: str
-    room_type: str | None = None
-    opening_type: str
-    x1: float | None = None
-    y1: float | None = None
-    x2: float | None = None
-    y2: float | None = None
-
-
 class FormatterResponse(BaseModel):
     status: str
     message: str
-    union_walls: List[WallSegmentResponse]
-    rooms: dict[str, RoomResponse]
-    doors: List[DoorResponse]
-    windows: List[WindowResponse]
-    # New optional fields exposing union results and full floor plan with openings
-    unified_floor_plan: dict | None = None
-    floor_plan_with_openings: dict | None = None
+    union_results: dict | None = None
+
 
 
 class FormatterV2ApiRequest(BaseModel):
