@@ -33,6 +33,10 @@ def score_optuna_layout(
 ) -> OptunaScoreResult:
     room_points = build_room_points(requirements, sampled_positions)
 
+    # print(
+    #     f"Room points: {[f'{p.name}({p.room_type}): ({p.x:.1f}, {p.y:.1f})' for p in room_points]}"
+    # )
+
     zone_result = score_floor_plan_zones(requirements, room_points)
     clearance_result = score_outer_clearance(requirements, room_points)
     relation_result = score_room_relations(requirements, room_points)
@@ -41,6 +45,8 @@ def score_optuna_layout(
         "outer_clearance": clearance_result.score,
         "room_relations": relation_result.score,
     }
+    print(f"Section Scores: {section_scores}")
+    print(f"Clearance Score: {clearance_result.score:.1f}/{clearance_result.max_score}")
     print(
         " | ".join(
             [
@@ -52,6 +58,7 @@ def score_optuna_layout(
         )
     )
     total_score = sum(section_scores.values())
+    print(f"Total Score: {total_score:.1f}/90.0")
     usable_layout = total_score >= float(TRIAL_GRAPH_SOLVER_GATE_THRESHOLD)
 
     # Save relation plots when requested and score passes the gate threshold

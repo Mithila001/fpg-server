@@ -222,10 +222,6 @@ def run_optuna_optimization(
                 OPTUNA_HALLWAY_COUNT_MIN,
                 OPTUNA_HALLWAY_COUNT_MAX,
             )
-            print(f"\nHallway Count {hallway_count}\n")
-            print(
-                f"Floor Plan Width and Height: W {base_requirements.config.floor_plan_width} | H {base_requirements.config.floor_plan_height}"
-            )
             base_requirements.config.hallway_count = hallway_count
             sampling_radius = _effective_sampling_radius(
                 boundary_width=float(base_requirements.config.floor_plan_width),

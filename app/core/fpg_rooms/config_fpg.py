@@ -122,6 +122,10 @@ ROOM_SIZE_HIERARCHY = {
 # Room types used by hallway-related generation rules.
 HALLWAY_RULE_TARGET_ROOM_TYPES = {"bedroom", "kitchen", "bathroom", "diningRoom"}
 
+# Room policy used by requirement validation and scoring.
+OPTIONAL_ROOMS = ["garage", "attachedBathroom", "diningRoom"]
+MANDATORY_ROOMS = ["bedroom", "kitchen", "bathroom", "veranda"]
+
 # Default solver/optuna execution settings
 DEFAULT_ROOM_DIMENSION = 70
 DEFAULT_OPTUNA_TRIALS = 20

@@ -12,6 +12,7 @@ from app.core.fpg_rooms.config_fpg import (
     ENVELOPE_MIN_GAP,
     MIN_COVERAGE,
     MIN_FLOOR_AREA_BUFFER,
+    MANDATORY_ROOMS,
 )
 
 # from app.models.room_size_constraint import RoomSizeConstraint
@@ -23,6 +24,28 @@ from app.util.algorithm_manager.build_rooms_from_template import (
     build_rooms_from_template,
 )
 from app.util.algorithm_manager.load_server_side_data import load_server_side_data
+
+
+def _validate_mandatory_room_types(room_template: RoomSetupTemplateBase) -> None:
+    template_data = getattr(room_template, "data", None)
+    if not isinstance(template_data, list):
+        raise ValueError("Room template data must be a list.")
+
+    present_room_types = {
+        str(room.get("type") or "").strip()
+        for room in template_data
+        if isinstance(room, dict) and str(room.get("type") or "").strip()
+    }
+    missing_room_types = [
+        room_type
+        for room_type in MANDATORY_ROOMS
+        if room_type not in present_room_types
+    ]
+    if missing_room_types:
+        raise ValueError(
+            "Room template is missing mandatory room type(s): "
+            + ", ".join(missing_room_types)
+        )
 
 
 def build_requirements(
@@ -39,6 +62,8 @@ def build_requirements(
     print(
         f"\n\nBuilding requirements with floor_width: {floor_width}, floor_height: {floor_height}, room_template: {room_template}"
     )
+
+    _validate_mandatory_room_types(room_template)
 
     try:
         _, size_constraints, relation_constraints = load_server_side_data(
@@ -113,7 +138,7 @@ def _calculate_suitable_floor_dimensions(
     constraint_map = {c.type: c for c in size_constraints}
 
     for room in room_template_data:
-        r_type = room.get("type")
+        r_type = str(room.get("type") or "").strip()
         constraint = constraint_map.get(r_type)
         if not constraint:
             raise ValueError(f"Missing size constraints for room type: '{r_type}'")
@@ -152,10 +177,10 @@ def _calculate_suitable_floor_dimensions(
             f"({calculated_area:.2f}) is smaller than the required minimum area ({required_min_total:.2f})."
         )
 
-    print(f"--- Final 10:16 Floor Dimensions Picked ---")
+    print("--- Final 10:16 Floor Dimensions Picked ---")
     print(f"Target Area Range: {required_min_total:.2f} - {required_max_total:.2f}")
     print(f"Resulting Width: {best_w:.2f}, Height: {best_h:.2f}")
     print(f"Resulting Area: {calculated_area:.2f}")
-    print(f"-------------------------------------------")
+    print("-------------------------------------------")
 
     return best_w, best_h

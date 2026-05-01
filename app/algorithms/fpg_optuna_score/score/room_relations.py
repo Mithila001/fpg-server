@@ -24,6 +24,7 @@ from ..util.scoring_common import (
 )
 
 ROOM_RELATIONS_MAX_SCORE = 40.0
+DEBUG_VERBOSE = False  # Toggle this to False to silence terminal debug logs
 
 RELATION_RULES: list[dict[str, Any]] = [
     {"rooms": [ROOM_TYPE_KITCHEN, ROOM_TYPE_HALLWAY], "cost": 1.0},
@@ -86,7 +87,9 @@ def _build_graph(room_points: list[OptunaScorePoint]) -> nx.Graph:
         cost = float(relation["cost"])
 
         if room_a == ROOM_TYPE_BEDROOM and room_b == "attachedBathroom":
-            bedrooms = [point for point in room_points if point.room_type == ROOM_TYPE_BEDROOM]
+            bedrooms = [
+                point for point in room_points if point.room_type == ROOM_TYPE_BEDROOM
+            ]
             attached_bathrooms = [
                 point for point in room_points if point.room_type == "attachedBathroom"
             ]
@@ -151,7 +154,9 @@ def _path_cost(
     return total_cost
 
 
-def _match_nodes(room_points: list[OptunaScorePoint], room_type: str) -> list[OptunaScorePoint]:
+def _match_nodes(
+    room_points: list[OptunaScorePoint], room_type: str
+) -> list[OptunaScorePoint]:
     return [point for point in room_points if point.room_type == room_type]
 
 
@@ -160,13 +165,25 @@ def score_room_relations(
     room_points: list[OptunaScorePoint],
 ) -> SectionScore:
     room_map = room_types_by_name(room_points)
-    
-    # print(f"\nRequirements From Score Room Relations: {requirements}")
-    # print(f"Room Points From Score Room Relations: {room_points}\n")
-    # print(f"Room Map: {room_map}\n")
     graph = _build_graph(room_points)
     point_by_name = {point.name: point for point in room_points}
-    query_weight = ROOM_RELATIONS_MAX_SCORE / max(1, len(PATH_QUERIES))
+
+    # 1. Identify which room types are actually present in the generated points
+    present_room_types = {point.room_type for point in room_points}
+
+    # 2. Filter PATH_QUERIES to only include pairs where both rooms exist
+    valid_queries = [
+        query
+        for query in PATH_QUERIES
+        if query["start"] in present_room_types and query["end"] in present_room_types
+    ]
+
+    # 3. Calculate weight based on valid queries only
+    num_valid = len(valid_queries)
+    query_weight = (
+        ROOM_RELATIONS_MAX_SCORE / max(1, num_valid) if num_valid > 0 else 0.0
+    )
+
     max_cost = max(
         1.0,
         hypot(
@@ -180,26 +197,15 @@ def score_room_relations(
     warnings: list[str] = []
     path_summaries: list[dict[str, Any]] = []
 
-    for query in PATH_QUERIES:
+    # We will accumulate debug reasons here
+    debug_reasons: list[str] = []
+
+    # 4. Iterate only over valid queries
+    for query in valid_queries:
         start_type = query["start"]
         end_type = query["end"]
         start_nodes = _match_nodes(room_points, start_type)
         end_nodes = _match_nodes(room_points, end_type)
-
-        if not start_nodes or not end_nodes:
-            log_critical_graph_scoring(
-                f"Missing path node(s) for {start_type} -> {end_type}"
-            )
-            path_summaries.append(
-                {
-                    "label": f"{start_type} -> {end_type}",
-                    "path": [],
-                    "cost": 0.0,
-                    "score": 0.0,
-                    "reason": "missing_nodes",
-                }
-            )
-            continue
 
         candidates: list[RelationPathCandidate] = []
         for start_node in start_nodes:
@@ -231,8 +237,10 @@ def score_room_relations(
                 )
 
         if not candidates:
-            log_critical_graph_scoring(
-                f"No path found for {start_type} -> {end_type}"
+            log_msg = f"No path found for {start_type} -> {end_type}"
+            log_critical_graph_scoring(log_msg)
+            debug_reasons.append(
+                f"Zero points for {start_type} -> {end_type}: No routable path found in graph."
             )
             path_summaries.append(
                 {
@@ -249,6 +257,13 @@ def score_room_relations(
         pair_score = query_weight * max(0.0, 1.0 - (best_candidate.cost / max_cost))
         raw_score += pair_score
 
+        # Track if we lost points due to high path cost
+        if pair_score < query_weight:
+            debug_reasons.append(
+                f"Lost points on {start_type} -> {end_type}: Best path cost is {best_candidate.cost:.2f} "
+                f"(Max threshold: {max_cost:.2f}). Scored {pair_score:.2f}/{query_weight:.2f}."
+            )
+
         path_summaries.append(
             {
                 "label": f"{start_type} -> {end_type}",
@@ -262,11 +277,28 @@ def score_room_relations(
         )
 
     normalized = normalize_section_score(raw_score, ROOM_RELATIONS_MAX_SCORE)
-    if normalized != raw_score:
+
+    if num_valid < len(PATH_QUERIES):
         warnings.append(
-            f"Room relation score normalized from {raw_score:.2f} to {normalized:.2f}"
+            f"Scored {num_valid}/{len(PATH_QUERIES)} possible relations based on present room types."
         )
-    # expose graph so caller can decide to save plots (based on threshold)
+        debug_reasons.append(
+            f"Missing required rooms. Only evaluating {num_valid} out of {len(PATH_QUERIES)} path queries."
+        )
+
+    # --- ADDED DEBUG LOGGING HERE ---
+    if DEBUG_VERBOSE and normalized < ROOM_RELATIONS_MAX_SCORE:
+        print(
+            f"\n[DEBUG_VERBOSE] ROOM RELATIONS SCORE FAIL: {normalized:.2f} / {ROOM_RELATIONS_MAX_SCORE:.2f}"
+        )
+        print("[DEBUG_VERBOSE] Causes for point deductions:")
+        if not debug_reasons:
+            print(
+                "  - Unknown deduction cause (Check `normalize_section_score` or graph missing elements)"
+            )
+        for reason in debug_reasons:
+            print(f"  - {reason}")
+    # --------------------------------
 
     return SectionScore(
         score=normalized,
@@ -277,6 +309,7 @@ def score_room_relations(
             "graph_edges": graph.number_of_edges(),
             "path_summaries": path_summaries,
             "graph": graph,
+            "valid_queries_count": num_valid,
         },
         warnings=warnings,
     )
