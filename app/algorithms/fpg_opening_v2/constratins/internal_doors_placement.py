@@ -67,7 +67,9 @@ def _segment_side(room: ProcessedRoomData, segment: Segment, tolerance: float) -
     return "unknown"
 
 
-def _overlap_1d(a1: float, a2: float, b1: float, b2: float) -> tuple[float, float] | None:
+def _overlap_1d(
+    a1: float, a2: float, b1: float, b2: float
+) -> tuple[float, float] | None:
     start = max(min(a1, a2), min(b1, b2))
     end = min(max(a1, a2), max(b1, b2))
     if end <= start:
@@ -85,10 +87,11 @@ def _is_allowed_connection(room_type_a: str, room_type_b: str) -> bool:
     return frozenset((a, b)) in INTERNAL_DOOR_ALLOWED_ROOM_PAIRS
 
 
+# TODO: min shared length need to be centralized
 def build_internal_door_candidates(
     floor_plan: list[ProcessedRoomData],
     tolerance: float = 1e-6,
-    min_shared_length: float = 4.0,
+    min_shared_length: float = 10,
 ) -> list[InternalDoorCandidate]:
     candidates: list[InternalDoorCandidate] = []
     for room_a_index, room_a in enumerate(floor_plan):
@@ -105,7 +108,10 @@ def build_internal_door_candidates(
                         overlap = _overlap_1d(
                             segment_a.x1, segment_a.x2, segment_b.x1, segment_b.x2
                         )
-                        if overlap is None or overlap[1] - overlap[0] < min_shared_length:
+                        if (
+                            overlap is None
+                            or overlap[1] - overlap[0] < min_shared_length
+                        ):
                             continue
                         candidates.append(
                             InternalDoorCandidate(
@@ -127,7 +133,10 @@ def build_internal_door_candidates(
                         overlap = _overlap_1d(
                             segment_a.y1, segment_a.y2, segment_b.y1, segment_b.y2
                         )
-                        if overlap is None or overlap[1] - overlap[0] < min_shared_length:
+                        if (
+                            overlap is None
+                            or overlap[1] - overlap[0] < min_shared_length
+                        ):
                             continue
                         candidates.append(
                             InternalDoorCandidate(

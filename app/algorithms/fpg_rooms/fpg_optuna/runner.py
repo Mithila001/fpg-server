@@ -495,6 +495,30 @@ def run_optuna_optimization(
 
     best_run = best_run_by_trial.get(best_trial_number)
 
+    # Fallback: if Optuna's best_trial doesn't have an associated solver run
+    # but we have at least one solved run recorded, pick the best solved run
+    # by the solver `critical_score` to avoid returning None to callers.
+    if best_run is None and best_run_by_trial:
+
+        def _score_key(r: FpgEvaluationResult) -> float:
+            try:
+                return float(
+                    getattr(r.fpg_score_results, "critical_score", float("-inf"))
+                )
+            except Exception:
+                return float("-inf")
+
+        best_run = max(best_run_by_trial.values(), key=_score_key)
+        try:
+            print(
+                f"[Optuna] best_run missing for best_trial={best_trial_number}; "
+                f"falling back to best solved trial (critical_score={_score_key(best_run):.2f})"
+            )
+        except Exception:
+            print(
+                f"[Optuna] best_run missing for best_trial={best_trial_number}; falling back to best solved trial"
+            )
+
     return OptunaOptimizationResult(
         study.study_name,
         best_value,
