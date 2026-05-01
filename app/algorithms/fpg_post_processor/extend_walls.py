@@ -1,5 +1,5 @@
 import os
-from typing import List, Tuple, TypedDict
+from typing import List
 import matplotlib.pyplot as plt
 from shapely.affinity import translate
 from shapely.geometry import box, MultiPolygon, Polygon, LineString
@@ -80,7 +80,7 @@ def _get_spaces(polygons):
     if isinstance(floor_union, Polygon):
         internal_voids_list = [Polygon(i) for i in floor_union.interiors]
     elif hasattr(floor_union, "geoms"):
-        for poly in floor_union.geoms:
+        for poly in floor_union.geoms:  # type: ignore
             internal_voids_list.extend([Polygon(i) for i in poly.interiors])
     internal_voids = MultiPolygon(internal_voids_list)
 
@@ -111,33 +111,22 @@ def _get_spaces(polygons):
 
 
 def _extrude_wall_patch(line, target_geom, max_distance, debug_label):
-    print(f"\n  [EXTRUDE-START] Processing: {debug_label}")
-
     if line.is_empty or target_geom.is_empty:
-        print(f"  [EXTRUDE-SKIP] Empty geometry detected for {debug_label}.")
         return None
 
     coords = list(line.coords)
     if len(coords) < 2:
-        print(
-            f"  [EXTRUDE-SKIP] Line has insufficient points ({len(coords)}) for {debug_label}."
-        )
         return None
 
     x1, y1 = coords[0]
     x2, y2 = coords[-1]
     dx = x2 - x1
     dy = y2 - y1
-    print(
-        f"  [DEBUG] Line length: {line.length:.2f} | Vector: dx={dx:.2f}, dy={dy:.2f}"
-    )
 
     if abs(dx) >= abs(dy):
         normals = [(0.0, 1.0), (0.0, -1.0)]
-        print(f"  [DEBUG] Axis: Horizontal-ish. Testing Y-normals.")
     else:
         normals = [(1.0, 0.0), (-1.0, 0.0)]
-        print(f"  [DEBUG] Axis: Vertical-ish. Testing X-normals.")
 
     mid = line.interpolate(0.5, normalized=True)
     chosen_normal = None
@@ -147,37 +136,25 @@ def _extrude_wall_patch(line, target_geom, max_distance, debug_label):
         probe = translate(mid, xoff=nx * 0.5, yoff=ny * 0.5)
         if target_geom.contains(probe):
             chosen_normal = (nx, ny)
-            print(f"  [DECISION] Normal {chosen_normal} chosen via Containment Probe.")
             break
 
     # Phase 2: Intersection scoring (if Phase 1 fails)
     if chosen_normal is None:
-        print(f"  [DEBUG] Containment probe failed. Trying intersection scoring...")
         best_score = 0.0
         for nx, ny in normals:
             test_line = translate(line, xoff=nx * 0.5, yoff=ny * 0.5)
             score = target_geom.intersection(test_line).length
-            print(
-                f"    - Testing normal {(nx, ny)} | Score (intersection length): {score:.4f}"
-            )
             if score > best_score:
                 best_score = score
                 chosen_normal = (nx, ny)
 
         if chosen_normal is None or best_score == 0.0:
-            print(
-                f"  [EXTRUDE-FAIL] No valid normal found for {debug_label}. (Best score: {best_score})"
-            )
             return None
-        print(
-            f"  [DECISION] Normal {chosen_normal} chosen via Scoring (Score: {best_score:.4f})"
-        )
 
     # Binary search for extrusion distance
     nx, ny = chosen_normal
     low = 0.0
     high = max_distance
-    print(f"  [DEBUG] Starting binary search. Max Target: {max_distance:.4f}")
 
     for i in range(14):
         mid_dist = (low + high) / 2.0
@@ -188,29 +165,18 @@ def _extrude_wall_patch(line, target_geom, max_distance, debug_label):
             high = mid_dist
 
     if low <= 0.01:
-        print(
-            f"  [EXTRUDE-BLOCKED] Final distance {low:.4f} too small for {debug_label}."
-        )
         return None
 
-    print(f"  [SUCCESS] Extrusion confirmed. Distance: {low:.4f}")
     shifted_coords = [(x + nx * low, y + ny * low) for x, y in coords]
     extrusion = Polygon(coords + list(reversed(shifted_coords)))
 
     if extrusion.is_empty:
-        print(f"  [EXTRUDE-ERROR] Resulting polygon is empty for {debug_label}.")
         return None
 
     return extrusion.intersection(target_geom)
 
 
 def extend_floor_plan_walls(floor_plan_data, filename=None) -> List[ProcessedRoomData]:
-    print("\n" + "=" * 60)
-    print(
-        f"INITIALIZING HIERARCHY EXPANSION | Rooms to process: {len(floor_plan_data)}"
-    )
-    print("=" * 60)
-
     room_geoms = {
         i: box(room["x"], room["y"], room["x_end"], room["y_end"])
         for i, room in enumerate(floor_plan_data)
@@ -219,10 +185,8 @@ def extend_floor_plan_walls(floor_plan_data, filename=None) -> List[ProcessedRoo
     all_chosen_segments = []
     hierarchy_snapshots = []
 
-    # Accessing global configuration (assuming ROOM_EXPAND_HIERARCHY and ROOM_EXPANSION_CONFIG exist)
     for room_type in ROOM_EXPAND_HIERARCHY:
         if room_type not in ROOM_EXPANSION_CONFIG:
-            print(f"\n[SKIP] No config found for type: {room_type}")
             continue
 
         config = ROOM_EXPANSION_CONFIG[room_type]
@@ -234,16 +198,9 @@ def extend_floor_plan_walls(floor_plan_data, filename=None) -> List[ProcessedRoo
         eligible_rooms.sort(key=lambda item: room_geoms[item[0]].area)
         rooms_to_process = eligible_rooms[: config["MAX_ROOMS_TO_EXPAND"]]
 
-        print(f"\n--- PROCESSING HIERARCHY STEP: {room_type.upper()} ---")
-        print(
-            f"Eligible: {len(eligible_rooms)} | Processing Limit: {config['MAX_ROOMS_TO_EXPAND']}"
-        )
-
         step_chosen_segments = []
 
         for i, room in rooms_to_process:
-            print(f"\n[ROOM #{i}] Analyzing expansion for {room_type}...")
-
             # Re-calculate spaces because previous room expansions change the voids
             _, _, _, internal_voids, external_recesses = _get_spaces(
                 list(room_geoms.values())
@@ -257,19 +214,12 @@ def extend_floor_plan_walls(floor_plan_data, filename=None) -> List[ProcessedRoo
                 ("internal", internal_voids),
                 ("external", external_recesses),
             ]:
-                clean_geom = geom.buffer(0)
-                inter = current_boundary.intersection(clean_geom.buffer(0.1))
                 if geom.is_empty:
-                    print(f"  [GEO-CHECK] {space_type} geom is empty. Skipping.")
                     continue
 
                 # Small buffer to ensure intersection with boundary
                 inter = current_boundary.intersection(geom.buffer(0))
                 lines = getattr(inter, "geoms", [inter])
-
-                print(
-                    f"  [GEO-CHECK] Found {len(lines)} potential intersection segments with {space_type} voids."
-                )
 
                 for line_idx, line in enumerate(lines):
                     if isinstance(line, LineString):
@@ -279,9 +229,6 @@ def extend_floor_plan_walls(floor_plan_data, filename=None) -> List[ProcessedRoo
                         # Apply length constraints
                         if original_length > config["MAX_WALL_LENGTH"]:
                             work_line = substring(line, 0, config["MAX_WALL_LENGTH"])
-                            print(
-                                f"    - Segment {line_idx}: Truncated {original_length:.2f} -> {work_line.length:.2f}"
-                            )
 
                         if work_line.length >= config["MIN_WALL_LENGTH"]:
                             expandable_segments.append(
@@ -292,19 +239,12 @@ def extend_floor_plan_walls(floor_plan_data, filename=None) -> List[ProcessedRoo
                                     "target_geom": geom,
                                 }
                             )
-                        else:
-                            print(
-                                f"    - Segment {line_idx}: Ignored (too short: {work_line.length:.2f})"
-                            )
 
             # Selection logic
             expandable_segments.sort(
                 key=lambda x: (0 if x["type"] == "internal" else 1, -x["length"])
             )
             chosen_segments = expandable_segments[: config["MAX_SELECTIONS"]]
-            print(
-                f"  [DECISION] Selected {len(chosen_segments)} segments out of {len(expandable_segments)} available."
-            )
 
             if chosen_segments:
                 all_chosen_segments.extend(chosen_segments)
@@ -327,12 +267,7 @@ def extend_floor_plan_walls(floor_plan_data, filename=None) -> List[ProcessedRoo
                         expanded_patches.append(patch)
 
                 if expanded_patches:
-                    print(
-                        f"  [UPDATE] Merging {len(expanded_patches)} new patches into Room #{i}."
-                    )
                     room_geoms[i] = unary_union([current_poly] + expanded_patches)
-                else:
-                    print(f"  [UPDATE] No valid patches generated for Room #{i}.")
 
         hierarchy_snapshots.append(
             {
@@ -341,10 +276,6 @@ def extend_floor_plan_walls(floor_plan_data, filename=None) -> List[ProcessedRoo
                 "chosen_segments": step_chosen_segments,
             }
         )
-
-    print("\n" + "=" * 60)
-    print("EXPANSION PROCESS COMPLETE. CALCULATING FINAL SPACES.")
-    print("=" * 60)
 
     (
         floor_union,
@@ -355,7 +286,6 @@ def extend_floor_plan_walls(floor_plan_data, filename=None) -> List[ProcessedRoo
     ) = _get_spaces(list(room_geoms.values()))
 
     if filename:
-        print(f"[PLOT] Saving analysis plots to {filename}...")
         plot_step_progression(floor_plan_data, hierarchy_snapshots, filename=filename)
         _plot_side_by_side(
             floor_plan_data,
@@ -367,10 +297,8 @@ def extend_floor_plan_walls(floor_plan_data, filename=None) -> List[ProcessedRoo
             room_geoms,
             filename,
         )
-    final_plan = _get_reconstructed_data(floor_plan_data, room_geoms)
-    # print(f"\n Original Floor Plan Data: {floor_plan_data}\n")
-    # print(f"\n Final Plan Data (with vertices): {final_plan}\n")
-    return final_plan
+
+    return _get_reconstructed_data(floor_plan_data, room_geoms)
 
 
 def _get_reconstructed_data(floor_plan_data, room_geoms) -> List[ProcessedRoomData]:

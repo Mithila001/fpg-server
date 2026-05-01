@@ -68,7 +68,7 @@ def plot_post_process(
     plt.savefig(save_path, dpi=200)
     plt.close(fig)
 
-    print(f"Plot successfully saved to: {save_path}")
+    # print(f"Plot successfully saved to: {save_path}")
 
 
 def snap_floor_plan_to_grid(

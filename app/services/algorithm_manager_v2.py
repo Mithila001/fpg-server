@@ -117,27 +117,7 @@ def _run_single_fpg_solve(
         verbose=False,
     )
     print("\n run_refine_profile_3 (Pass 3)")
-    stage4_rooms = refine_result3.rooms if refine_result3.rooms else stage3_rooms
-
-    # --- PASS 4: Standard Refine ---
-    refine_result4 = run_refine_profile_1(
-        requirements=requirements,
-        initial_rooms=stage4_rooms,
-        wiggle_room=WIGGLE_ROOM,
-        verbose=False,
-    )
-    print("\n run_refine_profile_4 (Pass 4)")
-    stage5_rooms = refine_result4.rooms if refine_result4.rooms else stage4_rooms
-
-    # --- PASS 5: Standard Refine ---
-    refine_result5 = run_refine_profile_1(
-        requirements=requirements,
-        initial_rooms=stage5_rooms,
-        wiggle_room=WIGGLE_ROOM,
-        verbose=False,
-    )
-    print("\n run_refine_profile_5 (Pass 5)")
-    final_rooms = refine_result5.rooms if refine_result5.rooms else stage5_rooms
+    final_rooms = refine_result3.rooms if refine_result3.rooms else stage3_rooms
 
     try:
         plot_refine_floor_plan(
@@ -167,7 +147,6 @@ def _run_single_fpg_solve(
     fpg_score_results: ScoreManagerResult = score_manager(
         floor_plan_with_openings, requirements
     )
-    print(f"\n FPG Score Result: {fpg_score_results}")
     union_results: UnionFloorPlanResult = union_floor_plan(floor_plan_with_openings)
 
     return FpgEvaluationResult(
@@ -191,9 +170,6 @@ def run_solver_with_hints(
     best_score = float("-inf")
     last_result: FpgEvaluationResult | None = None
 
-    print(f"\nUpdated Hints: {requirements.initial_point_hints}\n")
-    print(f"[SolverLoop] safe_run_count: {safe_run_count}\n")
-
     for attempt_index in range(safe_run_count):
         current_result: FpgEvaluationResult = _run_single_fpg_solve(
             requirements=requirements, verbose=verbose
@@ -204,7 +180,7 @@ def run_solver_with_hints(
         last_result = current_result
 
         fpg_score = current_result.fpg_score_results
-        print(f"[SolverLoop] Raw FPG Score Result: {fpg_score}\n")
+        print(f"[SolverLoop] FPG Score Result: {fpg_score}\n")
         if fpg_score is None:
             current_score = None
         else:
@@ -283,9 +259,6 @@ def run_fpg_pipeline_api(
         level="INFO",
         data={"status": "working"},
     )
-    print(
-        f"\n DATA DEBUG ::\n<Initial> Floor Width = {floor_width}, Floor Height = {floor_height}, Room Template = {room_template} "
-    )
 
     try:
         # Step 1: Build requirements
@@ -338,7 +311,6 @@ def run_fpg_pipeline_api(
 
         # Plot the final solver result via public plotter API before payload construction
         try:
-            print(f"Final Plotter Results Data: {run_result}")
             plot_final_solver_result(run_result, show=False)
         except Exception as e:
             print(f"Failed to plot final solver result: {e}")

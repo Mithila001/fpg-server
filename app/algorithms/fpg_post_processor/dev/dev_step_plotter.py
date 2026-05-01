@@ -77,7 +77,7 @@ def plot_step_progression(
     plt.tight_layout(rect=[0, 0.02, 1, 0.94])  # type: ignore
     plt.savefig(save_path, dpi=220, facecolor=fig.get_facecolor())
     plt.close(fig)
-    print(f"Step progression plot saved: {save_path}")
+    # print(f"Step progression plot saved: {save_path}")
 
 
 def _plot_step_panel(axis, floor_plan_data, snapshot):

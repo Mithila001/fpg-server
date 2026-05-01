@@ -12,11 +12,8 @@ from app.algorithms.fpg_post_processor.snap_floor_plan_to_grid import ProcessedR
 from app.algorithms.types.domain import UnifiedFloorPlan, WallSegment
 
 
-
-
 def floor_plan_wall_union(
-    processed_floor_plan: list[ProcessedRoomData], 
-    tolerance: float = 1e-6
+    processed_floor_plan: list[ProcessedRoomData], tolerance: float = 1e-6
 ) -> UnifiedFloorPlan:
     """
     Unions room boundaries to extract unique, non-overlapping wall segments
@@ -53,27 +50,23 @@ def floor_plan_wall_union(
         coords = list(line.coords)
         for i in range(len(coords) - 1):
             x1, y1 = coords[i][:2]
-            x2, y2 = coords[i+1][:2]
-            
-            dist = ((x1 - x2)**2 + (y1 - y2)**2)**0.5
-            
+            x2, y2 = coords[i + 1][:2]
+
+            dist = ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
+
             if dist > tolerance:
-                wall_segments.append(WallSegment(
-                    start=(x1, y1), 
-                    end=(x2, y2), 
-                    length=round(dist, 4)
-                ))
+                wall_segments.append(
+                    WallSegment(start=(x1, y1), end=(x2, y2), length=round(dist, 4))
+                )
                 total_length += dist
     # _plot_wall_union_result(result=UnifiedFloorPlan(segments=wall_segments, total_wall_length=total_length), filename_prefix="wall_union_")
     return UnifiedFloorPlan(
-        segments=wall_segments,
-        total_wall_length=round(total_length, 4)
+        segments=wall_segments, total_wall_length=round(total_length, 4)
     )
 
 
 def _plot_wall_union_result(
-    result: UnifiedFloorPlan, 
-    filename_prefix: str = "wall_union"
+    result: UnifiedFloorPlan, filename_prefix: str = "wall_union"
 ) -> None:
     """
     Visualizes unified wall segments and saves with a timestamp.
@@ -90,23 +83,27 @@ def _plot_wall_union_result(
     save_path = os.path.join(output_dir, filename)
 
     # 3. Plotting logic
-    plt.switch_backend('Agg')
+    plt.switch_backend("Agg")
     fig, ax = plt.subplots(figsize=(12, 12))
 
     if result.segments:
         # Convert segments to the format LineCollection expects
         lines = [[seg.start, seg.end] for seg in result.segments]
-        lc = LineCollection(lines, colors='royalblue', linewidths=2, label="Unified Walls")
+        lc = LineCollection(
+            lines, colors="royalblue", linewidths=2, label="Unified Walls"
+        )
         ax.add_collection(lc)
         ax.autoscale()
-    
-    ax.set_aspect('equal')
-    ax.set_title(f"Wall Union Result\n{timestamp} | {len(result.segments)} segments", fontsize=14)
-    plt.grid(True, linestyle=':', alpha=0.7)
+
+    ax.set_aspect("equal")
+    ax.set_title(
+        f"Wall Union Result\n{timestamp} | {len(result.segments)} segments", fontsize=14
+    )
+    plt.grid(True, linestyle=":", alpha=0.7)
     plt.xlabel("X (units)")
     plt.ylabel("Y (units)")
 
     # 4. Save and cleanup
-    fig.savefig(save_path, bbox_inches='tight', dpi=150)
-    print(f"✅ Plot successfully saved to: {save_path}")
+    fig.savefig(save_path, bbox_inches="tight", dpi=150)
+    # print(f"✅ Plot successfully saved to: {save_path}")
     plt.close(fig)
