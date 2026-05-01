@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import os
 import math
 from datetime import datetime
@@ -25,6 +26,7 @@ from shapely.ops import unary_union
 #     y2: float
 
 
+@dataclass
 class UnifiedFloorPlanPayload(TypedDict):
     walls: list[WallSegmentPayload]
     total_wall_length: float
@@ -56,6 +58,7 @@ class UnifiedFloorPlanPayload(TypedDict):
 #     openings: list[OpeningData]
 
 
+@dataclass
 class UnionFloorPlanResult(TypedDict):
     floor_plan_with_openings: FloorPlanWithOpenings
     unified_floor_plan: UnifiedFloorPlanPayload

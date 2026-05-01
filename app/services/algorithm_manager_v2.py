@@ -249,11 +249,10 @@ def _run_single_fpg_solve(
         requirements, cleaned_floor_plan
     )
 
-    union_results: UnionFloorPlanResult = union_floor_plan(floor_plan_with_openings)
-
     fpg_score_results: ScoreManagerResult | int = score_manager(
         floor_plan_with_openings, requirements
     )
+    union_results: UnionFloorPlanResult = union_floor_plan(floor_plan_with_openings)
 
     print(f"\n union_results : {union_results}\n")
 
@@ -270,18 +269,18 @@ def _run_single_fpg_solve(
         f"Refine pass 5: {refine_result5.message}"
     )
 
-    final_quick_post_process_result = run_quick_post_process(  # Old and deprecated
+    final_quick_post_process_result = run_quick_post_process(  # [Old and deprecated]
         {"rooms": final_rooms, "openings": []}
     )
     print("\n run_quick_post_process")
 
-    opening_result = generate_openings(final_rooms)  # Old and deprecated
+    opening_result = generate_openings(final_rooms)  # [Old and deprecated]
     scoring_input = {
         **final_quick_post_process_result,
         "openings": opening_result.get("openings", []),
     }
 
-    score_report = score_layout(  # Old and deprecated
+    score_report = score_layout(  #  [Old and deprecated]
         solution=final_rooms,
         quick_post_process_result=scoring_input,
         requirements=requirements,
