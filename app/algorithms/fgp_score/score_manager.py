@@ -50,7 +50,7 @@ def score_manager(
     ]
 
     tolerance = float(getattr(requirements.config, "score_geometry_tolerance", 1e-6))
-    print(f"[fgp_score/score_manager] Floor plan for verification: {scoring_plan}")
+    # print(f"[fgp_score/score_manager] Floor plan for verification: {scoring_plan}")
     rectilinear_ok = verify_post_processed_floor_plan(scoring_plan, tolerance=tolerance)
 
     if not rectilinear_ok:

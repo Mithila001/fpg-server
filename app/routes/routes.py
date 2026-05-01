@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import List
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from time import time
 
 from app.algorithms.fpg_rooms.fpg_optuna.exceptions import TrialTimeoutError
@@ -13,7 +13,6 @@ from app.util.tracking import use_tracking_context
 from app.util.unit_converter import (
     converter_cm_to_unit,
     converter_unit_to_centimeters,
-    converter_unit_to_meters,
 )
 from app.util.room_requirements import floor_values
 # Plotting hook removed so api_result_plotter is isolated and unused by default
@@ -29,6 +28,8 @@ _rate_limit_seconds = 2
 class PointResponse(BaseModel):
     x: float
     y: float
+
+
 class WallSegmentResponse(BaseModel):
     x1: float
     y1: float
@@ -71,6 +72,9 @@ class FormatterResponse(BaseModel):
     rooms: dict[str, RoomResponse]
     doors: List[DoorResponse]
     windows: List[WindowResponse]
+    # New optional fields exposing union results and full floor plan with openings
+    unified_floor_plan: dict | None = None
+    floor_plan_with_openings: dict | None = None
 
 
 class FormatterV2ApiRequest(BaseModel):
@@ -82,7 +86,6 @@ class FormatterV2ApiRequest(BaseModel):
 
 
 router = APIRouter(prefix="/algorithms", tags=["algorithms"])
-
 
 
 @router.post("/format/v2", response_model=FormatterResponse)
@@ -106,7 +109,7 @@ def get_formatted_layout_v2(request: Request, body: FormatterV2ApiRequest):
             # Floor dimensions are converted from cm to units, then floored to integers
             floored_width = floor_values(converter_cm_to_unit(body.floor_width))
             floored_height = floor_values(converter_cm_to_unit(body.floor_height))
-            
+
             payload = run_fpg_pipeline_api(
                 floor_width=floored_width,
                 floor_height=floored_height,

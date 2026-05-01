@@ -4,9 +4,9 @@ from collections.abc import Mapping, Sequence
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from typing import Any, cast
+from dataclasses import asdict, is_dataclass
 import time
 
-from app.algorithms.fpg_opening import generate_openings
 from app.algorithms.fpg_opening_v2.fpg_opening_generator import generate_fpg_openings
 from app.algorithms.fpg_post_processor.extend_walls import extend_floor_plan_walls
 from app.algorithms.fpg_post_processor.simplify_rectilinear_vertices import (
@@ -21,9 +21,7 @@ from app.algorithms.fpg_rooms.fpg_optuna import (
     run_optuna_optimization,
 )
 from app.algorithms.types import FpgRequirements
-from app.algorithms.types import OpeningRunResult
 from app.algorithms.fpg_rooms.fpg_post_process import (
-    run_final_post_process,
     run_quick_post_process,
 )
 from app.algorithms.types.openings import FloorPlanWithOpenings
@@ -36,7 +34,6 @@ from app.util.algorithm_manager.fpg_procesors.union_floor_plan import (
 from app.util.logger.system_logger import SystemLogger
 
 from app.algorithms.fgp_score.score_manager import score_manager
-from app.algorithms.fpg_rooms.fpg_score import score_layout
 from app.algorithms.types.fpg_score import ScoreManagerResult
 from app.algorithms.fpg_rooms.fpgr_p_refine_1 import run_refine_profile_1
 from app.core.fpg_rooms.config_fpg import (
@@ -254,7 +251,7 @@ def _run_single_fpg_solve(
     )
     union_results: UnionFloorPlanResult = union_floor_plan(floor_plan_with_openings)
 
-    print(f"\n union_results : {union_results}\n")
+    # print(f"\n union_results : {union_results}\n")
 
     # Combined status/message from refine passes for diagnostics
     refine_status = (
@@ -269,33 +266,26 @@ def _run_single_fpg_solve(
         f"Refine pass 5: {refine_result5.message}"
     )
 
-    final_quick_post_process_result = run_quick_post_process(  # [Old and deprecated]
-        {"rooms": final_rooms, "openings": []}
-    )
-    print("\n run_quick_post_process")
-
-    opening_result = generate_openings(final_rooms)  # [Old and deprecated]
-    scoring_input = {
-        **final_quick_post_process_result,
-        "openings": opening_result.get("openings", []),
-    }
-
-    score_report = score_layout(  #  [Old and deprecated]
-        solution=final_rooms,
-        quick_post_process_result=scoring_input,
-        requirements=requirements,
-    )
-    print("\n Score Layout")
-
     result = FpgEvaluationResult(
         solved=True,
         solution=final_rooms,
-        score_report=score_report,
+        score_report=None,
         status=status,
         message="Solver found a layout",
     )
-    result.quick_post_process_result = scoring_input
-    result.opening_result = cast(OpeningRunResult, opening_result)
+    # Attach the newer artifacts produced earlier in this function
+    result.fpg_score_results = fpg_score_results
+    result.union_results = union_results
+    try:
+        if is_dataclass(floor_plan_with_openings):
+            result.floor_plan_with_openings = asdict(floor_plan_with_openings)
+        else:
+            result.floor_plan_with_openings = cast(
+                dict[str, Any], getattr(floor_plan_with_openings, "__dict__", None)
+            )
+    except Exception:
+        result.floor_plan_with_openings = None
+
     result.refine_status = refine_status
     result.refine_message = refine_message
     return result
@@ -319,11 +309,14 @@ def run_solver_with_hints(
     #     for hint in requirements.initial_point_hints
     #     if hint.get("type") != "hallway"
     # ]
-    print(f"Updated Hints: {requirements.initial_point_hints}")
-
+    print(f"\nUpdated Hints: {requirements.initial_point_hints}\n")
+    print(f"[SolverLoop] safe_run_count: {safe_run_count}\n")
     for attempt_index in range(safe_run_count):
         current_result = _run_single_fpg_solve(
             requirements=requirements, verbose=verbose
+        )
+        print(
+            f"\n[SolverLoop] Current Result Score Attempt {attempt_index + 1}: {current_result.fpg_score_results}\n"
         )
         last_result = current_result
         if not current_result.solved or current_result.score_report is None:
@@ -333,7 +326,30 @@ def run_solver_with_hints(
             )
             continue
 
-        current_score = float(current_result.score_report.total_score)
+        # Prefer new `fpg_score_results` critical score when available, otherwise fall back
+        # to the legacy `score_report.total_score`.
+        current_score = None
+        fpg_score = getattr(current_result, "fpg_score_results", None)
+        print(f"[SolverLoop] fpg_score: {fpg_score}\n")
+        if fpg_score is not None:
+            try:
+                # ScoreManagerResult has `critical_score` attribute
+                current_score = float(getattr(fpg_score, "critical_score", fpg_score))
+            except Exception:
+                current_score = None
+        if (
+            current_score is None
+            and getattr(current_result, "score_report", None) is not None
+        ):
+            try:
+                current_score = float(current_result.score_report.total_score)
+            except Exception:
+                current_score = None
+        if current_score is None:
+            print(
+                f"[SolverLoop] attempt={attempt_index + 1}/{safe_run_count} missing score, skipping"
+            )
+            continue
         print(
             f"[SolverLoop] attempt={attempt_index + 1}/{safe_run_count} "
             f"status={current_result.status} score={current_score:.2f}"
@@ -387,52 +403,94 @@ def _build_payload_from_solver_result(
     run_result: FpgEvaluationResult,
 ) -> dict[str, Any]:
     print("\n _build_payload_from_solver_results()")
-    if run_result.solved:
-        quick_post_process_result = getattr(
-            run_result, "quick_post_process_result", None
-        )
-        if quick_post_process_result is not None:
-            post_processed_layout = quick_post_process_result["rooms"]
-            wall_union_result = quick_post_process_result["wall_union"]
+
+    # Always include status and message from run_result
+    base_payload = {
+        "status": run_result.status,
+        "message": run_result.message,
+        "union_walls": [],
+        "unified_floor_plan": None,
+        "floor_plan_with_openings": None,
+        "rooms": {},
+        "doors": [],
+        "windows": [],
+    }
+
+    if not run_result.solved:
+        return base_payload
+
+    # New flow: use union_results and floor_plan_with_openings for payload
+    union_results_obj = getattr(run_result, "union_results", None)
+    if not union_results_obj:
+        return base_payload
+
+    try:
+        unified_floor_plan = union_results_obj.get("unified_floor_plan")
+        floor_plan_with_openings_obj = union_results_obj.get("floor_plan_with_openings")
+    except (KeyError, TypeError, AttributeError):
+        return base_payload
+
+    if not unified_floor_plan or not floor_plan_with_openings_obj:
+        return base_payload
+
+    # Extract walls from unified floor plan
+    union_walls = unified_floor_plan.get("walls", [])
+
+    # Extract openings and rooms from floor_plan_with_openings
+    floor_plan = getattr(
+        floor_plan_with_openings_obj, "floor_plan", None
+    ) or floor_plan_with_openings_obj.get("floor_plan", [])
+    openings = getattr(
+        floor_plan_with_openings_obj, "openings", None
+    ) or floor_plan_with_openings_obj.get("openings", [])
+
+    # Build rooms dictionary from floor_plan
+    rooms = {}
+    for room in floor_plan or []:
+        room_dict = _to_dict(room) if not isinstance(room, dict) else room
+        room_name = room_dict.get("name", "unknown")
+        room_type = room_dict.get("type", "generic")
+        rooms[room_name] = {
+            "room_name": room_name,
+            "room_type": room_type,
+            "room_walls": [],  # Walls already unified in union_walls
+        }
+
+    # Separate doors and windows from openings
+    doors = []
+    windows = []
+    for opening in openings or []:
+        opening_dict = _to_dict(opening) if not isinstance(opening, dict) else opening
+        opening_type = opening_dict.get("opening_type", "door")
+        if "window" in opening_type.lower():
+            windows.append(opening_dict)
         else:
-            post_processed_layout = run_result.solution
-            wall_union_result = {"walls": [], "room_walls": {}}
-
-        opening_result = getattr(run_result, "opening_result", None)
-        if not isinstance(opening_result, dict):
-            maybe_openings = (
-                quick_post_process_result.get("openings")
-                if quick_post_process_result
-                else None
-            )
-            if isinstance(maybe_openings, list):
-                opening_result = {
-                    "status": "FROM_TRIAL",
-                    "message": "Openings generated during scoring trial",
-                    "openings": maybe_openings,
-                    "warnings": [],
-                }
-            else:
-                opening_result = generate_openings(post_processed_layout)
-
-        post_process_result = run_final_post_process(
-            {
-                "rooms": post_processed_layout,
-                "openings": opening_result.get("openings", []),
-                "wall_union": wall_union_result,
-            }
-        )
-    else:
-        post_process_result = EMPTY_POST_PROCESS_LAYOUT
+            doors.append(opening_dict)
 
     return {
         "status": run_result.status,
         "message": run_result.message,
-        "union_walls": post_process_result["union_walls"],
-        "rooms": post_process_result["rooms"],
-        "doors": post_process_result["doors"],
-        "windows": post_process_result["windows"],
+        "union_walls": union_walls,
+        "unified_floor_plan": unified_floor_plan,
+        "floor_plan_with_openings": floor_plan_with_openings_obj,
+        "rooms": rooms,
+        "doors": doors,
+        "windows": windows,
     }
+
+
+def _to_dict(value: Any) -> dict[str, Any]:
+    """Normalize dataclasses into plain dictionaries."""
+    if value is None:
+        return {}
+    if isinstance(value, dict):
+        return value
+    model_dump = getattr(value, "model_dump", None)
+    if callable(model_dump):
+        return cast(dict[str, Any], model_dump())
+    if hasattr(value, "__dict__"):
+        return dict(value.__dict__)
+    return {}
 
 
 def run_fpg_pipeline_api(
@@ -484,7 +542,7 @@ def run_fpg_pipeline_api(
         print(f"\n DATA DEBUG :\n After Build Requirements = {requirements}")
 
         # Step 2: Validate floor dimensions (Will Throw an Exception)
-        validation_result = validate_and_compute_floor_bounds(
+        validate_and_compute_floor_bounds(
             floor_width=floor_width,
             floor_height=floor_height,
             requirements=requirements,

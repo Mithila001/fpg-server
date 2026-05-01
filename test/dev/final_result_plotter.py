@@ -7,9 +7,6 @@ import math
 
 import matplotlib.pyplot as plt
 
-from app.algorithms.fpg_opening import generate_openings
-from app.algorithms.fpg_rooms.fpg_post_process import run_final_post_process
-
 
 def _to_dict(value: Any) -> dict[str, Any]:
     """Normalize pydantic models or objects into plain dictionaries."""
@@ -172,7 +169,7 @@ def plot_final_floor_plan(payload: Mapping[str, Any], show: bool = False) -> str
 
 
 def _build_payload_from_solver_result(run_result: Any) -> dict[str, Any]:
-    """Reconstruct payload format used by API from an FpgEvaluationResult."""
+    """Reconstruct payload format from an FpgEvaluationResult using the new union results flow."""
     if not run_result or not getattr(run_result, "solved", False):
         return {
             "status": getattr(run_result, "status", "ERROR"),
@@ -183,36 +180,84 @@ def _build_payload_from_solver_result(run_result: Any) -> dict[str, Any]:
             "windows": [],
         }
 
-    quick_post_process_result = getattr(run_result, "quick_post_process_result", None)
-    if quick_post_process_result is not None:
-        post_processed_layout = quick_post_process_result.get("rooms", [])
-        wall_union_result = quick_post_process_result.get(
-            "wall_union",
-            {
-                "walls": [],
-                "room_walls": {},
-            },
-        )
-    else:
-        post_processed_layout = getattr(run_result, "solution", [])
-        wall_union_result = {"walls": [], "room_walls": {}}
-
-    opening_result = generate_openings(post_processed_layout)
-    post_process_result = run_final_post_process(
-        {
-            "rooms": post_processed_layout,
-            "openings": opening_result.get("openings", []),
-            "wall_union": wall_union_result,
+    # New flow: use union_results
+    union_results_obj = getattr(run_result, "union_results", None)
+    if not union_results_obj:
+        return {
+            "status": run_result.status,
+            "message": run_result.message,
+            "union_walls": [],
+            "rooms": {},
+            "doors": [],
+            "windows": [],
         }
-    )
+
+    try:
+        unified_floor_plan = union_results_obj.get("unified_floor_plan")
+        floor_plan_with_openings = union_results_obj.get("floor_plan_with_openings")
+    except (KeyError, TypeError, AttributeError):
+        return {
+            "status": run_result.status,
+            "message": run_result.message,
+            "union_walls": [],
+            "rooms": {},
+            "doors": [],
+            "windows": [],
+        }
+
+    if not unified_floor_plan or not floor_plan_with_openings:
+        return {
+            "status": run_result.status,
+            "message": run_result.message,
+            "union_walls": [],
+            "rooms": {},
+            "doors": [],
+            "windows": [],
+        }
+
+    # Extract walls from unified floor plan
+    union_walls = unified_floor_plan.get("walls", [])
+
+    # Extract openings and rooms from floor_plan_with_openings
+    floor_plan = getattr(
+        floor_plan_with_openings, "floor_plan", None
+    ) or floor_plan_with_openings.get("floor_plan", [])
+    openings = getattr(
+        floor_plan_with_openings, "openings", None
+    ) or floor_plan_with_openings.get("openings", [])
+
+    # Build rooms dictionary from floor_plan
+    rooms = {}
+    for room in floor_plan or []:
+        room_dict = _to_dict(room) if not isinstance(room, dict) else room
+        room_name = room_dict.get("name", "unknown")
+        room_type = room_dict.get("type", "generic")
+        rooms[room_name] = {
+            "room_name": room_name,
+            "room_type": room_type,
+            "room_walls": [],  # Walls already unified in union_walls
+        }
+
+    # Separate doors and windows from openings
+    doors = []
+    windows = []
+    for opening in openings or []:
+        opening_dict = _to_dict(opening) if not isinstance(opening, dict) else opening
+        opening_type = opening_dict.get("opening_type", "door")
+        if "window" in opening_type.lower():
+            windows.append(opening_dict)
+        else:
+            doors.append(opening_dict)
 
     return {
         "status": run_result.status,
         "message": run_result.message,
-        "union_walls": post_process_result.get("union_walls", []),
-        "rooms": post_process_result.get("rooms", {}),
-        "doors": post_process_result.get("doors", []),
-        "windows": post_process_result.get("windows", []),
+        "union_walls": union_walls,
+        "unified_floor_plan": unified_floor_plan,
+        "floor_plan_with_openings": floor_plan_with_openings,
+        "rooms": rooms,
+        "doors": doors,
+        "windows": windows,
     }
 
 
