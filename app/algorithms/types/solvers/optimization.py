@@ -14,7 +14,7 @@ class FpgEvaluationResult:
     solved: bool
     status: str = "UNKNOWN"
     message: str = ""
-    fpg_score_results: ScoreManagerResult | int | None = None
+    fpg_score_results: ScoreManagerResult | None = None
     union_results: UnionFloorPlanResult | None = None
 
 

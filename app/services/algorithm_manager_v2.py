@@ -164,7 +164,7 @@ def _run_single_fpg_solve(
         requirements, cleaned_floor_plan
     )
 
-    fpg_score_results: ScoreManagerResult | int = score_manager(
+    fpg_score_results: ScoreManagerResult = score_manager(
         floor_plan_with_openings, requirements
     )
     print(f"\n FPG Score Result: {fpg_score_results}")
@@ -195,7 +195,7 @@ def run_solver_with_hints(
     print(f"[SolverLoop] safe_run_count: {safe_run_count}\n")
 
     for attempt_index in range(safe_run_count):
-        current_result = _run_single_fpg_solve(
+        current_result: FpgEvaluationResult = _run_single_fpg_solve(
             requirements=requirements, verbose=verbose
         )
         print(
@@ -208,13 +208,7 @@ def run_solver_with_hints(
         if fpg_score is None:
             current_score = None
         else:
-            try:
-                current_score = float(getattr(fpg_score, "critical_score", fpg_score))
-            except Exception:
-                try:
-                    current_score = float(fpg_score)
-                except Exception:
-                    current_score = None
+            current_score = fpg_score.critical_score
 
         if current_score is None:
             print(

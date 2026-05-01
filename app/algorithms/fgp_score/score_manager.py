@@ -30,7 +30,7 @@ def _clamp_0_25(value: float) -> float:
 def score_manager(
     floor_plan_with_openings: FloorPlanWithOpenings | list[ProcessedRoomData],
     requirements: FpgRequirements,
-) -> ScoreManagerResult | int:
+) -> ScoreManagerResult:
     """Rectilinear gate + standalone critical scoring (out of 25).
 
     For now this only computes the critical section and prints results.
@@ -56,9 +56,20 @@ def score_manager(
     if not rectilinear_ok:
         print(
             "\n[fgp_score/score_manager] rectilinearity verification FAILED. "
-            "Returning -1."
+            "Returning empty ScoreManagerResult."
         )
-        return -1
+        return ScoreManagerResult(
+            critical_score=0.0,
+            checks=[],
+            critical_violations=[],
+            diagnostics=ScoringDiagnostics(
+                executed_checks=0,
+                passed_checks=0,
+                adjacency={"violations": []},
+                empty_space={},
+                inward_pocket={},
+            ),
+        )
 
     cfg = requirements.config
     floor_width = float(getattr(cfg, "floor_plan_width", 0.0))
