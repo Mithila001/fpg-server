@@ -165,11 +165,67 @@ def select_internal_doors(
     if not candidates:
         return selected
 
+    # Step 1: Detect bedrooms with attached bathrooms from candidates
+    bedrooms_with_attached_bathrooms: set[str] = set()
     for candidate in candidates:
         room_a_type = normalize_room_type(candidate.room_a.type)
         room_b_type = normalize_room_type(candidate.room_b.type)
-        room_a_max = MAX_INTERNAL_DOORS_BY_ROOM_TYPE.get(room_a_type, 10)
-        room_b_max = MAX_INTERNAL_DOORS_BY_ROOM_TYPE.get(room_b_type, 10)
+
+        # Check if this is a bedroom-attachedBathroom connection
+        if room_a_type == "bedroom" and room_b_type == "attachedbathroom":
+            bedrooms_with_attached_bathrooms.add(candidate.room_a.name)
+        elif room_b_type == "bedroom" and room_a_type == "attachedbathroom":
+            bedrooms_with_attached_bathrooms.add(candidate.room_b.name)
+
+    # Step 2: Separate candidates by priority
+    # Bathroom-hallway doors get highest priority (soft preference),
+    # then other bathroom doors, then social doors
+    bathroom_hallway_candidates: list[InternalDoorCandidate] = []
+    other_bathroom_candidates: list[InternalDoorCandidate] = []
+    social_candidates: list[InternalDoorCandidate] = []
+
+    for candidate in candidates:
+        room_a_type = normalize_room_type(candidate.room_a.type)
+        room_b_type = normalize_room_type(candidate.room_b.type)
+
+        # Identify bathroom-hallway or hallway-bathroom connections
+        if (room_a_type == "bathroom" and room_b_type == "hallway") or (
+            room_b_type == "bathroom" and room_a_type == "hallway"
+        ):
+            bathroom_hallway_candidates.append(candidate)
+        # Other bathroom connections (bathroom-livingroom, etc)
+        elif room_a_type == "bathroom" or room_b_type == "bathroom":
+            other_bathroom_candidates.append(candidate)
+        # Social doors (bedroom-hallway, bedroom-livingroom, etc)
+        else:
+            social_candidates.append(candidate)
+
+    # Step 3: Process candidates in priority order: bathroom-hallway > other bathroom > social
+    all_candidates_ordered = (
+        bathroom_hallway_candidates + other_bathroom_candidates + social_candidates
+    )
+
+    for candidate in all_candidates_ordered:
+        room_a_type = normalize_room_type(candidate.room_a.type)
+        room_b_type = normalize_room_type(candidate.room_b.type)
+
+        # Determine max doors based on dynamic limits for bedrooms
+        if room_a_type == "bedroom":
+            # Bedroom without attached bathroom: max 1 door
+            # Bedroom with attached bathroom: max 2 doors (1 social + 1 bathroom)
+            room_a_max = (
+                2 if candidate.room_a.name in bedrooms_with_attached_bathrooms else 1
+            )
+        else:
+            room_a_max = MAX_INTERNAL_DOORS_BY_ROOM_TYPE.get(room_a_type, 10)
+
+        if room_b_type == "bedroom":
+            room_b_max = (
+                2 if candidate.room_b.name in bedrooms_with_attached_bathrooms else 1
+            )
+        else:
+            room_b_max = MAX_INTERNAL_DOORS_BY_ROOM_TYPE.get(room_b_type, 10)
+
         if room_incident_count[candidate.room_a.name] >= room_a_max:
             continue
         if room_incident_count[candidate.room_b.name] >= room_b_max:

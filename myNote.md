@@ -4,6 +4,9 @@
 3. Hallway generation should be consist
 
 4. Optuna -> Use Floats, not Ints: Don't just give 2 points per sub-point. Use a continuous calculation
+5. Graph Generation
+
+- Bathroom - Hallway connection is not there
 
 # Keep in Check
 
