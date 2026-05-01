@@ -15,6 +15,7 @@ ROOM_TYPE_LIVING_ROOM = "livingRoom"
 ROOM_TYPE_BATHROOM = "bathroom"
 ROOM_TYPE_BEDROOM = "bedroom"
 ROOM_TYPE_DINING_ROOM = "diningRoom"
+ROOM_TYPE_ATTACHED_BATHROOM = "attachedBathroom"
 
 
 @dataclass(frozen=True)
@@ -107,7 +108,9 @@ def build_room_points(
 
         x, y = position
         room_points.append(
-            OptunaScorePoint(name=str(sampled_name), room_type=sampled_room_type, x=x, y=y)
+            OptunaScorePoint(
+                name=str(sampled_name), room_type=sampled_room_type, x=x, y=y
+            )
         )
 
     return room_points

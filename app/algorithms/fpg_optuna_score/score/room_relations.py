@@ -9,6 +9,7 @@ import networkx as nx
 from app.algorithms.types import FpgRequirements
 
 from ..util.scoring_common import (
+    ROOM_TYPE_ATTACHED_BATHROOM,
     ROOM_TYPE_BATHROOM,
     ROOM_TYPE_BEDROOM,
     ROOM_TYPE_DINING_ROOM,
@@ -34,19 +35,19 @@ RELATION_RULES: list[dict[str, Any]] = [
     {"rooms": [ROOM_TYPE_LIVING_ROOM, ROOM_TYPE_VERANDA], "cost": 0.5},
     {"rooms": [ROOM_TYPE_LIVING_ROOM, ROOM_TYPE_BEDROOM], "cost": 2.0},
     {"rooms": [ROOM_TYPE_BEDROOM, ROOM_TYPE_HALLWAY], "cost": 0.5},
-    {"rooms": [ROOM_TYPE_BEDROOM, "attachedBathroom"], "cost": 0.5},
+    {"rooms": [ROOM_TYPE_BEDROOM, ROOM_TYPE_ATTACHED_BATHROOM], "cost": 0.5},
     {"rooms": [ROOM_TYPE_BATHROOM, ROOM_TYPE_LIVING_ROOM], "cost": 0.5},
 ]
 
 PATH_QUERIES: list[dict[str, str]] = [
-    {"start": ROOM_TYPE_VERANDA, "end": ROOM_TYPE_LIVING_ROOM},
-    {"start": ROOM_TYPE_LIVING_ROOM, "end": ROOM_TYPE_BEDROOM},
-    {"start": ROOM_TYPE_LIVING_ROOM, "end": ROOM_TYPE_KITCHEN},
-    {"start": ROOM_TYPE_LIVING_ROOM, "end": ROOM_TYPE_DINING_ROOM},
-    {"start": ROOM_TYPE_LIVING_ROOM, "end": ROOM_TYPE_BATHROOM},
-    {"start": ROOM_TYPE_BEDROOM, "end": ROOM_TYPE_BATHROOM},
-    {"start": ROOM_TYPE_KITCHEN, "end": ROOM_TYPE_DINING_ROOM},
-    {"start": ROOM_TYPE_BEDROOM, "end": "attachedBathroom"},
+    {"start": ROOM_TYPE_VERANDA, "end": ROOM_TYPE_LIVING_ROOM, "type": "public"},
+    {"start": ROOM_TYPE_LIVING_ROOM, "end": ROOM_TYPE_BEDROOM, "type": "private"},
+    {"start": ROOM_TYPE_LIVING_ROOM, "end": ROOM_TYPE_KITCHEN, "type": "public"},
+    {"start": ROOM_TYPE_LIVING_ROOM, "end": ROOM_TYPE_DINING_ROOM, "type": "public"},
+    {"start": ROOM_TYPE_LIVING_ROOM, "end": ROOM_TYPE_BATHROOM, "type": "public"},
+    {"start": ROOM_TYPE_BEDROOM, "end": ROOM_TYPE_BATHROOM, "type": "private"},
+    {"start": ROOM_TYPE_KITCHEN, "end": ROOM_TYPE_DINING_ROOM, "type": "public"},
+    {"start": ROOM_TYPE_BEDROOM, "end": ROOM_TYPE_ATTACHED_BATHROOM, "type": "private"},
 ]
 
 
