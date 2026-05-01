@@ -33,18 +33,23 @@ def score_optuna_layout(
 ) -> OptunaScoreResult:
     room_points = build_room_points(requirements, sampled_positions)
 
+    print(f"Hallway Count: {requirements.config.hallway_count}")
+
     # print(
     #     f"Room points: {[f'{p.name}({p.room_type}): ({p.x:.1f}, {p.y:.1f})' for p in room_points]}"
     # )
 
     zone_result = score_floor_plan_zones(requirements, room_points)
-    clearance_result = score_outer_clearance(requirements, room_points)
+    clearance_result: SectionScore = score_outer_clearance(requirements, room_points)
     relation_result = score_room_relations(requirements, room_points)
     section_scores = {
         "floor_plan_zones": zone_result.score,
         "outer_clearance": clearance_result.score,
         "room_relations": relation_result.score,
     }
+    print(
+        f"Untouched Hallways: {clearance_result.details.get('uncrossed_hallways', -1)}"
+    )
     print(f"Section Scores: {section_scores}")
     print(f"Clearance Score: {clearance_result.score:.1f}/{clearance_result.max_score}")
     print(

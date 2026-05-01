@@ -23,9 +23,7 @@ from app.core.fpg_rooms.config_fpg import (
 from app.core.fpg_rooms.config_optuna import (
     OPTUNA_DEFAULT_STUDY_NAME,
     OPTUNA_DEFAULT_TRIALS,
-    OPTUNA_HALLWAY_COUNT_MAX,
-    OPTUNA_HALLWAY_COUNT_MIN,
-    OPTUNA_PARAM_KEY_HALLWAY_COUNT,
+    OPTUNA_HALLWAY_COUNT,
 )
 from app.dev.dev_print import debug_log_data
 from app.util.tracking import get_tracking_context
@@ -217,11 +215,7 @@ def run_optuna_optimization(
             tracking_context.next_trial_id()
 
         try:
-            hallway_count = trial.suggest_int(
-                OPTUNA_PARAM_KEY_HALLWAY_COUNT,
-                OPTUNA_HALLWAY_COUNT_MIN,
-                OPTUNA_HALLWAY_COUNT_MAX,
-            )
+            hallway_count = int(OPTUNA_HALLWAY_COUNT)
             base_requirements.config.hallway_count = hallway_count
             sampling_radius = _effective_sampling_radius(
                 boundary_width=float(base_requirements.config.floor_plan_width),

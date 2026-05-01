@@ -16,6 +16,7 @@ OPTUNA_MIN_COVERAGE_STEP = 0.05
 # Search space for hallway count optimization.
 OPTUNA_HALLWAY_COUNT_MIN = 1
 OPTUNA_HALLWAY_COUNT_MAX = 3
+OPTUNA_HALLWAY_COUNT = 3
 
 # Search jitter around each room's current min/max bounds.
 OPTUNA_DIMENSION_MIN_JITTER = 5

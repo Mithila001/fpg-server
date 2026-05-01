@@ -25,16 +25,15 @@ from ..util.scoring_common import (
 )
 
 ROOM_RELATIONS_MAX_SCORE = 40.0
+ROOM_PATHING_MAX_SCORE = 30.0
+HALLWAY_PRIVACY_MAX_SCORE = 10.0
 DEBUG_VERBOSE = False  # Toggle this to False to silence terminal debug logs
 
 RELATION_RULES: list[dict[str, Any]] = [
-    {"rooms": [ROOM_TYPE_KITCHEN, ROOM_TYPE_HALLWAY], "cost": 1.0},
     {"rooms": [ROOM_TYPE_KITCHEN, ROOM_TYPE_DINING_ROOM], "cost": 0.5},
     {"rooms": [ROOM_TYPE_LIVING_ROOM, ROOM_TYPE_KITCHEN], "cost": 1.0},
-    {"rooms": [ROOM_TYPE_LIVING_ROOM, ROOM_TYPE_HALLWAY], "cost": 1.0},
     {"rooms": [ROOM_TYPE_LIVING_ROOM, ROOM_TYPE_VERANDA], "cost": 0.5},
     {"rooms": [ROOM_TYPE_LIVING_ROOM, ROOM_TYPE_BEDROOM], "cost": 2.0},
-    {"rooms": [ROOM_TYPE_BEDROOM, ROOM_TYPE_HALLWAY], "cost": 0.5},
     {"rooms": [ROOM_TYPE_BEDROOM, ROOM_TYPE_ATTACHED_BATHROOM], "cost": 0.5},
     {"rooms": [ROOM_TYPE_BATHROOM, ROOM_TYPE_LIVING_ROOM], "cost": 0.5},
 ]
@@ -137,6 +136,29 @@ def _build_graph(room_points: list[OptunaScorePoint]) -> nx.Graph:
                     relation=f"{room_a}-{room_b}",
                 )
 
+    hallways = [p for p in room_points if p.room_type == ROOM_TYPE_HALLWAY]
+    if hallways:
+        connectable_types = {
+            ROOM_TYPE_LIVING_ROOM,
+            ROOM_TYPE_BATHROOM,
+            ROOM_TYPE_DINING_ROOM,
+            ROOM_TYPE_KITCHEN,
+            ROOM_TYPE_BEDROOM,
+            "garage",
+        }
+        for hw in hallways:
+            for other in room_points:
+                if other.name == hw.name:
+                    continue
+                if other.room_type in connectable_types or other.room_type == ROOM_TYPE_HALLWAY:
+                    graph.add_edge(
+                        hw.name,
+                        other.name,
+                        relation_cost=1.0,
+                        edge_distance=hypot(hw.x - other.x, hw.y - other.y),
+                        relation=f"{hw.room_type}-{other.room_type}",
+                    )
+
     return graph
 
 
@@ -182,7 +204,7 @@ def score_room_relations(
     # 3. Calculate weight based on valid queries only
     num_valid = len(valid_queries)
     query_weight = (
-        ROOM_RELATIONS_MAX_SCORE / max(1, num_valid) if num_valid > 0 else 0.0
+        ROOM_PATHING_MAX_SCORE / max(1, num_valid) if num_valid > 0 else 0.0
     )
 
     max_cost = max(
@@ -194,9 +216,15 @@ def score_room_relations(
         * 3.0,
     )
 
-    raw_score = 0.0
+    pathing_score = 0.0
     warnings: list[str] = []
     path_summaries: list[dict[str, Any]] = []
+
+    # Track hallway crossing data
+    hallway_crossing_data = {
+        hw.name: {"public": 0, "private": 0, "queries": []}
+        for hw in room_points if hw.room_type == ROOM_TYPE_HALLWAY
+    }
 
     # We will accumulate debug reasons here
     debug_reasons: list[str] = []
@@ -256,7 +284,13 @@ def score_room_relations(
 
         best_candidate = min(candidates, key=lambda item: item.cost)
         pair_score = query_weight * max(0.0, 1.0 - (best_candidate.cost / max_cost))
-        raw_score += pair_score
+        pathing_score += pair_score
+
+        # Track which hallways were crossed
+        for node_name in best_candidate.path:
+            if node_name in hallway_crossing_data:
+                hallway_crossing_data[node_name][query["type"]] += 1
+                hallway_crossing_data[node_name]["queries"].append(query)
 
         # Track if we lost points due to high path cost
         if pair_score < query_weight:
@@ -277,7 +311,42 @@ def score_room_relations(
             }
         )
 
-    normalized = normalize_section_score(raw_score, ROOM_RELATIONS_MAX_SCORE)
+    # Hallway privacy score calculation
+    hallways = [p for p in room_points if p.room_type == ROOM_TYPE_HALLWAY]
+    hallway_privacy_score = 0.0
+    
+    crossed_hallways = [
+        hw_name for hw_name, data in hallway_crossing_data.items() 
+        if (data["public"] + data["private"]) > 0
+    ]
+    uncrossed_hallway_points = [
+        point_by_name[hw_name] for hw_name, data in hallway_crossing_data.items() 
+        if (data["public"] + data["private"]) == 0
+    ]
+    
+    if len(hallways) == 0:
+        hallway_privacy_score = HALLWAY_PRIVACY_MAX_SCORE
+    else:
+        if len(crossed_hallways) > 0:
+            total_hw_score = 0.0
+            for hw_name in crossed_hallways:
+                pub = hallway_crossing_data[hw_name]["public"]
+                priv = hallway_crossing_data[hw_name]["private"]
+                total = pub + priv
+                
+                if total == 1:
+                    total_hw_score += 1.0
+                else:
+                    hw_score = abs(pub - priv) / total
+                    total_hw_score += hw_score
+            
+            avg_hw_score = total_hw_score / len(crossed_hallways)
+            hallway_privacy_score = avg_hw_score * HALLWAY_PRIVACY_MAX_SCORE
+        else:
+            hallway_privacy_score = HALLWAY_PRIVACY_MAX_SCORE
+
+    total_score = pathing_score + hallway_privacy_score
+    normalized = normalize_section_score(total_score, ROOM_RELATIONS_MAX_SCORE)
 
     if num_valid < len(PATH_QUERIES):
         warnings.append(
@@ -311,6 +380,8 @@ def score_room_relations(
             "path_summaries": path_summaries,
             "graph": graph,
             "valid_queries_count": num_valid,
+            "uncrossed_hallways": uncrossed_hallway_points,
+            "hallway_crossings": hallway_crossing_data,
         },
         warnings=warnings,
     )
