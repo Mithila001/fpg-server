@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Tuple
 
 from app.core.fpg_rooms.config_fpg import (
     CONSTRAINT_HARD_BASIC_GEOMETRY,
@@ -98,3 +98,24 @@ class FpgRequirements:
     config: ConfigData
     relation_constraints: list[Any] = field(default_factory=list)
     initial_point_hints: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
+class ProcessedRoomData:
+    type: str
+    name: str
+    original_index: int
+    vertices: list[Tuple[float, float]]
+    area: float
+    
+    
+@dataclass
+class WallSegment:
+    start: Tuple[float, float]
+    end: Tuple[float, float]
+    length: float
+
+@dataclass
+class UnifiedFloorPlan:
+    segments: list[WallSegment]
+    total_wall_length: float

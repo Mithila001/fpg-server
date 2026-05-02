@@ -22,7 +22,7 @@ Content-Type: application/json
 		]
 	},
 	"should_optuna_run": true,
-	"optuna_trial_count": 500
+	"optuna_trial_count": 100
 }
 
 ###

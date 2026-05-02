@@ -1015,5 +1015,72 @@
       "y_end": 29,
       "area": 29
     }
+  ],
+  [
+    {"name": "bedroom1", "type": "bedroom", "x": 0, "y": 52, "w": 30, "h": 45, "x_end": 30, "y_end": 97, "area": 1350},
+    {"name": "bedroom2", "type": "bedroom", "x": 70, "y": 14, "w": 40, "h": 36, "x_end": 110, "y_end": 50, "area": 1440},
+    {"name": "bathroom1", "type": "bathroom", "x": 134, "y": 60, "w": 16, "h": 25, "x_end": 150, "y_end": 85, "area": 400},
+    {"name": "kitchen1", "type": "kitchen", "x": 70, "y": 60, "w": 27, "h": 32, "x_end": 97, "y_end": 92, "area": 864},
+    {"name": "attachedBathroom1", "type": "attachedBathroom", "x": 30, "y": 73, "w": 20, "h": 24, "x_end": 50, "y_end": 97, "area": 480},
+    {"name": "veranda1", "type": "veranda", "x": 20, "y": 0, "w": 50, "h": 25, "x_end": 70, "y_end": 25, "area": 1250},
+    {"name": "garage1", "type": "garage", "x": 110, "y": 0, "w": 40, "h": 50, "x_end": 150, "y_end": 50, "area": 2000},
+    {"name": "diningRoom1", "type": "diningRoom", "x": 97, "y": 60, "w": 37, "h": 37, "x_end": 134, "y_end": 97, "area": 1369},
+    {"name": "livingRoom1", "type": "livingRoom", "x": 30, "y": 25, "w": 40, "h": 48, "x_end": 70, "y_end": 73, "area": 1920},
+    {"name": "hallway1", "type": "hallway", "x": 70, "y": 50, "w": 80, "h": 10, "x_end": 150, "y_end": 60, "area": 800},
+    {"name": "verandaOutdoorSpace_for_veranda1", "type": "verandaOutdoorSpace", "x": 0, "y": 0, "w": 20, "h": 25, "x_end": 20, "y_end": 25, "area": 500}
+  ],
+  [
+    {"name": "bedroom1", "type": "bedroom", "x": 0, "y": 24, "w": 30, "h": 43, "x_end": 30, "y_end": 67, "area": 1290},
+    {"name": "bedroom2", "type": "bedroom", "x": 30, "y": 24, "w": 38, "h": 33, "x_end": 68, "y_end": 57, "area": 1254},
+    {"name": "bathroom1", "type": "bathroom", "x": 68, "y": 67, "w": 20, "h": 30, "x_end": 88, "y_end": 97, "area": 600},
+    {"name": "kitchen1", "type": "kitchen", "x": 114, "y": 57, "w": 27, "h": 35, "x_end": 141, "y_end": 92, "area": 945},
+    {"name": "attachedBathroom1", "type": "attachedBathroom", "x": 0, "y": 67, "w": 20, "h": 25, "x_end": 20, "y_end": 92, "area": 500},
+    {"name": "veranda1", "type": "veranda", "x": 18, "y": 0, "w": 50, "h": 24, "x_end": 68, "y_end": 24, "area": 1200},
+    {"name": "garage1", "type": "garage", "x": 104, "y": 0, "w": 37, "h": 57, "x_end": 141, "y_end": 57, "area": 2109},
+    {"name": "diningRoom1", "type": "diningRoom", "x": 20, "y": 67, "w": 48, "h": 30, "x_end": 68, "y_end": 97, "area": 1440},
+    {"name": "livingRoom1", "type": "livingRoom", "x": 68, "y": 0, "w": 36, "h": 57, "x_end": 104, "y_end": 57, "area": 2052},
+    {"name": "hallway1", "type": "hallway", "x": 30, "y": 57, "w": 84, "h": 10, "x_end": 114, "y_end": 67, "area": 840},
+    {"name": "verandaOutdoorSpace_for_veranda1", "type": "verandaOutdoorSpace", "x": 0, "y": 0, "w": 18, "h": 24, "x_end": 18, "y_end": 24, "area": 432}
+  ],
+  [
+    {"name": "bedroom1", "type": "bedroom", "x": 62, "y": 0, "w": 43, "h": 30, "x_end": 105, "y_end": 30, "area": 1290},
+    {"name": "bedroom2", "type": "bedroom", "x": 0, "y": 47, "w": 36, "h": 30, "x_end": 36, "y_end": 77, "area": 1080},
+    {"name": "bathroom1", "type": "bathroom", "x": 102, "y": 40, "w": 18, "h": 28, "x_end": 120, "y_end": 68, "area": 504},
+    {"name": "kitchen1", "type": "kitchen", "x": 36, "y": 47, "w": 31, "h": 30, "x_end": 67, "y_end": 77, "area": 930},
+    {"name": "attachedBathroom1", "type": "attachedBathroom", "x": 105, "y": 6, "w": 15, "h": 24, "x_end": 120, "y_end": 30, "area": 360},
+    {"name": "veranda1", "type": "veranda", "x": 1, "y": 0, "w": 24, "h": 40, "x_end": 25, "y_end": 40, "area": 960},
+    {"name": "garage1", "type": "garage", "x": 120, "y": 0, "w": 30, "h": 58, "x_end": 150, "y_end": 58, "area": 1740},
+    {"name": "diningRoom1", "type": "diningRoom", "x": 67, "y": 40, "w": 35, "h": 37, "x_end": 102, "y_end": 77, "area": 1295},
+    {"name": "livingRoom1", "type": "livingRoom", "x": 25, "y": 0, "w": 37, "h": 47, "x_end": 62, "y_end": 47, "area": 1739},
+    {"name": "hallway1", "type": "hallway", "x": 62, "y": 30, "w": 58, "h": 10, "x_end": 120, "y_end": 40, "area": 580},
+    {"name": "verandaOutdoorSpace_for_veranda1", "type": "verandaOutdoorSpace", "x": 0, "y": 0, "w": 1, "h": 40, "x_end": 1, "y_end": 40, "area": 40}
+  ],
+  [
+    {"name": "bedroom1", "type": "bedroom", "x": 102, "y": 60, "w": 31, "h": 36, "x_end": 133, "y_end": 96, "area": 1116},
+    {"name": "bedroom2", "type": "bedroom", "x": 0, "y": 41, "w": 30, "h": 45, "x_end": 30, "y_end": 86, "area": 1350},
+    {"name": "bathroom1", "type": "bathroom", "x": 66, "y": 25, "w": 18, "h": 25, "x_end": 84, "y_end": 50, "area": 450},
+    {"name": "kitchen1", "type": "kitchen", "x": 84, "y": 13, "w": 27, "h": 37, "x_end": 111, "y_end": 50, "area": 999},
+    {"name": "attachedBathroom1", "type": "attachedBathroom", "x": 133, "y": 60, "w": 17, "h": 27, "x_end": 150, "y_end": 87, "area": 459},
+    {"name": "veranda1", "type": "veranda", "x": 34, "y": 0, "w": 50, "h": 25, "x_end": 84, "y_end": 25, "area": 1250},
+    {"name": "garage1", "type": "garage", "x": 111, "y": 0, "w": 39, "h": 50, "x_end": 150, "y_end": 50, "area": 1950},
+    {"name": "diningRoom1", "type": "diningRoom", "x": 66, "y": 60, "w": 36, "h": 36, "x_end": 102, "y_end": 96, "area": 1296},
+    {"name": "livingRoom1", "type": "livingRoom", "x": 30, "y": 25, "w": 36, "h": 51, "x_end": 66, "y_end": 76, "area": 1836},
+    {"name": "hallway1", "type": "hallway", "x": 30, "y": 76, "w": 36, "h": 10, "x_end": 66, "y_end": 86, "area": 360},
+    {"name": "hallway2", "type": "hallway", "x": 66, "y": 50, "w": 84, "h": 10, "x_end": 150, "y_end": 60, "area": 840},
+    {"name": "verandaOutdoorSpace_for_veranda1", "type": "verandaOutdoorSpace", "x": 0, "y": 0, "w": 34, "h": 25, "x_end": 34, "y_end": 25, "area": 850}
+  ],
+  [
+    {"name": "bedroom1", "type": "bedroom", "x": 105, "y": 57, "w": 45, "h": 30, "x_end": 150, "y_end": 87, "area": 1350},
+    {"name": "bedroom2", "type": "bedroom", "x": 57, "y": 0, "w": 31, "h": 45, "x_end": 88, "y_end": 45, "area": 1395},
+    {"name": "bathroom1", "type": "bathroom", "x": 0, "y": 62, "w": 16, "h": 25, "x_end": 16, "y_end": 87, "area": 400},
+    {"name": "kitchen1", "type": "kitchen", "x": 88, "y": 7, "w": 27, "h": 40, "x_end": 115, "y_end": 47, "area": 1080},
+    {"name": "attachedBathroom1", "type": "attachedBathroom", "x": 39, "y": 0, "w": 18, "h": 27, "x_end": 57, "y_end": 27, "area": 486},
+    {"name": "veranda1", "type": "veranda", "x": 1, "y": 0, "w": 38, "h": 29, "x_end": 39, "y_end": 29, "area": 1102},
+    {"name": "garage1", "type": "garage", "x": 115, "y": 0, "w": 35, "h": 57, "x_end": 150, "y_end": 57, "area": 1995},
+    {"name": "diningRoom1", "type": "diningRoom", "x": 57, "y": 57, "w": 48, "h": 30, "x_end": 105, "y_end": 87, "area": 1440},
+    {"name": "livingRoom1", "type": "livingRoom", "x": 16, "y": 29, "w": 41, "h": 48, "x_end": 57, "y_end": 77, "area": 1968},
+    {"name": "hallway1", "type": "hallway", "x": 57, "y": 47, "w": 58, "h": 10, "x_end": 115, "y_end": 57, "area": 580},
+    {"name": "hallway2", "type": "hallway", "x": 16, "y": 77, "w": 41, "h": 10, "x_end": 57, "y_end": 87, "area": 410},
+    {"name": "verandaOutdoorSpace_for_veranda1", "type": "verandaOutdoorSpace", "x": 0, "y": 0, "w": 1, "h": 29, "x_end": 1, "y_end": 29, "area": 29}
   ]
 ]

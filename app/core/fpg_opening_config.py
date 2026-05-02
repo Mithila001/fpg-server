@@ -8,34 +8,39 @@ GEOMETRIC_TOLERANCE: Final[float] = 1e-6
 
 BACK_DOOR_ELIGIBLE_ROOM_TYPES: Final[frozenset[str]] = frozenset({"kitchen", "hallway"})
 BACK_DOOR_ROOM_TYPE_PRIORITY: Final[dict[str, int]] = {
-	"kitchen": 0,
-	"hallway": 1,
+    "kitchen": 0,
+    "hallway": 1,
 }
 
 INTERNAL_DOOR_ALLOWED_ROOM_PAIRS: Final[frozenset[frozenset[str]]] = frozenset(
-	{
-		frozenset(("bedroom", "livingroom")),
-		frozenset(("kitchen", "livingroom")),
-		frozenset(("bathroom", "livingroom")),
-		frozenset(("bedroom", "attachedbathroom")),
-		frozenset(("veranda", "livingroom")),
-	}
+    {
+        frozenset(("bedroom", "livingroom")),
+        frozenset(("kitchen", "livingroom")),
+        frozenset(("bathroom", "livingroom")),
+        frozenset(("bedroom", "attachedbathroom")),
+        frozenset(("veranda", "livingroom")),
+        frozenset(("garage", "livingroom")),
+        frozenset(("garage", "hallway")),
+        frozenset(("diningroom", "livingroom")),
+    }
 )
 
 MAX_INTERNAL_DOORS_BY_ROOM_TYPE: Final[dict[str, int]] = {
-	"bedroom": 2,
-	"bathroom": 1,
-	"livingroom": 10,
-	"hallway": 10,
-	"kitchen": 1,
-	"attachedbathroom": 1,
-	"veranda": 1,
+    "bedroom": 2,
+    "bathroom": 1,
+    "livingroom": 10,
+    "hallway": 10,
+    "kitchen": 1,
+    "attachedbathroom": 1,
+    "veranda": 1,
+    "garage": 1,
+    "diningroom": 2,
 }
 
 WINDOW_ELIGIBLE_ROOM_TYPES: Final[frozenset[str]] = frozenset(
-	{"bedroom", "livingroom", "kitchen"}
+    {"bedroom", "livingroom", "kitchen", "diningroom"}
 )
 
 
 def normalize_room_type(room_type: str) -> str:
-	return room_type.strip().lower()
+    return room_type.strip().lower()

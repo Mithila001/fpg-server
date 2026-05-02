@@ -117,5 +117,5 @@ def plot_refine_floor_plan(
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
 
-    print(f"Refinement plot saved ({num_plots} stages): {save_path}")
+    # print(f"Refinement plot saved ({num_plots} stages): {save_path}")
     return save_path

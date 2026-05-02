@@ -122,6 +122,10 @@ ROOM_SIZE_HIERARCHY = {
 # Room types used by hallway-related generation rules.
 HALLWAY_RULE_TARGET_ROOM_TYPES = {"bedroom", "kitchen", "bathroom", "diningRoom"}
 
+# Room policy used by requirement validation and scoring.
+OPTIONAL_ROOMS = ["garage", "attachedBathroom", "diningRoom"]
+MANDATORY_ROOMS = ["bedroom", "kitchen", "bathroom", "veranda"]
+
 # Default solver/optuna execution settings
 DEFAULT_ROOM_DIMENSION = 70
 DEFAULT_OPTUNA_TRIALS = 20
@@ -131,10 +135,13 @@ DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
 
 # Trial optimization control
 MINIMUM_REQUIRED_FPG_SCORE = 90  # Stop trials if score exceeds this
-TRIAL_OPTIMIZATION_TIMEOUT_SECONDS = 120  # Hard deadline for all trials
+TRIAL_OPTIMIZATION_TIMEOUT_SECONDS = 60  # Hard deadline for all trials
 TRIAL_GRAPH_SOLVER_GATE_THRESHOLD = (
     80  # Invoke solver only when graph score reaches this
 )
+
+# Optuna search space grid scale
+OPTUNA_SEARCH_SPACE_GRID_SCALE = 10  # Reduce search space resolution by this interval
 
 # Default generator config
 DEFAULT_ASPECT_RATIO_MAX = 16.0
@@ -164,9 +171,9 @@ PUBLIC_ROOM_TYPES = ["garage", "kitchen", "diningRoom"]
 PRIVATE_ROOM_TYPES = ["bathroom", "bedroom", "attachedBathroom"]
 
 
-OPTUNA_NODE_PLACEMENT_PRIVATE = ['bedroom', 'bathroom', 'attachedBathroom']
-OPTUNA_NODE_PLACEMENT_PUBLIC = ['garage', 'kitchen', 'diningRoom', 'livingRoom']
-OPTUNA_NODE_PLACEMENT_FRONT = ['veranda', 'garage']
+OPTUNA_NODE_PLACEMENT_PRIVATE = ["bedroom", "bathroom", "attachedBathroom"]
+OPTUNA_NODE_PLACEMENT_PUBLIC = ["garage", "kitchen", "diningRoom", "livingRoom"]
+OPTUNA_NODE_PLACEMENT_FRONT = ["veranda", "garage"]
 
 # Per-type room shared-wall requirements.
 # - min_walls/max_walls count fully shared sides.
@@ -261,6 +268,7 @@ __all__ = [
     "MINIMUM_REQUIRED_FPG_SCORE",
     "TRIAL_OPTIMIZATION_TIMEOUT_SECONDS",
     "TRIAL_GRAPH_SOLVER_GATE_THRESHOLD",
+    "OPTUNA_SEARCH_SPACE_GRID_SCALE",
     "DEFAULT_ASPECT_RATIO_MAX",
     "DEFAULT_ASPECT_RATIO_MIN",
     "DEFAULT_HALLWAY_COUNT",

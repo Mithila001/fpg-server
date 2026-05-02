@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Literal, NotRequired, TypedDict
+
+from app.algorithms.types.domain import ProcessedRoomData
 
 
 OpeningSide = Literal["south", "east", "north", "west"]
@@ -33,6 +36,26 @@ class OpeningRunResult(TypedDict):
     message: str
     openings: list[OpeningPayload]
     warnings: list[str]
+
+
+@dataclass
+class FloorPlanWithOpenings:
+    floor_plan: list[ProcessedRoomData]
+    openings: list[OpeningData]
+
+
+@dataclass
+class OpeningData:
+    room_name: str
+    room_type: str
+    opening_type: str
+    side: str
+    x1: float
+    y1: float
+    x2: float
+    y2: float
+    connected_room_name: str
+    connected_room_type: str
 
 
 RoomInput = dict[str, Any]

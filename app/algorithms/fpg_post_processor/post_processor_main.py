@@ -4,7 +4,11 @@ import os
 from app.algorithms.fpg_post_processor.dev.dev_visualizer_plotter import (
     plot_and_save_results,
 )
-from app.algorithms.fpg_post_processor.workspace import process_floor_plan
+from app.algorithms.fpg_post_processor.snap_floor_plan_to_grid import snap_floor_plan_to_grid
+from app.algorithms.fpg_post_processor.extend_walls import extend_floor_plan_walls
+from app.algorithms.fpg_post_processor.veranda_post_process import modify_veranda_layout
+from app.algorithms.fpg_post_processor.wall_union import floor_plan_wall_union
+from app.algorithms.types.domain import ProcessedRoomData
 
 
 def _load_mock_floor_plans():
@@ -38,15 +42,17 @@ def process_floor_plans():
     if not all_plans:
         return
 
+    target_indices = [2, 3]
     for i, plan in enumerate(all_plans):
+        if i not in target_indices:
+            continue
         # 1. Get the geometry from workspace
-        process_floor_plan(plan, filename=f"plan_analysis_{i}.png")
+        verandaUpdatedPlan = modify_veranda_layout(plan)
+        processed_floor_plan: list[ProcessedRoomData] = extend_floor_plan_walls(verandaUpdatedPlan, filename=f"plan_analysis_{i}.png")
+        snapped_results: list[ProcessedRoomData] = snap_floor_plan_to_grid(processed_floor_plan)
+        floor_plan_wall_union(snapped_results)
+        print(f"Finished processing plan {snapped_results}\n")
 
-
-def _start_post_processing(room_data):
-    """Start Point of the post processing flow"""
-    # print(f"Processing plan {room_data}\n")
-    process_floor_plan(room_data)
 
 
 if __name__ == "__main__":
