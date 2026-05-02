@@ -32,6 +32,7 @@ from .sampling_logic import RoomAwareTPESampler
 
 EVALUATION_FN = Callable[[FpgRequirements, bool], FpgEvaluationResult]
 CONSTRAINTS_FN = Callable[[FrozenTrial], Sequence[float]]
+PROGRESS_EMITTER = Callable[[str, str, dict[str, Any] | None], None]
 
 
 def _opposite_side(side: str) -> str:
@@ -236,10 +237,22 @@ def run_optuna_optimization(
     n_trials: int = OPTUNA_DEFAULT_TRIALS,
     study_name: str = OPTUNA_DEFAULT_STUDY_NAME,
     storage: str | None = None,
+    progress_emitter: PROGRESS_EMITTER | None = None,
 ) -> OptunaOptimizationResult:
     """Run graph-first Optuna trials and invoke solver only for high-scoring graph candidates."""
     best_run_by_trial: dict[int, FpgEvaluationResult] = {}
     controller = OptunaOptimizationController()
+    termination_reason = "trial_count_exceeded"
+
+    def emit_progress(
+        event: str, message: str, data: dict[str, Any] | None = None
+    ) -> None:
+        if progress_emitter is None:
+            return
+        try:
+            progress_emitter(event, message, data)
+        except Exception:
+            return
 
     optuna.logging.set_verbosity(optuna.logging.WARN)
 
@@ -248,6 +261,12 @@ def run_optuna_optimization(
         tracking_context = get_tracking_context()
         if tracking_context is not None:
             tracking_context.next_trial_id()
+
+        emit_progress(
+            "trial_started",
+            f"Starting trial {trial.number + 1}.",
+            {"trial_number": trial.number + 1},
+        )
 
         try:
             hallway_count = int(OPTUNA_HALLWAY_COUNT)
@@ -365,6 +384,17 @@ def run_optuna_optimization(
 
             duplicate_coordinate_count = _duplicate_coordinate_count(sampled_positions)
             if duplicate_coordinate_count > 0:
+                emit_progress(
+                    "trial_completed",
+                    "Trial rejected because of duplicate coordinates.",
+                    {
+                        "trial_number": trial.number + 1,
+                        "status": "duplicate_coordinate_rejected",
+                        "optuna_score": 0.0,
+                        "solver_invoked": False,
+                        "solver_passed": False,
+                    },
+                )
                 trial.set_user_attr("optuna_score", 0.0)
                 trial.set_user_attr("optuna_section_scores", {})
                 trial.set_user_attr("optuna_usable_layout", False)
@@ -401,6 +431,17 @@ def run_optuna_optimization(
             trial.set_user_attr("solver_passed", False)
 
             if not score_result.usable_layout:
+                emit_progress(
+                    "trial_completed",
+                    "Trial completed below solver gate.",
+                    {
+                        "trial_number": trial.number + 1,
+                        "status": "score_below_solver_gate",
+                        "optuna_score": optuna_score,
+                        "solver_invoked": False,
+                        "solver_passed": False,
+                    },
+                )
                 trial.set_user_attr("status", "score_below_solver_gate")
                 trial.set_user_attr("composite_score", optuna_score)
                 print(
@@ -465,6 +506,17 @@ def run_optuna_optimization(
                 debug_log_data(
                     run_result.fpg_score_results, tag="[Optuna] Solver Failure Result"
                 )
+                emit_progress(
+                    "trial_completed",
+                    "Trial completed without a solved layout.",
+                    {
+                        "trial_number": trial.number + 1,
+                        "status": run_result.status,
+                        "optuna_score": optuna_score,
+                        "solver_invoked": True,
+                        "solver_passed": False,
+                    },
+                )
                 trial.set_user_attr("composite_score", optuna_score)
                 print(
                     f"[Optuna] trial={trial.number} score={optuna_score:.2f} solver=FAILED composite={optuna_score:.2f}"
@@ -488,6 +540,18 @@ def run_optuna_optimization(
             trial.set_user_attr("solver_passed", solver_passed)
 
             if not solver_passed:
+                emit_progress(
+                    "trial_completed",
+                    "Trial completed but solver score did not pass the threshold.",
+                    {
+                        "trial_number": trial.number + 1,
+                        "status": run_result.status,
+                        "optuna_score": optuna_score,
+                        "solver_score": solver_score,
+                        "solver_invoked": True,
+                        "solver_passed": False,
+                    },
+                )
                 trial.set_user_attr("composite_score", optuna_score)
                 print(
                     f"[Optuna] trial={trial.number} score={optuna_score:.2f} solver={solver_score:.2f} "
@@ -502,6 +566,18 @@ def run_optuna_optimization(
 
             debug_log_data(
                 run_result.fpg_score_results, tag="[Optuna] Solver Success Result"
+            )
+            emit_progress(
+                "trial_completed",
+                "Trial produced a solver-passed layout.",
+                {
+                    "trial_number": trial.number + 1,
+                    "status": run_result.status,
+                    "optuna_score": optuna_score,
+                    "solver_score": solver_score,
+                    "solver_invoked": True,
+                    "solver_passed": True,
+                },
             )
             print(
                 f"[Optuna] trial={trial.number} score={optuna_score:.2f} solver={solver_score:.2f} "
@@ -543,7 +619,13 @@ def run_optuna_optimization(
     try:
         study.optimize(objective, n_trials=n_trials, callbacks=[optimization_callback])
     except TrialTimeoutError:
+        termination_reason = "generation_time_out"
         pass
+    else:
+        if any(bool(t.user_attrs.get("solver_passed", False)) for t in study.trials):
+            termination_reason = "success"
+        else:
+            termination_reason = "trial_count_exceeded"
 
     failed_trials = sum(1 for t in study.trials if float(t.value or 0.0) <= 0.0)
 
@@ -577,6 +659,19 @@ def run_optuna_optimization(
                 f"[Optuna] best_run missing for best_trial={best_trial_number}; falling back to best solved trial"
             )
 
+    emit_progress(
+        "optimization_completed",
+        "Optuna optimization finished.",
+        {
+            "termination_reason": termination_reason,
+            "best_trial_number": best_trial_number,
+            "best_value": best_value,
+            "completed_trials": len(study.trials),
+            "failed_trials": failed_trials,
+            "has_best_run": best_run is not None,
+        },
+    )
+
     return OptunaOptimizationResult(
         study.study_name,
         best_value,
@@ -585,6 +680,7 @@ def run_optuna_optimization(
         len(study.trials),
         failed_trials,
         best_run,
+        termination_reason,
     )
 
 

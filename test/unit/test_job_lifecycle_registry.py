@@ -48,15 +48,24 @@ class _FakeProcess:
         self._alive = False
 
 
-def _stub_worker(_kind, _payload, result_queue):
+def _stub_worker(_kind, _payload, result_queue, progress_queue):
+    progress_queue.put(
+        {
+            "event": "trial_completed",
+            "message": "trial 1 complete",
+            "data": {"trial_number": 1},
+        }
+    )
     result_queue.put({"ok": True, "result": {"status": "OK", "message": "done"}})
 
 
 def test_registry_job_completion_and_cleanup():
     _FakeProcess.behavior = "complete"
-    with patch("app.services.job_lifecycle.mp.Process", _FakeProcess), patch(
-        "app.services.job_lifecycle.mp.Queue", _FakeQueue
-    ), patch("app.services.job_lifecycle._worker_entry", _stub_worker):
+    with (
+        patch("app.services.job_lifecycle.mp.Process", _FakeProcess),
+        patch("app.services.job_lifecycle.mp.Queue", _FakeQueue),
+        patch("app.services.job_lifecycle._worker_entry", _stub_worker),
+    ):
         registry = InMemoryJobRegistry(timeout_seconds=1, cleanup_delay_seconds=1)
         submit = registry.submit_job(JobKind.FORMAT_V2, "client-A", {"a": 1})
         assert submit["accepted"] is True
@@ -67,6 +76,7 @@ def test_registry_job_completion_and_cleanup():
         assert job is not None
         assert job["status"] == JobStatus.COMPLETED.value
         assert job["result"]["status"] == "OK"
+        assert any(event["event"] == "trial_completed" for event in job["events"])
 
         time.sleep(1.2)
         assert registry.get_job(job_id) is None
@@ -74,8 +84,9 @@ def test_registry_job_completion_and_cleanup():
 
 def test_registry_rejects_second_active_job():
     _FakeProcess.behavior = "hang"
-    with patch("app.services.job_lifecycle.mp.Process", _FakeProcess), patch(
-        "app.services.job_lifecycle.mp.Queue", _FakeQueue
+    with (
+        patch("app.services.job_lifecycle.mp.Process", _FakeProcess),
+        patch("app.services.job_lifecycle.mp.Queue", _FakeQueue),
     ):
         registry = InMemoryJobRegistry(timeout_seconds=3, cleanup_delay_seconds=1)
         first = registry.submit_job(JobKind.FORMAT_V2, "client-lock", {"a": 1})
@@ -87,12 +98,17 @@ def test_registry_rejects_second_active_job():
 
 def test_registry_cancel_and_timeout_paths():
     _FakeProcess.behavior = "hang"
-    with patch("app.services.job_lifecycle.mp.Process", _FakeProcess), patch(
-        "app.services.job_lifecycle.mp.Queue", _FakeQueue
+    with (
+        patch("app.services.job_lifecycle.mp.Process", _FakeProcess),
+        patch("app.services.job_lifecycle.mp.Queue", _FakeQueue),
     ):
         # cancel path
-        registry_cancel = InMemoryJobRegistry(timeout_seconds=3, cleanup_delay_seconds=1)
-        submit_cancel = registry_cancel.submit_job(JobKind.FORMAT_V2, "client-cancel", {})
+        registry_cancel = InMemoryJobRegistry(
+            timeout_seconds=3, cleanup_delay_seconds=1
+        )
+        submit_cancel = registry_cancel.submit_job(
+            JobKind.FORMAT_V2, "client-cancel", {}
+        )
         job_id_cancel = submit_cancel["job_id"]
         cancelled = registry_cancel.cancel_job("client-cancel")
         assert cancelled["cancelled"] is True
@@ -102,8 +118,12 @@ def test_registry_cancel_and_timeout_paths():
         assert job_cancel["status"] == JobStatus.TERMINATED.value
 
         # timeout path
-        registry_timeout = InMemoryJobRegistry(timeout_seconds=1, cleanup_delay_seconds=1)
-        submit_timeout = registry_timeout.submit_job(JobKind.FORMAT_V2, "client-timeout", {})
+        registry_timeout = InMemoryJobRegistry(
+            timeout_seconds=1, cleanup_delay_seconds=1
+        )
+        submit_timeout = registry_timeout.submit_job(
+            JobKind.FORMAT_V2, "client-timeout", {}
+        )
         job_id_timeout = submit_timeout["job_id"]
         time.sleep(1.3)
         job_timeout = registry_timeout.get_job(job_id_timeout)

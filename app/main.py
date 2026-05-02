@@ -4,7 +4,7 @@ from time import perf_counter
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.responses import Response
+from starlette.responses import Response, StreamingResponse
 
 
 app = FastAPI(title="House Plan Generator API")
@@ -31,15 +31,27 @@ app.add_middleware(
 @app.middleware("http")
 async def log_api_requests(request, call_next):
     start = perf_counter()
+    # If this is an SSE client, avoid consuming or re-injecting the body
+    accept_header = request.headers.get("accept", "")
+    if "text/event-stream" in accept_header:
+        return await call_next(request)
+
     request_body = await request.body()
 
     async def receive() -> dict[str, object]:
         return {"type": "http.request", "body": request_body, "more_body": False}
 
-    request._receive = receive  # Re-inject consumed request body for downstream handlers.
+    request._receive = (
+        receive  # Re-inject consumed request body for downstream handlers.
+    )
 
     try:
         response = await call_next(request)
+        # Detect streaming SSE responses by media_type or StreamingResponse
+        media_type = getattr(response, "media_type", "")
+        if media_type == "text/event-stream" or isinstance(response, StreamingResponse):
+            return response
+
         response_body = b""
         async for chunk in response.body_iterator:
             response_body += chunk
@@ -59,6 +71,7 @@ async def log_api_requests(request, call_next):
         duration_ms = (perf_counter() - start) * 1000
         print(f"duration: {duration_ms}, Exception: {exc}")
         raise
+
 
 # Algorithm routers
 
