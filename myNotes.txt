@@ -27,3 +27,6 @@ optuna-dashboard sqlite:///optuna_fpg.db
 10 units = 1 m
 100 units = 10 m 
 
+
+
+curl.exe -N -H "Accept: text/event-stream" -H "X-Client-Id: cli-1" "<job_id>/events"

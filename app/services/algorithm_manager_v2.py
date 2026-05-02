@@ -1,8 +1,8 @@
 import contextlib
 import io
-from typing import Any, cast
-from dataclasses import asdict, is_dataclass
 import time
+from dataclasses import asdict, is_dataclass
+from typing import Any, Callable
 
 from app.algorithms.fpg_opening_v2.fpg_opening_generator import generate_fpg_openings
 from app.algorithms.fpg_post_processor.extend_walls import extend_floor_plan_walls
@@ -251,6 +251,7 @@ def run_fpg_pipeline_api(
     should_optuna_run: bool = False,
     optuna_trial_count: int = DEFAULT_OPTUNA_TRIALS,
     verbose: bool = True,
+    progress_emitter: Callable[[str, str, dict[str, Any] | None], None] | None = None,
 ) -> dict[str, Any]:
     print("\nSTART: run_fpg_pipeline_api() ------")
     SystemLogger.log_event(
@@ -259,6 +260,16 @@ def run_fpg_pipeline_api(
         level="INFO",
         data={"status": "working"},
     )
+
+    def emit_progress(
+        event: str, message: str, data: dict[str, Any] | None = None
+    ) -> None:
+        if progress_emitter is None:
+            return
+        try:
+            progress_emitter(event, message, data)
+        except Exception:
+            return
 
     try:
         # Step 1: Build requirements
@@ -293,6 +304,7 @@ def run_fpg_pipeline_api(
                     if DEFAULT_OPTUNA_STORAGE_ENABLED
                     else None
                 ),
+                progress_emitter=emit_progress,
             )
             run_result = (
                 optuna_result.best_run
@@ -303,11 +315,35 @@ def run_fpg_pipeline_api(
                     message="Optuna did not produce a best run.",
                 )
             )
+            final_event = {
+                "event": optuna_result.termination_reason,
+                "message": optuna_result.best_run.message
+                if optuna_result.best_run is not None
+                else "Optuna did not produce a best run.",
+                "data": {
+                    "termination_reason": optuna_result.termination_reason,
+                    "best_trial_number": optuna_result.best_trial_number,
+                    "best_value": optuna_result.best_value,
+                    "completed_trials": optuna_result.completed_trials,
+                    "failed_trials": optuna_result.failed_trials,
+                    "has_best_run": optuna_result.best_run is not None,
+                },
+            }
         else:
             run_result = _run_single_fpg_solve(
                 requirements=requirements,
                 verbose=verbose,
             )
+            final_event = {
+                "event": "generation_success"
+                if run_result.solved
+                else "generation_failed",
+                "message": run_result.message,
+                "data": {
+                    "status": run_result.status,
+                    "solved": run_result.solved,
+                },
+            }
 
         # Plot the final solver result via public plotter API before payload construction
         try:
@@ -344,11 +380,17 @@ def run_fpg_pipeline_api(
                 print(f"Error serializing union_results: {e}")
                 union_results_dict = None
 
-        return {
+        payload = {
             "status": run_result.status,
             "message": run_result.message,
             "union_results": union_results_dict,
         }
+        emit_progress(
+            final_event["event"],
+            final_event["message"],
+            {**final_event["data"], "result": payload},
+        )
+        return payload
 
     except Exception as exc:
         error_message = f"Failed to generate layout: {exc}"

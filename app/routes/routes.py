@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from typing import Any
+import json
 
 from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.services.job_lifecycle import JobKind, job_registry
+from app.services.job_lifecycle import JobKind, JobStatus, job_registry
 from app.schemas.db.room_setup_template import RoomSetupTemplateBase
 
 
@@ -107,6 +109,72 @@ def get_active_job(
     if payload is None:
         raise HTTPException(status_code=404, detail="No active job found.")
     return JobStateResponse(**payload)
+
+
+def _format_sse_event(event: dict[str, Any]) -> str:
+    parts = [f"id: {event.get('id', 0)}", f"event: {event.get('event', 'message')}"]
+    data_payload = {
+        "id": event.get("id"),
+        "event": event.get("event"),
+        "message": event.get("message"),
+        "timestamp": event.get("timestamp"),
+        "data": event.get("data", {}),
+    }
+    parts.append(f"data: {json.dumps(data_payload, ensure_ascii=False, default=str)}")
+    return "\n".join(parts) + "\n\n"
+
+
+@router.get("/job/{job_id}/events")
+def stream_job_events(
+    job_id: str,
+    last_event_id: int | None = None,
+    x_client_id: str | None = Header(default=None),
+    last_event_id_header: str | None = Header(default=None, alias="Last-Event-ID"),
+):
+    def _parse_last_event_id() -> int:
+        for value in (last_event_id_header, last_event_id):
+            if value is None:
+                continue
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                continue
+        return 0
+
+    def event_stream():
+        current_last_id = _parse_last_event_id()
+        initial_events = job_registry.get_job_events_since(job_id, current_last_id)
+        for event in initial_events:
+            current_last_id = int(event.get("id", current_last_id))
+            yield _format_sse_event(event)
+
+        while True:
+            payload = job_registry.get_job(job_id)
+            if payload is None:
+                yield 'event: job_missing\ndata: {"message": "Job not found."}\n\n'
+                return
+
+            for event in job_registry.wait_for_job_events(
+                job_id, current_last_id, timeout=10.0
+            ):
+                current_last_id = int(event.get("id", current_last_id))
+                yield _format_sse_event(event)
+
+            payload = job_registry.get_job(job_id)
+            if payload is None:
+                yield 'event: job_missing\ndata: {"message": "Job not found."}\n\n'
+                return
+
+            if payload["status"] != JobStatus.SEARCHING.value:
+                return
+
+            yield ": keepalive\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+    )
 
 
 @router.get("/job/{job_id}", response_model=JobStateResponse)

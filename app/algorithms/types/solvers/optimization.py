@@ -27,3 +27,4 @@ class OptunaOptimizationResult:
     completed_trials: int = 0
     failed_trials: int = 0
     best_run: FpgEvaluationResult | None = None
+    termination_reason: str = "completed"
