@@ -50,7 +50,7 @@ ROOM_EXPANSION_CONFIG = {
         "MAX_ROOMS_TO_EXPAND": 3,
         "MAX_SELECTIONS": 3,
         "EXPANSION_PERCENTAGE": 0.50,
-        "EXPANSION_MAX_DISTANCE": 10,
+        "EXPANSION_MAX_DISTANCE": 2,
     },
     "bedroom": {
         "MIN_WALL_LENGTH": 10,
