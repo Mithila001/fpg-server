@@ -20,6 +20,7 @@ class JobSubmitResponse(BaseModel):
 class FormatterV2ApiRequest(BaseModel):
     floor_width: float
     floor_height: float
+    aspect_ratio: float
     room_template: RoomSetupTemplateBase
     should_optuna_run: bool = False
     optuna_trial_count: int = 20

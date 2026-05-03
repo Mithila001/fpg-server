@@ -51,6 +51,7 @@ def _validate_mandatory_room_types(room_template: RoomSetupTemplateBase) -> None
 def build_requirements(
     floor_width: float,
     floor_height: float,
+    aspect_ratio: float,
     room_template: RoomSetupTemplateBase,
 ) -> FpgRequirements:
     """Build FpgRequirements from template, loading and pruning server-side constraints.
@@ -60,8 +61,11 @@ def build_requirements(
     """
     # print parameter values for debugging
     print(
-        f"\n\nBuilding requirements with floor_width: {floor_width}, floor_height: {floor_height}, room_template: {room_template}"
+        f"\n\nBuilding requirements with floor_width: {floor_width}, floor_height: {floor_height}, aspect_ratio: {aspect_ratio}, room_template: {room_template}"
     )
+
+    if not (1.1 <= aspect_ratio <= 1.2):
+        raise ValueError("aspect_ratio must be between 1.1 and 1.2 (inclusive).")
 
     _validate_mandatory_room_types(room_template)
 
@@ -78,6 +82,7 @@ def build_requirements(
         floor_height=floor_height,
         room_template_data=room_template.data,
         size_constraints=size_constraints,
+        aspect_ratio=aspect_ratio,
         buffer=MIN_FLOOR_AREA_BUFFER,
     )
 
@@ -122,10 +127,11 @@ def _calculate_suitable_floor_dimensions(
     floor_height: float,
     room_template_data: List[dict],
     size_constraints: List[RoomSizeConstraint],  # RoomSizeConstraint
+    aspect_ratio: float,
     buffer: float,
 ) -> Tuple[float, float]:
     """
-    Calculates the largest rectangle with a 10:16 aspect ratio that fits
+    Calculates the largest rectangle for the provided aspect ratio that fits
     within the original floor dimensions and falls within the min/max area range.
     """
 
@@ -135,28 +141,56 @@ def _calculate_suitable_floor_dimensions(
     # 1. Calculate area boundaries
     total_min_area = 0.0
     total_max_area = 0.0
-    constraint_map = {c.type: c for c in size_constraints}
+    constraints_by_type_size: dict[tuple[str, str], RoomSizeConstraint] = {}
+    available_sizes_by_type: dict[str, set[str]] = {}
+    for constraint in size_constraints:
+        room_type = str(constraint.type or "").strip()
+        size_label = str(constraint.size or "").strip()
+        if not room_type or not size_label:
+            continue
+        constraints_by_type_size[(room_type, size_label)] = constraint
+        if room_type not in available_sizes_by_type:
+            available_sizes_by_type[room_type] = set()
+        available_sizes_by_type[room_type].add(size_label)
 
     for room in room_template_data:
         r_type = str(room.get("type") or "").strip()
-        constraint = constraint_map.get(r_type)
+        r_size = str(room.get("size") or "").strip()
+
+        if not r_size:
+            room_id = str(room.get("id") or room.get("name") or "unknown")
+            raise ValueError(
+                f"Room '{room_id}' of type '{r_type}' is missing required 'size'."
+            )
+
+        constraint = constraints_by_type_size.get((r_type, r_size))
         if not constraint:
+            available_sizes = sorted(available_sizes_by_type.get(r_type, set()))
+            if available_sizes:
+                raise ValueError(
+                    f"Missing size constraints for room type '{r_type}' with size '{r_size}'. "
+                    f"Available sizes: {', '.join(available_sizes)}"
+                )
             raise ValueError(f"Missing size constraints for room type: '{r_type}'")
 
-        total_min_area += constraint.min_area or 0.0
-        total_max_area += constraint.max_area or 0.0
+        if constraint.min_area is None or constraint.max_area is None:
+            raise ValueError(
+                f"Missing area constraints for room type '{r_type}' with size '{r_size}'"
+            )
+
+        total_min_area += float(constraint.min_area)
+        total_max_area += float(constraint.max_area)
 
     required_min_total = total_min_area + buffer
     required_max_total = total_max_area + buffer
 
-    # 2. Geometric Logic for 10:16 (W:H)
-    # Ratio is 10/16 = 0.625. So H = W / 0.625  OR  H = W * 1.6
-    ratio_factor = 1.6
+    # 2. Geometric logic with user-provided ratio: H = W * aspect_ratio
+    ratio_factor = aspect_ratio
 
     # We need to find the maximum Width (W) such that:
     #   1. W <= floor_width
-    #   2. W * 1.6 <= floor_height  =>  W <= floor_height / 1.6
-    #   3. W * (W * 1.6) <= max_area =>  W <= sqrt(max_area / 1.6)
+    #   2. W * ratio <= floor_height  =>  W <= floor_height / ratio
+    #   3. W * (W * ratio) <= max_area =>  W <= sqrt(max_area / ratio)
 
     limit_by_width = floor_width
     limit_by_height = floor_height / ratio_factor
@@ -173,12 +207,13 @@ def _calculate_suitable_floor_dimensions(
         # If the largest possible 10:16 rectangle is still smaller than the minimum area,
         # it means the building is too small or the ratio is too restrictive for these rooms.
         raise ValueError(
-            f"Constraint Conflict: The largest 10:16 rectangle that fits the building "
+            f"Constraint Conflict: The largest rectangle for aspect_ratio={ratio_factor:.2f} that fits the building "
             f"({calculated_area:.2f}) is smaller than the required minimum area ({required_min_total:.2f})."
         )
 
-    print("--- Final 10:16 Floor Dimensions Picked ---")
+    print("--- Final Aspect-Ratio Floor Dimensions Picked ---")
     print(f"Target Area Range: {required_min_total:.2f} - {required_max_total:.2f}")
+    print(f"Aspect Ratio (H/W): {ratio_factor:.2f}")
     print(f"Resulting Width: {best_w:.2f}, Height: {best_h:.2f}")
     print(f"Resulting Area: {calculated_area:.2f}")
     print("-------------------------------------------")

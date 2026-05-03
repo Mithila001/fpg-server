@@ -7,17 +7,18 @@ Content-Type: application/json
 {
 	"floor_width": 150,
 	"floor_height": 150,
+	"aspect_ratio": 1.1,
 	"room_template": {
 		"name": "Standard 2BHK Layout",
 		"data": [
-			{ "id": "bedroom1", "type": "bedroom" },
-			{ "id": "bedroom2", "type": "bedroom" },
-			{ "id": "bathroom1", "type": "bathroom" },
-			{ "id": "kitchen1", "type": "kitchen" },
-			{ "id": "attachedBathroom1", "type": "attachedBathroom" },
-			{ "id": "veranda1", "type": "veranda" },
-			{ "id": "garage1", "type": "garage" },
-			{ "id": "diningRoom1", "type": "diningRoom" }
+			{ "id": "bedroom1", "type": "bedroom", "size": "regular" },
+			{ "id": "bedroom2", "type": "bedroom", "size": "regular" },
+			{ "id": "bathroom1", "type": "bathroom", "size": "regular" },
+			{ "id": "kitchen1", "type": "kitchen", "size": "regular" },
+			{ "id": "attachedBathroom1", "type": "attachedBathroom", "size": "regular" },
+			{ "id": "veranda1", "type": "veranda", "size": "regular" },
+			{ "id": "garage1", "type": "garage", "size": "regular" },
+			{ "id": "diningRoom1", "type": "diningRoom", "size": "regular" }
 			
 		]
 	},

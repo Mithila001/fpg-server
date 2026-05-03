@@ -8,6 +8,8 @@
 
 - Bathroom - Hallway connection is not there
 
+- Room Sizing type is not working - probably because of living room or hallway sizing constrains
+
 # Keep in Check
 
 - The Optuna Sampling Radius is unnecessary.

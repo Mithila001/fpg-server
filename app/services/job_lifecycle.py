@@ -47,9 +47,11 @@ def _run_format_job(
     )
     floored_width = floor_values(converter_cm_to_unit(request_payload["floor_width"]))
     floored_height = floor_values(converter_cm_to_unit(request_payload["floor_height"]))
+    aspect_ratio = request_payload["aspect_ratio"]
     payload = run_fpg_pipeline_api(
         floor_width=floored_width,
         floor_height=floored_height,
+        aspect_ratio=aspect_ratio,
         room_template=room_template,
         should_optuna_run=request_payload.get("should_optuna_run", False),
         optuna_trial_count=request_payload.get("optuna_trial_count", 20),

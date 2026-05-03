@@ -12,6 +12,7 @@ def build_rooms_from_template(template: RoomSetupTemplateBase) -> list[RoomData]
     rooms: list[RoomData] = []
     for entry in template.data:
         room_type = entry.get("type", "")
+        room_size = entry.get("size")
         room_name = entry.get("name") or entry.get("id") or room_type
         rooms.append(
             RoomData(
@@ -21,6 +22,7 @@ def build_rooms_from_template(template: RoomSetupTemplateBase) -> list[RoomData]
                 min_h=DEFAULT_MIN_H,
                 max_w=DEFAULT_MAX_W,
                 max_h=DEFAULT_MAX_H,
+                size=room_size,
             )
         )
     return rooms

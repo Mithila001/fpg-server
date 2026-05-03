@@ -104,6 +104,7 @@ def test_submit_endpoints_and_lockout(monkeypatch):
     format_payload = {
         "floor_width": 1200,
         "floor_height": 1000,
+        "aspect_ratio": 1.1,
         "room_template": {
             "name": "basic-template",
             "data": [],

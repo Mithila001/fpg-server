@@ -247,6 +247,7 @@ def run_solver_with_hints(
 def run_fpg_pipeline_api(
     floor_width: int,
     floor_height: int,
+    aspect_ratio: float,
     room_template: RoomSetupTemplateBase,
     should_optuna_run: bool = False,
     optuna_trial_count: int = DEFAULT_OPTUNA_TRIALS,
@@ -276,6 +277,7 @@ def run_fpg_pipeline_api(
         requirements = build_requirements(
             floor_width=floor_width,
             floor_height=floor_height,
+            aspect_ratio=aspect_ratio,
             room_template=room_template,
         )
         debug_log_data(requirements, "INITIAL_REQUIREMENTS")
