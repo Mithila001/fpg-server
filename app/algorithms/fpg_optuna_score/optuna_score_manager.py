@@ -46,6 +46,9 @@ def score_optuna_layout(
         f"\nClearance Score: {clearance_result.score:.1f}/{clearance_result.max_score}\n"
     )
     relation_result = score_room_relations(requirements, room_points)
+    print(
+        f"\nRoom Relations Score: {relation_result.score:.1f}/{relation_result.max_score}\n"
+    )
     section_scores = {
         "floor_plan_zones": zone_result.score,
         "outer_clearance": clearance_result.score,

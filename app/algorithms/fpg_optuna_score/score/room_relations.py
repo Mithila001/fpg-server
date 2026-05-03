@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import math
+from collections import defaultdict
 from dataclasses import dataclass
-from math import hypot
 from typing import Any
 
 import networkx as nx
@@ -23,8 +24,12 @@ from ..util.scoring_common import (
     normalize_section_score,
     room_types_by_name,
 )
+from app.core.fpg_rooms.config_fpg import OPTUNA_SCORING_VALUES
 
-ROOM_RELATIONS_MAX_SCORE = 40.0
+# Updated per your instructions
+ROOM_RELATIONS_MAX_SCORE = float(
+    OPTUNA_SCORING_VALUES.get("optuna_score_relations", 0.0)
+)
 ROOM_PATHING_MAX_SCORE = 30.0
 HALLWAY_PRIVACY_MAX_SCORE = 10.0
 DEBUG_VERBOSE = False  # Toggle this to False to silence terminal debug logs
@@ -56,6 +61,7 @@ class RelationPathCandidate:
     end_name: str
     path: list[str]
     cost: float
+    turn_penalty: float
 
 
 def _relation_weight(
@@ -64,14 +70,69 @@ def _relation_weight(
     target: str,
     room_points: dict[str, OptunaScorePoint],
 ) -> float:
-    source_point = room_points[source]
-    target_point = room_points[target]
-    distance = hypot(source_point.x - target_point.x, source_point.y - target_point.y)
+    p1, p2 = room_points[source], room_points[target]
+    distance = math.hypot(p1.x - p2.x, p1.y - p2.y)
     return distance + (distance * edge_cost)
+
+
+def _get_turn_penalty(
+    path: list[str], room_points: dict[str, OptunaScorePoint]
+) -> float:
+    """
+    Calculates the average turn penalty across a given path.
+    A penalty is applied if a path direction change at any node exceeds 120 degrees.
+    Max turn is 180 degrees (which yields a 100% penalty for that junction).
+    """
+    num_junctions = len(path) - 2
+    if num_junctions <= 0:
+        return 0.0
+
+    total_penalty = 0.0
+
+    for i in range(num_junctions):
+        p1 = room_points[path[i]]
+        p2 = room_points[path[i + 1]]
+        p3 = room_points[path[i + 2]]
+
+        # Direction vectors
+        v1_x, v1_y = p2.x - p1.x, p2.y - p1.y
+        v2_x, v2_y = p3.x - p2.x, p3.y - p2.y
+
+        angle1 = math.degrees(math.atan2(v1_y, v1_x))
+        angle2 = math.degrees(math.atan2(v2_y, v2_x))
+
+        # Shortest angle difference
+        turn_angle = abs(angle2 - angle1)
+        if turn_angle > 180:
+            turn_angle = 360 - turn_angle
+
+        if turn_angle > 120:
+            # Scale the excess over 120 relative to the 60-degree remaining range (180 - 120)
+            junction_penalty = (turn_angle - 120) / 60.0
+            total_penalty += junction_penalty
+
+    return total_penalty / num_junctions
+
+
+def _add_graph_edge(
+    graph: nx.Graph,
+    u: OptunaScorePoint,
+    v: OptunaScorePoint,
+    cost: float,
+    relation_name: str,
+) -> None:
+    graph.add_edge(
+        u.name,
+        v.name,
+        relation_cost=cost,
+        edge_distance=math.hypot(u.x - v.x, u.y - v.y),
+        relation=relation_name,
+    )
 
 
 def _build_graph(room_points: list[OptunaScorePoint]) -> nx.Graph:
     graph = nx.Graph()
+    rooms_by_type = defaultdict(list)
 
     for point in room_points:
         graph.add_node(
@@ -81,109 +142,62 @@ def _build_graph(room_points: list[OptunaScorePoint]) -> nx.Graph:
             x=point.x,
             y=point.y,
         )
+        rooms_by_type[point.room_type].append(point)
 
     for relation in RELATION_RULES:
         room_a, room_b = relation["rooms"]
         cost = float(relation["cost"])
 
+        # Attached bathroom special edge case
         if room_a == ROOM_TYPE_BEDROOM and room_b == "attachedBathroom":
-            bedrooms = [
-                point for point in room_points if point.room_type == ROOM_TYPE_BEDROOM
-            ]
-            attached_bathrooms = [
-                point for point in room_points if point.room_type == "attachedBathroom"
-            ]
-            if not bedrooms:
-                log_critical_graph_scoring(
-                    "Missing bedroom node for attachedBathroom relation"
-                )
-                continue
-            for bath in attached_bathrooms:
+            bedrooms = rooms_by_type[ROOM_TYPE_BEDROOM]
+            for bath in rooms_by_type["attachedBathroom"]:
+                if not bedrooms:
+                    log_critical_graph_scoring(
+                        "Missing bedroom node for attachedBathroom relation"
+                    )
+                    continue
                 closest_bedroom = min(
                     bedrooms,
-                    key=lambda bedroom: hypot(bedroom.x - bath.x, bedroom.y - bath.y),
+                    key=lambda b: math.hypot(b.x - bath.x, b.y - bath.y),
                 )
-                graph.add_edge(
-                    bath.name,
-                    closest_bedroom.name,
-                    relation_cost=cost,
-                    edge_distance=hypot(
-                        closest_bedroom.x - bath.x,
-                        closest_bedroom.y - bath.y,
-                    ),
-                    relation=f"{room_a}-{room_b}",
+                _add_graph_edge(
+                    graph, bath, closest_bedroom, cost, f"{room_a}-{room_b}"
                 )
             continue
 
-        left_nodes = [point for point in room_points if point.room_type == room_a]
-        right_nodes = [point for point in room_points if point.room_type == room_b]
-        if not left_nodes or not right_nodes:
+        # Standard relation mapping
+        nodes_a = rooms_by_type[room_a]
+        nodes_b = rooms_by_type[room_b]
+
+        if not nodes_a or not nodes_b:
             log_critical_graph_scoring(
                 f"Missing relation node(s) for {room_a} <-> {room_b}"
             )
             continue
 
-        for left_node in left_nodes:
-            for right_node in right_nodes:
-                graph.add_edge(
-                    left_node.name,
-                    right_node.name,
-                    relation_cost=cost,
-                    edge_distance=hypot(
-                        left_node.x - right_node.x,
-                        left_node.y - right_node.y,
-                    ),
-                    relation=f"{room_a}-{room_b}",
+        for na in nodes_a:
+            for nb in nodes_b:
+                _add_graph_edge(graph, na, nb, cost, f"{room_a}-{room_b}")
+
+    # Process Hallways connects universally
+    connectable_types = {
+        ROOM_TYPE_LIVING_ROOM,
+        ROOM_TYPE_BATHROOM,
+        ROOM_TYPE_DINING_ROOM,
+        ROOM_TYPE_KITCHEN,
+        ROOM_TYPE_BEDROOM,
+        ROOM_TYPE_HALLWAY,
+        "garage",
+    }
+    for hw in rooms_by_type[ROOM_TYPE_HALLWAY]:
+        for other in room_points:
+            if other.name != hw.name and other.room_type in connectable_types:
+                _add_graph_edge(
+                    graph, hw, other, 1.0, f"{hw.room_type}-{other.room_type}"
                 )
 
-    hallways = [p for p in room_points if p.room_type == ROOM_TYPE_HALLWAY]
-    if hallways:
-        connectable_types = {
-            ROOM_TYPE_LIVING_ROOM,
-            ROOM_TYPE_BATHROOM,
-            ROOM_TYPE_DINING_ROOM,
-            ROOM_TYPE_KITCHEN,
-            ROOM_TYPE_BEDROOM,
-            "garage",
-        }
-        for hw in hallways:
-            for other in room_points:
-                if other.name == hw.name:
-                    continue
-                if (
-                    other.room_type in connectable_types
-                    or other.room_type == ROOM_TYPE_HALLWAY
-                ):
-                    graph.add_edge(
-                        hw.name,
-                        other.name,
-                        relation_cost=1.0,
-                        edge_distance=hypot(hw.x - other.x, hw.y - other.y),
-                        relation=f"{hw.room_type}-{other.room_type}",
-                    )
-
     return graph
-
-
-def _path_cost(
-    graph: nx.Graph,
-    path: list[str],
-    room_points: dict[str, OptunaScorePoint],
-) -> float:
-    total_cost = 0.0
-    for source, target in zip(path[:-1], path[1:]):
-        edge_data = graph.get_edge_data(source, target)
-        if not edge_data:
-            continue
-        relation_cost = float(edge_data.get("relation_cost", 1.0))
-        total_cost += _relation_weight(relation_cost, source, target, room_points)
-    return total_cost
-
-
-def _match_nodes(
-    room_points: list[OptunaScorePoint], room_type: str
-) -> list[OptunaScorePoint]:
-    return [point for point in room_points if point.room_type == room_type]
 
 
 def score_room_relations(
@@ -194,23 +208,18 @@ def score_room_relations(
     graph = _build_graph(room_points)
     point_by_name = {point.name: point for point in room_points}
 
-    # 1. Identify which room types are actually present in the generated points
     present_room_types = {point.room_type for point in room_points}
-
-    # 2. Filter PATH_QUERIES to only include pairs where both rooms exist
     valid_queries = [
         query
         for query in PATH_QUERIES
         if query["start"] in present_room_types and query["end"] in present_room_types
     ]
 
-    # 3. Calculate weight based on valid queries only
     num_valid = len(valid_queries)
     query_weight = ROOM_PATHING_MAX_SCORE / max(1, num_valid) if num_valid > 0 else 0.0
-
     max_cost = max(
         1.0,
-        hypot(
+        math.hypot(
             float(requirements.config.floor_plan_width),
             float(requirements.config.floor_plan_height),
         )
@@ -220,23 +229,18 @@ def score_room_relations(
     pathing_score = 0.0
     warnings: list[str] = []
     path_summaries: list[dict[str, Any]] = []
+    debug_reasons: list[str] = []
 
-    # Track hallway crossing data
     hallway_crossing_data = {
         hw.name: {"public": 0, "private": 0, "queries": []}
         for hw in room_points
         if hw.room_type == ROOM_TYPE_HALLWAY
     }
 
-    # We will accumulate debug reasons here
-    debug_reasons: list[str] = []
-
-    # 4. Iterate only over valid queries
     for query in valid_queries:
-        start_type = query["start"]
-        end_type = query["end"]
-        start_nodes = _match_nodes(room_points, start_type)
-        end_nodes = _match_nodes(room_points, end_type)
+        start_type, end_type = query["start"], query["end"]
+        start_nodes = [p for p in room_points if p.room_type == start_type]
+        end_nodes = [p for p in room_points if p.room_type == end_type]
 
         candidates: list[RelationPathCandidate] = []
         for start_node in start_nodes:
@@ -248,28 +252,35 @@ def score_room_relations(
                         graph,
                         source=start_node.name,
                         target=end_node.name,
-                        weight=lambda source, target, data: _relation_weight(
-                            float(data.get("relation_cost", 1.0)),
-                            source,
-                            target,
-                            point_by_name,
+                        weight=lambda s, t, d: _relation_weight(
+                            float(d.get("relation_cost", 1.0)), s, t, point_by_name
                         ),
                     )
                 except (nx.NetworkXNoPath, nx.NodeNotFound):
                     continue
+
+                path_cost = sum(
+                    _relation_weight(
+                        float(graph.get_edge_data(s, t).get("relation_cost", 1.0)),
+                        s,
+                        t,
+                        point_by_name,
+                    )
+                    for s, t in zip(path[:-1], path[1:])
+                )
 
                 candidates.append(
                     RelationPathCandidate(
                         start_name=start_node.name,
                         end_name=end_node.name,
                         path=path,
-                        cost=_path_cost(graph, path, point_by_name),
+                        cost=path_cost,
+                        turn_penalty=_get_turn_penalty(path, point_by_name),
                     )
                 )
 
         if not candidates:
-            log_msg = f"No path found for {start_type} -> {end_type}"
-            log_critical_graph_scoring(log_msg)
+            log_critical_graph_scoring(f"No path found for {start_type} -> {end_type}")
             debug_reasons.append(
                 f"Zero points for {start_type} -> {end_type}: No routable path found in graph."
             )
@@ -284,21 +295,31 @@ def score_room_relations(
             )
             continue
 
-        best_candidate = min(candidates, key=lambda item: item.cost)
-        pair_score = query_weight * max(0.0, 1.0 - (best_candidate.cost / max_cost))
+        best_candidate = min(candidates, key=lambda c: c.cost)
+
+        # Base Path Cost Score
+        base_pair_score = query_weight * max(
+            0.0, 1.0 - (best_candidate.cost / max_cost)
+        )
+
+        # Apply Angle Turn Penalty Scaling
+        pair_score = base_pair_score * (1.0 - best_candidate.turn_penalty)
         pathing_score += pair_score
 
-        # Track which hallways were crossed
         for node_name in best_candidate.path:
             if node_name in hallway_crossing_data:
                 hallway_crossing_data[node_name][query["type"]] += 1
                 hallway_crossing_data[node_name]["queries"].append(query)
 
-        # Track if we lost points due to high path cost
-        if pair_score < query_weight:
+        if base_pair_score < query_weight:
             debug_reasons.append(
                 f"Lost points on {start_type} -> {end_type}: Best path cost is {best_candidate.cost:.2f} "
-                f"(Max threshold: {max_cost:.2f}). Scored {pair_score:.2f}/{query_weight:.2f}."
+                f"(Max threshold: {max_cost:.2f}). Base Scored {base_pair_score:.2f}/{query_weight:.2f}."
+            )
+        if best_candidate.turn_penalty > 0:
+            debug_reasons.append(
+                f"Turn penalty on {start_type} -> {end_type}: Reduced score by {best_candidate.turn_penalty * 100:.1f}% "
+                f"due to sharp directional changes."
             )
 
         path_summaries.append(
@@ -313,10 +334,7 @@ def score_room_relations(
             }
         )
 
-    # Hallway privacy score calculation
-    hallways = [p for p in room_points if p.room_type == ROOM_TYPE_HALLWAY]
-    hallway_privacy_score = 0.0
-
+    # Hallway privacy scoring
     crossed_hallways = [
         hw_name
         for hw_name, data in hallway_crossing_data.items()
@@ -328,26 +346,19 @@ def score_room_relations(
         if (data["public"] + data["private"]) == 0
     ]
 
-    if len(hallways) == 0:
+    if not hallway_crossing_data or not crossed_hallways:
         hallway_privacy_score = HALLWAY_PRIVACY_MAX_SCORE
     else:
-        if len(crossed_hallways) > 0:
-            total_hw_score = 0.0
-            for hw_name in crossed_hallways:
-                pub = hallway_crossing_data[hw_name]["public"]
-                priv = hallway_crossing_data[hw_name]["private"]
-                total = pub + priv
+        total_hw_score = 0.0
+        for hw_name in crossed_hallways:
+            pub = hallway_crossing_data[hw_name]["public"]
+            priv = hallway_crossing_data[hw_name]["private"]
+            total = pub + priv
+            total_hw_score += 1.0 if total == 1 else abs(pub - priv) / total
 
-                if total == 1:
-                    total_hw_score += 1.0
-                else:
-                    hw_score = abs(pub - priv) / total
-                    total_hw_score += hw_score
-
-            avg_hw_score = total_hw_score / len(crossed_hallways)
-            hallway_privacy_score = avg_hw_score * HALLWAY_PRIVACY_MAX_SCORE
-        else:
-            hallway_privacy_score = HALLWAY_PRIVACY_MAX_SCORE
+        hallway_privacy_score = (
+            total_hw_score / len(crossed_hallways)
+        ) * HALLWAY_PRIVACY_MAX_SCORE
 
     total_score = pathing_score + hallway_privacy_score
     normalized = normalize_section_score(total_score, ROOM_RELATIONS_MAX_SCORE)
@@ -357,10 +368,9 @@ def score_room_relations(
             f"Scored {num_valid}/{len(PATH_QUERIES)} possible relations based on present room types."
         )
         debug_reasons.append(
-            f"Missing required rooms. Only evaluating {num_valid} out of {len(PATH_QUERIES)} path queries."
+            f"Missing required rooms. Only evaluating {num_valid} out of {len(PATH_QUERIES)} queries."
         )
 
-    # --- ADDED DEBUG LOGGING HERE ---
     if DEBUG_VERBOSE and normalized < ROOM_RELATIONS_MAX_SCORE:
         print(
             f"\n[DEBUG_VERBOSE] ROOM RELATIONS SCORE FAIL: {normalized:.2f} / {ROOM_RELATIONS_MAX_SCORE:.2f}"
@@ -368,13 +378,11 @@ def score_room_relations(
         print("[DEBUG_VERBOSE] Causes for point deductions:")
         if not debug_reasons:
             print(
-                "  - Unknown deduction cause (Check `normalize_section_score` or graph missing elements)"
+                "  - Unknown deduction cause (Check `normalize_section_score` or missing elements)"
             )
         for reason in debug_reasons:
             print(f"  - {reason}")
-    # --------------------------------
-    # print(f"FUNC: Hallway Crossing Data: {hallway_crossing_data}")
-    # print(f"FUNC: Uncrossed Hallways: {[hw.name for hw in uncrossed_hallway_points]}")
+
     return SectionScore(
         score=normalized,
         max_score=ROOM_RELATIONS_MAX_SCORE,

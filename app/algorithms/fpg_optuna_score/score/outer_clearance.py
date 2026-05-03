@@ -135,7 +135,7 @@ def score_outer_clearance(
             received_score_total += score
 
     # 3. Fetch max score dynamically from project config
-    max_section_score = float(OPTUNA_SCORING_VALUES.get("optuna_score_clearance", 20.0))
+    max_section_score = float(OPTUNA_SCORING_VALUES.get("optuna_score_clearance", 0))
 
     # 4. Handle edge case: No rooms matched any evaluation gates
     if evaluated_count == 0:
