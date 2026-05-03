@@ -10,30 +10,17 @@ from ..util.scoring_common import (
     OptunaScorePoint,
     SectionScore,
     normalize_section_score,
-    room_type_counts,
 )
+
+from app.core.fpg_rooms.config_fpg import OPTUNA_SCORING_VALUES
 
 # --- DEBUG CONTROL ---
 DEBUG_VERBOSE = False  # Set to False to silence debug prints
 # ---------------------
 
-# Change this value to automatically scale the entire section's scoring
-OUTER_CLEARANCE_MAX_SCORE = 20
-
-# Dynamically calculate weights based on the max score.
-# The total score is divided into 3 equal parts for Veranda, Garage, and Service.
-_BASE_WEIGHT = OUTER_CLEARANCE_MAX_SCORE / 3.0
-
-CLEARANCE_TYPE_WEIGHTS: dict[str, float] = {
-    ROOM_TYPE_VERANDA: _BASE_WEIGHT,
-    ROOM_TYPE_GARAGE: _BASE_WEIGHT,
-}
-
-SERVICE_CLEARANCE_WEIGHT = _BASE_WEIGHT
-HALLWAY_SCORE_FACTOR = 0.7  # Awards 70% of the SERVICE_CLEARANCE_WEIGHT if hallway is used instead of kitchen
-
 
 def _clearance_box(x: float, y: float, side: str) -> tuple[float, float, float, float]:
+    """Helper to determine the bounding box for clearance checks."""
     if side == "back":
         return x - 10.0, y, x + 10.0, y + 20.0
     if side == "front":
@@ -48,6 +35,7 @@ def _clearance_box(x: float, y: float, side: str) -> tuple[float, float, float, 
 def _box_is_clear(
     room: OptunaScorePoint, side: str, room_points: list[OptunaScorePoint]
 ) -> tuple[bool, list[str]]:
+    """Helper to check if a specific side of a room is clear of other rooms."""
     min_x, min_y, max_x, max_y = _clearance_box(room.x, room.y, side)
     blockers = [
         other.name
@@ -59,124 +47,126 @@ def _box_is_clear(
     return len(blockers) == 0, blockers
 
 
-def score_outer_clearance(
-    requirements: FpgRequirements, room_points: list[OptunaScorePoint]
-) -> SectionScore:
-    required_room_types = {req.type for req in requirements.rooms}
-    print("\n--- Scoring Outer Clearance ---\n")
+def _evaluate_veranda(room_points: list[OptunaScorePoint]) -> tuple[float, bool]:
+    """Evaluates Veranda clearance. Returns (score_out_of_100, is_evaluated)"""
+    verandas = [r for r in room_points if r.room_type == ROOM_TYPE_VERANDA]
 
-    # 1. Dynamic Max Calculation
-    dynamic_max_score = sum(
-        w for t, w in CLEARANCE_TYPE_WEIGHTS.items() if t in required_room_types
-    )
-    has_service_req = (
-        ROOM_TYPE_KITCHEN in required_room_types
-        or ROOM_TYPE_HALLWAY in required_room_types
-    )
-    if has_service_req:
-        dynamic_max_score += SERVICE_CLEARANCE_WEIGHT
+    # Safety Gate
+    if not verandas:
+        return 0.0, False
 
-    if dynamic_max_score <= 0:
-        return SectionScore(
-            score=0.0,
-            max_score=0.0,
-            details={"note": "No clearance rooms"},
-            warnings=[],
-        )
+    total_score = 0.0
+    for v in verandas:
+        passed, _ = _box_is_clear(v, "front", room_points)
+        if passed:
+            total_score += 100.0
 
-    raw_score = 0.0
-    lost_points_report = []
-    room_details: dict[str, Any] = {}
-    counts = room_type_counts(room_points)
+    # Average score if there are multiple verandas
+    return total_score / len(verandas), True
 
-    # 2. Independent Rooms
-    for room in room_points:
-        if room.room_type in CLEARANCE_TYPE_WEIGHTS:
-            alloc = max(1, int(counts.get(room.room_type, 1)))
-            weight = CLEARANCE_TYPE_WEIGHTS[room.room_type] / alloc
-            passed, blockers = _box_is_clear(room, "front", room_points)
 
-            val = weight if passed else 0.0
-            raw_score += val
-            if not passed:
-                lost_points_report.append(
-                    f"[-] {room.name} ({room.room_type}): -{weight:.2f} pts. Blocked by: {blockers}"
-                )
+def _evaluate_garage(room_points: list[OptunaScorePoint]) -> tuple[float, bool]:
+    """Evaluates Garage clearance. Returns (score_out_of_100, is_evaluated)"""
+    garages = [r for r in room_points if r.room_type == ROOM_TYPE_GARAGE]
 
-            room_details[room.name] = {
-                "type": room.room_type,
-                "passed": passed,
-                "awarded": val,
-            }
+    # Safety Gate
+    if not garages:
+        return 0.0, False
 
-    # 3. Priority Service Clearance
-    service_awarded = 0.0
+    total_score = 0.0
+    for g in garages:
+        passed, _ = _box_is_clear(g, "front", room_points)
+        if passed:
+            total_score += 100.0
+
+    # Average score if there are multiple garages
+    return total_score / len(garages), True
+
+
+def _evaluate_back_opening(room_points: list[OptunaScorePoint]) -> tuple[float, bool]:
+    """
+    Evaluates back clearance. Prioritizes Kitchen (100 pts).
+    Falls back to Hallway for partial credit (70 pts).
+    Returns (score_out_of_100, is_evaluated)
+    """
     kitchens = [r for r in room_points if r.room_type == ROOM_TYPE_KITCHEN]
     hallways = [r for r in room_points if r.room_type == ROOM_TYPE_HALLWAY]
 
-    # Try Kitchen first
-    k_passed = False
+    # Safety Gate
+    if not kitchens and not hallways:
+        return 0.0, False
+
+    # 1. Primary Preference: Kitchen
     for k in kitchens:
-        passed, blockers = _box_is_clear(k, "back", room_points)
+        passed, _ = _box_is_clear(k, "back", room_points)
         if passed:
-            service_awarded = SERVICE_CLEARANCE_WEIGHT
-            k_passed = True
-            room_details[k.name] = {
-                "type": "KITCHEN",
-                "passed": True,
-                "awarded": service_awarded,
-            }
-            break
-        room_details[k.name] = {
-            "type": "KITCHEN",
-            "passed": False,
-            "blockers": blockers,
-        }
+            return 100.0, True
 
-    # Fallback to Hallway if Kitchen failed
-    if not k_passed:
-        h_passed = False
-        for h in hallways:
-            passed, blockers = _box_is_clear(h, "back", room_points)
-            if passed:
-                service_awarded = SERVICE_CLEARANCE_WEIGHT * HALLWAY_SCORE_FACTOR
-                h_passed = True
-                room_details[h.name] = {
-                    "type": "HALLWAY",
-                    "passed": True,
-                    "awarded": service_awarded,
-                }
-                lost_points_report.append(
-                    f"[-] Service: -{SERVICE_CLEARANCE_WEIGHT - service_awarded:.2f} pts. Kitchen blocked, using Hallway instead."
-                )
-                break
-            room_details[h.name] = {
-                "type": "HALLWAY",
-                "passed": False,
-                "blockers": blockers,
-            }
+    # 2. Secondary Preference: Hallway (Only triggers if all kitchens failed or don't exist)
+    for h in hallways:
+        passed, _ = _box_is_clear(h, "back", room_points)
+        if passed:
+            return 70.0, True  # Reduced mark for fallback
 
-        if not h_passed and has_service_req:
-            lost_points_report.append(
-                f"[-] Service: -{SERVICE_CLEARANCE_WEIGHT:.2f} pts. Both Kitchen and Hallway are blocked."
-            )
+    # Both failed
+    return 0.0, True
 
-    raw_score += service_awarded
 
-    # --- DEBUG PRINT ---
+def score_outer_clearance(
+    requirements: FpgRequirements, room_points: list[OptunaScorePoint]
+) -> SectionScore:
+    """
+    Main orchestration function for Outer Clearance scoring.
+    """
     if DEBUG_VERBOSE:
-        print(
-            f"\n--- CLEARANCE DEBUG (Total: {raw_score:.2f}/{dynamic_max_score:.2f}) ---"
+        print("\n--- Scoring Outer Clearance (Dynamic Architecture) ---")
+
+    # 1. Define all active evaluators
+    evaluators = [_evaluate_veranda, _evaluate_garage, _evaluate_back_opening]
+
+    evaluated_count = 0
+    received_score_total = 0.0
+
+    # 2. Run evaluations
+    for evaluate in evaluators:
+        score, is_evaluated = evaluate(room_points)
+        if is_evaluated:
+            evaluated_count += 1
+            received_score_total += score
+
+    # 3. Fetch max score dynamically from project config
+    max_section_score = float(OPTUNA_SCORING_VALUES.get("optuna_score_clearance", 20.0))
+
+    # 4. Handle edge case: No rooms matched any evaluation gates
+    if evaluated_count == 0:
+        if DEBUG_VERBOSE:
+            print("[-] No valid rooms found for clearance evaluation.")
+        return SectionScore(
+            score=0.0,
+            max_score=max_section_score,
+            details={"note": "No clearance rooms to evaluate"},
+            warnings=[],
         )
-        if not lost_points_report:
-            print("[+] Perfect Score!")
-        for entry in lost_points_report:
-            print(entry)
-        print("-------------------------------------------\n")
+
+    # 5. Calculate Final Score Base (out of 100)
+    final_percentage_score = received_score_total / evaluated_count
+
+    # 6. Normalize against the Optuna maximum allowed score
+    normalized_final_score = (final_percentage_score / 100.0) * max_section_score
+
+    if DEBUG_VERBOSE:
+        print(f"[+] Evaluated Count: {evaluated_count}")
+        print(f"[+] Total Percentage: {final_percentage_score:.2f}%")
+        print(
+            f"[+] Final Normalized Score: {normalized_final_score:.2f} / {max_section_score:.2f}"
+        )
 
     return SectionScore(
-        score=normalize_section_score(raw_score, dynamic_max_score),
-        max_score=dynamic_max_score,
-        details={"rooms": room_details},
+        score=normalize_section_score(normalized_final_score, max_section_score),
+        max_score=max_section_score,
+        details={
+            "evaluated_components": evaluated_count,
+            "average_percentage_achieved": final_percentage_score,
+        },
         warnings=[],
     )
