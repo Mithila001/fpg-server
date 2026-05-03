@@ -202,11 +202,12 @@ ROOM_SHARED_WALL_RULES_REFINE = {
     "diningRoom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
 }
 
-# Optuna Scoring Values
+# Optuna Scoring Values (total should be 90)
 OPTUNA_SCORING_VALUES: dict[str, float] = {
     "optuna_score_zone": 30,
     "optuna_score_clearance": 20,
-    "optuna_score_relations": 40,
+    "optuna_score_relations": 30,
+    "optuna_score_spatial_coverage": 10,
 }
 
 __all__ = [

@@ -8,10 +8,16 @@ from app.core.fpg_rooms.config_fpg import (
     TRIAL_GRAPH_SOLVER_GATE_THRESHOLD,
     OPTUNA_SEARCH_SPACE_GRID_SCALE,
 )
+from app.core.fpg_rooms.config_fpg import OPTUNA_SCORING_VALUES
 from pathlib import Path
 
 from .dev.plotters import save_relation_graph_plot, save_relation_path_plot
-from .score import score_floor_plan_zones, score_outer_clearance, score_room_relations
+from .score import (
+    score_floor_plan_zones,
+    score_outer_clearance,
+    score_room_relations,
+)
+from .score.spatial_coverage import score_spatial_coverage
 from .util.scoring_common import OptunaScorePoint, SectionScore, build_room_points
 
 
@@ -49,22 +55,34 @@ def score_optuna_layout(
     print(
         f"\nRoom Relations Score: {relation_result.score:.1f}/{relation_result.max_score}\n"
     )
+    spatial_result = score_spatial_coverage(requirements, room_points)
+    print(
+        f"\nSpatial Coverage Score: {spatial_result.score:.1f}/{spatial_result.max_score}\n"
+    )
     section_scores = {
         "floor_plan_zones": zone_result.score,
         "outer_clearance": clearance_result.score,
         "room_relations": relation_result.score,
+        "spatial_coverage": spatial_result.score,
     }
     print(
         f"Untouched Hallways: {relation_result.details.get('uncrossed_hallways', [])}"
     )
     print(f"Section Scores: {section_scores}")
     print(f"Clearance Score: {clearance_result.score:.1f}/{clearance_result.max_score}")
+    # Use central OPTUNA_SCORING_VALUES for max section scores
+    max_values = [
+        float(OPTUNA_SCORING_VALUES.get("optuna_score_zone", 0.0)),
+        float(OPTUNA_SCORING_VALUES.get("optuna_score_clearance", 0.0)),
+        float(OPTUNA_SCORING_VALUES.get("optuna_score_relations", 0.0)),
+        float(OPTUNA_SCORING_VALUES.get("optuna_score_spatial_coverage", 0.0)),
+    ]
     print(
         " | ".join(
             [
                 f"{k.replace('_', ' ').title()}: {v:.1f}/{m}"
                 for k, v, m in zip(
-                    section_scores.keys(), section_scores.values(), [30, 20, 40]
+                    section_scores.keys(), section_scores.values(), max_values
                 )
             ]
         )
@@ -108,10 +126,12 @@ def score_optuna_layout(
         "floor_plan_zones": zone_result.details,
         "outer_clearance": clearance_result.details,
         "room_relations": relation_result.details,
+        "spatial_coverage": spatial_result.details,
         "warnings": {
             "floor_plan_zones": zone_result.warnings,
             "outer_clearance": clearance_result.warnings,
             "room_relations": relation_result.warnings,
+            "spatial_coverage": spatial_result.warnings,
         },
     }
 
@@ -123,6 +143,7 @@ def score_optuna_layout(
             "floor_plan_zones": zone_result,
             "outer_clearance": clearance_result,
             "room_relations": relation_result,
+            "spatial_coverage": spatial_result,
         },
         room_points=room_points,
         diagnostics=diagnostics,
