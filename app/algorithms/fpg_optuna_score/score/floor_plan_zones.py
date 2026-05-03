@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.algorithms.types import FpgRequirements
+from app.core.fpg_rooms.config_fpg import OPTUNA_SCORING_VALUES
 
 from ..util.scoring_common import (
     ROOM_TYPE_BATHROOM,

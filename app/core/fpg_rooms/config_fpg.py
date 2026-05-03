@@ -38,6 +38,8 @@ ENVELOPE_MIN_GAP = 5
 ENVELOPE_MAX_GAP = 20
 ENVELOPE_EXCLUDE_TYPES = []  # Non eligible room types for envelope checking
 ENVELOPE_APPLY_SIDES = ["left", "right", "top", "bottom"]
+HALLWAY_NARROW_SIDE_MIN = 10
+HALLWAY_NARROW_SIDE_MAX = 15
 
 # Garage placement settings
 GARAGE_SIDE_ANCHOR_THRESHOLD = 20
@@ -150,16 +152,14 @@ DEFAULT_HALLWAY_COUNT = 2
 DEFAULT_SOLVER_MAX_TIME_SECONDS = 3
 WIGGLE_ROOM = 10
 
-# TODO Fix hallway config value duplication
-# Hallway dimensions
-# Fixed narrow dimension — the solver enforces exactly this value for
-# whichever of width/height is the "short" side.
-HALLWAY_NARROW_SIDE = 10
+# Hallway dimensions (narrow side min/max defined above)
+# Minimum length of the long side (the solver may extend it further).
+HALLWAY_LONG_SIDE_MIN = 10
+# Hallway min overlap
+MIN_OVERLAP = 10
 # Minimum width/height used when creating hallway rooms.
 HALLWAY_GENERATOR_MIN_WIDTH = 10
 HALLWAY_GENERATOR_MIN_HEIGHT = 10
-# Minimum length of the long side (the solver may extend it further).
-HALLWAY_LONG_SIDE_MIN = 10
 # Number of hallway walls that must be fully shared with other rooms.
 # Default 3 means only one hallway wall may remain as an exterior wall.
 HALLWAY_REQUIRED_SHARED_WALLS = 3
@@ -200,6 +200,11 @@ ROOM_SHARED_WALL_RULES_REFINE = {
     "veranda": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 10},
     "garage": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 10},
     "diningRoom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
+}
+
+# Optuna Scoring Values
+OPTUNA_SCORING_VALUES: dict[str, float] = {
+    "optuna_score_zone": 30,
 }
 
 __all__ = [
@@ -281,7 +286,8 @@ __all__ = [
     "VERANDA_OUTDOOR_SPACE_MIN_H",
     "VERANDA_OUTDOOR_SPACE_MAX_W",
     "VERANDA_OUTDOOR_SPACE_MAX_H",
-    "HALLWAY_NARROW_SIDE",
+    "HALLWAY_NARROW_SIDE_MIN",
+    "HALLWAY_NARROW_SIDE_MAX",
     "HALLWAY_GENERATOR_MIN_WIDTH",
     "HALLWAY_GENERATOR_MIN_HEIGHT",
     "HALLWAY_LONG_SIDE_MIN",
@@ -294,4 +300,5 @@ __all__ = [
     "OPTUNA_NODE_PLACEMENT_PRIVATE",
     "OPTUNA_NODE_PLACEMENT_PUBLIC",
     "OPTUNA_NODE_PLACEMENT_FRONT",
+    "MIN_OVERLAP",
 ]
