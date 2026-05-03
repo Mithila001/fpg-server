@@ -205,6 +205,8 @@ ROOM_SHARED_WALL_RULES_REFINE = {
 # Optuna Scoring Values
 OPTUNA_SCORING_VALUES: dict[str, float] = {
     "optuna_score_zone": 30,
+    "optuna_score_clearance": 20,
+    "optuna_score_relations": 40,
 }
 
 __all__ = [

@@ -19,14 +19,14 @@ from ..util.scoring_common import (
     room_type_counts,
 )
 
-# Hardcoded weights are centralized for quick tuning.
-ZONE_TYPE_WEIGHTS: dict[str, float] = {
-    ROOM_TYPE_VERANDA: 5.0,
-    ROOM_TYPE_GARAGE: 5.0,
-    ROOM_TYPE_KITCHEN: 7.0,
-    ROOM_TYPE_HALLWAY: 4.0,
-    ROOM_TYPE_LIVING_ROOM: 5.0,
-    ROOM_TYPE_BATHROOM: 4.0,
+# Zone-scored room types (previously weighted individually).
+ZONE_SCORABLE_TYPES = {
+    ROOM_TYPE_VERANDA,
+    ROOM_TYPE_GARAGE,
+    ROOM_TYPE_KITCHEN,
+    ROOM_TYPE_HALLWAY,
+    ROOM_TYPE_LIVING_ROOM,
+    ROOM_TYPE_BATHROOM,
 }
 
 BOTTOM_ROW_ZONES = {(1, 1), (2, 1), (3, 1)}
@@ -73,36 +73,28 @@ def score_floor_plan_zones(
     floor_height = float(cfg.floor_plan_height)
     counts = room_type_counts(room_points)
 
-    # 1. Calculate Dynamic Max Score
-    # We sum the weights of all room types that exist in the current room list
-    # and have a defined weight in ZONE_TYPE_WEIGHTS.
-    dynamic_max_score = sum(
-        ZONE_TYPE_WEIGHTS[rtype] for rtype in counts if rtype in ZONE_TYPE_WEIGHTS
-    )
-
-    # Fallback to prevent division by zero if no scorable rooms exist
-    dynamic_max_score = max(dynamic_max_score, 1.0)
+    # Use optuna-configured max for zone scoring
+    optuna_max = float(OPTUNA_SCORING_VALUES.get("optuna_score_zone", 0.0))
 
     scored_room_details: dict[str, Any] = {}
-    raw_score = 0.0
     warnings: list[str] = []
 
+    # First pass: collect per-room pass/fail and count scorable rooms
+    scorable_total = 0
+    passed_count = 0
+
     for room in room_points:
-        if room.room_type not in ZONE_TYPE_WEIGHTS:
+        if room.room_type not in ZONE_SCORABLE_TYPES:
             continue
 
+        scorable_total += 1
         cell = point_to_cell(room.x, room.y, floor_width, floor_height)
-
-        # Calculate weight per individual room instance
-        allocation_count = max(1, int(counts.get(room.room_type, 1)))
-        room_weight = ZONE_TYPE_WEIGHTS[room.room_type] / allocation_count
-
         passed, reason = _evaluate_zone_rule(room, cell)
-        awarded = room_weight if passed else 0.0
-        raw_score += awarded
+
+        if passed:
+            passed_count += 1
 
         if not passed:
-            # Optional: Keep the debug print if needed for development
             print(
                 f"[score_floor_plan_zones] Room '{room.name}' failed: {reason} "
                 f"(Current zone: {_zone_name(*cell)})"
@@ -113,22 +105,46 @@ def score_floor_plan_zones(
             "zone": _zone_name(*cell),
             "passed": passed,
             "reason": reason,
-            "weight": room_weight,
-            "awarded": awarded,
         }
 
-    # 2. Normalize using the dynamic max score
-    normalized = normalize_section_score(raw_score, dynamic_max_score)
+    if scorable_total == 0:
+        warnings.append("No scorable rooms found for zone scoring")
+        return SectionScore(
+            score=0.0,
+            max_score=optuna_max,
+            details={"rooms": scored_room_details, "counts": dict(counts)},
+            warnings=warnings,
+        )
+
+    # Distribute optuna_max evenly across scorable rooms and award per passed room
+    per_room_award = (
+        float(optuna_max) / float(scorable_total) if optuna_max > 0 else 0.0
+    )
+    raw_score = per_room_award * float(passed_count)
+
+    normalized = normalize_section_score(raw_score, optuna_max)
+
+    # Attach awarded values to details for clarity
+    for name, info in scored_room_details.items():
+        if info["type"] in ZONE_SCORABLE_TYPES and info.get("passed"):
+            info["awarded"] = per_room_award
+        else:
+            info["awarded"] = 0.0
 
     if normalized != raw_score:
         warnings.append(
             f"Zone score normalized from {raw_score:.2f} to {normalized:.2f} "
-            f"(Max possible: {dynamic_max_score:.2f})"
+            f"(Max possible: {optuna_max:.2f})"
         )
 
     return SectionScore(
         score=normalized,
-        max_score=dynamic_max_score,
-        details={"rooms": scored_room_details, "counts": dict(counts)},
+        max_score=optuna_max,
+        details={
+            "rooms": scored_room_details,
+            "counts": dict(counts),
+            "scorable_total": scorable_total,
+            "passed": passed_count,
+        },
         warnings=warnings,
     )
