@@ -131,7 +131,7 @@ MANDATORY_ROOMS = ["bedroom", "kitchen", "bathroom", "veranda"]
 # Default solver/optuna execution settings
 DEFAULT_ROOM_DIMENSION = 70
 DEFAULT_OPTUNA_TRIALS = 20
-DEFAULT_OPTUNA_STORAGE_ENABLED = False
+DEFAULT_OPTUNA_STORAGE_ENABLED = True
 DEFAULT_OPTUNA_STUDY_NAME = "FPG_study"
 DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
 
@@ -139,7 +139,7 @@ DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
 MINIMUM_REQUIRED_FPG_SCORE = 90  # Stop trials if score exceeds this
 TRIAL_OPTIMIZATION_TIMEOUT_SECONDS = 120  # Hard deadline for all trials
 TRIAL_GRAPH_SOLVER_GATE_THRESHOLD = (
-    80  # Invoke solver only when graph score reaches this
+    90 # Invoke solver only when graph score reaches this
 )
 
 # Optuna search space grid scale

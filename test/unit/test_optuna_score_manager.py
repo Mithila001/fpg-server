@@ -87,13 +87,13 @@ def test_score_optuna_layout_computes_all_sections() -> None:
     assert 0.0 <= result.section_scores["room_relations"] <= 40.0
 
     zone_rooms = result.section_results["floor_plan_zones"].details["rooms"]
-    clearance_rooms = result.section_results["outer_clearance"].details["rooms"]
+    clearance_details = result.section_results["outer_clearance"].details
     relation_paths = result.section_results["room_relations"].details["path_summaries"]
 
     assert zone_rooms["veranda1"]["passed"] is True
     assert zone_rooms["garage1"]["passed"] is True
-    assert clearance_rooms["veranda1"]["passed"] is True
-    assert clearance_rooms["garage1"]["passed"] is True
+    assert clearance_details["evaluated_components"] == 3
+    assert clearance_details["average_percentage_achieved"] == 100.0
     assert len(relation_paths) == 8
     assert any(item["reason"] == "best_instance_pair" for item in relation_paths)
 

@@ -14,21 +14,23 @@ The objective is to maximize `score_report.total_score`.
 
 ## Sampling policy
 
-Optuna now uses a room-aware sampling layer in
-`app/algorithms/fpg_rooms/fpg_optuna/sampling_logic/` so positions are filtered
-before graph scoring and solver execution.
+Optuna now uses simple, uniform coordinate sampling for all rooms and hallways.
 
-Current placement rules:
+What is enforced during sampling:
 
-- `veranda` and `garage`
-  - Hard front anchoring near `y = 0` using the room radius as the front-band limit.
-- `livingRoom`
-  - Biased toward `veranda` using a center-y proximity band.
-- `diningRoom` and `kitchen`
-  - Sampled with a proximity band so they stay relatively close to each other.
-  - `kitchen` still remains back-biased and avoids the front band.
-- `bathroom`
-  - Back-biased and prevented from sampling near the front side.
+- Boundary/radius limits
+  - Each sampled point stays inside `[radius, floor_size - radius]` for both axes.
+- Grid snapping
+  - Search bounds are snapped to `OPTUNA_SEARCH_SPACE_GRID_SCALE`.
+  - `suggest_float(..., step=OPTUNA_SEARCH_SPACE_GRID_SCALE)` keeps samples on the same grid.
+
+What is intentionally removed:
+
+- Room-aware sampler narrowing (front/private/back/proximity policies).
+- Optuna-level duplicate-coordinate rejection.
+
+This keeps Optuna focused on broad point exploration while the scoring + solver
+pipeline drives quality and final adjustment.
 
 ## Integration points
 

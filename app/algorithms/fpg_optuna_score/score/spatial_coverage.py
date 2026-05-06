@@ -49,7 +49,7 @@ HEATMAP_OUTPUT_DIR = (
 
 # Only save plots when the score is at least this percent of the max score.
 # User requested "2.5 out of 10" → interpreted as 25% threshold.
-PLOT_THRESHOLD_PERCENT = 30.0
+PLOT_THRESHOLD_PERCENT = 80
 
 # ---------------------------------------------------------------------------
 # NND sub-score  (anti-clumping)
