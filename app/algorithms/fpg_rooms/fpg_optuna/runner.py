@@ -15,6 +15,7 @@ from app.algorithms.types.solvers import (
 )
 from app.core.fpg_rooms.config_fpg import (
     MINIMUM_REQUIRED_FPG_SCORE,
+    BEST_FLOOR_PLAN_SCORE,
     OPTUNA_SEARCH_SPACE_GRID_SCALE,
     TRIAL_OPTIMIZATION_TIMEOUT_SECONDS,
 )
@@ -39,6 +40,7 @@ def _effective_sampling_radius(boundary_width: float, boundary_height: float) ->
         min(8.0, half_width, half_height),
     )
 
+
 def _hallway_names(hallway_count: int) -> list[str]:
     return [f"hallway{index}" for index in range(1, max(0, int(hallway_count)) + 1)]
 
@@ -56,6 +58,7 @@ def _snap_search_bounds_to_grid(
         return float(min_value), float(max_value)
 
     return float(snapped_min), float(snapped_max)
+
 
 def _uncrossed_hallway_names_from_diagnostics(
     diagnostics: Mapping[str, Any] | None,
@@ -98,7 +101,7 @@ class OptunaOptimizationController:
     def __init__(
         self,
         timeout_seconds: float = TRIAL_OPTIMIZATION_TIMEOUT_SECONDS,
-        score_threshold: float = MINIMUM_REQUIRED_FPG_SCORE,
+        score_threshold: float = BEST_FLOOR_PLAN_SCORE,
     ):
         self.timeout_seconds = timeout_seconds
         self.score_threshold = score_threshold
@@ -167,7 +170,6 @@ def run_optuna_optimization(
 
             sampled_positions: dict[str, dict[str, float | str]] = {}
             for room in base_requirements.rooms:
-
                 min_x = sampling_radius
                 max_x = max(
                     min_x,
@@ -361,10 +363,12 @@ def run_optuna_optimization(
                 solver_score = 0.0
 
             solver_passed = solver_score >= MINIMUM_REQUIRED_FPG_SCORE
+            solver_best = solver_score >= BEST_FLOOR_PLAN_SCORE
 
             trial.set_user_attr("solver_score", solver_score)
             trial.set_user_attr("solver_weighted_score", solver_score)
             trial.set_user_attr("solver_passed", solver_passed)
+            trial.set_user_attr("solver_best", solver_best)
 
             if not solver_passed:
                 emit_progress(
@@ -422,11 +426,7 @@ def run_optuna_optimization(
             return
         controller.record_best_score(float(trial.value))
 
-        if bool(trial.user_attrs.get("solver_passed", False)):
-            study.stop()
-            return
-
-        if float(trial.value) >= controller.score_threshold:
+        if bool(trial.user_attrs.get("solver_best", False)):
             study.stop()
             return
 

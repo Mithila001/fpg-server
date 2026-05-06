@@ -136,10 +136,11 @@ DEFAULT_OPTUNA_STUDY_NAME = "FPG_study"
 DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
 
 # Trial optimization control
-MINIMUM_REQUIRED_FPG_SCORE = 90  # Stop trials if score exceeds this
+MINIMUM_REQUIRED_FPG_SCORE = 80  # Acceptable score to store as best candidate
+BEST_FLOOR_PLAN_SCORE = 95  # Stop early when this score is reached
 TRIAL_OPTIMIZATION_TIMEOUT_SECONDS = 120  # Hard deadline for all trials
 TRIAL_GRAPH_SOLVER_GATE_THRESHOLD = (
-    80 # Invoke solver only when graph score reaches this
+    80  # Invoke solver only when graph score reaches this
 )
 
 # Optuna search space grid scale
@@ -274,6 +275,7 @@ __all__ = [
     "DEFAULT_OPTUNA_STORAGE_ENABLED",
     "DEFAULT_OPTUNA_STORAGE_URL",
     "MINIMUM_REQUIRED_FPG_SCORE",
+    "BEST_FLOOR_PLAN_SCORE",
     "TRIAL_OPTIMIZATION_TIMEOUT_SECONDS",
     "TRIAL_GRAPH_SOLVER_GATE_THRESHOLD",
     "OPTUNA_SEARCH_SPACE_GRID_SCALE",

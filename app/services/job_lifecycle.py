@@ -126,6 +126,19 @@ def _worker_entry(
         )
 
 
+def _build_failure_payload(reason: str, details: str | None = None) -> dict[str, Any]:
+    payload = {
+        "status": "NO_FLOOR_PLAN",
+        "message": "No floor plan found.",
+        "union_results": None,
+        "did_not_found_floor_plan": reason,
+        "reason": reason,
+    }
+    if details:
+        payload["details"] = details
+    return payload
+
+
 @dataclass
 class _ManagedJob:
     job_id: str
@@ -139,6 +152,8 @@ class _ManagedJob:
     events: list[dict[str, Any]] = field(default_factory=list)
     event_seq: int = 0
     result: dict[str, Any] | None = None
+    current_best_result: dict[str, Any] | None = None
+    current_best_score: float | None = None
     created_at: str = field(default_factory=_utc_now_iso)
     updated_at: str = field(default_factory=_utc_now_iso)
     cleanup_timer: threading.Timer | None = None
@@ -194,6 +209,8 @@ class InMemoryJobRegistry:
                 result_queue=result_queue,
                 progress_queue=progress_queue,
                 events=[],
+                current_best_result=None,
+                current_best_score=None,
             )
             self._append_event_locked(
                 managed_job,
@@ -350,6 +367,24 @@ class InMemoryJobRegistry:
                 managed_job = self._jobs.get(job_id)
                 if not managed_job:
                     return
+                if event == "current_best_updated":
+                    incoming_score = data.get("score")
+                    try:
+                        parsed_score = (
+                            float(incoming_score)
+                            if incoming_score is not None
+                            else None
+                        )
+                    except (TypeError, ValueError):
+                        parsed_score = None
+                    is_better = parsed_score is not None and (
+                        managed_job.current_best_score is None
+                        or parsed_score > managed_job.current_best_score
+                    )
+                    if not is_better:
+                        continue
+                    managed_job.current_best_score = parsed_score
+                    managed_job.current_best_result = data.get("result")
                 self._append_event_locked(managed_job, event, message, data)
                 if managed_job.status != JobStatus.SEARCHING and progress_queue.empty():
                     return
@@ -361,12 +396,25 @@ class InMemoryJobRegistry:
             managed_job = self._jobs.get(job_id)
             if not managed_job or managed_job.status != JobStatus.SEARCHING:
                 return
+            best_result = managed_job.current_best_result
             process = managed_job.process
         self._terminate_process(process)
+        if best_result is not None:
+            self._mark_terminal_status(
+                job_id=job_id,
+                status=JobStatus.COMPLETED,
+                event_message=(
+                    f"Job exceeded timeout of {self.timeout_seconds}s; "
+                    "returning best result."
+                ),
+                result=best_result,
+            )
+            return
         self._mark_terminal_status(
             job_id=job_id,
             status=JobStatus.TIMED_OUT,
             event_message=f"Job exceeded timeout of {self.timeout_seconds}s and was terminated.",
+            result=_build_failure_payload("time_out"),
         )
 
     def _monitor_completion(self, job_id: str) -> None:
@@ -397,6 +445,21 @@ class InMemoryJobRegistry:
             }
         else:
             result_data = worker_payload.get("result", {})
+
+        with self._lock:
+            managed_job = self._jobs.get(job_id)
+            if not managed_job or managed_job.status != JobStatus.SEARCHING:
+                return
+            best_result = managed_job.current_best_result
+
+        if best_result is not None:
+            result_data = best_result
+        elif not result_data:
+            result_data = _build_failure_payload("system_error")
+        elif str(result_data.get("status", "")).upper() == "ERROR":
+            result_data = _build_failure_payload(
+                "system_error", details=str(result_data.get("message", ""))
+            )
 
         self._mark_terminal_status(
             job_id=job_id,
@@ -494,6 +557,8 @@ class InMemoryJobRegistry:
             "updated_at": managed_job.updated_at,
             "events": list(managed_job.events),
             "result": managed_job.result,
+            "current_best_result": managed_job.current_best_result,
+            "current_best_score": managed_job.current_best_score,
         }
 
 
