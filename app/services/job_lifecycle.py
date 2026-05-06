@@ -47,6 +47,14 @@ def _run_format_job(
     floored_width = floor_values(converter_cm_to_unit(request_payload["floor_width"]))
     floored_height = floor_values(converter_cm_to_unit(request_payload["floor_height"]))
     aspect_ratio = request_payload["aspect_ratio"]
+    
+    def converting_progress_emitter(event: str, message: str, data: dict[str, Any] | None = None) -> None:
+        if progress_emitter:
+            if data and "result" in data:
+                # The data dict might be mutated, so we do it carefully or just update it
+                data["result"] = converter_unit_to_centimeters(data["result"])
+            progress_emitter(event, message, data)
+            
     payload = run_fpg_pipeline_api(
         floor_width=floored_width,
         floor_height=floored_height,
@@ -54,7 +62,7 @@ def _run_format_job(
         room_template=room_template,
         should_optuna_run=request_payload.get("should_optuna_run", False),
         optuna_trial_count=request_payload.get("optuna_trial_count", 20),
-        progress_emitter=progress_emitter,
+        progress_emitter=converting_progress_emitter,
     )
     return converter_unit_to_centimeters(payload)
 
