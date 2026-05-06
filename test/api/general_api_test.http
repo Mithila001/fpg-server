@@ -7,7 +7,7 @@ Content-Type: application/json
 {
 	"floor_width": 150,
 	"floor_height": 150,
-	"aspect_ratio": "16:10",
+	"aspect_ratio": "1.6:1",
 	"room_template": {
 		"name": "Standard 2BHK Layout",
 		"data": [
