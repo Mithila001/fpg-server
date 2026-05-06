@@ -18,6 +18,10 @@ from app.core.fpg_rooms.config_fpg import OPTUNA_SCORING_VALUES
 DEBUG_VERBOSE = False  # Set to False to silence debug prints
 # ---------------------
 
+# --- SCORING CONSTANTS ---
+PENALTY_PER_BLOCK = -10.0  # Penalty applied per blocking room in the clearance zone
+# -------------------------
+
 
 def _clearance_box(x: float, y: float, side: str) -> tuple[float, float, float, float]:
     """Helper to determine the bounding box for clearance checks."""
@@ -51,15 +55,16 @@ def _evaluate_veranda(room_points: list[OptunaScorePoint]) -> tuple[float, bool]
     """Evaluates Veranda clearance. Returns (score_out_of_100, is_evaluated)"""
     verandas = [r for r in room_points if r.room_type == ROOM_TYPE_VERANDA]
 
-    # Safety Gate
+    # Guard rail: Safety Gate to not damage the scoring if room doesn't exist
     if not verandas:
         return 0.0, False
 
     total_score = 0.0
     for v in verandas:
-        passed, _ = _box_is_clear(v, "front", room_points)
-        if passed:
-            total_score += 100.0
+        _, blockers = _box_is_clear(v, "front", room_points)
+        # Apply penalty per blocker, ensure score doesn't drop below 0
+        score = max(0.0, 100.0 + (len(blockers) * PENALTY_PER_BLOCK))
+        total_score += score
 
     # Average score if there are multiple verandas
     return total_score / len(verandas), True
@@ -69,15 +74,16 @@ def _evaluate_garage(room_points: list[OptunaScorePoint]) -> tuple[float, bool]:
     """Evaluates Garage clearance. Returns (score_out_of_100, is_evaluated)"""
     garages = [r for r in room_points if r.room_type == ROOM_TYPE_GARAGE]
 
-    # Safety Gate
+    # Guard rail: Safety Gate to not damage the scoring if room doesn't exist
     if not garages:
         return 0.0, False
 
     total_score = 0.0
     for g in garages:
-        passed, _ = _box_is_clear(g, "front", room_points)
-        if passed:
-            total_score += 100.0
+        _, blockers = _box_is_clear(g, "front", room_points)
+        # Apply penalty per blocker, ensure score doesn't drop below 0
+        score = max(0.0, 100.0 + (len(blockers) * PENALTY_PER_BLOCK))
+        total_score += score
 
     # Average score if there are multiple garages
     return total_score / len(garages), True
@@ -85,31 +91,37 @@ def _evaluate_garage(room_points: list[OptunaScorePoint]) -> tuple[float, bool]:
 
 def _evaluate_back_opening(room_points: list[OptunaScorePoint]) -> tuple[float, bool]:
     """
-    Evaluates back clearance. Prioritizes Kitchen (100 pts).
-    Falls back to Hallway for partial credit (70 pts).
+    Evaluates back clearance. Prioritizes the best score available.
+    Kitchen base is 100. Hallway base is 70.
     Returns (score_out_of_100, is_evaluated)
     """
     kitchens = [r for r in room_points if r.room_type == ROOM_TYPE_KITCHEN]
     hallways = [r for r in room_points if r.room_type == ROOM_TYPE_HALLWAY]
 
-    # Safety Gate
+    # Guard rail: Safety Gate to not damage the scoring if rooms don't exist
     if not kitchens and not hallways:
         return 0.0, False
 
-    # 1. Primary Preference: Kitchen
+    best_score = 0.0
+    is_evaluated = False
+
+    # Evaluate Kitchens (Base Score: 100)
     for k in kitchens:
-        passed, _ = _box_is_clear(k, "back", room_points)
-        if passed:
-            return 100.0, True
+        _, blockers = _box_is_clear(k, "back", room_points)
+        score = max(0.0, 100.0 + (len(blockers) * PENALTY_PER_BLOCK))
+        if score > best_score:
+            best_score = score
+        is_evaluated = True
 
-    # 2. Secondary Preference: Hallway (Only triggers if all kitchens failed or don't exist)
+    # Evaluate Hallways (Base Score: 70)
     for h in hallways:
-        passed, _ = _box_is_clear(h, "back", room_points)
-        if passed:
-            return 70.0, True  # Reduced mark for fallback
+        _, blockers = _box_is_clear(h, "back", room_points)
+        score = max(0.0, 70.0 + (len(blockers) * PENALTY_PER_BLOCK))
+        if score > best_score:
+            best_score = score
+        is_evaluated = True
 
-    # Both failed
-    return 0.0, True
+    return best_score, is_evaluated
 
 
 def score_outer_clearance(
