@@ -136,9 +136,20 @@ def _maybe_emit_best_candidate(
 def _run_single_fpg_solve(
     requirements: FpgRequirements,
     verbose: bool = True,
+    progress_emitter: Callable[[str, str, dict[str, Any] | None], None] | None = None,
 ) -> FpgEvaluationResult:
     generator = FloorPlanGenerator(requirements)
     print("\n _run_single_fpg_solve")
+
+    def emit_progress(
+        event: str, message: str, data: dict[str, Any] | None = None
+    ) -> None:
+        if progress_emitter is None:
+            return
+        try:
+            progress_emitter(event, message, data)
+        except Exception:
+            return
 
     verbose = False  # TODO DEBUG FLAG Remove this
     if verbose:
@@ -165,6 +176,15 @@ def _run_single_fpg_solve(
     )
     print("\n run quick post process")
 
+    try:
+        emit_progress(
+            "fpg_generated",
+            "Solver produced a draft layout.",
+            {"room_count": len(solution)},
+        )
+    except Exception:
+        pass
+
     # Normalize room dicts
     stage1_rooms = [dict(room) for room in quick_post_process_result["rooms"]]
 
@@ -177,6 +197,11 @@ def _run_single_fpg_solve(
     )
     print("\n run_refine_profile_1 (Pass 1)")
     stage2_rooms = refine_result1.rooms if refine_result1.rooms else stage1_rooms
+    emit_progress(
+        "refine_1",
+        "Refinement pass 1 complete.",
+        {"room_count": len(stage2_rooms)},
+    )
 
     # --- PASS 2: Standard Refine ---
     refine_result2 = run_refine_profile_1(
@@ -187,6 +212,11 @@ def _run_single_fpg_solve(
     )
     print("\n run_refine_profile_2 (Pass 2)")
     stage3_rooms = refine_result2.rooms if refine_result2.rooms else stage2_rooms
+    emit_progress(
+        "refine_2",
+        "Refinement pass 2 complete.",
+        {"room_count": len(stage3_rooms)},
+    )
 
     # --- PASS 3: Standard Refine ---
     refine_result3 = run_refine_profile_1(
@@ -197,6 +227,11 @@ def _run_single_fpg_solve(
     )
     print("\n run_refine_profile_3 (Pass 3)")
     final_rooms = refine_result3.rooms if refine_result3.rooms else stage3_rooms
+    emit_progress(
+        "refine_3",
+        "Refinement pass 3 complete.",
+        {"room_count": len(final_rooms)},
+    )
 
     try:
         plot_refine_floor_plan(
@@ -219,6 +254,11 @@ def _run_single_fpg_solve(
     cleaned_floor_plan: list[ProcessedRoomData] = clean_floorplan_rectilinearity(
         grid_snapped_floor_plan
     )
+    emit_progress(
+        "post_processed",
+        "Post processing complete.",
+        {"room_count": len(cleaned_floor_plan)},
+    )
     floor_plan_with_openings: FloorPlanWithOpenings = generate_fpg_openings(
         requirements, cleaned_floor_plan
     )
@@ -226,6 +266,19 @@ def _run_single_fpg_solve(
     fpg_score_results: ScoreManagerResult = score_manager(
         floor_plan_with_openings, requirements
     )
+    try:
+        score_value: Any = getattr(fpg_score_results, "critical_score", None)
+        emit_progress(
+            "fpg_score",
+            "FPG scoring complete.",
+            {
+                "score": float(score_value) if score_value is not None else None,
+                "min_required": MINIMUM_REQUIRED_FPG_SCORE,
+                "best_required": BEST_FLOOR_PLAN_SCORE,
+            },
+        )
+    except Exception:
+        pass
     union_results: UnionFloorPlanResult = union_floor_plan(floor_plan_with_openings)
 
     return FpgEvaluationResult(
@@ -262,13 +315,51 @@ def run_solver_with_hints(
             return
 
     for attempt_index in range(safe_run_count):
+        emit_progress(
+            "initiate_fpg",
+            "Starting FPG solver attempt.",
+            {"attempt": attempt_index + 1, "total_attempts": safe_run_count},
+        )
         current_result: FpgEvaluationResult = _run_single_fpg_solve(
-            requirements=requirements, verbose=verbose
+            requirements=requirements,
+            verbose=verbose,
+            progress_emitter=(
+                lambda event, message, data=None: emit_progress(
+                    event,
+                    message,
+                    {
+                        **(data or {}),
+                        "attempt": attempt_index + 1,
+                        "total_attempts": safe_run_count,
+                    },
+                )
+            ),
         )
         print(
             f"\n[SolverLoop] Current Result Attempt {attempt_index + 1}: status={current_result.status} solved={current_result.solved}\n"
         )
         last_result = current_result
+
+        if current_result.solved:
+            emit_progress(
+                "fpg_feasible",
+                "Solver found a feasible layout.",
+                {
+                    "status": current_result.status,
+                    "attempt": attempt_index + 1,
+                    "total_attempts": safe_run_count,
+                },
+            )
+        else:
+            emit_progress(
+                "fpg_infeasible",
+                "Solver did not find a feasible layout.",
+                {
+                    "status": current_result.status,
+                    "attempt": attempt_index + 1,
+                    "total_attempts": safe_run_count,
+                },
+            )
 
         fpg_score = current_result.fpg_score_results
         print(f"[SolverLoop] FPG Score Result: {fpg_score}\n")
@@ -297,6 +388,20 @@ def run_solver_with_hints(
         best_event_score = _maybe_emit_best_candidate(
             current_result, emit_progress, best_event_score
         )
+
+        if current_score is not None and current_score >= MINIMUM_REQUIRED_FPG_SCORE:
+            if current_score < BEST_FLOOR_PLAN_SCORE:
+                emit_progress(
+                    "finding_better_plans",
+                    "Score passed minimum; searching for a better plan.",
+                    {
+                        "score": float(current_score),
+                        "min_required": MINIMUM_REQUIRED_FPG_SCORE,
+                        "best_required": BEST_FLOOR_PLAN_SCORE,
+                        "attempt": attempt_index + 1,
+                        "total_attempts": safe_run_count,
+                    },
+                )
 
         # Early stop when best-score threshold is met
         if current_score >= BEST_FLOOR_PLAN_SCORE:
@@ -454,20 +559,36 @@ def run_fpg_pipeline_api(
                 failure_reason = "trial_count_exceeded"
             payload = _build_failure_payload(failure_reason)
 
-        final_event = {
-            "event": termination_reason,
-            "message": payload.get("message", "Job finished."),
-            "data": {
-                "termination_reason": termination_reason,
-                "result": payload,
-            },
-        }
-
-        emit_progress(
-            final_event["event"],
-            final_event["message"],
-            final_event["data"],
-        )
+        if termination_reason == "generation_time_out":
+            emit_progress(
+                "time_out",
+                "Job exceeded the time limit.",
+                {"termination_reason": termination_reason, "result": payload},
+            )
+        elif run_score is None or run_score < MINIMUM_REQUIRED_FPG_SCORE:
+            emit_progress(
+                "fpg_low_score",
+                "Solver score did not meet the minimum threshold.",
+                {
+                    "score": run_score,
+                    "min_required": MINIMUM_REQUIRED_FPG_SCORE,
+                    "best_required": BEST_FLOOR_PLAN_SCORE,
+                    "termination_reason": termination_reason,
+                    "result": payload,
+                },
+            )
+        else:
+            emit_progress(
+                "success",
+                "Job completed with an eligible floor plan.",
+                {
+                    "score": run_score,
+                    "min_required": MINIMUM_REQUIRED_FPG_SCORE,
+                    "best_required": BEST_FLOOR_PLAN_SCORE,
+                    "termination_reason": termination_reason,
+                    "result": payload,
+                },
+            )
         return payload
 
     except Exception as exc:

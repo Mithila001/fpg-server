@@ -10,7 +10,7 @@ This document explains a simple frontend-backend pattern for sending continuous 
 
 2. **Receive progress updates**
    - Frontend opens an SSE connection to `/algorithms/job/{job_id}/events`.
-   - Backend sends events over that connection as trials complete, such as `trial_completed`, `optimization_completed`, or `job_progress`.
+   - Backend streams stage-based events (examples below) with clear payloads and thresholds.
    - The stream supports reconnects with the `Last-Event-ID` header.
    - SSE is one-way: the server pushes updates, and the browser receives them automatically.
 
@@ -29,6 +29,27 @@ This document explains a simple frontend-backend pattern for sending continuous 
 - **Easy server-side implementation**: progress updates are sent on one connection, and cancel requests are separate HTTP calls.
 - **Clear separation**: progress streaming is handled independently of command/control logic.
 - **Good for this project**: trial-by-trial floor plan generation produces natural progress events, and cancel is a simple user action.
+
+## SSE Progress Events
+
+Events are emitted in a single stream. Each event includes an `event` name plus a JSON payload in `data`.
+
+Common event names:
+
+- `trial_{n}` - Optuna trial hint points generated (includes `point_hints`).
+- `solver_gate_not_passed` - Trial score below solver gate.
+- `eligible_point_hints` - Trial passed solver gate and hints are eligible for solver.
+- `initiate_fpg` - Starting an FPG solver attempt.
+- `fpg_feasible` / `fpg_infeasible` - Solver feasibility outcome.
+- `fpg_generated` - Draft layout generated.
+- `refine_1`, `refine_2`, `refine_3` - Refinement passes.
+- `post_processed` - Post-process complete.
+- `fpg_score` - Scoring complete (includes thresholds).
+- `finding_better_plans` - Score passed minimum, searching for best.
+- `optuna_completed` - Optuna optimization finished.
+- `success` - Final result eligible for return.
+- `fpg_low_score` - Final score below minimum.
+- `time_out` - Job exceeded time limit.
 
 ## Summary
 

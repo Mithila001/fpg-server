@@ -18,7 +18,6 @@ from app.util.room_requirements import floor_values
 from app.util.unit_converter import (
     converter_cm_to_unit,
     converter_unit_to_centimeters,
-    converter_unit_to_meters,
 )
 
 
@@ -74,7 +73,7 @@ def _run_buildable_space_job(request_payload: dict[str, Any]) -> dict[str, Any]:
         min_height=converter_cm_to_unit(request_payload.get("min_height", 100)),
         should_plot=request_payload.get("should_plot", False),
     )
-    return converter_unit_to_meters(payload)
+    return converter_unit_to_centimeters(payload)
 
 
 def _worker_entry(
@@ -385,6 +384,7 @@ class InMemoryJobRegistry:
                         continue
                     managed_job.current_best_score = parsed_score
                     managed_job.current_best_result = data.get("result")
+                    continue
                 self._append_event_locked(managed_job, event, message, data)
                 if managed_job.status != JobStatus.SEARCHING and progress_queue.empty():
                     return

@@ -4,8 +4,8 @@ from typing import Any
 
 
 CM_PER_METER = 100.0
-# Internal solver unit scale in centimeters. 1 unit == 1 centimeter.
-SERVER_UNIT_IN_CM = 1.0
+# Internal solver unit scale in centimeters. 10 units == 1 meter, so 1 unit == 10 centimeters.
+SERVER_UNIT_IN_CM = 10.0
 
 _LINEAR_KEYS = {
     "x",
@@ -78,8 +78,8 @@ def converter_cm_to_unit(data: Any) -> Any:
 
 def converter_unit_to_centimeters(data: Any) -> Any:
     """Convert internal solver-unit payload values into centimeter-based API values."""
-    linear_factor = 1.0
-    area_factor = 1.0
+    linear_factor = SERVER_UNIT_IN_CM
+    area_factor = linear_factor * linear_factor
     return _convert_payload(data, linear_factor=linear_factor, area_factor=area_factor)
 
 

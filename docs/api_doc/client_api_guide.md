@@ -78,6 +78,39 @@ This is the common payload returned by job status endpoints and cancellation res
 
 The `events` array is append-only and contains the job history. The `result` field is `null` while the job is running, then becomes the final algorithm payload after completion.
 
+### SSE Progress Events
+
+The SSE stream emits stage-based events for the job flow. Each event includes a `data` JSON payload.
+
+Common event names:
+
+- `trial_{n}` - Optuna trial hint points generated.
+- `solver_gate_not_passed` - Trial score below solver gate.
+- `eligible_point_hints` - Trial passed solver gate and hints are eligible for solver.
+- `initiate_fpg` - Starting an FPG solver attempt.
+- `fpg_feasible` / `fpg_infeasible` - Solver feasibility outcome.
+- `fpg_generated` - Draft layout generated.
+- `refine_1`, `refine_2`, `refine_3` - Refinement passes.
+- `post_processed` - Post-process complete.
+- `fpg_score` - Scoring complete (includes thresholds).
+- `finding_better_plans` - Score passed minimum, searching for best.
+- `optuna_completed` - Optuna optimization finished.
+- `success` - Final result eligible for return.
+- `fpg_low_score` - Final score below minimum.
+- `time_out` - Job exceeded time limit.
+
+`trial_{n}` and `eligible_point_hints` include `point_hints` in `data` with items like:
+
+```json
+{
+  "name": "bedroom1",
+  "type": "bedroom",
+  "x": 40,
+  "y": 60,
+  "radius": 5.0
+}
+```
+
 ## 1) Submit Floor Plan Job
 
 ### `POST /algorithms/format/v2`
@@ -286,9 +319,7 @@ The buildable-space job returns a normalized payload in `result`:
     "height": 20,
     "area": 400
   },
-  "shrunk_boundary": [
-    { "x": 1, "y": 2 }
-  ],
+  "shrunk_boundary": [{ "x": 1, "y": 2 }],
   "metadata": {}
 }
 ```

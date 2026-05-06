@@ -18,6 +18,7 @@ from app.core.fpg_rooms.config_fpg import (
     BEST_FLOOR_PLAN_SCORE,
     OPTUNA_SEARCH_SPACE_GRID_SCALE,
     TRIAL_OPTIMIZATION_TIMEOUT_SECONDS,
+    TRIAL_GRAPH_SOLVER_GATE_THRESHOLD,
 )
 from app.core.fpg_rooms.config_optuna import (
     OPTUNA_DEFAULT_STUDY_NAME,
@@ -148,17 +149,30 @@ def run_optuna_optimization(
 
     optuna.logging.set_verbosity(optuna.logging.WARN)
 
+    def _format_point_hints(
+        positions: Mapping[str, Mapping[str, Any]],
+        round_xy: bool = True,
+    ) -> list[dict[str, Any]]:
+        hints: list[dict[str, Any]] = []
+        for room_name, position_data in positions.items():
+            x_value = float(position_data.get("x", 0.0))
+            y_value = float(position_data.get("y", 0.0))
+            hints.append(
+                {
+                    "name": room_name,
+                    "type": str(position_data.get("type", "")),
+                    "x": int(round(x_value)) if round_xy else x_value,
+                    "y": int(round(y_value)) if round_xy else y_value,
+                    "radius": float(position_data.get("radius", 0.0)),
+                }
+            )
+        return hints
+
     def objective(trial: optuna.Trial) -> float:
         controller.check_timeout_and_raise()
         tracking_context = get_tracking_context()
         if tracking_context is not None:
             tracking_context.next_trial_id()
-
-        emit_progress(
-            "trial_started",
-            f"Starting trial {trial.number + 1}.",
-            {"trial_number": trial.number + 1},
-        )
 
         try:
             hallway_count = int(OPTUNA_HALLWAY_COUNT)
@@ -243,6 +257,15 @@ def run_optuna_optimization(
                 }
                 trial.set_user_attr("fpg_sampled_positions", sampled_positions)
 
+            emit_progress(
+                f"trial_{trial.number + 1}",
+                "Trial hint points generated.",
+                {
+                    "trial_number": trial.number + 1,
+                    "point_hints": _format_point_hints(sampled_positions),
+                },
+            )
+
             score_result = score_optuna_layout(
                 requirements=base_requirements,
                 sampled_positions=sampled_positions,
@@ -262,14 +285,12 @@ def run_optuna_optimization(
 
             if not score_result.usable_layout:
                 emit_progress(
-                    "trial_completed",
-                    "Trial completed below solver gate.",
+                    "solver_gate_not_passed",
+                    "Trial score did not pass the solver gate.",
                     {
                         "trial_number": trial.number + 1,
-                        "status": "score_below_solver_gate",
                         "optuna_score": optuna_score,
-                        "solver_invoked": False,
-                        "solver_passed": False,
+                        "solver_gate_threshold": TRIAL_GRAPH_SOLVER_GATE_THRESHOLD,
                     },
                 )
                 trial.set_user_attr("status", "score_below_solver_gate")
@@ -309,6 +330,17 @@ def run_optuna_optimization(
                 )
             ]
 
+            emit_progress(
+                "eligible_point_hints",
+                "Trial passed solver gate; using eligible point hints.",
+                {
+                    "trial_number": trial.number + 1,
+                    "optuna_score": optuna_score,
+                    "solver_gate_threshold": TRIAL_GRAPH_SOLVER_GATE_THRESHOLD,
+                    "point_hints": point_hints,
+                },
+            )
+
             filtered_hallway_names = [
                 hint["name"]
                 for hint in point_hints
@@ -336,17 +368,6 @@ def run_optuna_optimization(
                 debug_log_data(
                     run_result.fpg_score_results, tag="[Optuna] Solver Failure Result"
                 )
-                emit_progress(
-                    "trial_completed",
-                    "Trial completed without a solved layout.",
-                    {
-                        "trial_number": trial.number + 1,
-                        "status": run_result.status,
-                        "optuna_score": optuna_score,
-                        "solver_invoked": True,
-                        "solver_passed": False,
-                    },
-                )
                 trial.set_user_attr("composite_score", optuna_score)
                 print(
                     f"[Optuna] trial={trial.number} score={optuna_score:.2f} solver=FAILED composite={optuna_score:.2f}"
@@ -371,18 +392,6 @@ def run_optuna_optimization(
             trial.set_user_attr("solver_best", solver_best)
 
             if not solver_passed:
-                emit_progress(
-                    "trial_completed",
-                    "Trial completed but solver score did not pass the threshold.",
-                    {
-                        "trial_number": trial.number + 1,
-                        "status": run_result.status,
-                        "optuna_score": optuna_score,
-                        "solver_score": solver_score,
-                        "solver_invoked": True,
-                        "solver_passed": False,
-                    },
-                )
                 trial.set_user_attr("composite_score", optuna_score)
                 print(
                     f"[Optuna] trial={trial.number} score={optuna_score:.2f} solver={solver_score:.2f} "
@@ -399,15 +408,13 @@ def run_optuna_optimization(
                 run_result.fpg_score_results, tag="[Optuna] Solver Success Result"
             )
             emit_progress(
-                "trial_completed",
+                "solver_gate_passed",
                 "Trial produced a solver-passed layout.",
                 {
                     "trial_number": trial.number + 1,
                     "status": run_result.status,
                     "optuna_score": optuna_score,
                     "solver_score": solver_score,
-                    "solver_invoked": True,
-                    "solver_passed": True,
                 },
             )
             print(
@@ -487,7 +494,7 @@ def run_optuna_optimization(
             )
 
     emit_progress(
-        "optimization_completed",
+        "optuna_completed",
         "Optuna optimization finished.",
         {
             "termination_reason": termination_reason,
