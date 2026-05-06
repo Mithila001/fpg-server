@@ -64,8 +64,47 @@ def build_requirements(
         f"\n\nBuilding requirements with floor_width: {floor_width}, floor_height: {floor_height}, aspect_ratio: {aspect_ratio}, room_template: {room_template}"
     )
 
-    if not (1.1 <= aspect_ratio <= 1.2):
-        raise ValueError("aspect_ratio must be between 1.1 and 1.2 (inclusive).")
+    def _parse_and_validate_aspect_ratio(value) -> float:
+        """Parse common aspect-ratio inputs and validate.
+
+        - Accepts numeric values (int/float) representing H/W.
+        - Accepts string forms like "2:1" or "1:2" which are interpreted as H:W.
+        Returns a float H/W and raises ValueError for invalid inputs or out-of-range values.
+        """
+
+        # Accept numeric values directly
+        if isinstance(value, (int, float)):
+            ratio = float(value)
+        elif isinstance(value, str):
+            parts = value.split(":")
+            if len(parts) != 2:
+                raise ValueError(
+                    "Invalid aspect_ratio string format. Expect 'H:W' like '2:1' or '1:2'."
+                )
+            try:
+                h = float(parts[0])
+                w = float(parts[1])
+            except Exception:
+                raise ValueError(
+                    "Invalid numbers in aspect_ratio string. Expect 'H:W' with numeric parts."
+                )
+            if w == 0:
+                raise ValueError("Invalid aspect_ratio: width part cannot be zero.")
+            ratio = h / w
+        else:
+            raise ValueError(
+                "aspect_ratio must be a number or a string of the form 'H:W' (e.g. '2:1')."
+            )
+
+        # Allowed inclusive range: H/W in [0.5, 2.0] (covers 1:2 up to 2:1)
+        if not (0.5 <= ratio <= 2.0):
+            raise ValueError(
+                "aspect_ratio must be between 0.5 and 2.0 (inclusive) representing H/W (height/width)."
+            )
+        return ratio
+
+    # Defensive normalization: accept strings or numbers passed here and ensure range
+    aspect_ratio = _parse_and_validate_aspect_ratio(aspect_ratio)
 
     _validate_mandatory_room_types(room_template)
 

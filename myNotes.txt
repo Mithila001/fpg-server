@@ -30,9 +30,11 @@ optuna-dashboard sqlite:///optuna_fpg.db
 100 units = 10 m 
 
 
-
+Windows:
 curl.exe -N -H "Accept: text/event-stream" -H "X-Client-Id: cli-1" "<job_id>/events"
 
+Ubuntu:
+curl -N -H "Accept: text/event-stream" "http://localhost:8000/algorithms/job/<job_id>/events"
 
 
 http://localhost:8000/algorithms/cancel + { "job_id": "fafb77db-7266-4fdb-ace6-edf89844415d" }

@@ -7,7 +7,7 @@ Content-Type: application/json
 {
 	"floor_width": 150,
 	"floor_height": 150,
-	"aspect_ratio": 1.1,
+	"aspect_ratio": "1:1",
 	"room_template": {
 		"name": "Standard 2BHK Layout",
 		"data": [
@@ -23,7 +23,7 @@ Content-Type: application/json
 		]
 	},
 	"should_optuna_run": true,
-	"optuna_trial_count": 100
+	"optuna_trial_count": 500
 }
 
 ###
