@@ -8,16 +8,17 @@ from .geometry import Point, inward_normal, is_polygon_ccw
 
 EPS = 1e-6
 
+# Offsets are defined in solver units (10 units = 1 meter).
 DIRECTION_OFFSETS: dict[SegmentCategory, float] = {
-    "front": 100.0,
-    "back": 100.0,
-    "left": 100.0,
-    "right": 100.0,
+    "front": 10.0,
+    "back": 10.0,
+    "left": 5.0,
+    "right": 5.0,
 }
 
 ROAD_OFFSETS: dict[str, float] = {
-    "mainRoad": 200.0,
-    "privateRoad": 100.0,
+    "mainRoad": 10.0,
+    "privateRoad": 10.0,
 }
 
 CATEGORIES: list[SegmentCategory] = ["front", "back", "left", "right"]
