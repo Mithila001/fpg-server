@@ -38,7 +38,7 @@ ROOM_EXPANSION_CONFIG = {
     },
     "kitchen": {
         "MIN_WALL_LENGTH": 10,
-        "MAX_WALL_LENGTH": 30,
+        "MAX_WALL_LENGTH": 40,
         "MAX_ROOMS_TO_EXPAND": 1,
         "MAX_SELECTIONS": 1,
         "EXPANSION_PERCENTAGE": 0.40,
@@ -46,7 +46,7 @@ ROOM_EXPANSION_CONFIG = {
     },
     "hallway": {
         "MIN_WALL_LENGTH": 5,
-        "MAX_WALL_LENGTH": 40,
+        "MAX_WALL_LENGTH": 50,
         "MAX_ROOMS_TO_EXPAND": 3,
         "MAX_SELECTIONS": 3,
         "EXPANSION_PERCENTAGE": 0.50,
@@ -62,11 +62,11 @@ ROOM_EXPANSION_CONFIG = {
     },
     "veranda": {
         "MIN_WALL_LENGTH": 10,
-        "MAX_WALL_LENGTH": 40,
+        "MAX_WALL_LENGTH": 50,
         "MAX_ROOMS_TO_EXPAND": 3,
         "MAX_SELECTIONS": 1,
         "EXPANSION_PERCENTAGE": 0.50,
-        "EXPANSION_MAX_DISTANCE": 10,
+        "EXPANSION_MAX_DISTANCE": 30,
     },
 }
 

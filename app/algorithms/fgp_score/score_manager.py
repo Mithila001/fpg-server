@@ -28,7 +28,7 @@ def _clamp_0_25(value: float) -> float:
 
 
 def score_manager(
-    floor_plan_with_openings: FloorPlanWithOpenings | list[ProcessedRoomData],
+    floor_plan_with_openings: FloorPlanWithOpenings,
     requirements: FpgRequirements,
 ) -> ScoreManagerResult:
     """Rectilinear gate + standalone critical scoring (out of 25).
