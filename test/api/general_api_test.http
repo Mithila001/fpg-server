@@ -52,3 +52,7 @@ Content-Type: application/json
 	"min_height": 100,
 	"should_plot": true
 }
+
+
+###
+GET http://localhost:8000/algorithms/room-size-constraints

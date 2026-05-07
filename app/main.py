@@ -78,6 +78,8 @@ async def log_api_requests(request, call_next):
 # include the algorithm-related endpoints we just added
 from app.routes.routes import router as algorithms_router  # noqa: E402
 from app.routes.buildable_space_route import router as buildable_space_router  # noqa: E402
+from app.routes.configuration_data import router as configuration_data_router  # noqa: E402
 
 app.include_router(algorithms_router)
 app.include_router(buildable_space_router)
+app.include_router(configuration_data_router)
