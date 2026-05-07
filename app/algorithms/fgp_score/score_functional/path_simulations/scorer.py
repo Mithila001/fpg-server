@@ -8,6 +8,7 @@
 
 No imports from outside this package.
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -17,9 +18,10 @@ from scipy import ndimage
 
 from .pathfinder import ROOM_TYPE_CODES
 from .types import PathResult, PathScoreResult
+from ._dev_print import dev_print
 
 # Constants
-PRIVACY_RADIUS_CM: float = 150.0   # cm around a bedroom door = "privacy zone"
+PRIVACY_RADIUS_CM: float = 150.0  # cm around a bedroom door = "privacy zone"
 TARGET_QUIET_FRACTION: float = 0.35  # fraction of living/bed area we want traffic-free
 
 _LIVING_CODE = ROOM_TYPE_CODES["livingRoom"]
@@ -37,6 +39,7 @@ def _clamp(value: float, lo: float, hi: float) -> float:
 # Metric helpers
 # ---------------------------------------------------------------------------
 
+
 def _score_circulation_efficiency(
     traffic_map: np.ndarray,
     room_type_grid: np.ndarray,
@@ -44,15 +47,25 @@ def _score_circulation_efficiency(
 ) -> float:
     """30 pts: less traffic in living / kitchen zones = better."""
     mask = (
-        ((room_type_grid == _LIVING_CODE) | (room_type_grid == _KITCHEN_CODE))
-        & walkable
-    )
+        (room_type_grid == _LIVING_CODE) | (room_type_grid == _KITCHEN_CODE)
+    ) & walkable
     total = int(np.sum(mask))
     if total == 0:
+        dev_print(
+            "path",
+            "Circulation: No living/kitchen rooms found. Returning neutral score.",
+        )
         return 20.0  # neutral if no such rooms
+
     traffic_cells = int(np.sum((traffic_map > 0) & mask))
     ratio = traffic_cells / total
-    return _clamp(30.0 * (1.0 - ratio), 0.0, 30.0)
+    score = _clamp(30.0 * (1.0 - ratio), 0.0, 30.0)
+
+    dev_print(
+        "path",
+        f"Circulation: {traffic_cells}/{total} cells have traffic. Ratio: {ratio:.2%}, Score: {score:.2f}",
+    )
+    return score
 
 
 def _score_privacy(
@@ -69,6 +82,7 @@ def _score_privacy(
 ) -> float:
     """25 pts: public paths (entry→kitchen/bathroom) must not enter bedroom zones."""
     if not bedroom_door_pts:
+        dev_print("path", "Privacy: No bedroom doors found. Returning max score.")
         return 25.0  # no bedrooms → no privacy concern
 
     privacy_cells = max(1, int(PRIVACY_RADIUS_CM / grid_resolution))
@@ -77,9 +91,11 @@ def _score_privacy(
 
     # Build public-path traffic mask
     public_traffic = np.zeros_like(traffic_map, dtype=bool)
+    public_path_count = 0
     for path in paths:
         if not path.is_public:
             continue
+        public_path_count += 1
         for x, y in path.coords:
             ix = int((x - grid_min_x) / grid_resolution)
             iy = int((y - grid_min_y) / grid_resolution)
@@ -88,6 +104,7 @@ def _score_privacy(
             public_traffic[iy, ix] = True
 
     if not np.any(public_traffic):
+        dev_print("path", "Privacy: No public paths simulated. Returning max score.")
         return 25.0
 
     # Dilate to get "public traffic zone"
@@ -105,7 +122,13 @@ def _score_privacy(
             breaches += 1
 
     breach_ratio = breaches / num_bedrooms
-    return _clamp(25.0 * (1.0 - breach_ratio), 0.0, 25.0)
+    score = _clamp(25.0 * (1.0 - breach_ratio), 0.0, 25.0)
+
+    dev_print(
+        "path",
+        f"Privacy: {breaches} breaches in {num_bedrooms} bedrooms (Public paths: {public_path_count}). Score: {score:.2f}",
+    )
+    return score
 
 
 def _score_hallway_utility(
@@ -117,10 +140,18 @@ def _score_hallway_utility(
     hallway_mask = (room_type_grid == _HALLWAY_CODE) & walkable
     total_hallway = int(np.sum(hallway_mask))
     if total_hallway == 0:
+        dev_print("path", "Hallway: No hallway cells found. Returning neutral score.")
         return 18.0  # neutral – no hallways present
+
     used = int(np.sum((traffic_map > 0) & hallway_mask))
     ratio = used / total_hallway
-    return _clamp(25.0 * ratio, 0.0, 25.0)
+    score = _clamp(25.0 * ratio, 0.0, 25.0)
+
+    dev_print(
+        "path",
+        f"Hallway: {used}/{total_hallway} cells used. Utilization: {ratio:.2%}, Score: {score:.2f}",
+    )
+    return score
 
 
 def _score_furniture_flexibility(
@@ -130,15 +161,18 @@ def _score_furniture_flexibility(
 ) -> float:
     """20 pts: largest contiguous quiet zone in living + bedrooms."""
     living_bed_mask = (
-        ((room_type_grid == _LIVING_CODE) | (room_type_grid == _BEDROOM_CODE))
-        & walkable
-    )
+        (room_type_grid == _LIVING_CODE) | (room_type_grid == _BEDROOM_CODE)
+    ) & walkable
     total_lb = int(np.sum(living_bed_mask))
     if total_lb == 0:
+        dev_print(
+            "path", "Furniture: No living/bedroom area found. Returning neutral score."
+        )
         return 10.0  # neutral
 
     quiet_mask = (traffic_map == 0) & living_bed_mask
     if not np.any(quiet_mask):
+        dev_print("path", "Furniture: No quiet zones found. Score: 0.0")
         return 0.0
 
     labeled, num_features = ndimage.label(quiet_mask)
@@ -148,12 +182,19 @@ def _score_furniture_flexibility(
     sizes = ndimage.sum(quiet_mask, labeled, range(1, num_features + 1))
     largest_cc = int(np.max(sizes))
     quiet_fraction = largest_cc / total_lb
-    return _clamp(20.0 * min(1.0, quiet_fraction / TARGET_QUIET_FRACTION), 0.0, 20.0)
+    score = _clamp(20.0 * min(1.0, quiet_fraction / TARGET_QUIET_FRACTION), 0.0, 20.0)
+
+    dev_print(
+        "path",
+        f"Furniture: Largest quiet zone is {largest_cc} cells. Fraction: {quiet_fraction:.2%} (Target: {TARGET_QUIET_FRACTION:.0%}), Score: {score:.2f}",
+    )
+    return score
 
 
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def score_path_simulation(
     grid: Any,  # AStarGrid instance
@@ -161,7 +202,13 @@ def score_path_simulation(
     bedroom_door_pts: List[Tuple[float, float]],
 ) -> PathScoreResult:
     """Compute the 4 livability metrics and return a PathScoreResult."""
+    dev_print(
+        "path",
+        f"--- Starting Scoring Simulation (Paths: {len(paths)}, Doors: {len(bedroom_door_pts)}) ---",
+    )
+
     if grid.walkable is None or grid.traffic_map is None or grid.room_type_grid is None:
+        dev_print("path", "Scoring Error: Grid not rasterized.")
         return PathScoreResult(
             total_score=0.0,
             circulation_efficiency=0.0,
@@ -181,13 +228,22 @@ def score_path_simulation(
 
     circ = _score_circulation_efficiency(traffic_map, room_type_grid, walkable)
     priv = _score_privacy(
-        traffic_map, room_type_grid, walkable, paths,
-        bedroom_door_pts, res, min_x, min_y, h, w,
+        traffic_map,
+        room_type_grid,
+        walkable,
+        paths,
+        bedroom_door_pts,
+        res,
+        min_x,
+        min_y,
+        h,
+        w,
     )
     hall = _score_hallway_utility(traffic_map, room_type_grid, walkable)
     furn = _score_furniture_flexibility(traffic_map, room_type_grid, walkable)
 
     total = _clamp(circ + priv + hall + furn, 0.0, 100.0)
+    dev_print("path", f"Final Aggregated Score: {total:.2f}/100")
 
     return PathScoreResult(
         total_score=round(total, 2),

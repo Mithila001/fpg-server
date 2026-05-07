@@ -16,6 +16,8 @@ from shapely.geometry import LineString, MultiPolygon, Point, Polygon
 from shapely.ops import unary_union
 from shapely.prepared import prep
 
+from ._dev_print import dev_print
+
 # Geometry constants (all in cm)
 WALL_THICKNESS: float = 15.0  # thin wall strip half-buffered on shared boundary
 DOOR_CUT_RADIUS: float = 11.0  # buffer around door LineString (>WALL_THICKNESS/2)
@@ -58,6 +60,10 @@ def build_nav_mesh(
     nav_mesh  – walkable area: rooms minus wall strips, with door holes.
     total_floor – raw union of all room polygons (used for bounds / drawing).
     """
+    dev_print(
+        "path", f"Building nav mesh: {len(rooms)} rooms, {len(openings)} openings."
+    )
+
     # 1. Room polygons
     room_pairs: List[Tuple[Any, Polygon]] = []
     for r in rooms:
@@ -66,11 +72,13 @@ def build_nav_mesh(
             room_pairs.append((r, p))
 
     if not room_pairs:
+        dev_print("path", "No valid room polygons found. Returning empty mesh.")
         empty = Polygon()
         return empty, empty
 
     all_polys = [p for _, p in room_pairs]
     total_floor: Any = unary_union(all_polys)
+    dev_print("path", f"Total floor area: {total_floor.area:.2f}")
 
     # 2. Shared wall strips between every adjacent room pair
     wall_strips: List[Any] = []
@@ -80,48 +88,69 @@ def build_nav_mesh(
             _, p_i = room_pairs[i]
             _, p_j = room_pairs[j]
             shared = p_i.boundary.intersection(p_j.boundary)
+
             if shared.is_empty:
                 continue
+
             # Buffer the shared LineString to create a thin wall obstacle
             strip = shared.buffer(
                 WALL_THICKNESS / 2.0,
-                cap_style="flat",  # Used to be 2
-                join_style="mitre",  # Used to be 2
+                cap_style="flat",
+                join_style="mitre",
             )
             if not strip.is_empty:
                 wall_strips.append(strip)
+
+    dev_print("path", f"Generated {len(wall_strips)} shared wall strips.")
 
     # 3. Door hole polygons – buffer each door segment to cut through walls
     door_holes: List[Any] = []
     for op in openings:
         if getattr(op, "opening_type", "") != "door":
             continue
+
         x1 = float(getattr(op, "x1", 0.0))
         y1 = float(getattr(op, "y1", 0.0))
         x2 = float(getattr(op, "x2", 0.0))
         y2 = float(getattr(op, "y2", 0.0))
+
         if (x1, y1) == (x2, y2):
             continue
+
         line = LineString([(x1, y1), (x2, y2)])
-        hole = line.buffer(DOOR_CUT_RADIUS, cap_style="flat")  # Used to be 2
+        hole = line.buffer(DOOR_CUT_RADIUS, cap_style="flat")
         if not hole.is_empty:
             door_holes.append(hole)
 
+    dev_print("path", f"Generated {len(door_holes)} door hole cutouts.")
+
     # 4. Assemble nav mesh
     if not wall_strips:
-        # No shared walls detected → full floor is walkable
+        dev_print("path", "No wall strips found; mesh is equal to total floor.")
         return total_floor, total_floor
 
     wall_union: Any = unary_union(wall_strips)
     if door_holes:
         door_union: Any = unary_union(door_holes)
         effective_walls = wall_union.difference(door_union)
+        dev_print("path", "Doors subtracted from wall strips.")
     else:
         effective_walls = wall_union
+        dev_print("path", "No doors to subtract from walls.")
 
     nav_mesh = total_floor.difference(effective_walls)
+
     if nav_mesh.is_empty:
-        # Fallback: return full floor (better than nothing)
+        dev_print(
+            "path",
+            "Warning: Nav mesh is empty after wall subtraction! Falling back to total floor.",
+        )
         nav_mesh = total_floor
+    else:
+        reduction = (1 - (nav_mesh.area / total_floor.area)) * 100
+        dev_print(
+            "path",
+            f"Nav mesh built. Walkable area reduced by {reduction:.2f}% due to walls.",
+        )
 
     return nav_mesh, total_floor

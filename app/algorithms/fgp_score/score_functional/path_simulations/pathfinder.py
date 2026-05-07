@@ -9,12 +9,16 @@ Handles:
 
 No imports from outside this package.
 """
+
 from __future__ import annotations
 
 import heapq
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
+
+# Use dev_print for debugging as requested
+from ._dev_print import dev_print
 from shapely.geometry import Point, Polygon
 from shapely.ops import unary_union
 from shapely.prepared import prep
@@ -49,9 +53,11 @@ class AStarGrid:
         self._width: int = 0
 
         # Core grids – allocated after rasterize()
-        self.walkable: Optional[np.ndarray] = None    # bool (True = walkable)
+        self.walkable: Optional[np.ndarray] = None  # bool (True = walkable)
         self.traffic_map: Optional[np.ndarray] = None  # float64 hit counts
         self.room_type_grid: Optional[np.ndarray] = None  # int8 room type codes
+
+        dev_print("path", f"Initialized AStarGrid with resolution: {resolution}")
 
     # ------------------------------------------------------------------
     # Rasterisation
@@ -68,6 +74,11 @@ class AStarGrid:
         self._width = width
         self._height = height
 
+        dev_print(
+            "path",
+            f"Rasterizing grid: {width}x{height} | Bounds: ({min_x}, {min_y}) to ({max_x}, {max_y})",
+        )
+
         self.walkable = np.zeros((height, width), dtype=bool)
         self.traffic_map = np.zeros((height, width), dtype=np.float64)
         self.room_type_grid = np.full((height, width), OTHER_CODE, dtype=np.int8)
@@ -76,16 +87,24 @@ class AStarGrid:
         res = self.resolution
         ox, oy = self._min_x, self._min_y
 
+        walkable_count = 0
         for iy in range(height):
             cy = oy + (iy + 0.5) * res
             for ix in range(width):
                 cx = ox + (ix + 0.5) * res
                 if prepared.contains(Point(cx, cy)):
                     self.walkable[iy, ix] = True  # type: ignore[index]
+                    walkable_count += 1
+
+        dev_print(
+            "path",
+            f"Rasterization complete. Walkable cells: {walkable_count}/{width * height}",
+        )
 
     def label_room_types(self, rooms: List[Any]) -> None:
         """Assign each walkable cell a room-type code from the room that contains it."""
         if self.walkable is None or self.room_type_grid is None:
+            dev_print("path", "label_room_types aborted: Grid not rasterized.")
             return
 
         res = self.resolution
@@ -100,8 +119,11 @@ class AStarGrid:
             poly = Polygon(verts)
             if poly.is_empty or not poly.is_valid:
                 continue
-            code = ROOM_TYPE_CODES.get(str(getattr(room, "type", "")), OTHER_CODE)
+            r_type = str(getattr(room, "type", ""))
+            code = ROOM_TYPE_CODES.get(r_type, OTHER_CODE)
             prepared_rooms.append((prep(poly), code))
+
+        dev_print("path", f"Labeling {len(prepared_rooms)} rooms onto grid.")
 
         for iy in range(self._height):
             if not np.any(self.walkable[iy]):  # type: ignore[index]
@@ -116,6 +138,7 @@ class AStarGrid:
                     if prep_poly.contains(pt):
                         self.room_type_grid[iy, ix] = code  # type: ignore[index]
                         break
+        dev_print("path", "Room labeling complete.")
 
     # ------------------------------------------------------------------
     # Coordinate utilities
@@ -137,38 +160,52 @@ class AStarGrid:
     # A* pathfinding
     # ------------------------------------------------------------------
 
-    def find_path(
-        self, start_pt: _WorldPt, end_pt: _WorldPt
-    ) -> List[_WorldPt]:
-        """Return smoothed world-coordinate path from start to end.
-
-        Returns empty list if no path found or grid not rasterized.
-        """
+    def find_path(self, start_pt: _WorldPt, end_pt: _WorldPt) -> List[_WorldPt]:
+        """Return smoothed world-coordinate path from start to end."""
         if self.walkable is None or self.traffic_map is None:
+            dev_print("path", "find_path failed: Grid not initialized.")
             return []
 
-        start = self._world_to_grid(start_pt)
-        goal = self._world_to_grid(end_pt)
+        start_grid = self._world_to_grid(start_pt)
+        goal_grid = self._world_to_grid(end_pt)
 
         # Snap non-walkable endpoints to nearest walkable cell
-        start = self._nearest_walkable(start)
-        goal = self._nearest_walkable(goal)
+        start = self._nearest_walkable(start_grid)
+        goal = self._nearest_walkable(goal_grid)
 
         if start is None or goal is None:
+            dev_print(
+                "path",
+                f"Path failed: Start {start_grid} or Goal {goal_grid} out of reach/blocked.",
+            )
             return []
+
+        if start != start_grid or goal != goal_grid:
+            dev_print(
+                "path", f"Snapped endpoints: {start_grid}->{start}, {goal_grid}->{goal}"
+            )
+
         if start == goal:
+            dev_print("path", "Start and Goal are the same cell.")
             return [self._grid_to_world(start)]
 
         raw_path = self._astar(start, goal)
         if not raw_path:
+            dev_print("path", f"A* failed to find path between {start} and {goal}")
             return []
+
+        dev_print("path", f"A* found raw path with {len(raw_path)} nodes.")
 
         # Smooth and update traffic
         smoothed = self.smooth_path(raw_path, iterations=3)
         self._mark_traffic(raw_path)  # mark on unsmoothed path for accuracy
+
+        dev_print("path", f"Path smoothed. Final world point count: {len(smoothed)}")
         return smoothed
 
-    def _nearest_walkable(self, idx: _GridIdx, max_radius: int = 8) -> Optional[_GridIdx]:
+    def _nearest_walkable(
+        self, idx: _GridIdx, max_radius: int = 8
+    ) -> Optional[_GridIdx]:
         """Find nearest walkable cell to idx within max_radius cells."""
         if self.walkable is None:
             return None
@@ -199,8 +236,11 @@ class AStarGrid:
         came_from: Dict[_GridIdx, _GridIdx] = {}
         g_score: Dict[_GridIdx, float] = {start: 0.0}
 
+        nodes_explored = 0
         while queue:
             _, current = heapq.heappop(queue)
+            nodes_explored += 1
+
             if current == goal:
                 path: List[_GridIdx] = []
                 while current in came_from:
@@ -209,13 +249,23 @@ class AStarGrid:
                 path.append(start)
                 return path[::-1]
 
-            for dy, dx in [(0,1),(0,-1),(1,0),(-1,0),(1,1),(1,-1),(-1,1),(-1,-1)]:
+            for dy, dx in [
+                (0, 1),
+                (0, -1),
+                (1, 0),
+                (-1, 0),
+                (1, 1),
+                (1, -1),
+                (-1, 1),
+                (-1, -1),
+            ]:
                 ny, nx = current[0] + dy, current[1] + dx
                 nb: _GridIdx = (ny, nx)
                 if not (0 <= ny < h and 0 <= nx < w):
                     continue
                 if not self.walkable[ny, nx]:
                     continue
+
                 move_cost = 1.414 if (abs(dy) + abs(dx) == 2) else 1.0
                 tentative_g = g_score[current] + move_cost
                 if tentative_g < g_score.get(nb, float("inf")):
@@ -223,6 +273,10 @@ class AStarGrid:
                     g_score[nb] = tentative_g
                     f = tentative_g + heuristic(nb, goal)
                     heapq.heappush(queue, (f, nb))
+
+        dev_print(
+            "path", f"A* Search exhausted after exploring {nodes_explored} nodes."
+        )
         return []
 
     def _mark_traffic(self, path: List[_GridIdx]) -> None:
@@ -245,8 +299,9 @@ class AStarGrid:
         world: List[_WorldPt] = [self._grid_to_world(idx) for idx in path]
         if len(world) < 3:
             return world
+
         pts = world
-        for _ in range(iterations):
+        for j in range(iterations):
             new_pts: List[_WorldPt] = [pts[0]]
             for i in range(len(pts) - 1):
                 x0, y0 = pts[i]
@@ -255,6 +310,7 @@ class AStarGrid:
                 new_pts.append((0.25 * x0 + 0.75 * x1, 0.25 * y0 + 0.75 * y1))
             new_pts.append(pts[-1])
             pts = new_pts
+
         return pts
 
     # ------------------------------------------------------------------
