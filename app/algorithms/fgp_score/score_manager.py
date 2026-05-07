@@ -178,6 +178,26 @@ def score_manager(
             100  # Temporary hack to make perfect scores if critical score got full pass
         )
 
+    # ------------------------------------------------------------------
+    # Path Simulation (test / dev – not wired into final score yet)
+    # ------------------------------------------------------------------
+    try:
+        from app.algorithms.fgp_score.score_functional.path_simulations.dev.path_simulation import (
+            run_path_simulation_dev,
+        )
+
+        path_result = run_path_simulation_dev(floor_plan_with_openings)
+        print(
+            f"[score_manager/path_sim] total_score={path_result.total_score:.1f}/100 "
+            f"plot={'saved' if path_result.plot_path else 'skipped (score below margin)'}"
+        )
+        if path_result.plot_path:
+            print(f"[score_manager/path_sim] plot_path={path_result.plot_path}")
+        if path_result.error:
+            print(f"[score_manager/path_sim] warning: {path_result.error}")
+    except Exception as _path_exc:
+        print(f"[score_manager/path_sim] path simulation failed: {_path_exc}")
+
     return ScoreManagerResult(
         critical_score=round(float(critical_score), 2),
         checks=checks,
