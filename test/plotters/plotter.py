@@ -7,6 +7,7 @@ Saves a single PNG with:
 
 Output: test/outputs/score/critical_score/path_score/YYYY-MM-DD-HH-MM-SS-ms.png
 """
+
 from __future__ import annotations
 
 import os
@@ -14,6 +15,7 @@ from datetime import datetime
 from typing import Any, List
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -23,8 +25,13 @@ from matplotlib.cm import ScalarMappable
 import numpy as np
 from shapely.geometry import Polygon
 
-from ..pathfinder import ROOM_TYPE_CODES
-from ..types import PathResult, PathScoreResult
+from ...app.algorithms.fgp_score.score_functional.path_simulations.pathfinder import (
+    ROOM_TYPE_CODES,
+)
+from ...app.algorithms.fgp_score.score_functional.path_simulations.types import (
+    PathResult,
+    PathScoreResult,
+)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -37,32 +44,44 @@ _TEXT = "#e0e0e0"
 _HALLWAY_CODE = ROOM_TYPE_CODES["hallway"]
 
 _ROOM_COLOURS = {
-    "livingRoom":       "#3a5a4a",
-    "bedroom":          "#2a3d5a",
-    "kitchen":          "#3a4a2a",
-    "bathroom":         "#2a4a5a",
+    "livingRoom": "#3a5a4a",
+    "bedroom": "#2a3d5a",
+    "kitchen": "#3a4a2a",
+    "bathroom": "#2a4a5a",
     "attachedBathroom": "#1e3d52",
-    "hallway":          "#4a3a5a",
-    "diningRoom":       "#5a4a2a",
-    "garage":           "#3a3a3a",
+    "hallway": "#4a3a5a",
+    "diningRoom": "#5a4a2a",
+    "garage": "#3a3a3a",
     "verandaOutdoorSpace": "#2e4a2e",
 }
 _DEFAULT_ROOM = "#2c2c2c"
 
 _PATH_COLOURS = {
-    "entry_kitchen":     "#FF6B35",
-    "entry_bedroom":     "#4ECDC4",
-    "entry_bathroom":    "#45B7D1",
-    "bedroom_bathroom":  "#96CEB4",
-    "bedroom_kitchen":   "#FFEAA7",
+    "entry_kitchen": "#FF6B35",
+    "entry_bedroom": "#4ECDC4",
+    "entry_bathroom": "#45B7D1",
+    "bedroom_bathroom": "#96CEB4",
+    "bedroom_kitchen": "#FFEAA7",
 }
 
 
 def _default_output_dir() -> str:
     here = os.path.dirname(__file__)
     return os.path.abspath(
-        os.path.join(here, "..", "..", "..", "..", "..", "..",
-                     "test", "outputs", "score", "critical_score", "path_score")
+        os.path.join(
+            here,
+            "..",
+            "..",
+            "..",
+            "..",
+            "..",
+            "..",
+            "test",
+            "outputs",
+            "score",
+            "critical_score",
+            "path_score",
+        )
     )
 
 
@@ -75,9 +94,12 @@ def _draw_rooms(ax: Any, rooms: List[Any]) -> None:
         rtype = str(getattr(room, "type", ""))
         colour = _ROOM_COLOURS.get(rtype, _DEFAULT_ROOM)
         patch = MplPolygon(
-            verts, closed=True,
-            facecolor=colour, edgecolor="#555555",
-            linewidth=0.8, alpha=0.85,
+            verts,
+            closed=True,
+            facecolor=colour,
+            edgecolor="#555555",
+            linewidth=0.8,
+            alpha=0.85,
         )
         ax.add_patch(patch)
         # Label
@@ -85,8 +107,16 @@ def _draw_rooms(ax: Any, rooms: List[Any]) -> None:
         ys = [v[1] for v in verts]
         cx, cy = sum(xs) / len(xs), sum(ys) / len(ys)
         name = str(getattr(room, "name", rtype))
-        ax.text(cx, cy, name, ha="center", va="center",
-                fontsize=5.5, color="#cccccc", alpha=0.8)
+        ax.text(
+            cx,
+            cy,
+            name,
+            ha="center",
+            va="center",
+            fontsize=5.5,
+            color="#cccccc",
+            alpha=0.8,
+        )
 
 
 def _set_ax_style(ax: Any, title: str, rooms: List[Any]) -> None:
@@ -113,8 +143,9 @@ def _set_ax_style(ax: Any, title: str, rooms: List[Any]) -> None:
 # Public API
 # ---------------------------------------------------------------------------
 
+
 def save_path_score_plot(
-    grid: Any,           # AStarGrid instance (post-rasterize + label)
+    grid: Any,  # AStarGrid instance (post-rasterize + label)
     result: PathScoreResult,
     rooms: List[Any],
     output_dir: str | None = None,
@@ -128,9 +159,7 @@ def save_path_score_plot(
     fname = now.strftime(f"%Y-%m-%d-%H-%M-%S-{ms:03d}") + ".png"
     save_path = os.path.join(output_dir, fname)
 
-    fig, (ax1, ax2, ax3) = plt.subplots(
-        1, 3, figsize=(24, 9), dpi=150, facecolor=_BG
-    )
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(24, 9), dpi=150, facecolor=_BG)
 
     # ------------------------------------------------------------------
     # Panel 1 – Floor plan + paths
@@ -149,15 +178,16 @@ def save_path_score_plot(
         ax1.plot(xs, ys, color=path.color, linewidth=1.6, alpha=0.85, zorder=5)
         if path.label not in seen_labels:
             seen_labels.add(path.label)
-            legend_handles.append(
-                mpatches.Patch(color=path.color, label=path.label)
-            )
+            legend_handles.append(mpatches.Patch(color=path.color, label=path.label))
 
     if legend_handles:
         ax1.legend(
-            handles=legend_handles, loc="upper right",
-            fontsize=5, framealpha=0.3,
-            facecolor=_PANEL_BG, edgecolor="#444444",
+            handles=legend_handles,
+            loc="upper right",
+            fontsize=5,
+            framealpha=0.3,
+            facecolor=_PANEL_BG,
+            edgecolor="#444444",
             labelcolor=_TEXT,
         )
 
@@ -167,7 +197,11 @@ def save_path_score_plot(
     _draw_rooms(ax2, rooms)
     _set_ax_style(ax2, "Hallway Utility  |  green=used  red=unused", rooms)
 
-    if grid.walkable is not None and grid.room_type_grid is not None and grid.traffic_map is not None:
+    if (
+        grid.walkable is not None
+        and grid.room_type_grid is not None
+        and grid.traffic_map is not None
+    ):
         res = grid.resolution
         min_x, min_y, _, _ = grid.bounds
         h, w = grid._height, grid._width
@@ -183,16 +217,25 @@ def save_path_score_plot(
                 used = grid.traffic_map[iy, ix] > 0
                 colour = "#00c853" if used else "#d50000"
                 rect = plt.Rectangle(
-                    (cx - res / 2, cy - res / 2), res, res,
-                    facecolor=colour, edgecolor="none", alpha=0.65, zorder=6
+                    (cx - res / 2, cy - res / 2),
+                    res,
+                    res,
+                    facecolor=colour,
+                    edgecolor="none",
+                    alpha=0.65,
+                    zorder=6,
                 )
                 ax2.add_patch(rect)
 
     ax2.text(
-        0.02, 0.98,
+        0.02,
+        0.98,
         f"Hallway Utility: {result.hallway_utility:.1f}/25",
-        transform=ax2.transAxes, va="top", ha="left",
-        fontsize=7, color=_TEXT,
+        transform=ax2.transAxes,
+        va="top",
+        ha="left",
+        fontsize=7,
+        color=_TEXT,
         bbox={"facecolor": "#1e1e1e", "alpha": 0.8, "edgecolor": "#555"},
     )
 
@@ -200,7 +243,9 @@ def save_path_score_plot(
     # Panel 3 – Traffic heatmap
     # ------------------------------------------------------------------
     ax3.set_facecolor(_PANEL_BG)
-    ax3.set_title("Traffic Intensity  |  bright=high traffic", color=_TEXT, fontsize=9, pad=6)
+    ax3.set_title(
+        "Traffic Intensity  |  bright=high traffic", color=_TEXT, fontsize=9, pad=6
+    )
     ax3.tick_params(colors=_TEXT, labelsize=6)
     for spine in ax3.spines.values():
         spine.set_edgecolor("#444444")
@@ -243,7 +288,9 @@ def save_path_score_plot(
         f"Priv={result.privacy_score:.1f}  "
         f"Hall={result.hallway_utility:.1f}  "
         f"Furn={result.furniture_flexibility:.1f}",
-        color=_TEXT, fontsize=10, y=0.995,
+        color=_TEXT,
+        fontsize=10,
+        y=0.995,
     )
 
     fig.tight_layout(rect=[0.0, 0.0, 1.0, 0.99])

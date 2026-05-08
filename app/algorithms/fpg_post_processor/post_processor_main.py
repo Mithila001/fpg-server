@@ -5,7 +5,7 @@ from app.algorithms.fpg_post_processor.dev.fpgpp_plotter import (
     plot_floorplan_comparison,
 )
 from app.algorithms.fpg_post_processor.hallway_union import hallway_union
-from app.algorithms.fpg_post_processor.dev.dev_visualizer_plotter import (
+from test.plotters.dev_visualizer_plotter import (
     plot_and_save_results,
 )
 from app.algorithms.fpg_post_processor.dev.process_results_plotter import (

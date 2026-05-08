@@ -49,8 +49,8 @@ from app.util.algorithm_manager import (
     build_requirements,
     validate_and_compute_floor_bounds,
 )
-from test.dev.final_result_plotter import plot_final_solver_result
-from test.dev.plot_refiner import plot_refine_floor_plan
+from test.plotters.final_result_plotter import plot_final_solver_result
+from test.plotters.plot_refiner import plot_refine_floor_plan
 
 FPG_SOLVER_RUN_COUNT = 2
 
@@ -249,10 +249,11 @@ def _run_single_fpg_solve(
     processed_floor_plan: list[ProcessedRoomData] = extend_floor_plan_walls(
         verandaUpdatedPlan, filename=f"refine_{timestamp}.png"
     )
-    
-    hallway_processed_floor_plan  : list[ProcessedRoomData] = hallway_union(processed_floor_plan)
-    
-    
+
+    hallway_processed_floor_plan: list[ProcessedRoomData] = hallway_union(
+        processed_floor_plan
+    )
+
     grid_snapped_floor_plan: list[ProcessedRoomData] = snap_floor_plan_to_grid(
         hallway_processed_floor_plan
     )

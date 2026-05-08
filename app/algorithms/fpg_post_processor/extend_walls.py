@@ -6,7 +6,7 @@ from shapely.geometry import box, MultiPolygon, Polygon, LineString
 from shapely.ops import unary_union, substring
 from app.algorithms.types.domain import ProcessedRoomData
 
-from app.algorithms.fpg_post_processor.dev.dev_step_plotter import (
+from test.plotters.dev_step_plotter import (
     plot_step_progression,
 )
 
@@ -25,7 +25,7 @@ ROOM_COLOR_MAP = {
     "livingRoom": "#87CEEB",  # Sky Blue
 }
 
-ROOM_EXPAND_HIERARCHY = [ "veranda", "livingRoom","kitchen", "hallway", "bedroom"]
+ROOM_EXPAND_HIERARCHY = ["veranda", "livingRoom", "kitchen", "hallway", "bedroom"]
 
 ROOM_EXPANSION_CONFIG = {
     "livingRoom": {

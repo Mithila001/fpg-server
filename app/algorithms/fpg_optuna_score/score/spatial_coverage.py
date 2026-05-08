@@ -7,6 +7,8 @@ from typing import Any
 
 import matplotlib
 
+from test.plotters.spatial_coverage import save_spatial_coverage_heatmap
+
 # Force Matplotlib to use the non-interactive 'Agg' backend.
 # CRITICAL for backend servers/Optuna workers to prevent UI thread crashes and memory leaks.
 matplotlib.use("Agg")
@@ -24,6 +26,7 @@ from app.algorithms.fpg_optuna_score.util.scoring_common import (
 )
 from app.algorithms.types.domain import FpgRequirements
 from app.core.fpg_rooms.config_fpg import OPTUNA_SCORING_VALUES
+
 
 max_score_limit = OPTUNA_SCORING_VALUES.get("optuna_score_spatial_coverage", 0)
 
@@ -49,6 +52,7 @@ HEATMAP_OUTPUT_DIR = (
 
 PLOT_THRESHOLD_PERCENT = 60  # Matches "2.5 out of 10" request
 
+
 # ---------------------------------------------------------------------------
 # NND sub-score  (anti-clumping)
 # ---------------------------------------------------------------------------
@@ -71,9 +75,18 @@ def _calculate_nnd_score(
     bx, by = floor_width, floor_height
     boundary_xy = np.array(
         [
-            (0.0, 0.0), (bx, 0.0), (bx, by), (0.0, by),
-            (bx / 2, 0.0), (bx / 2, by), (0.0, by / 2), (bx, by / 2),
-            (bx / 4, 0.0), (3 * bx / 4, 0.0), (bx / 4, by), (3 * bx / 4, by),
+            (0.0, 0.0),
+            (bx, 0.0),
+            (bx, by),
+            (0.0, by),
+            (bx / 2, 0.0),
+            (bx / 2, by),
+            (0.0, by / 2),
+            (bx, by / 2),
+            (bx / 4, 0.0),
+            (3 * bx / 4, 0.0),
+            (bx / 4, by),
+            (3 * bx / 4, by),
         ],
         dtype=np.float64,
     )
@@ -167,124 +180,124 @@ def _calculate_grid_sampling_score(
 # ---------------------------------------------------------------------------
 # Plotter
 # ---------------------------------------------------------------------------
-def _save_spatial_coverage_heatmap(
-    room_points: list[OptunaScorePoint],
-    requirements: FpgRequirements,
-    scoring_details: dict[str, Any],
-) -> None:
-    final_score = scoring_details.get("final_score", 0.0)
-    max_sc = scoring_details.get("max_score", max_score_limit)
-    pct = (final_score / max_sc * 100.0) if max_sc else 0.0
-    
-    if pct < PLOT_THRESHOLD_PERCENT:
-        print(f"[Info] Spatial coverage {pct:.1f}% below {PLOT_THRESHOLD_PERCENT}%, skipping heatmap.")
-        return
+# def _save_spatial_coverage_heatmap(
+#     room_points: list[OptunaScorePoint],
+#     requirements: FpgRequirements,
+#     scoring_details: dict[str, Any],
+# ) -> None:
+#     final_score = scoring_details.get("final_score", 0.0)
+#     max_sc = scoring_details.get("max_score", max_score_limit)
+#     pct = (final_score / max_sc * 100.0) if max_sc else 0.0
 
-    try:
-        HEATMAP_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        floor_width = requirements.config.floor_plan_width
-        floor_height = requirements.config.floor_plan_height
+#     if pct < PLOT_THRESHOLD_PERCENT:
+#         print(f"[Info] Spatial coverage {pct:.1f}% below {PLOT_THRESHOLD_PERCENT}%, skipping heatmap.")
+#         return
 
-        # --- FIX 1: Initialize variables at the top to prevent "unbound" errors ---
-        ideal_radius = scoring_details.get("theoretical_min_max_gap", 0.0)
-        num_points = len(room_points)
+#     try:
+#         HEATMAP_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+#         floor_width = requirements.config.floor_plan_width
+#         floor_height = requirements.config.floor_plan_height
 
-        fig = plt.figure(figsize=(14, 8), facecolor="#ffffff")
-        gs = fig.add_gridspec(1, 2, width_ratios=[3, 1], left=0.05, right=0.95, wspace=0.1)
-        ax_map = fig.add_subplot(gs[0])
-        ax_info = fig.add_subplot(gs[1])
+#         # --- FIX 1: Initialize variables at the top to prevent "unbound" errors ---
+#         ideal_radius = scoring_details.get("theoretical_min_max_gap", 0.0)
+#         num_points = len(room_points)
 
-        ax_map.set_facecolor("#fcfcfc")
-        
-        # ── Gap Heatmap ──────────────────────────────────────────────────────
-        probe_dists_2d = scoring_details.get("probe_dists")
-        if probe_dists_2d is not None:
-            arr = np.array(probe_dists_2d, dtype=np.float64)
-            cmap = mcolors.LinearSegmentedColormap.from_list(
-                "gap_cmap", ["#0ea5e9", "#f0f9ff", "#fee2e2", "#ef4444"]
-            )
-            im = ax_map.imshow(
-                arr, 
-                origin="lower", 
-                extent=(0.0, float(floor_width), 0.0, float(floor_height)),
-                cmap=cmap, 
-                aspect="equal", 
-                alpha=0.8, 
-                interpolation="bilinear", 
-                zorder=1
-            )
-            cbar = fig.colorbar(im, ax=ax_map, fraction=0.03, pad=0.02)
-            cbar.outline.set_visible(False) # type: ignore
-            cbar.ax.tick_params(labelsize=7)
+#         fig = plt.figure(figsize=(14, 8), facecolor="#ffffff")
+#         gs = fig.add_gridspec(1, 2, width_ratios=[3, 1], left=0.05, right=0.95, wspace=0.1)
+#         ax_map = fig.add_subplot(gs[0])
+#         ax_info = fig.add_subplot(gs[1])
 
-        # ── Floor Boundary ───────────────────────────────────────────────────
-        ax_map.add_patch(mpatches.Rectangle((0, 0), floor_width, floor_height, 
-                                             linewidth=2, edgecolor="#334155", facecolor="none", zorder=5))
+#         ax_map.set_facecolor("#fcfcfc")
 
-        # ── Room Points ──────────────────────────────────────────────────────
-        if room_points:
-            room_xy = np.array([(p.x, p.y) for p in room_points])
-            
-            ax_map.scatter(room_xy[:, 0], room_xy[:, 1], s=120, c="#1e293b", edgecolors="white", 
-                           linewidths=1.5, zorder=10, label="Room Centers")
+#         # ── Gap Heatmap ──────────────────────────────────────────────────────
+#         probe_dists_2d = scoring_details.get("probe_dists")
+#         if probe_dists_2d is not None:
+#             arr = np.array(probe_dists_2d, dtype=np.float64)
+#             cmap = mcolors.LinearSegmentedColormap.from_list(
+#                 "gap_cmap", ["#0ea5e9", "#f0f9ff", "#fee2e2", "#ef4444"]
+#             )
+#             im = ax_map.imshow(
+#                 arr,
+#                 origin="lower",
+#                 extent=(0.0, float(floor_width), 0.0, float(floor_height)),
+#                 cmap=cmap,
+#                 aspect="equal",
+#                 alpha=0.8,
+#                 interpolation="bilinear",
+#                 zorder=1
+#             )
+#             cbar = fig.colorbar(im, ax=ax_map, fraction=0.03, pad=0.02)
+#             cbar.outline.set_visible(False) # type: ignore
+#             cbar.ax.tick_params(labelsize=7)
 
-            for p in room_points:
-                # Use the ideal radius for the halos
-                ax_map.add_patch(mpatches.Circle((p.x, p.y), ideal_radius, color="#0ea5e9", 
-                                                 alpha=0.1, linewidth=0, zorder=2))
-                
-                txt = ax_map.text(p.x, p.y + (floor_height*0.02), p.name, fontsize=7, 
-                                  fontweight="bold", ha="center", zorder=11)
-                txt.set_path_effects([patheffects.withStroke(linewidth=2, foreground="white")])
+#         # ── Floor Boundary ───────────────────────────────────────────────────
+#         ax_map.add_patch(mpatches.Rectangle((0, 0), floor_width, floor_height,
+#                                              linewidth=2, edgecolor="#334155", facecolor="none", zorder=5))
 
-        # ── Map Cosmetics ────────────────────────────────────────────────────
-        ax_map.set_xlim(-floor_width * 0.05, floor_width * 1.05)
-        ax_map.set_ylim(-floor_height * 0.05, floor_height * 1.05)
-        
-        # --- FIX 2: Avoid Spine looping issue by using axis("off") or explicit sets ---
-        ax_map.axis("off")
-        ax_info.axis("off")
+#         # ── Room Points ──────────────────────────────────────────────────────
+#         if room_points:
+#             room_xy = np.array([(p.x, p.y) for p in room_points])
 
-        # ── Clean Info Panel (No Boxes/Overdue Style) ────────────────────────
-        y_pos = 0.95
-        def _write(text, x=0, size=9, color="#1e293b", weight="normal"):
-            nonlocal y_pos
-            ax_info.text(x, y_pos, text, transform=ax_info.transAxes, fontsize=size, 
-                         color=color, fontweight=weight, va="top")
-            y_pos -= 0.045
+#             ax_map.scatter(room_xy[:, 0], room_xy[:, 1], s=120, c="#1e293b", edgecolors="white",
+#                            linewidths=1.5, zorder=10, label="Room Centers")
 
-        _write("SPATIAL METRICS", size=12, weight="bold", color="#0f172a")
-        y_pos -= 0.02
-        
-        _write(f"Final Score: {final_score:.2f} / {max_sc}", weight="bold")
-        _write(f"Efficiency: {pct:.1f}%", color="#0284c7" if pct > 70 else "#b91c1c")
-        y_pos -= 0.03
+#             for p in room_points:
+#                 # Use the ideal radius for the halos
+#                 ax_map.add_patch(mpatches.Circle((p.x, p.y), ideal_radius, color="#0ea5e9",
+#                                                  alpha=0.1, linewidth=0, zorder=2))
 
-        _write("CLUSTERING (NND)", weight="bold", color="#475569")
-        _write(f"• Score: {scoring_details.get('nnd_score_100', 0.0):.1f}/100")
-        cv = scoring_details.get("std_nnd", 0.0) / max(scoring_details.get("mean_nnd", 1e-9), 1e-9)
-        _write(f"• Variation (CV): {cv:.3f}")
-        y_pos -= 0.03
+#                 txt = ax_map.text(p.x, p.y + (floor_height*0.02), p.name, fontsize=7,
+#                                   fontweight="bold", ha="center", zorder=11)
+#                 txt.set_path_effects([patheffects.withStroke(linewidth=2, foreground="white")])
 
-        _write("COVERAGE (GRID)", weight="bold", color="#475569")
-        g_scale = scoring_details.get("grid_scale", SPATIAL_COVERAGE_ZONE_GRID_SCALE)
-        _write(f"• Resolution: {g_scale} x {g_scale}")
-        _write(f"• Max Gap: {scoring_details.get('max_gap', 0.0):.2f}m")
-        _write(f"• Norm Ratio: {scoring_details.get('normalised_gap', 0.0):.2f}x")
-        y_pos -= 0.03
+#         # ── Map Cosmetics ────────────────────────────────────────────────────
+#         ax_map.set_xlim(-floor_width * 0.05, floor_width * 1.05)
+#         ax_map.set_ylim(-floor_height * 0.05, floor_height * 1.05)
 
-        _write("GEOMETRY", weight="bold", color="#475569")
-        _write(f"• Points: {num_points}")
-        _write(f"• Area: {scoring_details.get('floor_area', 0.0):.1f} m²")
-        _write(f"• Ideal Radius: {ideal_radius:.2f}m") # No longer unbound
+#         # --- FIX 2: Avoid Spine looping issue by using axis("off") or explicit sets ---
+#         ax_map.axis("off")
+#         ax_info.axis("off")
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        plt.savefig(HEATMAP_OUTPUT_DIR / f"spatial_{timestamp}.png", dpi=130, bbox_inches="tight")
+#         # ── Clean Info Panel (No Boxes/Overdue Style) ────────────────────────
+#         y_pos = 0.95
+#         def _write(text, x=0, size=9, color="#1e293b", weight="normal"):
+#             nonlocal y_pos
+#             ax_info.text(x, y_pos, text, transform=ax_info.transAxes, fontsize=size,
+#                          color=color, fontweight=weight, va="top")
+#             y_pos -= 0.045
 
-    except Exception as e:
-        print(f"[Warning] Failed to save spatial coverage heatmap: {e}")
-    finally:
-        plt.close("all")
+#         _write("SPATIAL METRICS", size=12, weight="bold", color="#0f172a")
+#         y_pos -= 0.02
+
+#         _write(f"Final Score: {final_score:.2f} / {max_sc}", weight="bold")
+#         _write(f"Efficiency: {pct:.1f}%", color="#0284c7" if pct > 70 else "#b91c1c")
+#         y_pos -= 0.03
+
+#         _write("CLUSTERING (NND)", weight="bold", color="#475569")
+#         _write(f"• Score: {scoring_details.get('nnd_score_100', 0.0):.1f}/100")
+#         cv = scoring_details.get("std_nnd", 0.0) / max(scoring_details.get("mean_nnd", 1e-9), 1e-9)
+#         _write(f"• Variation (CV): {cv:.3f}")
+#         y_pos -= 0.03
+
+#         _write("COVERAGE (GRID)", weight="bold", color="#475569")
+#         g_scale = scoring_details.get("grid_scale", SPATIAL_COVERAGE_ZONE_GRID_SCALE)
+#         _write(f"• Resolution: {g_scale} x {g_scale}")
+#         _write(f"• Max Gap: {scoring_details.get('max_gap', 0.0):.2f}m")
+#         _write(f"• Norm Ratio: {scoring_details.get('normalised_gap', 0.0):.2f}x")
+#         y_pos -= 0.03
+
+#         _write("GEOMETRY", weight="bold", color="#475569")
+#         _write(f"• Points: {num_points}")
+#         _write(f"• Area: {scoring_details.get('floor_area', 0.0):.1f} m²")
+#         _write(f"• Ideal Radius: {ideal_radius:.2f}m") # No longer unbound
+
+#         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+#         plt.savefig(HEATMAP_OUTPUT_DIR / f"spatial_{timestamp}.png", dpi=130, bbox_inches="tight")
+
+#     except Exception as e:
+#         print(f"[Warning] Failed to save spatial coverage heatmap: {e}")
+#     finally:
+#         plt.close("all")
 
 
 # ---------------------------------------------------------------------------
@@ -301,39 +314,67 @@ def score_spatial_coverage(
     if not room_points:
         warnings.append("No room points provided; spatial coverage score is 0.")
         details = {
-            "final_score": 0.0, "max_score": max_score_limit, "nnd_score_100": 0.0,
-            "grid_score_100": 0.0, "mean_nnd": 0.0, "std_nnd": 0.0, "ideal_distance": 0.0,
-            "max_gap": 0.0, "mean_gap": 0.0, "normalised_gap": 0.0, "num_room_points": 0,
-            "floor_area": floor_area, "grid_scale": SPATIAL_COVERAGE_ZONE_GRID_SCALE,
+            "final_score": 0.0,
+            "max_score": max_score_limit,
+            "nnd_score_100": 0.0,
+            "grid_score_100": 0.0,
+            "mean_nnd": 0.0,
+            "std_nnd": 0.0,
+            "ideal_distance": 0.0,
+            "max_gap": 0.0,
+            "mean_gap": 0.0,
+            "normalised_gap": 0.0,
+            "num_room_points": 0,
+            "floor_area": floor_area,
+            "grid_scale": SPATIAL_COVERAGE_ZONE_GRID_SCALE,
         }
-        _save_spatial_coverage_heatmap(room_points, requirements, details)
+        save_spatial_coverage_heatmap(room_points, requirements, details)
         return SectionScore(0.0, max_score_limit, details, warnings)
 
-    nnd_score_100, nnd_debug = _calculate_nnd_score(room_points, floor_width, floor_height)
-    grid_score_100, grid_debug = _calculate_grid_sampling_score(room_points, floor_width, floor_height)
+    nnd_score_100, nnd_debug = _calculate_nnd_score(
+        room_points, floor_width, floor_height
+    )
+    grid_score_100, grid_debug = _calculate_grid_sampling_score(
+        room_points, floor_width, floor_height
+    )
 
     combined_100 = (NND_WEIGHT * nnd_score_100) + (GRID_WEIGHT * grid_score_100)
     combined_100 = float(np.clip(combined_100, 0.0, 100.0))
 
-    final_score = normalize_section_score(combined_100 / 100.0 * max_score_limit, max_score_limit)
+    final_score = normalize_section_score(
+        combined_100 / 100.0 * max_score_limit, max_score_limit
+    )
 
     if nnd_debug["std_nnd"] > nnd_debug["mean_nnd"] * 0.8:
-        warnings.append(f"High NND variation (CV={nnd_debug['std_nnd']/max(nnd_debug['mean_nnd'], 1e-9):.2f}) → irregular clustering.")
+        warnings.append(
+            f"High NND variation (CV={nnd_debug['std_nnd'] / max(nnd_debug['mean_nnd'], 1e-9):.2f}) → irregular clustering."
+        )
     if grid_debug["normalised_gap"] > 1.3:
-        warnings.append(f"Coverage voids detected: gap ratio={grid_debug['normalised_gap']:.2f}× theoretical optimum.")
+        warnings.append(
+            f"Coverage voids detected: gap ratio={grid_debug['normalised_gap']:.2f}× theoretical optimum."
+        )
 
     scoring_details = {
-        "final_score": final_score, "max_score": max_score_limit, "combined_100": combined_100,
-        "nnd_score_100": nnd_score_100, "grid_score_100": grid_score_100,
-        "nnd_weight": NND_WEIGHT, "grid_weight": GRID_WEIGHT,
-        "mean_nnd": nnd_debug["mean_nnd"], "std_nnd": nnd_debug["std_nnd"],
-        "ideal_distance": nnd_debug["ideal_distance"], "nnd_array": nnd_debug["nnd_array"],
-        "grid_scale": grid_debug["grid_scale"], "max_gap": grid_debug["max_gap"],
-        "mean_gap": grid_debug["mean_gap"], "normalised_gap": grid_debug["normalised_gap"],
+        "final_score": final_score,
+        "max_score": max_score_limit,
+        "combined_100": combined_100,
+        "nnd_score_100": nnd_score_100,
+        "grid_score_100": grid_score_100,
+        "nnd_weight": NND_WEIGHT,
+        "grid_weight": GRID_WEIGHT,
+        "mean_nnd": nnd_debug["mean_nnd"],
+        "std_nnd": nnd_debug["std_nnd"],
+        "ideal_distance": nnd_debug["ideal_distance"],
+        "nnd_array": nnd_debug["nnd_array"],
+        "grid_scale": grid_debug["grid_scale"],
+        "max_gap": grid_debug["max_gap"],
+        "mean_gap": grid_debug["mean_gap"],
+        "normalised_gap": grid_debug["normalised_gap"],
         "ideal_distance_grid": grid_debug["ideal_distance_grid"],
         "probe_dists": grid_debug["probe_dists"],
-        "num_room_points": len(room_points), "floor_area": floor_area,
+        "num_room_points": len(room_points),
+        "floor_area": floor_area,
     }
 
-    _save_spatial_coverage_heatmap(room_points, requirements, scoring_details)
+    save_spatial_coverage_heatmap(room_points, requirements, scoring_details)
     return SectionScore(final_score, max_score_limit, scoring_details, warnings)

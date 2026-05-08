@@ -6,7 +6,7 @@ import traceback
 from app.algorithms.types import FpgRequirements, RoomData, ConfigData
 from app.models.room_relations_constraint import RoomRelationsConstraint
 from app.services.algorithm_manager_v2 import _run_single_fpg_solve
-from test.dev.final_result_plotter import plot_final_solver_result
+from test.plotters.final_result_plotter import plot_final_solver_result
 
 
 def debug_fpg_with_hints():

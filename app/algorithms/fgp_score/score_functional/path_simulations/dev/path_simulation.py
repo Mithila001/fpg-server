@@ -15,7 +15,7 @@ from ..pathfinder import AStarGrid
 from ..scorer import score_path_simulation
 from ..simulation_points import extract_simulation_points, nearest_bathroom_key
 from ..types import PathResult, PathScoreResult
-from .plotter import save_path_score_plot
+from .......test.plotters.plotter import save_path_score_plot
 from .._dev_print import dev_print
 
 # Threshold – plot is saved only when score exceeds this value
