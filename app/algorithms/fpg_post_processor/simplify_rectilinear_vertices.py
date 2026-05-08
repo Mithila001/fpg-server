@@ -1,3 +1,6 @@
+from app.algorithms.types.domain import ProcessedRoomData
+
+
 def _simplify_path(vertices):
     """Helper to remove collinear points from a single list of vertices."""
     if len(vertices) < 3:
@@ -37,7 +40,7 @@ def _simplify_path(vertices):
 
     return cleaned
 
-def clean_floorplan_rectilinearity(room_list):
+def clean_floorplan_rectilinearity(room_list : list[ProcessedRoomData]):
     """
     Takes a list of ProcessedRoomData, simplifies the vertices for each room,
     and returns the updated list.
