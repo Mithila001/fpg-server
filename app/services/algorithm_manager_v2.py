@@ -5,6 +5,7 @@ from dataclasses import asdict, is_dataclass
 from typing import Any, Callable
 
 from app.algorithms.fpg_opening_v2.fpg_opening_generator import generate_fpg_openings
+from app.algorithms.fpg_post_processor.hallway_union import hallway_union
 from app.algorithms.fpg_post_processor.extend_walls import extend_floor_plan_walls
 from app.algorithms.fpg_post_processor.simplify_rectilinear_vertices import (
     clean_floorplan_rectilinearity,
@@ -248,8 +249,12 @@ def _run_single_fpg_solve(
     processed_floor_plan: list[ProcessedRoomData] = extend_floor_plan_walls(
         verandaUpdatedPlan, filename=f"refine_{timestamp}.png"
     )
+    
+    hallway_processed_floor_plan  : list[ProcessedRoomData] = hallway_union(processed_floor_plan)
+    
+    
     grid_snapped_floor_plan: list[ProcessedRoomData] = snap_floor_plan_to_grid(
-        processed_floor_plan
+        hallway_processed_floor_plan
     )
     cleaned_floor_plan: list[ProcessedRoomData] = clean_floorplan_rectilinearity(
         grid_snapped_floor_plan
