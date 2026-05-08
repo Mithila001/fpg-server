@@ -186,6 +186,7 @@ def score_manager(
             run_path_simulation_dev,
         )
 
+        print(f"[score_dev] Path Simulation Param: {floor_plan_with_openings}")
         path_result = run_path_simulation_dev(floor_plan_with_openings)
         print(
             f"[score_manager/path_sim] total_score={path_result.total_score:.1f}/100 "
