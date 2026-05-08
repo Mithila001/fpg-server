@@ -1,4 +1,5 @@
 import math
+from collections import Counter
 from typing import Tuple, List
 from app.algorithms.types import ConfigData, FpgRequirements
 from app.core.fpg_rooms.config_fpg import (
@@ -45,6 +46,93 @@ def _validate_mandatory_room_types(room_template: RoomSetupTemplateBase) -> None
         raise ValueError(
             "Room template is missing mandatory room type(s): "
             + ", ".join(missing_room_types)
+        )
+
+
+def _select_majority_room_size(
+    room_template_data: List[dict],
+    default_size: str = "regular",
+    excluded_types: set[str] | None = None,
+) -> str:
+    if not room_template_data:
+        return default_size
+
+    excluded = {t.lower() for t in (excluded_types or set())}
+    size_counter: Counter[str] = Counter()
+    for room in room_template_data:
+        if not isinstance(room, dict):
+            continue
+        room_type = str(room.get("type") or "").strip().lower()
+        if not room_type or room_type in excluded:
+            continue
+        room_size = str(room.get("size") or "").strip().lower()
+        if not room_size:
+            continue
+        size_counter[room_size] += 1
+
+    if not size_counter:
+        return default_size
+
+    max_count = max(size_counter.values())
+    tied_sizes = sorted(
+        [size for size, count in size_counter.items() if count == max_count]
+    )
+    if default_size in tied_sizes:
+        return default_size
+    return tied_sizes[0]
+
+
+def _normalize_template_sizes(
+    room_template_data: List[dict],
+    room_size_category: str,
+    excluded_types: set[str] | None = None,
+) -> List[dict]:
+    excluded = {t.lower() for t in (excluded_types or set())}
+    normalized_data: List[dict] = []
+    for room in room_template_data:
+        if not isinstance(room, dict):
+            continue
+        room_type = str(room.get("type") or "").strip().lower()
+        if room_type and room_type not in excluded:
+            normalized_room = dict(room)
+            normalized_room["size"] = room_size_category
+            normalized_data.append(normalized_room)
+        else:
+            normalized_data.append(dict(room))
+    return normalized_data
+
+
+def _validate_majority_size_support(
+    room_template_data: List[dict],
+    size_constraints: List[RoomSizeConstraint],
+    room_size_category: str,
+    excluded_types: set[str] | None = None,
+) -> None:
+    excluded = {t.lower() for t in (excluded_types or set())}
+    available_sizes_by_type: dict[str, set[str]] = {}
+    for constraint in size_constraints:
+        room_type = str(constraint.type or "").strip().lower()
+        size_label = str(constraint.size or "").strip().lower()
+        if not room_type or not size_label:
+            continue
+        available_sizes_by_type.setdefault(room_type, set()).add(size_label)
+
+    missing: List[str] = []
+    for room in room_template_data:
+        if not isinstance(room, dict):
+            continue
+        room_type = str(room.get("type") or "").strip().lower()
+        if not room_type or room_type in excluded:
+            continue
+        available_sizes = available_sizes_by_type.get(room_type)
+        if not available_sizes or room_size_category not in available_sizes:
+            missing.append(room_type)
+
+    if missing:
+        missing_unique = ", ".join(sorted(set(missing)))
+        raise ValueError(
+            "Majority size selection is not supported for room type(s): "
+            f"{missing_unique}. Missing size '{room_size_category}'."
         )
 
 
@@ -116,10 +204,31 @@ def build_requirements(
     except Exception as exc:
         raise Exception(f"Failed to load server-side constraints: {exc}") from exc
 
+    room_size_category = _select_majority_room_size(
+        room_template.data,
+        default_size="regular",
+        excluded_types={"hallway"},
+    )
+    _validate_majority_size_support(
+        room_template.data,
+        size_constraints,
+        room_size_category,
+        excluded_types={"hallway"},
+    )
+    normalized_template_data = _normalize_template_sizes(
+        room_template.data,
+        room_size_category,
+        excluded_types={"hallway"},
+    )
+    normalized_template = RoomSetupTemplateBase(
+        name=room_template.name,
+        data=normalized_template_data,
+    )
+
     floor_width, floor_height = _calculate_suitable_floor_dimensions(
         floor_width=floor_width,
         floor_height=floor_height,
-        room_template_data=room_template.data,
+        room_template_data=normalized_template.data,
         size_constraints=size_constraints,
         aspect_ratio=aspect_ratio,
         buffer=MIN_FLOOR_AREA_BUFFER,
@@ -137,8 +246,12 @@ def build_requirements(
     except Exception as exc:
         raise Exception(f"Failed to prune room relations constraints: {exc}") from exc
     # print(f"\n\n Load Size Constraints : {size_constraints} \n\n")
-    rooms = build_rooms_from_template(room_template)
-    normalized_rooms = normalize_db_data_requirements(rooms, size_constraints)
+    rooms = build_rooms_from_template(normalized_template)
+    normalized_rooms = normalize_db_data_requirements(
+        rooms,
+        size_constraints,
+        preferred_living_room_size=room_size_category,
+    )
 
     config = ConfigData(
         min_coverage=MIN_COVERAGE,

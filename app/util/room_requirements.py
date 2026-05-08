@@ -1,5 +1,5 @@
 import math
-from typing import List, Sequence
+from typing import List, Sequence, Optional
 
 from app.algorithms.types import RoomData
 from app.types.room_size_constraint import RoomSizeConstraint
@@ -20,6 +20,7 @@ def floor_values(value: float) -> int:
 def normalize_db_data_requirements(
     rooms: List[RoomData],
     constraints: Sequence[RoomSizeConstraint],
+    preferred_living_room_size: Optional[str] = None,
 ) -> List[RoomData]:
     """Normalize room dimensions from DB constraints with strict validation.
 
@@ -127,11 +128,21 @@ def normalize_db_data_requirements(
     if not living_room_size_map:
         raise ValueError("ERROR: livingRoom has no constraint presets in database")
 
-    living_room_size = (
-        "regular"
-        if "regular" in living_room_size_map
-        else next(iter(living_room_size_map))
-    )
+    if preferred_living_room_size:
+        preferred_size = str(preferred_living_room_size).strip()
+        if preferred_size not in living_room_size_map:
+            available_sizes = ", ".join(sorted(living_room_size_map.keys()))
+            raise ValueError(
+                "ERROR: livingRoom does not support size "
+                f"'{preferred_size}'. Available sizes: {available_sizes}"
+            )
+        living_room_size = preferred_size
+    else:
+        living_room_size = (
+            "regular"
+            if "regular" in living_room_size_map
+            else next(iter(living_room_size_map))
+        )
     living_room_constraint = get_constraint_for("livingRoom", living_room_size)
 
     if living_room_constraint.min_w is None:
