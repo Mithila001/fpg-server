@@ -154,6 +154,8 @@ def build_requirements(
         envelope_apply_sides=ENVELOPE_APPLY_SIDES,
     )
 
+    print(f"\n\n Normalized Rooms: {normalized_rooms}\n")
+
     return FpgRequirements(
         rooms=normalized_rooms,
         config=config,
