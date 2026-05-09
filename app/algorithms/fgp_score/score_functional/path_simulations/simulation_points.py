@@ -16,14 +16,27 @@ _WorldPt = Tuple[float, float]
 BATHROOM_TYPES = {"bathroom", "attachedBathroom"}
 
 
+def _get(obj: Any, key: str, default: Any = None) -> Any:
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
+
+
+def _is_door_opening(opening: Any) -> bool:
+    opening_type = str(_get(opening, "opening_type", "")).lower()
+    return "door" in opening_type
+
+
 def _door_midpoint(opening: Any) -> _WorldPt:
-    x1, y1 = float(getattr(opening, "x1", 0.0)), float(getattr(opening, "y1", 0.0))
-    x2, y2 = float(getattr(opening, "x2", 0.0)), float(getattr(opening, "y2", 0.0))
+    x1 = float(_get(opening, "x1", 0.0))
+    y1 = float(_get(opening, "y1", 0.0))
+    x2 = float(_get(opening, "x2", 0.0))
+    y2 = float(_get(opening, "y2", 0.0))
     return ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
 
 
 def _room_centroid(room: Any) -> _WorldPt:
-    verts: List[_WorldPt] = getattr(room, "vertices", [])
+    verts: List[_WorldPt] = _get(room, "vertices", [])
     if not verts:
         return (0.0, 0.0)
     xs = [v[0] for v in verts]
@@ -36,13 +49,13 @@ def _distance(a: _WorldPt, b: _WorldPt) -> float:
 
 
 def _doors_only(openings: List[Any]) -> List[Any]:
-    return [op for op in openings if getattr(op, "opening_type", "") == "door"]
+    return [op for op in openings if _is_door_opening(op)]
 
 
 def _connecting_types(op: Any) -> tuple[str, str]:
     return (
-        str(getattr(op, "room_type", "")),
-        str(getattr(op, "connected_room_type", "")),
+        str(_get(op, "room_type", "")),
+        str(_get(op, "connected_room_type", "")),
     )
 
 
@@ -71,7 +84,7 @@ def extract_simulation_points(
             break
 
     # --- Kitchen ---
-    kitchen_rooms = [r for r in rooms if getattr(r, "type", "") == "kitchen"]
+    kitchen_rooms = [r for r in rooms if _get(r, "type", "") == "kitchen"]
     if kitchen_rooms:
         kr = kitchen_rooms[0]
         kitchen_door = next(
@@ -90,24 +103,24 @@ def extract_simulation_points(
     # --- Room Door Lookup ---
     door_by_room: Dict[str, List[Any]] = {}
     for op in doors:
-        rn = str(getattr(op, "room_name", ""))
-        crn = str(getattr(op, "connected_room_name", ""))
+        rn = str(_get(op, "room_name", ""))
+        crn = str(_get(op, "connected_room_name", ""))
         door_by_room.setdefault(rn, []).append(op)
         door_by_room.setdefault(crn, []).append(op)
 
     # --- Bedrooms ---
-    bedrooms = [r for r in rooms if getattr(r, "type", "") == "bedroom"]
+    bedrooms = [r for r in rooms if _get(r, "type", "") == "bedroom"]
     for idx, room in enumerate(bedrooms):
-        rname = str(getattr(room, "name", ""))
+        rname = str(_get(room, "name", ""))
         room_doors = door_by_room.get(rname, [])
         pt = _door_midpoint(room_doors[0]) if room_doors else _room_centroid(room)
         points[f"bedroom_{idx}"] = pt
         dev_print("path_bedroom", f"bedroom_{idx} ({rname}) -> {pt}")
 
     # --- Bathrooms ---
-    bathrooms = [r for r in rooms if getattr(r, "type", "") in BATHROOM_TYPES]
+    bathrooms = [r for r in rooms if _get(r, "type", "") in BATHROOM_TYPES]
     for idx, room in enumerate(bathrooms):
-        rname = str(getattr(room, "name", ""))
+        rname = str(_get(room, "name", ""))
         room_doors = door_by_room.get(rname, [])
         pt = _door_midpoint(room_doors[0]) if room_doors else _room_centroid(room)
         points[f"bathroom_{idx}"] = pt

@@ -28,8 +28,19 @@ DOOR_CUT_RADIUS: float = 11.0  # buffer around door LineString (>WALL_THICKNESS/
 # ---------------------------------------------------------------------------
 
 
+def _get(obj: Any, key: str, default: Any = None) -> Any:
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
+
+
+def _is_door_opening(opening: Any) -> bool:
+    opening_type = str(_get(opening, "opening_type", "")).lower()
+    return "door" in opening_type
+
+
 def _to_poly(room: Any) -> Polygon | None:
-    verts = getattr(room, "vertices", None)
+    verts = _get(room, "vertices", None)
     if not verts or len(verts) < 3:
         return None
     p = Polygon(verts)
@@ -106,13 +117,13 @@ def build_nav_mesh(
     # 3. Door hole polygons – buffer each door segment to cut through walls
     door_holes: List[Any] = []
     for op in openings:
-        if getattr(op, "opening_type", "") != "door":
+        if not _is_door_opening(op):
             continue
 
-        x1 = float(getattr(op, "x1", 0.0))
-        y1 = float(getattr(op, "y1", 0.0))
-        x2 = float(getattr(op, "x2", 0.0))
-        y2 = float(getattr(op, "y2", 0.0))
+        x1 = float(_get(op, "x1", 0.0))
+        y1 = float(_get(op, "y1", 0.0))
+        x2 = float(_get(op, "x2", 0.0))
+        y2 = float(_get(op, "y2", 0.0))
 
         if (x1, y1) == (x2, y2):
             continue

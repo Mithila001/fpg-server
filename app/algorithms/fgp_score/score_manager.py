@@ -182,12 +182,12 @@ def score_manager(
     # Path Simulation (test / dev – not wired into final score yet)
     # ------------------------------------------------------------------
     try:
-        from app.algorithms.fgp_score.score_functional.path_simulations.dev.path_simulation import (
-            run_path_simulation_dev,
+        from app.algorithms.fgp_score.score_functional.path_simulations import (
+            run_path_simulation,
         )
 
         print(f"[score_dev] Path Simulation Param: {floor_plan_with_openings}")
-        path_result = run_path_simulation_dev(floor_plan_with_openings)
+        path_result = run_path_simulation(floor_plan_with_openings)
         print(
             f"[score_manager/path_sim] total_score={path_result.total_score:.1f}/100 "
             f"plot={'saved' if path_result.plot_path else 'skipped (score below margin)'}"

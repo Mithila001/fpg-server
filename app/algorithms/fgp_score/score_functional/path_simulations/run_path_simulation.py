@@ -1,37 +1,41 @@
-"""Path simulation orchestrator (dev/test entry point).
+"""Path simulation orchestrator (public entry point).
 
 Runs all 5 heuristic simulation classes, scores the result,
-and optionally saves the 3-panel debug PNG.
-
-Called from score_manager.py for testing before full integration.
+and optionally saves a 3-panel debug PNG.
 """
 
 from __future__ import annotations
 
 from typing import Any, Dict, List, Tuple
 
-from ..nav_mesh import build_nav_mesh
-from ..pathfinder import AStarGrid
-from ..scorer import score_path_simulation
-from ..simulation_points import extract_simulation_points, nearest_bathroom_key
-from ..types import PathResult, PathScoreResult
-from .......test.plotters.plotter import save_path_score_plot
-from .._dev_print import dev_print
+from ._dev_print import dev_print
+from .nav_mesh import build_nav_mesh
+from .pathfinder import AStarGrid
+from .plotter import save_path_score_plot
+from .scorer import score_path_simulation
+from .simulation_points import extract_simulation_points, nearest_bathroom_key
+from .types import PathResult, PathScoreResult
 
-# Threshold – plot is saved only when score exceeds this value
+# Threshold - plot is saved only when score exceeds this value
 PATH_SCORE_PLOT_SCORE_MARGIN: float = 40.0
 
-# Path colour palette (one per simulation class)
+# Path color palette (one per simulation class)
 _COLOURS: Dict[str, str] = {
-    "entry_kitchen": "#FF6B35",
-    "entry_bedroom": "#4ECDC4",
-    "entry_bathroom": "#45B7D1",
-    "bedroom_bathroom": "#96CEB4",
-    "bedroom_kitchen": "#FFEAA7",
+    "entry_kitchen": "#E05D2C",
+    "entry_bedroom": "#2B8C8C",
+    "entry_bathroom": "#2C7FB8",
+    "bedroom_bathroom": "#3FA37A",
+    "bedroom_kitchen": "#D9A441",
 }
 
-# Grid resolution in cm – 15cm balances detail vs. speed
+# Grid resolution in cm - 15cm balances detail vs. speed
 _RESOLUTION: float = 15.0
+
+
+def _get(obj: Any, key: str, default: Any = None) -> Any:
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
 
 
 def _run_one(
@@ -52,22 +56,32 @@ def _run_one(
     return PathResult(label=label, coords=coords, color=color, is_public=is_public)
 
 
-def run_path_simulation_dev(
-    floor_plan_with_openings: Any,
-) -> PathScoreResult:
+def _error_result(message: str) -> PathScoreResult:
+    return PathScoreResult(
+        total_score=0.0,
+        circulation_efficiency=0.0,
+        privacy_score=0.0,
+        hallway_utility=0.0,
+        furniture_flexibility=0.0,
+        error=message,
+    )
+
+
+def run_path_simulation(floor_plan_with_openings: Any) -> PathScoreResult:
     """Run full path simulation pipeline.
 
     Parameters
     ----------
     floor_plan_with_openings:
-        FloorPlanWithOpenings dataclass with .floor_plan and .openings.
+        Either a dict or a dataclass-like object with floor_plan and openings.
 
     Returns
     -------
-    PathScoreResult with total_score (0–100) and optional plot_path.
+    PathScoreResult with total_score (0-100) and optional plot_path.
     """
-    rooms: List[Any] = getattr(floor_plan_with_openings, "floor_plan", [])
-    openings: List[Any] = getattr(floor_plan_with_openings, "openings", [])
+
+    rooms: List[Any] = _get(floor_plan_with_openings, "floor_plan", [])
+    openings: List[Any] = _get(floor_plan_with_openings, "openings", [])
 
     dev_print(
         "path",
@@ -76,14 +90,7 @@ def run_path_simulation_dev(
 
     if not rooms:
         dev_print("path", "ERROR: No rooms provided.")
-        return PathScoreResult(
-            total_score=0.0,
-            circulation_efficiency=0.0,
-            privacy_score=0.0,
-            hallway_utility=0.0,
-            furniture_flexibility=0.0,
-            error="No rooms provided.",
-        )
+        return _error_result("No rooms provided.")
 
     # ------------------------------------------------------------------
     # 1. Build navigation mesh
@@ -93,18 +100,11 @@ def run_path_simulation_dev(
 
     if nav_mesh.is_empty:
         dev_print("path", "ERROR: Navigation mesh is empty.")
-        return PathScoreResult(
-            total_score=0.0,
-            circulation_efficiency=0.0,
-            privacy_score=0.0,
-            hallway_utility=0.0,
-            furniture_flexibility=0.0,
-            error="Navigation mesh is empty.",
-        )
-    dev_print("path", f"Nav mesh built. Total floor area: {total_floor}")
+        return _error_result("Navigation mesh is empty.")
+    dev_print("path", f"Nav mesh built. Total floor area: {total_floor.area:.2f}")
 
     # ------------------------------------------------------------------
-    # 2. Rasterise + label room types
+    # 2. Rasterize + label room types
     # ------------------------------------------------------------------
     dev_print("path", f"Rasterizing grid at {_RESOLUTION}cm resolution...")
     grid = AStarGrid(resolution=_RESOLUTION)
@@ -124,17 +124,17 @@ def run_path_simulation_dev(
             "path",
             "WARNING: front door anchor not found – attempting fallback to Living Room...",
         )
-        # Fallback: use centroid of first livingRoom
         for room in rooms:
-            if getattr(room, "type", "") == "livingRoom":
-                verts = getattr(room, "vertices", [])
+            if _get(room, "type", "") == "livingRoom":
+                verts = _get(room, "vertices", [])
                 if verts:
                     xs = [v[0] for v in verts]
                     ys = [v[1] for v in verts]
                     sim_points["front_door"] = (sum(xs) / len(xs), sum(ys) / len(ys))
                     dev_print(
                         "path",
-                        f"Fallback success: Front door set to Living Room centroid {sim_points['front_door']}",
+                        "Fallback success: Front door set to Living Room centroid "
+                        f"{sim_points['front_door']}",
                     )
                     break
 
@@ -143,14 +143,7 @@ def run_path_simulation_dev(
             "path",
             "CRITICAL ERROR: Cannot determine front door anchor – simulation aborted.",
         )
-        return PathScoreResult(
-            total_score=0.0,
-            circulation_efficiency=0.0,
-            privacy_score=0.0,
-            hallway_utility=0.0,
-            furniture_flexibility=0.0,
-            error="Cannot determine front door anchor – simulation aborted.",
-        )
+        return _error_result("Cannot determine front door anchor – simulation aborted.")
 
     front_door = sim_points["front_door"]
     paths: List[PathResult] = []
@@ -160,11 +153,11 @@ def run_path_simulation_dev(
     # ------------------------------------------------------------------
     dev_print("path", "Executing simulation classes...")
 
-    # Class 1: Front Door → Kitchen
+    # Class 1: Front Door -> Kitchen
     if "kitchen" in sim_points:
         result = _run_one(
             grid,
-            "Entry→Kitchen",
+            "Entry->Kitchen",
             _COLOURS["entry_kitchen"],
             front_door,
             sim_points["kitchen"],
@@ -173,13 +166,13 @@ def run_path_simulation_dev(
         if result:
             paths.append(result)
 
-    # Class 2: Front Door → Every Bedroom
+    # Class 2: Front Door -> Every Bedroom
     bedroom_keys = sorted(k for k in sim_points if k.startswith("bedroom_"))
     for bk in bedroom_keys:
         idx = bk.split("_")[1]
         result = _run_one(
             grid,
-            f"Entry→Bedroom {idx}",
+            f"Entry->Bedroom {idx}",
             _COLOURS["entry_bedroom"],
             front_door,
             sim_points[bk],
@@ -188,13 +181,13 @@ def run_path_simulation_dev(
         if result:
             paths.append(result)
 
-    # Class 3: Front Door → Every Bathroom
+    # Class 3: Front Door -> Every Bathroom
     bathroom_keys = sorted(k for k in sim_points if k.startswith("bathroom_"))
     for bk in bathroom_keys:
         idx = bk.split("_")[1]
         result = _run_one(
             grid,
-            f"Entry→Bathroom {idx}",
+            f"Entry->Bathroom {idx}",
             _COLOURS["entry_bathroom"],
             front_door,
             sim_points[bk],
@@ -203,7 +196,7 @@ def run_path_simulation_dev(
         if result:
             paths.append(result)
 
-    # Class 4: Each Bedroom → Nearest Bathroom
+    # Class 4: Each Bedroom -> Nearest Bathroom
     for bed_key in bedroom_keys:
         bath_key = nearest_bathroom_key(bed_key, sim_points)
         if bath_key is None:
@@ -213,7 +206,7 @@ def run_path_simulation_dev(
         ba_idx = bath_key.split("_")[1]
         result = _run_one(
             grid,
-            f"Bed {b_idx}→Bath {ba_idx}",
+            f"Bed {b_idx}->Bath {ba_idx}",
             _COLOURS["bedroom_bathroom"],
             sim_points[bed_key],
             sim_points[bath_key],
@@ -222,13 +215,13 @@ def run_path_simulation_dev(
         if result:
             paths.append(result)
 
-    # Class 5: Each Bedroom → Kitchen
+    # Class 5: Each Bedroom -> Kitchen
     if "kitchen" in sim_points:
         for bed_key in bedroom_keys:
             b_idx = bed_key.split("_")[1]
             result = _run_one(
                 grid,
-                f"Bed {b_idx}→Kitchen",
+                f"Bed {b_idx}->Kitchen",
                 _COLOURS["bedroom_kitchen"],
                 sim_points[bed_key],
                 sim_points["kitchen"],
@@ -238,6 +231,10 @@ def run_path_simulation_dev(
                 paths.append(result)
 
     dev_print("path", f"Simulated {len(paths)} total paths successfully.")
+
+    if not paths:
+        dev_print("path", "ERROR: No valid paths found. Simulation aborted.")
+        return _error_result("No valid paths found.")
 
     # ------------------------------------------------------------------
     # 5. Score
@@ -274,7 +271,8 @@ def run_path_simulation_dev(
     else:
         dev_print(
             "path",
-            f"Score {score_result.total_score:.1f} below margin ({PATH_SCORE_PLOT_SCORE_MARGIN}). Skipping plot.",
+            f"Score {score_result.total_score:.1f} below margin "
+            f"({PATH_SCORE_PLOT_SCORE_MARGIN}). Skipping plot.",
         )
 
     return score_result

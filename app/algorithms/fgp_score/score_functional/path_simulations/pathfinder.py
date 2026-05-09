@@ -59,6 +59,20 @@ class AStarGrid:
 
         dev_print("path", f"Initialized AStarGrid with resolution: {resolution}")
 
+    @property
+    def width(self) -> int:
+        return self._width
+
+    @property
+    def height(self) -> int:
+        return self._height
+
+    @staticmethod
+    def _get(obj: Any, key: str, default: Any = None) -> Any:
+        if isinstance(obj, dict):
+            return obj.get(key, default)
+        return getattr(obj, key, default)
+
     # ------------------------------------------------------------------
     # Rasterisation
     # ------------------------------------------------------------------
@@ -113,13 +127,13 @@ class AStarGrid:
         # Build (prepared_poly, code) pairs – process all rooms
         prepared_rooms: List[Tuple[Any, int]] = []
         for room in rooms:
-            verts = getattr(room, "vertices", None)
+            verts = self._get(room, "vertices", None)
             if not verts or len(verts) < 3:
                 continue
             poly = Polygon(verts)
             if poly.is_empty or not poly.is_valid:
                 continue
-            r_type = str(getattr(room, "type", ""))
+            r_type = str(self._get(room, "type", ""))
             code = ROOM_TYPE_CODES.get(r_type, OTHER_CODE)
             prepared_rooms.append((prep(poly), code))
 
