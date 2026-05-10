@@ -1,37 +1,23 @@
 """Path simulation orchestrator (public entry point).
 
 Runs all 5 heuristic simulation classes, scores the result,
-and optionally saves a 3-panel debug PNG.
+and optionally saves a 4-panel debug PNG.
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, List, Tuple
 
 from app.algorithms.types.openings import FloorPlanWithOpenings
 
+from . import path_sim_config
 from .util._dev_print import dev_print
 from .util.nav_mesh import build_nav_mesh
 from .util.pathfinder import AStarGrid
-from ......test.plotters.path_plotter import save_path_score_plot
+from test.plotters.path_plotter import save_path_score_plot, save_path_only_grid_plot
 from .util.scorer import score_path_simulation
 from .util.simulation_points import extract_simulation_points, nearest_bathroom_key
 from .types import PathResult, PathScoreResult
-
-# Threshold - plot is saved only when score exceeds this value
-PATH_SCORE_PLOT_SCORE_MARGIN: float = 40.0
-
-# Path color palette (one per simulation class)
-_COLOURS: Dict[str, str] = {
-    "entry_kitchen": "#E05D2C",
-    "entry_bedroom": "#2B8C8C",
-    "entry_bathroom": "#2C7FB8",
-    "bedroom_bathroom": "#3FA37A",
-    "bedroom_kitchen": "#D9A441",
-}
-
-# Grid resolution in cm - 15cm balances detail vs. speed
-_RESOLUTION: float = 15.0
 
 
 def _get(obj: Any, key: str, default: Any = None) -> Any:
@@ -70,7 +56,7 @@ def _error_result(message: str) -> PathScoreResult:
 
 
 def run_path_simulation(
-    floor_plan_with_openings: FloorPlanWithOpenings, score_margin: float
+    floor_plan_with_openings: FloorPlanWithOpenings, score_margin: float = 100.0
 ) -> PathScoreResult:
     """Run full path simulation pipeline.
 
@@ -78,10 +64,13 @@ def run_path_simulation(
     ----------
     floor_plan_with_openings:
         Either a dict or a dataclass-like object with floor_plan and openings.
+    score_margin:
+        Margin to normalize final scores. Default 100.0 keeps scores unchanged.
+        Values are normalized as: normalized_score = (raw_score / 100) * score_margin
 
     Returns
     -------
-    PathScoreResult with total_score (0-100) and optional plot_path.
+    PathScoreResult with total_score (0-score_margin) and optional plot_path.
     """
 
     rooms: List[Any] = _get(floor_plan_with_openings, "floor_plan", [])
@@ -110,8 +99,11 @@ def run_path_simulation(
     # ------------------------------------------------------------------
     # 2. Rasterize + label room types
     # ------------------------------------------------------------------
-    dev_print("path", f"Rasterizing grid at {_RESOLUTION}cm resolution...")
-    grid = AStarGrid(resolution=_RESOLUTION)
+    dev_print(
+        "path",
+        f"Rasterizing grid at {path_sim_config.GRID_RESOLUTION_CM}cm resolution...",
+    )
+    grid = AStarGrid(resolution=path_sim_config.GRID_RESOLUTION_CM)
     grid.rasterize(nav_mesh)
     grid.label_room_types(rooms)
     dev_print("path", f"Grid rasterized. Bounds: {grid.width}x{grid.height} nodes.")
@@ -162,7 +154,7 @@ def run_path_simulation(
         result = _run_one(
             grid,
             "Entry->Kitchen",
-            _COLOURS["entry_kitchen"],
+            path_sim_config.PATH_COLORS["entry_kitchen"],
             front_door,
             sim_points["kitchen"],
             is_public=True,
@@ -177,7 +169,7 @@ def run_path_simulation(
         result = _run_one(
             grid,
             f"Entry->Bedroom {idx}",
-            _COLOURS["entry_bedroom"],
+            path_sim_config.PATH_COLORS["entry_bedroom"],
             front_door,
             sim_points[bk],
             is_public=False,
@@ -192,7 +184,7 @@ def run_path_simulation(
         result = _run_one(
             grid,
             f"Entry->Bathroom {idx}",
-            _COLOURS["entry_bathroom"],
+            path_sim_config.PATH_COLORS["entry_bathroom"],
             front_door,
             sim_points[bk],
             is_public=True,
@@ -211,7 +203,7 @@ def run_path_simulation(
         result = _run_one(
             grid,
             f"Bed {b_idx}->Bath {ba_idx}",
-            _COLOURS["bedroom_bathroom"],
+            path_sim_config.PATH_COLORS["bedroom_bathroom"],
             sim_points[bed_key],
             sim_points[bath_key],
             is_public=False,
@@ -226,7 +218,7 @@ def run_path_simulation(
             result = _run_one(
                 grid,
                 f"Bed {b_idx}->Kitchen",
-                _COLOURS["bedroom_kitchen"],
+                path_sim_config.PATH_COLORS["bedroom_kitchen"],
                 sim_points[bed_key],
                 sim_points["kitchen"],
                 is_public=False,
@@ -245,7 +237,7 @@ def run_path_simulation(
     # ------------------------------------------------------------------
     dev_print("path", "Calculating final scores...")
     bedroom_door_pts = [sim_points[k] for k in bedroom_keys if k in sim_points]
-    score_result = score_path_simulation(grid, paths, bedroom_door_pts)
+    score_result = score_path_simulation(grid, paths, bedroom_door_pts, score_margin)
 
     dev_print(
         "path",
@@ -261,7 +253,7 @@ def run_path_simulation(
     # ------------------------------------------------------------------
     # 6. Plot (only when score exceeds margin)
     # ------------------------------------------------------------------
-    if score_result.total_score > PATH_SCORE_PLOT_SCORE_MARGIN:
+    if score_result.total_score > path_sim_config.PATH_SCORE_PLOT_SCORE_MARGIN:
         try:
             dev_print(
                 "path",
@@ -270,13 +262,17 @@ def run_path_simulation(
             plot_path = save_path_score_plot(grid, score_result, rooms)
             score_result.plot_path = plot_path
             dev_print("path", f"Plot saved to: {plot_path}")
+
+            path_only_plot_path = save_path_only_grid_plot(score_result, rooms)
+            score_result.details["path_only_plot_path"] = path_only_plot_path
+            dev_print("path", f"Path-only grid plot saved to: {path_only_plot_path}")
         except Exception as exc:
             dev_print("path", f"ERROR: Plot generation failed: {exc}")
     else:
         dev_print(
             "path",
             f"Score {score_result.total_score:.1f} below margin "
-            f"({PATH_SCORE_PLOT_SCORE_MARGIN}). Skipping plot.",
+            f"({path_sim_config.PATH_SCORE_PLOT_SCORE_MARGIN}). Skipping plot.",
         )
 
     return score_result

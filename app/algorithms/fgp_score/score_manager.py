@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from typing import List
+from app.algorithms.fgp_score.score_functional.path_simulations.run_path_simulation import (
+    run_path_simulation,
+)
 from app.algorithms.types.fpg_score import (
     ScoreManagerResult,
     CheckResult,
@@ -116,7 +119,8 @@ def score_manager(
             "Inward pocket violation detected "
             f"(max_delta={max_delta:.2f}, threshold={inward_pocket_max_length:.2f})"
         ]
-
+    path_result = run_path_simulation(floor_plan_with_openings)
+    print(f"[fgp_score/score_manager] Path simulation result: {path_result}")
     checks: List[CheckResult] = [
         CheckResult(
             name="adjacency_relations",

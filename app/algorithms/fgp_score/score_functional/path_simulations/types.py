@@ -2,6 +2,7 @@
 
 No imports from outside this package.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -25,10 +26,10 @@ class PathScoreResult:
     total_score: float
 
     # Sub-scores (raw, before weighting)
-    circulation_efficiency: float   # 0–30
-    privacy_score: float            # 0–25
-    hallway_utility: float          # 0–25
-    furniture_flexibility: float    # 0–20
+    circulation_efficiency: float  # 0–30
+    privacy_score: float  # 0–25
+    hallway_utility: float  # 0–25
+    furniture_flexibility: float  # 0–20
 
     paths: List[PathResult] = field(default_factory=list)
     details: Dict[str, Any] = field(default_factory=dict)
