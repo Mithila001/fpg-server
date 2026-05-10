@@ -251,7 +251,7 @@ def test_registry_timeout_without_best_candidate():
         job = registry.get_job(job_id)
         assert job is not None
 
-        # Verify terminal status is TIMED_OUT
+        # Verify terminal status is timed_out
         assert job["status"] == JobStatus.TIMED_OUT.value
 
         # Verify failure payload
@@ -262,6 +262,6 @@ def test_registry_timeout_without_best_candidate():
         # Verify terminal event is present
         events = job["events"]
         event_types = [e["event"] for e in events]
-        assert "TIMED_OUT" in event_types, (
-            f"Expected 'TIMED_OUT' in events, got: {event_types}"
+        assert "timed_out" in event_types, (
+            f"Expected 'timed_out' in events, got: {event_types}"
         )

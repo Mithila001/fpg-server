@@ -128,7 +128,7 @@ Clients can perform GET requests to this endpoint to check the current state of 
 | `SEARCHING`  | The job is currently being processed by the solver.                          |
 | `COMPLETED`  | The job finished successfully (or reached a timeout with a valid candidate). |
 | `TERMINATED` | The job was manually cancelled via the `/cancel` endpoint.                   |
-| `TIMED_OUT`  | The job exceeded the maximum allowed time and was stopped without a result.  |
+| `timed_out`  | The job exceeded the maximum allowed time and was stopped without a result.  |
 
 ---
 

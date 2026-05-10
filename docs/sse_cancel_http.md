@@ -64,7 +64,7 @@ Use SSE for the continuous progress feed and a normal HTTP cancel endpoint for s
 - **Final output storage:** final result is kept in memory in the job registry (temporary) and available via result endpoint; not persisted to DB/files by default.
 - **Reconnect behavior:** clients may reconnect to the SSE endpoint for the same `job_id` and receive cached events + remaining stream.
 - **Terminal SSE events:** `generation_success`, `generation_time_out`, `trial_count_exceeded`, `generation_failed`, `canceled`, and `COMPLETED`.
-- **Timeout:** when a job exceeds configured timeout the parent terminates the process, sets status `TIMED_OUT` and result `{ "message": "Time Out" }`.
+- **Timeout:** when a job exceeds configured timeout the parent terminates the process, sets status `timed_out` and result `{ "message": "Time Out" }`.
 - **Concurrency rule:** one active job per user; server allows multiple users concurrently but enforces per-user single job.
 - **Separation of concerns:** the worker wrapper invokes the generation flow as-is; SSE, job registry and cancel logic live outside and do not tightly couple into `run_fpg_pipeline_api()`.
 

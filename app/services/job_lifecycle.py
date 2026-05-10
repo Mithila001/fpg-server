@@ -24,7 +24,7 @@ from app.util.unit_converter import (
 class JobStatus(str, Enum):
     SEARCHING = "SEARCHING"
     TERMINATED = "TERMINATED"
-    TIMED_OUT = "TIMED_OUT"
+    TIMED_OUT = "timed_out"
     COMPLETED = "COMPLETED"
 
 
@@ -415,6 +415,7 @@ class InMemoryJobRegistry:
                     "returning best result."
                 ),
                 result=best_result,
+                event_name="success",
             )
             return
         self._mark_terminal_status(
@@ -481,6 +482,7 @@ class InMemoryJobRegistry:
         status: JobStatus,
         event_message: str,
         result: dict[str, Any] | None = None,
+        event_name: str | None = None,
     ) -> None:
         with self._lock:
             managed_job = self._jobs.get(job_id)
@@ -493,9 +495,11 @@ class InMemoryJobRegistry:
             managed_job.updated_at = _utc_now_iso()
             if result is not None:
                 managed_job.result = result
+            # Use custom event_name if provided, otherwise use status.value
+            final_event_name = event_name if event_name is not None else status.value
             self._append_event_locked(
                 managed_job,
-                status.value,
+                final_event_name,
                 event_message,
                 {"status": status.value, "result": result},
             )

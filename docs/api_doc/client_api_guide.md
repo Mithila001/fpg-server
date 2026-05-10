@@ -46,7 +46,7 @@ The server currently uses these job states:
 - `SEARCHING` - the job is running
 - `COMPLETED` - the job finished successfully
 - `TERMINATED` - the job was cancelled
-- `TIMED_OUT` - the job exceeded the server timeout
+- `timed_out` - the job exceeded the server timeout
 
 ### Job State Response Shape
 
@@ -58,7 +58,7 @@ This is the common payload returned by job status endpoints and cancellation res
   "job_kind": "FORMAT_V2 | BUILDABLE_SPACE",
   "client_key": "string",
   "pid": 1234,
-  "status": "SEARCHING | COMPLETED | TERMINATED | TIMED_OUT",
+  "status": "SEARCHING | COMPLETED | TERMINATED | timed_out",
   "created_at": "2026-05-04T12:00:00+00:00",
   "updated_at": "2026-05-04T12:00:05+00:00",
   "events": [
@@ -559,7 +559,7 @@ The backend currently emits these event names directly or indirectly:
 - `generation_failed`
 - `COMPLETED`
 - `TERMINATED`
-- `TIMED_OUT`
+- `timed_out`
 - `job_missing`
 
 The exact progress event names inside `data.event` may vary by algorithm stage. Client code should treat them as backend-defined strings and rely on the envelope fields `id`, `event`, `message`, `timestamp`, and `data`.
