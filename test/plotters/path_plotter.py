@@ -20,8 +20,12 @@ import matplotlib.patches as mpatches
 from matplotlib.patches import Polygon as MplPolygon, Rectangle
 import numpy as np
 
-from .pathfinder import ROOM_TYPE_CODES
-from .types import PathScoreResult
+from ...app.algorithms.fgp_score.score_functional.path_simulations.util.pathfinder import (
+    ROOM_TYPE_CODES,
+)
+from ...app.algorithms.fgp_score.score_functional.path_simulations.types import (
+    PathScoreResult,
+)
 
 # ---------------------------------------------------------------------------
 # Theme (light classic)

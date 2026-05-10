@@ -17,7 +17,7 @@ import numpy as np
 from scipy import ndimage
 
 from .pathfinder import ROOM_TYPE_CODES
-from .types import PathResult, PathScoreResult
+from ..types import PathResult, PathScoreResult
 from ._dev_print import dev_print
 
 # Constants

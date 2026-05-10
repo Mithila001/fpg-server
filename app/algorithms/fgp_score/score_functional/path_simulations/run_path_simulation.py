@@ -8,12 +8,12 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Tuple
 
-from ._dev_print import dev_print
-from .nav_mesh import build_nav_mesh
-from .pathfinder import AStarGrid
-from .plotter import save_path_score_plot
-from .scorer import score_path_simulation
-from .simulation_points import extract_simulation_points, nearest_bathroom_key
+from .util._dev_print import dev_print
+from .util.nav_mesh import build_nav_mesh
+from .util.pathfinder import AStarGrid
+from ......test.plotters.path_plotter import save_path_score_plot
+from .util.scorer import score_path_simulation
+from .util.simulation_points import extract_simulation_points, nearest_bathroom_key
 from .types import PathResult, PathScoreResult
 
 # Threshold - plot is saved only when score exceeds this value

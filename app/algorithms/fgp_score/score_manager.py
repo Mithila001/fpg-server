@@ -39,9 +39,20 @@ def score_manager(
     # Accept either the newer FloorPlanWithOpenings or the older plain list
     if isinstance(floor_plan_with_openings, list):
         post_processed_floor_plan = floor_plan_with_openings
+        print(
+            "[fgp_score/score_manager1] Warning: received plain list instead of FloorPlanWithOpenings. This is likely due to an older version of the processing pipeline. "
+            "Please update the processing pipeline to ensure consistent data structures."
+        )
     else:
         # dataclass FloorPlanWithOpenings exposes `.floor_plan`
         post_processed_floor_plan = getattr(floor_plan_with_openings, "floor_plan", [])
+        print(
+            "[fgp_score/score_manager1] Received FloorPlanWithOpenings. Extracted floor_plan for scoring."
+        )
+
+    print(
+        f"[fgp_score/score_manager1] Post Processed Floor Plan: {floor_plan_with_openings}"
+    )
 
     scoring_plan = [
         room
@@ -99,6 +110,8 @@ def score_manager(
         max_inward_length=inward_pocket_max_length,
         tolerance=tolerance,
     )
+    print(f"Scoring Plan : {scoring_plan}\n ")
+    print(f"Tolerance : {tolerance}\n ")
     inward_passed = not pocket_violation
     inward_violations: list[str]
     if inward_passed:

@@ -25,7 +25,7 @@ from matplotlib.cm import ScalarMappable
 import numpy as np
 from shapely.geometry import Polygon
 
-from ...app.algorithms.fgp_score.score_functional.path_simulations.pathfinder import (
+from ...app.algorithms.fgp_score.score_functional.path_simulations.util.pathfinder import (
     ROOM_TYPE_CODES,
 )
 from ...app.algorithms.fgp_score.score_functional.path_simulations.types import (
