@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from typing import List
+from app.algorithms.fgp_score.score_functional.basic.basics import (
+    score_basic_functional,
+)
 from app.algorithms.fgp_score.score_functional.path_simulations.run_path_simulation import (
     run_path_simulation,
 )
@@ -59,7 +62,7 @@ def score_manager(
         scoring_plan.floor_plan, tolerance=tolerance
     )
 
-    print(f"\n\n[fgp_score/score_manager1] Scoring Plan: {scoring_plan}\n")
+    # print(f"\n\n[fgp_score/score_manager1] Scoring Plan: {scoring_plan}\n")
 
     if not rectilinear_ok:
         print(
@@ -117,7 +120,7 @@ def score_manager(
             "Inward pocket violation detected "
             f"(max_delta={max_delta:.2f}, threshold={inward_pocket_max_length:.2f})"
         ]
-    path_result = run_path_simulation(scoring_plan)
+    # path_result = run_path_simulation(scoring_plan)
     checks: List[CheckResult] = [
         CheckResult(
             name="adjacency_relations",
@@ -180,14 +183,17 @@ def score_manager(
     except Exception as exc:
         print(f"[fgp_score/score_manager] critical plot generation failed: {exc}")
 
+    final_score = 0
+
     # TODO REMOVE THIS LATER
     if critical_score == 25:
-        critical_score = (
-            100  # Temporary hack to make perfect scores if critical score got full pass
-        )
+        functional_score = score_basic_functional(scoring_plan, 75)
+        final_score = critical_score + functional_score
+    else:
+        final_score = critical_score
 
     return ScoreManagerResult(
-        critical_score=round(float(critical_score), 2),
+        critical_score=round(float(final_score), 2),
         checks=checks,
         critical_violations=critical_violations,
         diagnostics=diagnostics,
