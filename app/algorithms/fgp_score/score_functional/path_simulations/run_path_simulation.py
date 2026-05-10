@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Tuple
 
+from app.algorithms.types.openings import FloorPlanWithOpenings
+
 from .util._dev_print import dev_print
 from .util.nav_mesh import build_nav_mesh
 from .util.pathfinder import AStarGrid
@@ -67,7 +69,9 @@ def _error_result(message: str) -> PathScoreResult:
     )
 
 
-def run_path_simulation(floor_plan_with_openings: Any) -> PathScoreResult:
+def run_path_simulation(
+    floor_plan_with_openings: FloorPlanWithOpenings, score_margin: float
+) -> PathScoreResult:
     """Run full path simulation pipeline.
 
     Parameters

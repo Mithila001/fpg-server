@@ -17,7 +17,7 @@ from app.algorithms.fgp_score.score_critical.inward_pocket import (
     detect_inward_pocket_violation_v2,
 )
 from app.algorithms.fgp_score.dev.critical_plot import save_critical_score_plot
-from app.algorithms.types.domain import FpgRequirements, ProcessedRoomData
+from app.algorithms.types.domain import FpgRequirements
 from app.algorithms.types.openings import FloorPlanWithOpenings
 from app.core.fpg_rooms.config_score import SCORE_VALIDATION_MIN_OVERLAP
 from app.util.verify_post_processed_floor_plan import verify_post_processed_floor_plan
@@ -36,33 +36,29 @@ def score_manager(
     For now this only computes the critical section and prints results.
     """
 
-    # Accept either the newer FloorPlanWithOpenings or the older plain list
-    if isinstance(floor_plan_with_openings, list):
-        post_processed_floor_plan = floor_plan_with_openings
-        print(
-            "[fgp_score/score_manager1] Warning: received plain list instead of FloorPlanWithOpenings. This is likely due to an older version of the processing pipeline. "
-            "Please update the processing pipeline to ensure consistent data structures."
-        )
-    else:
-        # dataclass FloorPlanWithOpenings exposes `.floor_plan`
-        post_processed_floor_plan = getattr(floor_plan_with_openings, "floor_plan", [])
-        print(
-            "[fgp_score/score_manager1] Received FloorPlanWithOpenings. Extracted floor_plan for scoring."
-        )
+    print("[fgp_score/score_manager1] Received FloorPlanWithOpenings for scoring.")
 
     print(
         f"[fgp_score/score_manager1] Post Processed Floor Plan: {floor_plan_with_openings}"
     )
 
-    scoring_plan = [
+    # Create scoring_plan by filtering rooms while preserving openings and structure.
+    # This maintains FloorPlanWithOpenings for future scoring functions that may need openings.
+    filtered_rooms = [
         room
-        for room in post_processed_floor_plan
+        for room in floor_plan_with_openings.floor_plan
         if room.type != "verandaOutdoorSpace" and len(room.vertices) >= 4
     ]
 
+    scoring_plan = FloorPlanWithOpenings(
+        floor_plan=filtered_rooms, openings=floor_plan_with_openings.openings
+    )
+
     tolerance = float(getattr(requirements.config, "score_geometry_tolerance", 1e-6))
     # print(f"[fgp_score/score_manager] Floor plan for verification: {scoring_plan}")
-    rectilinear_ok = verify_post_processed_floor_plan(scoring_plan, tolerance=tolerance)
+    rectilinear_ok = verify_post_processed_floor_plan(
+        scoring_plan.floor_plan, tolerance=tolerance
+    )
 
     if not rectilinear_ok:
         print(
@@ -90,7 +86,7 @@ def score_manager(
 
     # --- Critical checks (each contributes 1 slot out of 25) ---
     adjacency_violations = validate_adjacency_relations(
-        scoring_plan,
+        scoring_plan.floor_plan,
         relation_constraints,
         min_overlap=int(SCORE_VALIDATION_MIN_OVERLAP),
         tolerance=tolerance,
@@ -98,7 +94,7 @@ def score_manager(
     adjacency_passed = len(adjacency_violations) == 0
 
     empty_violations, empty_diag = validate_empty_space(
-        scoring_plan,
+        scoring_plan.floor_plan,
         floor_width,
         floor_height,
         tolerance=tolerance,
@@ -106,12 +102,10 @@ def score_manager(
     empty_passed = len(empty_violations) == 0
 
     pocket_violation, inward_diag = detect_inward_pocket_violation_v2(
-        scoring_plan,
+        scoring_plan.floor_plan,
         max_inward_length=inward_pocket_max_length,
         tolerance=tolerance,
     )
-    print(f"Scoring Plan : {scoring_plan}\n ")
-    print(f"Tolerance : {tolerance}\n ")
     inward_passed = not pocket_violation
     inward_violations: list[str]
     if inward_passed:
@@ -172,7 +166,7 @@ def score_manager(
 
     try:
         critical_plot_path = save_critical_score_plot(
-            scoring_plan,
+            scoring_plan.floor_plan,
             relation_constraints,
             floor_width,
             floor_height,
@@ -190,27 +184,6 @@ def score_manager(
         critical_score = (
             100  # Temporary hack to make perfect scores if critical score got full pass
         )
-
-    # ------------------------------------------------------------------
-    # Path Simulation (test / dev – not wired into final score yet)
-    # ------------------------------------------------------------------
-    try:
-        from app.algorithms.fgp_score.score_functional.path_simulations import (
-            run_path_simulation,
-        )
-
-        print(f"[score_dev] Path Simulation Param: {floor_plan_with_openings}")
-        path_result = run_path_simulation(floor_plan_with_openings)
-        print(
-            f"[score_manager/path_sim] total_score={path_result.total_score:.1f}/100 "
-            f"plot={'saved' if path_result.plot_path else 'skipped (score below margin)'}"
-        )
-        if path_result.plot_path:
-            print(f"[score_manager/path_sim] plot_path={path_result.plot_path}")
-        if path_result.error:
-            print(f"[score_manager/path_sim] warning: {path_result.error}")
-    except Exception as _path_exc:
-        print(f"[score_manager/path_sim] path simulation failed: {_path_exc}")
 
     return ScoreManagerResult(
         critical_score=round(float(critical_score), 2),
