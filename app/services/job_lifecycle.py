@@ -47,14 +47,16 @@ def _run_format_job(
     floored_width = floor_values(converter_cm_to_unit(request_payload["floor_width"]))
     floored_height = floor_values(converter_cm_to_unit(request_payload["floor_height"]))
     aspect_ratio = request_payload["aspect_ratio"]
-    
-    def converting_progress_emitter(event: str, message: str, data: dict[str, Any] | None = None) -> None:
+
+    def converting_progress_emitter(
+        event: str, message: str, data: dict[str, Any] | None = None
+    ) -> None:
         if progress_emitter:
             if data and "result" in data:
                 # The data dict might be mutated, so we do it carefully or just update it
                 data["result"] = converter_unit_to_centimeters(data["result"])
             progress_emitter(event, message, data)
-            
+
     payload = run_fpg_pipeline_api(
         floor_width=floored_width,
         floor_height=floored_height,
@@ -336,8 +338,6 @@ class InMemoryJobRegistry:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     return []
-                if managed_job.status != JobStatus.SEARCHING:
-                    return []
                 self._events_condition.wait(timeout=remaining)
 
     def _monitor_progress(self, job_id: str) -> None:
@@ -392,7 +392,6 @@ class InMemoryJobRegistry:
                         continue
                     managed_job.current_best_score = parsed_score
                     managed_job.current_best_result = data.get("result")
-                    continue
                 self._append_event_locked(managed_job, event, message, data)
                 if managed_job.status != JobStatus.SEARCHING and progress_queue.empty():
                     return
