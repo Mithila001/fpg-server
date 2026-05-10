@@ -8,6 +8,9 @@ from __future__ import annotations
 
 from typing import Any, List, Tuple
 
+from app.algorithms.fgp_score.score_functional.path_simulations.dev.temp_plotter import (
+    plot_nav_mesh,
+)
 from app.algorithms.types.openings import FloorPlanWithOpenings
 
 from . import path_sim_config
@@ -134,6 +137,23 @@ def run_path_simulation(
                     )
                     break
 
+    # If still not found, try scanning openings for a main/outside door
+    if "front_door" not in sim_points:
+        for op in openings:
+            optype = str(_get(op, "opening_type", "")).lower()
+            rn = str(_get(op, "room_name", "")).upper()
+            crn = str(_get(op, "connected_room_name", "")).upper()
+            if "main" in optype or rn == "OUTSIDE" or crn == "OUTSIDE":
+                sim_points["front_door"] = (
+                    (float(_get(op, "x1", 0.0)) + float(_get(op, "x2", 0.0))) / 2.0,
+                    (float(_get(op, "y1", 0.0)) + float(_get(op, "y2", 0.0))) / 2.0,
+                )
+                dev_print(
+                    "path",
+                    f"Fallback: front_door located via openings at {sim_points['front_door']}",
+                )
+                break
+
     if "front_door" not in sim_points:
         dev_print(
             "path",
@@ -141,8 +161,49 @@ def run_path_simulation(
         )
         return _error_result("Cannot determine front door anchor – simulation aborted.")
 
-    front_door = sim_points["front_door"]
     paths: List[PathResult] = []
+
+    # Helper: compute room centroid
+    def _room_centroid(room: Any) -> Tuple[float, float]:
+        verts = _get(room, "vertices", [])
+        if not verts:
+            return (0.0, 0.0)
+        xs = [v[0] for v in verts]
+        ys = [v[1] for v in verts]
+        return (sum(xs) / len(xs), sum(ys) / len(ys))
+
+    # Prepare typed lists to resolve keys -> room objects
+    bedroom_rooms = [r for r in rooms if _get(r, "type", "") == "bedroom"]
+    bathroom_rooms = [
+        r for r in rooms if _get(r, "type", "") in ("bathroom", "attachedBathroom")
+    ]
+    kitchen_rooms = [r for r in rooms if _get(r, "type", "") == "kitchen"]
+
+    def coord_for_key(key: str) -> Tuple[float, float]:
+        # Entrance
+        if key == "front_door":
+            return sim_points["front_door"]
+        # Kitchen -> room center if exists
+        if key == "kitchen":
+            if kitchen_rooms:
+                return _room_centroid(kitchen_rooms[0])
+            return sim_points.get("kitchen", (0.0, 0.0))
+        # Bedrooms
+        if key.startswith("bedroom_"):
+            try:
+                idx = int(key.split("_")[1])
+                return _room_centroid(bedroom_rooms[idx])
+            except Exception:
+                return sim_points.get(key, (0.0, 0.0))
+        # Bathrooms
+        if key.startswith("bathroom_"):
+            try:
+                idx = int(key.split("_")[1])
+                return _room_centroid(bathroom_rooms[idx])
+            except Exception:
+                return sim_points.get(key, (0.0, 0.0))
+        # Fallback to whatever sim_points returned
+        return sim_points.get(key, (0.0, 0.0))
 
     # ------------------------------------------------------------------
     # 4. Run the 5 simulation classes
@@ -155,8 +216,8 @@ def run_path_simulation(
             grid,
             "Entry->Kitchen",
             path_sim_config.PATH_COLORS["entry_kitchen"],
-            front_door,
-            sim_points["kitchen"],
+            coord_for_key("front_door"),
+            coord_for_key("kitchen"),
             is_public=True,
         )
         if result:
@@ -170,8 +231,8 @@ def run_path_simulation(
             grid,
             f"Entry->Bedroom {idx}",
             path_sim_config.PATH_COLORS["entry_bedroom"],
-            front_door,
-            sim_points[bk],
+            coord_for_key("front_door"),
+            coord_for_key(bk),
             is_public=False,
         )
         if result:
@@ -185,8 +246,8 @@ def run_path_simulation(
             grid,
             f"Entry->Bathroom {idx}",
             path_sim_config.PATH_COLORS["entry_bathroom"],
-            front_door,
-            sim_points[bk],
+            coord_for_key("front_door"),
+            coord_for_key(bk),
             is_public=True,
         )
         if result:
@@ -204,8 +265,8 @@ def run_path_simulation(
             grid,
             f"Bed {b_idx}->Bath {ba_idx}",
             path_sim_config.PATH_COLORS["bedroom_bathroom"],
-            sim_points[bed_key],
-            sim_points[bath_key],
+            coord_for_key(bed_key),
+            coord_for_key(bath_key),
             is_public=False,
         )
         if result:
@@ -219,8 +280,8 @@ def run_path_simulation(
                 grid,
                 f"Bed {b_idx}->Kitchen",
                 path_sim_config.PATH_COLORS["bedroom_kitchen"],
-                sim_points[bed_key],
-                sim_points["kitchen"],
+                coord_for_key(bed_key),
+                coord_for_key("kitchen"),
                 is_public=False,
             )
             if result:
@@ -248,6 +309,13 @@ def run_path_simulation(
             "hallway": score_result.hallway_utility,
             "furniture": score_result.furniture_flexibility,
         },
+    )
+
+    plot_path = plot_nav_mesh(
+        nav_mesh=nav_mesh,
+        total_floor=total_floor,
+        rooms=rooms,
+        output_dir=None,  # Uses default dev/output directory
     )
 
     # ------------------------------------------------------------------

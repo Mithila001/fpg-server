@@ -78,7 +78,23 @@ def extract_simulation_points(
     # --- Front door ---
     for op in doors:
         rt, crt = _connecting_types(op)
-        if "livingRoom" in {rt, crt} and "verandaOutdoorSpace" in {rt, crt}:
+        optype = str(_get(op, "opening_type", "")).lower()
+
+        # Heuristics to identify the main/front door:
+        # - explicit opening type containing 'main'
+        # - connects Living Room to a veranda/outside
+        # - connects to OUTSIDE
+        if (
+            "main" in optype
+            or "outside" in {rt.lower(), crt.lower()}
+            or (
+                "livingroom" in {rt.lower(), crt.lower()}
+                and any(
+                    s in {rt.lower(), crt.lower()}
+                    for s in ("veranda", "verandaoutdoorspace", "verandaoutdoor")
+                )
+            )
+        ):
             points["front_door"] = _door_midpoint(op)
             dev_print("path_front_door", f"Located at {points['front_door']}")
             break

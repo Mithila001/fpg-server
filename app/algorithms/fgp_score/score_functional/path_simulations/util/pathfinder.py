@@ -56,6 +56,8 @@ class AStarGrid:
         self.walkable: Optional[np.ndarray] = None  # bool (True = walkable)
         self.traffic_map: Optional[np.ndarray] = None  # float64 hit counts
         self.room_type_grid: Optional[np.ndarray] = None  # int8 room type codes
+        # Prepared nav-mesh (Shapely prepared geometry) to validate smoothed points
+        self._prepared_nav_mesh: Optional[Any] = None
 
         dev_print("path", f"Initialized AStarGrid with resolution: {resolution}")
 
@@ -98,6 +100,8 @@ class AStarGrid:
         self.room_type_grid = np.full((height, width), OTHER_CODE, dtype=np.int8)
 
         prepared = prep(nav_mesh)
+        # keep prepared nav mesh for later containment checks
+        self._prepared_nav_mesh = prepared
         res = self.resolution
         ox, oy = self._min_x, self._min_y
 
@@ -210,8 +214,17 @@ class AStarGrid:
 
         dev_print("path", f"A* found raw path with {len(raw_path)} nodes.")
 
-        # Smooth and update traffic
-        smoothed = self.smooth_path(raw_path, iterations=3)
+        # Smooth path, but keep strict nav-mesh safety.
+        # If smoothing causes any segment to leave walkable cells, fall back
+        # to the raw grid-derived world path.
+        smoothed = self.smooth_path(raw_path, iterations=2)
+        if not self._path_is_walkable(smoothed):
+            dev_print(
+                "path",
+                "Smoothed path crosses non-walkable cells. Falling back to raw path.",
+            )
+            smoothed = [self._grid_to_world(idx) for idx in raw_path]
+
         self._mark_traffic(raw_path)  # mark on unsmoothed path for accuracy
 
         dev_print("path", f"Path smoothed. Final world point count: {len(smoothed)}")
@@ -280,6 +293,23 @@ class AStarGrid:
                 if not self.walkable[ny, nx]:
                     continue
 
+                # Prevent diagonal corner-cutting through wall corners.
+                # For diagonal motion, both adjacent cardinal cells must be walkable.
+                if abs(dy) + abs(dx) == 2:
+                    side_a = (current[0] + dy, current[1])
+                    side_b = (current[0], current[1] + dx)
+                    if not (
+                        0 <= side_a[0] < h
+                        and 0 <= side_a[1] < w
+                        and 0 <= side_b[0] < h
+                        and 0 <= side_b[1] < w
+                    ):
+                        continue
+                    if (not self.walkable[side_a[0], side_a[1]]) or (
+                        not self.walkable[side_b[0], side_b[1]]
+                    ):
+                        continue
+
                 move_cost = 1.414 if (abs(dy) + abs(dx) == 2) else 1.0
                 tentative_g = g_score[current] + move_cost
                 if tentative_g < g_score.get(nb, float("inf")):
@@ -292,6 +322,35 @@ class AStarGrid:
             "path", f"A* Search exhausted after exploring {nodes_explored} nodes."
         )
         return []
+
+    def _path_is_walkable(self, pts: List[_WorldPt]) -> bool:
+        """Check that all path segments stay inside walkable cells.
+
+        Samples each segment at small increments and validates corresponding
+        raster cells are walkable.
+        """
+        if self.walkable is None:
+            return False
+        if len(pts) < 2:
+            return True
+
+        for i in range(len(pts) - 1):
+            x0, y0 = pts[i]
+            x1, y1 = pts[i + 1]
+            dx = x1 - x0
+            dy = y1 - y0
+            dist = max(abs(dx), abs(dy))
+            steps = max(2, int(dist / max(self.resolution * 0.5, 1e-6)))
+
+            for s in range(steps + 1):
+                t = s / steps
+                px = x0 + dx * t
+                py = y0 + dy * t
+                iy, ix = self._world_to_grid((px, py))
+                if not self.walkable[iy, ix]:
+                    return False
+
+        return True
 
     def _mark_traffic(self, path: List[_GridIdx]) -> None:
         assert self.traffic_map is not None
@@ -324,6 +383,31 @@ class AStarGrid:
                 new_pts.append((0.25 * x0 + 0.75 * x1, 0.25 * y0 + 0.75 * y1))
             new_pts.append(pts[-1])
             pts = new_pts
+
+        # Ensure smoothed points remain within the walkable/nav-mesh area.
+        # If a smoothed point lies outside the prepared nav mesh, snap it to the
+        # nearest walkable cell center so the returned path never crosses walls.
+        if self._prepared_nav_mesh is not None:
+            fixed_pts: List[_WorldPt] = []
+            for p in pts:
+                try:
+                    if self._prepared_nav_mesh.contains(Point(p)):
+                        fixed_pts.append(p)
+                        continue
+                except Exception:
+                    # If contains check fails for any reason, fall back to grid snapping
+                    pass
+
+                # Snap to nearest walkable grid cell
+                gidx = self._world_to_grid(p)
+                nearest = self._nearest_walkable(gidx)
+                if nearest is not None:
+                    fixed_pts.append(self._grid_to_world(nearest))
+                else:
+                    # as a last resort, keep the original point
+                    fixed_pts.append(p)
+
+            pts = fixed_pts
 
         return pts
 

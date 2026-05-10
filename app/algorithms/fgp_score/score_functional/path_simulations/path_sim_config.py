@@ -23,7 +23,7 @@ GRID_RESOLUTION_CM: float = 15.0
 # ============================================================================
 
 # Score margin threshold - plot is generated only when total_score exceeds this
-PATH_SCORE_PLOT_SCORE_MARGIN: float = 40.0
+PATH_SCORE_PLOT_SCORE_MARGIN: float = 1
 
 # Target quiet zone fraction for furniture flexibility scoring
 # We aim for ~35% of living/bedroom area to be traffic-free

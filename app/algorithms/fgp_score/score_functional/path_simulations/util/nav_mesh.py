@@ -12,14 +12,14 @@ from __future__ import annotations
 
 from typing import Any, List, Tuple
 
-from shapely.geometry import LineString, MultiPolygon, Point, Polygon
+from shapely.geometry import LineString, MultiPolygon, Polygon
 from shapely.ops import unary_union
-from shapely.prepared import prep
 
 from ._dev_print import dev_print
 
 # Geometry constants (all in cm)
-WALL_THICKNESS: float = 15.0  # thin wall strip half-buffered on shared boundary
+WALL_THICKNESS: float = 5.0  # default thin wall strip half-buffered on shared boundary
+HALLWAY_WALL_THICKNESS: float = 5.0  # slimmer wall strip so corridors stay usable
 DOOR_CUT_RADIUS: float = 11.0  # buffer around door LineString (>WALL_THICKNESS/2)
 
 
@@ -37,6 +37,17 @@ def _get(obj: Any, key: str, default: Any = None) -> Any:
 def _is_door_opening(opening: Any) -> bool:
     opening_type = str(_get(opening, "opening_type", "")).lower()
     return "door" in opening_type
+
+
+def _room_type(room: Any) -> str:
+    return str(_get(room, "type", "")).strip().lower()
+
+
+def _shared_wall_thickness(room_a: Any, room_b: Any) -> float:
+    """Use thinner strips when hallways participate in the shared wall."""
+    if "hallway" in {_room_type(room_a), _room_type(room_b)}:
+        return HALLWAY_WALL_THICKNESS
+    return WALL_THICKNESS
 
 
 def _to_poly(room: Any) -> Polygon | None:
@@ -96,16 +107,17 @@ def build_nav_mesh(
     n = len(room_pairs)
     for i in range(n):
         for j in range(i + 1, n):
-            _, p_i = room_pairs[i]
-            _, p_j = room_pairs[j]
+            room_i, p_i = room_pairs[i]
+            room_j, p_j = room_pairs[j]
             shared = p_i.boundary.intersection(p_j.boundary)
 
             if shared.is_empty:
                 continue
 
             # Buffer the shared LineString to create a thin wall obstacle
+            wall_thickness = _shared_wall_thickness(room_i, room_j)
             strip = shared.buffer(
-                WALL_THICKNESS / 2.0,
+                wall_thickness / 2.0,
                 cap_style="flat",
                 join_style="mitre",
             )

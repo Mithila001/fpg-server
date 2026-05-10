@@ -41,10 +41,6 @@ def score_manager(
 
     print("[fgp_score/score_manager1] Received FloorPlanWithOpenings for scoring.")
 
-    print(
-        f"[fgp_score/score_manager1] Post Processed Floor Plan: {floor_plan_with_openings}"
-    )
-
     # Create scoring_plan by filtering rooms while preserving openings and structure.
     # This maintains FloorPlanWithOpenings for future scoring functions that may need openings.
     filtered_rooms = [
@@ -62,6 +58,8 @@ def score_manager(
     rectilinear_ok = verify_post_processed_floor_plan(
         scoring_plan.floor_plan, tolerance=tolerance
     )
+
+    print(f"\n\n[fgp_score/score_manager1] Scoring Plan: {scoring_plan}\n")
 
     if not rectilinear_ok:
         print(
@@ -120,7 +118,6 @@ def score_manager(
             f"(max_delta={max_delta:.2f}, threshold={inward_pocket_max_length:.2f})"
         ]
     path_result = run_path_simulation(floor_plan_with_openings)
-    print(f"[fgp_score/score_manager] Path simulation result: {path_result}")
     checks: List[CheckResult] = [
         CheckResult(
             name="adjacency_relations",
