@@ -117,7 +117,7 @@ def score_manager(
             "Inward pocket violation detected "
             f"(max_delta={max_delta:.2f}, threshold={inward_pocket_max_length:.2f})"
         ]
-    path_result = run_path_simulation(floor_plan_with_openings)
+    path_result = run_path_simulation(scoring_plan)
     checks: List[CheckResult] = [
         CheckResult(
             name="adjacency_relations",
