@@ -1,6 +1,6 @@
-# Chapter 4.2.4: Optuna Scoring System
+# Chapter 4.2.4: Stochastic Layout Scoring System
 
-The scoring architecture for Optuna serves as the principal intermediary between stochastic search and deterministic architectural synthesis. Its role is to transform a proposed arrangement of room hint coordinates into a single, interpretable objective value that reflects how suitable the candidate layout is for downstream refinement. In practical terms, the sampler does not search the full geometry of the floor plan directly; instead, it explores a reduced spatial hypothesis space formed by representative room locations. The scoring layer evaluates those locations and provides a graded response that encourages Optuna to revisit promising regions of the search space while avoiding configurations that are structurally weak or difficult to reconcile later.
+The scoring architecture serves as the principal intermediary between stochastic search and deterministic architectural synthesis. Its role is to transform a proposed arrangement of room hint coordinates into a single, interpretable objective value that reflects how suitable the candidate layout is for downstream refinement. In practical terms, the sampler does not search the full geometry of the floor plan directly; instead, it explores a reduced spatial hypothesis space formed by representative room locations. The scoring layer evaluates those locations and provides a graded response that directs the sampling algorithm toward promising regions of the search space while avoiding configurations that are structurally weak or difficult to reconcile later. In the present implementation, this optimization layer is executed with Optuna.
 
 This design is especially important because the optimization process is not purely decorative. The resulting hints are intended to support a later deterministic solving stage, which means the score must favor arrangements that are both architecturally plausible and computationally tractable. A binary pass-or-fail signal would be too sparse for this purpose. By contrast, a continuous objective produces a denser learning signal and helps the sampler distinguish between layouts that are almost acceptable and layouts that are fundamentally misaligned with the intended spatial logic.
 
@@ -12,7 +12,7 @@ The value of this structure is methodological as much as computational. It allow
 
 ## Score Composition and Acceptance Gating
 
-The active Optuna objective is composed of four score sections whose maximum values sum to $90$:
+The global objective function is composed of four score sections whose maximum values sum to $90$:
 
 $$
 S_{total} = S_{zone} + S_{clearance} + S_{relation} + S_{coverage}
@@ -25,11 +25,11 @@ with the current distribution defined as:
 - room relations: $30$
 - spatial coverage: $10$
 
-This allocation is significant because it shows that the objective is not divided into a broad heuristic portion and a separate solver-derived portion. Instead, all four sections contribute to the Optuna score itself, while the downstream deterministic solver is treated as a later gate in the workflow. Layouts that reach the required threshold are considered suitable candidates for the second stage; layouts below that threshold are treated as insufficiently promising and are not promoted for expensive verification. The gating mechanism therefore functions as a computational filter, not as a fifth score component.
+This allocation is significant because it shows that the objective is not divided into a broad heuristic portion and a separate solver-derived portion. Instead, all four sections contribute to the overall objective itself, while the downstream deterministic solver is treated as a later gate in the workflow. Layouts that reach the required threshold are considered suitable candidates for the second stage; layouts below that threshold are treated as insufficiently promising and are not promoted for expensive verification. The gating mechanism therefore functions as a computational filter, not as a fifth score component.
 
 ## Zoning Score
 
-The zoning score directs Optuna toward semantically appropriate parts of the floor plate for each room category. Its purpose is not merely to place rooms inside the building envelope, but to encourage a spatial vocabulary in which the function of each room aligns with its likely architectural role. Public or transitional spaces are allowed different positional freedoms from private or service-oriented spaces, and the zoning evaluator encodes that difference in a compact, geometry-driven form.
+The zoning score directs the sampler toward semantically appropriate parts of the floor plate for each room category. Its purpose is not merely to place rooms inside the building envelope, but to encourage a spatial vocabulary in which the function of each room aligns with its likely architectural role. Public or transitional spaces are allowed different positional freedoms from private or service-oriented spaces, and the zoning evaluator encodes that difference in a compact, geometry-driven form.
 
 The current implementation uses a three-by-three conceptual grid over the floor area. Continuous coordinates are interpreted through that grid so that the sampler is not forced into a rigid discrete search, yet the resulting placements can still be evaluated against domain-specific occupancy rules. The present zoning logic focuses on the following implemented room rules:
 
@@ -53,7 +53,7 @@ The current clearance evaluation is intentionally asymmetric, because not every 
 - the back-opening condition is evaluated for kitchens and hallways,
 - when both kitchen and hallway candidates exist, the strongest available back-opening result is retained.
 
-The underlying concept is straightforward: a virtual clearance region is projected from the room center toward a designated side, and the evaluator checks whether other room points occupy that zone. Each violating point reduces the section quality, which makes the reward structure more informative than a strict pass-fail condition. The design is especially useful for Optuna because it preserves partial credit. A nearly correct frontage arrangement is therefore distinguished from a completely blocked one, and the sampler receives a meaningful gradient instead of a flat rejection.
+The underlying concept is straightforward: a virtual clearance region is projected from the room center toward a designated side, and the evaluator checks whether other room points occupy that zone. Each violating point reduces the section quality, which makes the reward structure more informative than a strict pass-fail condition. The design is especially useful for the sampler because it preserves partial credit. A nearly correct frontage arrangement is therefore distinguished from a completely blocked one, and the sampler receives a meaningful gradient instead of a flat rejection.
 
 Equally important is the treatment of absent optional rooms. If no room of a relevant type exists in the sampled layout, that sub-evaluation is skipped rather than forcing a misleading penalty. This prevents the score from conflating missing architectural program with positional inadequacy and keeps the section focused on actual geometric behavior.
 
@@ -100,7 +100,7 @@ The practical effect is a more balanced point cloud. Room hints become neither o
 
 Taken together, the four scoring sections create a disciplined objective that blends semantic placement, boundary appropriateness, circulation logic, and spatial distribution into a single optimization target. The system is effective precisely because each section addresses a different failure mode. Zoning prevents categorical mismatch, outer clearance protects edge relationships, room relations encode internal coherence, and spatial coverage discourages pathological clustering. The aggregated result is a score that is not merely high or low, but interpretive: it tells the optimization process why a layout is promising or why it remains weak.
 
-This modular structure also ensures that the objective can mature alongside the project. If future architectural priorities emerge, they can be introduced as new evaluators without invalidating the existing scoring philosophy. For Optuna, this is especially advantageous because the sampler benefits from a stable reward landscape that still admits controlled refinement. In that sense, the scoring system is not only a measurement tool; it is an active instrument of architectural guidance.
+This modular structure also ensures that the objective can mature alongside the project. If future architectural priorities emerge, they can be introduced as new evaluators without invalidating the existing scoring philosophy. For the Optuna-based search process, this is especially advantageous because the sampler benefits from a stable reward landscape that still admits controlled refinement. In that sense, the scoring system is not only a measurement tool; it is an active instrument of architectural guidance.
 
 ## Reviewer Notes
 
