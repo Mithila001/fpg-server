@@ -1,4 +1,4 @@
-# Introduction - 500
+# 1 Introduction - 500
 
 ## Background
 
@@ -6,18 +6,21 @@
 
 ## Deliverables (3 total 1000)
 
-# Literature Review - 1000
+# 2 Literature Review - 1000
 
 Thematic Structure
 Thematic Sub-headers
 
-# Method of Approach - 3000
+# 3 Method of Approach - 3000
 
 Requirement Gathering
 Technology Stack
 System Architecture
 
-# Requirements - 500
+# 4 Requirements - 500
+
+Functional and Non Functional Requirements
+Hardware and Software Requirements
 
 # System Architecture
 
