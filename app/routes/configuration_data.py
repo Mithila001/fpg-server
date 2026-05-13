@@ -10,5 +10,5 @@ router = APIRouter(prefix="/algorithms", tags=["algorithms"])
 
 @router.get("/room-size-constraints", response_model=list[RoomSizeType])
 def get_room_size_constraints() -> list[RoomSizeType]:
-	_, size_constraints, _ = load_server_side_data(should_bypass=True)
-	return size_constraints
+    _, size_constraints, _ = load_server_side_data()
+    return size_constraints

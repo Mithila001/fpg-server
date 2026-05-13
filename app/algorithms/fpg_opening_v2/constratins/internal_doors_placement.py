@@ -181,8 +181,52 @@ def select_internal_doors(
     # Bathroom-hallway doors get highest priority (soft preference),
     # then other bathroom doors, then social doors
     bathroom_hallway_candidates: list[InternalDoorCandidate] = []
+    preferred_hallway_candidates: list[InternalDoorCandidate] = []
     other_bathroom_candidates: list[InternalDoorCandidate] = []
     social_candidates: list[InternalDoorCandidate] = []
+
+    preferred_room_types = {"bedroom", "kitchen", "bathroom", "garage"}
+    room_hallway_livingroom_connections: defaultdict[str, set[str]] = defaultdict(set)
+    for candidate in candidates:
+        room_a_type = normalize_room_type(candidate.room_a.type)
+        room_b_type = normalize_room_type(candidate.room_b.type)
+
+        if room_a_type in preferred_room_types and room_b_type in {
+            "hallway",
+            "livingroom",
+        }:
+            room_hallway_livingroom_connections[candidate.room_a.name].add(room_b_type)
+        if room_b_type in preferred_room_types and room_a_type in {
+            "hallway",
+            "livingroom",
+        }:
+            room_hallway_livingroom_connections[candidate.room_b.name].add(room_a_type)
+
+    rooms_with_hallway_and_livingroom = {
+        room_name
+        for room_name, connected_types in room_hallway_livingroom_connections.items()
+        if {"hallway", "livingroom"}.issubset(connected_types)
+    }
+
+    def _is_preferred_hallway_candidate(
+        candidate: InternalDoorCandidate,
+    ) -> bool:
+        room_a_type = normalize_room_type(candidate.room_a.type)
+        room_b_type = normalize_room_type(candidate.room_b.type)
+
+        if (
+            room_a_type in preferred_room_types
+            and room_b_type == "hallway"
+            and candidate.room_a.name in rooms_with_hallway_and_livingroom
+        ):
+            return True
+        if (
+            room_b_type in preferred_room_types
+            and room_a_type == "hallway"
+            and candidate.room_b.name in rooms_with_hallway_and_livingroom
+        ):
+            return True
+        return False
 
     for candidate in candidates:
         room_a_type = normalize_room_type(candidate.room_a.type)
@@ -193,6 +237,8 @@ def select_internal_doors(
             room_b_type == "bathroom" and room_a_type == "hallway"
         ):
             bathroom_hallway_candidates.append(candidate)
+        elif _is_preferred_hallway_candidate(candidate):
+            preferred_hallway_candidates.append(candidate)
         # Other bathroom connections (bathroom-livingroom, etc)
         elif room_a_type == "bathroom" or room_b_type == "bathroom":
             other_bathroom_candidates.append(candidate)
@@ -200,9 +246,12 @@ def select_internal_doors(
         else:
             social_candidates.append(candidate)
 
-    # Step 3: Process candidates in priority order: bathroom-hallway > other bathroom > social
+    # Step 3: Process candidates in priority order: bathroom-hallway > preferred hallway > other bathroom > social
     all_candidates_ordered = (
-        bathroom_hallway_candidates + other_bathroom_candidates + social_candidates
+        bathroom_hallway_candidates
+        + preferred_hallway_candidates
+        + other_bathroom_candidates
+        + social_candidates
     )
 
     for candidate in all_candidates_ordered:

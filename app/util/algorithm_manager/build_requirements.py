@@ -197,9 +197,7 @@ def build_requirements(
     _validate_mandatory_room_types(room_template)
 
     try:
-        _, size_constraints, relation_constraints = load_server_side_data(
-            should_bypass=True
-        )
+        _, size_constraints, relation_constraints = load_server_side_data()
         print(f"\nSize Constraints: {size_constraints}")
     except Exception as exc:
         raise Exception(f"Failed to load server-side constraints: {exc}") from exc
