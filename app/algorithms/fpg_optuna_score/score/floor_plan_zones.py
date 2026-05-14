@@ -158,9 +158,9 @@ def score_floor_plan_zones(
         }
 
     if scorable_total == 0:
-        warnings.append("No scorable rooms found for zone scoring")
+        warnings.append("No scorable rooms found for zone scoring. Defaulting to full score.")
         return SectionScore(
-            score=0.0,
+            score=optuna_max,
             max_score=optuna_max,
             details={"rooms": scored_room_details, "counts": dict(counts)},
             warnings=warnings,

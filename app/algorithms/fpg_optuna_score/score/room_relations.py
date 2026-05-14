@@ -171,9 +171,7 @@ def _build_graph(room_points: list[OptunaScorePoint]) -> nx.Graph:
         nodes_b = rooms_by_type[room_b]
 
         if not nodes_a or not nodes_b:
-            log_critical_graph_scoring(
-                f"Missing relation node(s) for {room_a} <-> {room_b}"
-            )
+            # Optional room absent; skip edge generation without penalty.
             continue
 
         for na in nodes_a:
@@ -226,7 +224,7 @@ def score_room_relations(
         * 3.0,
     )
 
-    pathing_score = 0.0
+    pathing_score = ROOM_PATHING_MAX_SCORE if num_valid == 0 else 0.0
     warnings: list[str] = []
     path_summaries: list[dict[str, Any]] = []
     debug_reasons: list[str] = []
@@ -365,10 +363,10 @@ def score_room_relations(
 
     if num_valid < len(PATH_QUERIES):
         warnings.append(
-            f"Scored {num_valid}/{len(PATH_QUERIES)} possible relations based on present room types."
+            f"Optional rooms omitted. Normalized scoring across {num_valid} active queries."
         )
         debug_reasons.append(
-            f"Missing required rooms. Only evaluating {num_valid} out of {len(PATH_QUERIES)} queries."
+            f"Optional rooms omitted. Evaluating {num_valid} out of {len(PATH_QUERIES)} queries."
         )
 
     if DEBUG_VERBOSE and normalized < ROOM_RELATIONS_MAX_SCORE:

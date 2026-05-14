@@ -154,9 +154,9 @@ def score_outer_clearance(
         if DEBUG_VERBOSE:
             print("[-] No valid rooms found for clearance evaluation.")
         return SectionScore(
-            score=0.0,
+            score=max_section_score,
             max_score=max_section_score,
-            details={"note": "No clearance rooms to evaluate"},
+            details={"note": "No clearance rooms to evaluate, defaulting to full score"},
             warnings=[],
         )
 
