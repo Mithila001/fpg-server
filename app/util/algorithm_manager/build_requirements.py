@@ -27,6 +27,20 @@ from app.util.algorithm_manager.build_rooms_from_template import (
 from app.util.algorithm_manager.load_server_side_data import load_server_side_data
 
 
+def _sanitize_attached_bathrooms(room_template_data: List[dict]) -> List[dict]:
+    bedroom_count = sum(1 for r in room_template_data if str(r.get("type", "")).strip().lower() == "bedroom")
+    
+    sanitized_data = []
+    attached_bathroom_count = 0
+    for r in room_template_data:
+        if str(r.get("type", "")).strip().lower() == "attachedbathroom":
+            if attached_bathroom_count >= bedroom_count:
+                continue
+            attached_bathroom_count += 1
+        sanitized_data.append(r)
+    return sanitized_data
+
+
 def _validate_mandatory_room_types(room_template: RoomSetupTemplateBase) -> None:
     template_data = getattr(room_template, "data", None)
     if not isinstance(template_data, list):
@@ -193,6 +207,8 @@ def build_requirements(
 
     # Defensive normalization: accept strings or numbers passed here and ensure range
     aspect_ratio = _parse_and_validate_aspect_ratio(aspect_ratio)
+
+    room_template.data = _sanitize_attached_bathrooms(room_template.data)
 
     _validate_mandatory_room_types(room_template)
 
