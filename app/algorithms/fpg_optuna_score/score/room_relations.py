@@ -150,20 +150,21 @@ def _build_graph(room_points: list[OptunaScorePoint]) -> nx.Graph:
 
         # Attached bathroom special edge case
         if room_a == ROOM_TYPE_BEDROOM and room_b == "attachedBathroom":
-            bedrooms = rooms_by_type[ROOM_TYPE_BEDROOM]
+            available_bedrooms = list(rooms_by_type[ROOM_TYPE_BEDROOM])
             for bath in rooms_by_type["attachedBathroom"]:
-                if not bedrooms:
+                if not available_bedrooms:
                     log_critical_graph_scoring(
                         "Missing bedroom node for attachedBathroom relation"
                     )
                     continue
                 closest_bedroom = min(
-                    bedrooms,
+                    available_bedrooms,
                     key=lambda b: math.hypot(b.x - bath.x, b.y - bath.y),
                 )
                 _add_graph_edge(
                     graph, bath, closest_bedroom, cost, f"{room_a}-{room_b}"
                 )
+                available_bedrooms.remove(closest_bedroom)
             continue
 
         # Standard relation mapping

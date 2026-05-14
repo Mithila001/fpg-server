@@ -56,37 +56,33 @@ def _explicit_bedroom_attached_bathroom_pairs(
     if not bedrooms or not attached_bathrooms:
         return []
 
-    explicit_pairs: list[tuple[GraphNode, GraphNode]] = []
-    seen_pair_ids: set[tuple[str, str]] = set()
-
+    has_relation = False
     for raw_relation in relation_constraints:
         room_type, related_types = _relation_room_types(raw_relation)
         if not room_type or not related_types:
             continue
-
         room_type_norm = room_type.lower()
-        related_types_norm = {related_type.lower() for related_type in related_types}
+        related_types_norm = {t.lower() for t in related_types}
+        if (room_type_norm == "bedroom" and "attachedbathroom" in related_types_norm) or \
+           (room_type_norm == "attachedbathroom" and "bedroom" in related_types_norm):
+            has_relation = True
+            break
 
-        if room_type_norm == "bedroom" and "attachedbathroom" in related_types_norm:
-            subjects = bedrooms
-            targets = attached_bathrooms
-        elif room_type_norm == "attachedbathroom" and "bedroom" in related_types_norm:
-            subjects = attached_bathrooms
-            targets = bedrooms
-        else:
-            continue
+    if not has_relation:
+        return []
 
-        for subject in subjects:
-            for target in targets:
-                low_id, high_id = sorted((subject.id, target.id))
-                pair_key = (low_id, high_id)
-                if pair_key in seen_pair_ids:
-                    continue
-                seen_pair_ids.add(pair_key)
-                if subject.room_type == "bedroom":
-                    explicit_pairs.append((subject, target))
-                else:
-                    explicit_pairs.append((target, subject))
+    explicit_pairs: list[tuple[GraphNode, GraphNode]] = []
+    available_bedrooms = list(bedrooms)
+
+    for bath in attached_bathrooms:
+        if not available_bedrooms:
+            break
+        closest_bedroom = min(
+            available_bedrooms,
+            key=lambda b: math.hypot(b.x - bath.x, b.y - bath.y),
+        )
+        explicit_pairs.append((closest_bedroom, bath))
+        available_bedrooms.remove(closest_bedroom)
 
     return explicit_pairs
 
