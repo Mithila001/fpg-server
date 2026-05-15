@@ -32,13 +32,13 @@ NND_WEIGHT = 0.40
 GRID_WEIGHT = 0.60
 
 HEATMAP_OUTPUT_DIR = (
-    Path(__file__).parent.parent.parent.parent.parent
+    Path(__file__).parent.parent.parent
     / "test"
     / "outputs"
     / "optuna_score"
     / "spatial_coverage"
 )
-PLOT_THRESHOLD_PERCENT = 60
+PLOT_THRESHOLD_PERCENT = 40
 
 
 max_score_limit = OPTUNA_SCORING_VALUES.get("optuna_score_spatial_coverage", 0)
