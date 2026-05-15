@@ -14,8 +14,18 @@ app = FastAPI(title="House Plan Generator API")
 @app.on_event("startup")
 def on_startup():
     from app.core import database
+    import sys
+    import os
 
     database.create_db_and_tables()
+
+    # Seed database
+    sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+    try:
+        from seed_db import seed_database
+        seed_database()
+    except Exception as e:
+        print(f"Failed to seed database: {e}")
 
 
 # dev-safe CORS — restrict to your frontend origins

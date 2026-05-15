@@ -9,13 +9,14 @@ class RoomSizeConstraintBase(SQLModel):
     """Shared properties of a room size constraint."""
 
     type: str
+    size: Optional[str] = None
     min_w: Optional[float] = None
     max_w: Optional[float] = None
     min_h: Optional[float] = None
     max_h: Optional[float] = None
     max_area: Optional[float] = None
     min_area: Optional[float] = None
-    preset_id: Optional[int] = None
+    preset_id: Optional[str] = None
 
 
 class RoomSizeConstraintCreate(RoomSizeConstraintBase):
