@@ -1,7 +1,7 @@
 import math
-from typing import List, Sequence
+from typing import List, Sequence, Optional
 
-from app.algorithms.types import FpgRequirements, RoomData
+from app.algorithms.types import RoomData
 from app.types.room_size_constraint import RoomSizeConstraint
 
 
@@ -20,6 +20,7 @@ def floor_values(value: float) -> int:
 def normalize_db_data_requirements(
     rooms: List[RoomData],
     constraints: Sequence[RoomSizeConstraint],
+    preferred_living_room_size: Optional[str] = None,
 ) -> List[RoomData]:
     """Normalize room dimensions from DB constraints with strict validation.
 
@@ -36,19 +37,44 @@ def normalize_db_data_requirements(
     Raises:
         ValueError: If constraint not found or missing dimensions
     """
-    constraints_by_type = {c.type: c for c in constraints}
+    constraints_by_type_size: dict[str, dict[str, RoomSizeConstraint]] = {}
+    for constraint in constraints:
+        room_type = str(constraint.type or "").strip()
+        size = str(constraint.size or "").strip()
+        if not room_type or not size:
+            continue
+        if room_type not in constraints_by_type_size:
+            constraints_by_type_size[room_type] = {}
+        constraints_by_type_size[room_type][size] = constraint
+
+    def get_constraint_for(room_type: str, room_size: str) -> RoomSizeConstraint:
+        size_map = constraints_by_type_size.get(room_type)
+        if not size_map:
+            raise ValueError(
+                f"ERROR: Room type '{room_type}' has no constraint presets in database"
+            )
+        constraint = size_map.get(room_size)
+        if not constraint:
+            available_sizes = ", ".join(sorted(size_map.keys()))
+            raise ValueError(
+                f"ERROR: Room type '{room_type}' does not support size '{room_size}'. "
+                f"Available sizes: {available_sizes}"
+            )
+        return constraint
+
     normalized: List[RoomData] = []
 
     for room in rooms:
         if room.type == "livingRoom":
             raise ValueError("ERROR: livingRoom must not be provided by the template")
 
-        constraint = constraints_by_type.get(room.type)
-
-        if not constraint:
+        room_size = str(room.size or "").strip()
+        if not room_size:
             raise ValueError(
-                f"ERROR: Room type '{room.type}' has no constraint record in database"
+                f"ERROR: Room '{room.name}' of type '{room.type}' is missing required 'size'"
             )
+
+        constraint = get_constraint_for(room.type, room_size)
 
         # Strict validation: all dimensions must be present, no defaults
         if constraint.min_w is None:
@@ -94,12 +120,30 @@ def normalize_db_data_requirements(
                 min_h=min_h,
                 max_w=max_w,
                 max_h=max_h,
+                size=room_size,
             )
         )
 
-    living_room_constraint = constraints_by_type.get("livingRoom")
-    if not living_room_constraint:
-        raise ValueError("ERROR: livingRoom has no constraint record in database")
+    living_room_size_map = constraints_by_type_size.get("livingRoom")
+    if not living_room_size_map:
+        raise ValueError("ERROR: livingRoom has no constraint presets in database")
+
+    if preferred_living_room_size:
+        preferred_size = str(preferred_living_room_size).strip()
+        if preferred_size not in living_room_size_map:
+            available_sizes = ", ".join(sorted(living_room_size_map.keys()))
+            raise ValueError(
+                "ERROR: livingRoom does not support size "
+                f"'{preferred_size}'. Available sizes: {available_sizes}"
+            )
+        living_room_size = preferred_size
+    else:
+        living_room_size = (
+            "regular"
+            if "regular" in living_room_size_map
+            else next(iter(living_room_size_map))
+        )
+    living_room_constraint = get_constraint_for("livingRoom", living_room_size)
 
     if living_room_constraint.min_w is None:
         raise ValueError("ERROR: livingRoom missing min_w constraint in database")
@@ -135,175 +179,8 @@ def normalize_db_data_requirements(
             min_h=living_min_h,
             max_w=living_max_w,
             max_h=living_max_h,
+            size=living_room_size,
         )
     )
 
     return normalized
-
-
-# def compute_floor_plan_dimension_bounds(
-#     requirements: FpgRequirements,
-# ) -> dict[str, object]:
-#     """Compute floor plan min/max bounds based on room requirements.
-
-#     The function performs strict validation. On failure, return an error payload
-#     it can be mapped to API reply to stop the pipeline.
-
-#     Returns dict with keys:
-#     - status: "OK" or "ERROR"
-#     - message: optional error message
-#     - total_min_area, total_max_area, floor_area, normalized_aspect_ratio,
-#       normalized_floor_area, min_floor_width, min_floor_height,
-#       max_floor_width, max_floor_height
-#     """
-#     import math
-
-#     if requirements is None:
-#         return {
-#             "status": "ERROR",
-#             "message": "Requirements object is missing.",
-#         }
-
-#     if not hasattr(requirements, "rooms") or not requirements.rooms:
-#         return {
-#             "status": "ERROR",
-#             "message": "Requirements.rooms is empty or missing.",
-#         }
-
-#     if not hasattr(requirements, "config") or requirements.config is None:
-#         return {
-#             "status": "ERROR",
-#             "message": "Requirements.config is missing.",
-#         }
-
-#     width = requirements.config.floor_plan_width
-#     height = requirements.config.floor_plan_height
-
-#     if width is None or height is None:
-#         return {
-#             "status": "ERROR",
-#             "message": "Floor plan width/height is missing from config.",
-#         }
-
-#     try:
-#         floor_width = float(width)
-#         floor_height = float(height)
-#     except (TypeError, ValueError):
-#         return {
-#             "status": "ERROR",
-#             "message": "Floor plan width/height must be numeric.",
-#         }
-
-#     if floor_width <= 0 or floor_height <= 0:
-#         return {
-#             "status": "ERROR",
-#             "message": "Floor plan width and height must be positive values.",
-#         }
-
-#     total_min_area = 0.0
-#     total_max_area = 0.0
-
-#     for room in requirements.rooms:
-#         if room is None:
-#             return {
-#                 "status": "ERROR",
-#                 "message": "Room entry is missing.",
-#             }
-
-#         min_w = room.min_w
-#         min_h = room.min_h
-#         max_w = room.max_w
-#         max_h = room.max_h
-
-#         if None in (min_w, min_h, max_w, max_h):
-#             return {
-#                 "status": "ERROR",
-#                 "message": f"Room '{getattr(room, 'name', '<unknown>')}' has missing dimension(s).",
-#             }
-
-#         try:
-#             min_w_f = float(min_w)
-#             min_h_f = float(min_h)
-#             max_w_f = float(max_w)
-#             max_h_f = float(max_h)
-#         except (TypeError, ValueError):
-#             return {
-#                 "status": "ERROR",
-#                 "message": f"Room '{getattr(room, 'name', '<unknown>')}' has invalid dimension(s).",
-#             }
-
-#         if min_w_f <= 0 or min_h_f <= 0 or max_w_f <= 0 or max_h_f <= 0:
-#             return {
-#                 "status": "ERROR",
-#                 "message": f"Room '{getattr(room, 'name', '<unknown>')}' dimensions must be positive.",
-#             }
-
-#         if min_w_f > max_w_f or min_h_f > max_h_f:
-#             return {
-#                 "status": "ERROR",
-#                 "message": (
-#                     f"Room '{getattr(room, 'name', '<unknown>')}' has min dimension larger than max dimension."
-#                 ),
-#             }
-
-#         min_area = min_w_f * min_h_f
-#         max_area = max_w_f * max_h_f
-
-#         if min_area <= 0 or max_area <= 0:
-#             return {
-#                 "status": "ERROR",
-#                 "message": f"Room '{getattr(room, 'name', '<unknown>')}' area must be positive.",
-#             }
-
-#         if min_area > max_area:
-#             return {
-#                 "status": "ERROR",
-#                 "message": f"Room '{getattr(room, 'name', '<unknown>')}' has min area larger than max area.",
-#             }
-
-#         total_min_area += min_area
-#         total_max_area += max_area
-
-#     # TODO: Check this Section
-#     floor_area = floor_width * floor_height
-#     minimum_required_area = total_min_area + 2500
-
-#     if minimum_required_area > floor_area:
-#         return {
-#             "status": "ERROR",
-#             "message": (
-#                 "Impossible Requirements: total min room area + 2500 exceeds floor area. "
-#                 f"required={minimum_required_area:.2f}, available={floor_area:.2f}."
-#             ),
-#         }
-
-#     raw_aspect_ratio = floor_width / floor_height
-#     normalized_aspect_ratio = max(1, math.floor(raw_aspect_ratio))
-
-#     normalized_floor_area = (
-#         total_max_area if total_max_area < floor_area else floor_area
-#     )
-
-#     min_floor_area = total_min_area
-
-#     min_floor_width = math.sqrt(min_floor_area * normalized_aspect_ratio)
-#     min_floor_height = min_floor_width / normalized_aspect_ratio
-
-#     max_floor_width = math.sqrt(normalized_floor_area * normalized_aspect_ratio)
-#     max_floor_height = max_floor_width / normalized_aspect_ratio
-
-#     return {
-#         "status": "OK",
-#         "message": "Computed floor plan dimension bounds successfully.",
-#         "total_min_area": total_min_area,
-#         "total_max_area": total_max_area,
-#         "minimum_required_area": minimum_required_area,
-#         "floor_area": floor_area,
-#         "normalized_aspect_ratio": normalized_aspect_ratio,
-#         "normalized_floor_area": normalized_floor_area,
-#         "min_floor_area": min_floor_area,
-#         "min_floor_width": min_floor_width,
-#         "min_floor_height": min_floor_height,
-#         "max_floor_width": max_floor_width,
-#         "max_floor_height": max_floor_height,
-#     }

@@ -38,6 +38,8 @@ ENVELOPE_MIN_GAP = 5
 ENVELOPE_MAX_GAP = 20
 ENVELOPE_EXCLUDE_TYPES = []  # Non eligible room types for envelope checking
 ENVELOPE_APPLY_SIDES = ["left", "right", "top", "bottom"]
+HALLWAY_NARROW_SIDE_MIN = 10
+HALLWAY_NARROW_SIDE_MAX = 15
 
 # Garage placement settings
 GARAGE_SIDE_ANCHOR_THRESHOLD = 20
@@ -60,9 +62,9 @@ CONSTRAINT_HARD_BASIC_GEOMETRY = True
 CONSTRAINT_HARD_HALLWAY_RULES = True
 CONSTRAINT_HARD_ROOM_SHARED_WALLS = True
 CONSTRAINT_HARD_ROOM_ADJACENCY = True
-CONSTRAINT_HARD_MINIMUM_AREA_COVERAGE = False
-CONSTRAINT_HARD_ROOM_SIZE_HIERARCHY = True
-CONSTRAINT_HARD_LIVING_ROOM_LOCATION = False
+CONSTRAINT_HARD_MINIMUM_AREA_COVERAGE = False  # Final decision
+CONSTRAINT_HARD_ROOM_SIZE_HIERARCHY = False
+CONSTRAINT_HARD_LIVING_ROOM_LOCATION = False  # Final decision
 CONSTRAINT_HARD_VERANDA_PLACEMENT = True
 CONSTRAINT_HARD_GARAGE_PLACEMENT = True
 CONSTRAINT_HARD_ENVELOPE_STAIRCASE = True
@@ -134,10 +136,11 @@ DEFAULT_OPTUNA_STUDY_NAME = "FPG_study"
 DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
 
 # Trial optimization control
-MINIMUM_REQUIRED_FPG_SCORE = 90  # Stop trials if score exceeds this
+MINIMUM_REQUIRED_FPG_SCORE = 80  # Acceptable score to store as best candidate
+BEST_FLOOR_PLAN_SCORE = 95  # Stop early when this score is reached
 TRIAL_OPTIMIZATION_TIMEOUT_SECONDS = 120  # Hard deadline for all trials
 TRIAL_GRAPH_SOLVER_GATE_THRESHOLD = (
-    80  # Invoke solver only when graph score reaches this
+    84  # Invoke solver only when graph score reaches this
 )
 
 # Optuna search space grid scale
@@ -147,19 +150,17 @@ OPTUNA_SEARCH_SPACE_GRID_SCALE = 10  # Reduce search space resolution by this in
 DEFAULT_ASPECT_RATIO_MAX = 16.0
 DEFAULT_ASPECT_RATIO_MIN = 0.0
 DEFAULT_HALLWAY_COUNT = 2
-DEFAULT_SOLVER_MAX_TIME_SECONDS = 3
+DEFAULT_SOLVER_MAX_TIME_SECONDS = 5
 WIGGLE_ROOM = 10
 
-# TODO Fix hallway config value duplication
-# Hallway dimensions
-# Fixed narrow dimension — the solver enforces exactly this value for
-# whichever of width/height is the "short" side.
-HALLWAY_NARROW_SIDE = 10
+# Hallway dimensions (narrow side min/max defined above)
+# Minimum length of the long side (the solver may extend it further).
+HALLWAY_LONG_SIDE_MIN = 10
+# Hallway min overlap
+MIN_OVERLAP = 10
 # Minimum width/height used when creating hallway rooms.
 HALLWAY_GENERATOR_MIN_WIDTH = 10
 HALLWAY_GENERATOR_MIN_HEIGHT = 10
-# Minimum length of the long side (the solver may extend it further).
-HALLWAY_LONG_SIDE_MIN = 10
 # Number of hallway walls that must be fully shared with other rooms.
 # Default 3 means only one hallway wall may remain as an exterior wall.
 HALLWAY_REQUIRED_SHARED_WALLS = 3
@@ -200,6 +201,14 @@ ROOM_SHARED_WALL_RULES_REFINE = {
     "veranda": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 10},
     "garage": {"min_walls": 2, "max_walls": 3, "wiggle_pct": 10},
     "diningRoom": {"min_walls": 2, "max_walls": 4, "wiggle_pct": 10},
+}
+
+# Optuna Scoring Values (total should be 90)
+OPTUNA_SCORING_VALUES: dict[str, float] = {
+    "optuna_score_zone": 30,
+    "optuna_score_clearance": 20,
+    "optuna_score_relations": 30,
+    "optuna_score_spatial_coverage": 10,
 }
 
 __all__ = [
@@ -266,6 +275,7 @@ __all__ = [
     "DEFAULT_OPTUNA_STORAGE_ENABLED",
     "DEFAULT_OPTUNA_STORAGE_URL",
     "MINIMUM_REQUIRED_FPG_SCORE",
+    "BEST_FLOOR_PLAN_SCORE",
     "TRIAL_OPTIMIZATION_TIMEOUT_SECONDS",
     "TRIAL_GRAPH_SOLVER_GATE_THRESHOLD",
     "OPTUNA_SEARCH_SPACE_GRID_SCALE",
@@ -281,7 +291,8 @@ __all__ = [
     "VERANDA_OUTDOOR_SPACE_MIN_H",
     "VERANDA_OUTDOOR_SPACE_MAX_W",
     "VERANDA_OUTDOOR_SPACE_MAX_H",
-    "HALLWAY_NARROW_SIDE",
+    "HALLWAY_NARROW_SIDE_MIN",
+    "HALLWAY_NARROW_SIDE_MAX",
     "HALLWAY_GENERATOR_MIN_WIDTH",
     "HALLWAY_GENERATOR_MIN_HEIGHT",
     "HALLWAY_LONG_SIDE_MIN",
@@ -294,4 +305,5 @@ __all__ = [
     "OPTUNA_NODE_PLACEMENT_PRIVATE",
     "OPTUNA_NODE_PLACEMENT_PUBLIC",
     "OPTUNA_NODE_PLACEMENT_FRONT",
+    "MIN_OVERLAP",
 ]

@@ -1,6 +1,17 @@
 services:
+  api:
+    build: .
+    container_name: fpg_server_api
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_URL=postgresql://fpg:fpg@db:5432/fpg_db
+    depends_on:
+      - db
+
   db:
-    image: postgres:18.3
+    image: postgres:18
     container_name: postgres_db_fpg
     restart: always
     environment:
@@ -10,4 +21,4 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - ./postgres_data:/var/lib/data # Persists data in your project folder
+      - ./postgres_data:/var/lib/postgresql

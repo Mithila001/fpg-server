@@ -6,7 +6,7 @@ from shapely.geometry import box, MultiPolygon, Polygon, LineString
 from shapely.ops import unary_union, substring
 from app.algorithms.types.domain import ProcessedRoomData
 
-from app.algorithms.fpg_post_processor.dev.dev_step_plotter import (
+from test.plotters.dev_step_plotter import (
     plot_step_progression,
 )
 
@@ -25,7 +25,7 @@ ROOM_COLOR_MAP = {
     "livingRoom": "#87CEEB",  # Sky Blue
 }
 
-ROOM_EXPAND_HIERARCHY = ["livingRoom", "veranda", "kitchen", "hallway", "bedroom"]
+ROOM_EXPAND_HIERARCHY = ["veranda", "livingRoom", "kitchen", "hallway", "bedroom"]
 
 ROOM_EXPANSION_CONFIG = {
     "livingRoom": {
@@ -33,40 +33,40 @@ ROOM_EXPANSION_CONFIG = {
         "MAX_WALL_LENGTH": 40,
         "MAX_ROOMS_TO_EXPAND": 1,
         "MAX_SELECTIONS": 2,
-        "EXPANSION_PERCENTAGE": 0.50,
+        "EXPANSION_PERCENTAGE": 0.80,
         "EXPANSION_MAX_DISTANCE": 20,
     },
     "kitchen": {
         "MIN_WALL_LENGTH": 10,
-        "MAX_WALL_LENGTH": 30,
+        "MAX_WALL_LENGTH": 40,
         "MAX_ROOMS_TO_EXPAND": 1,
         "MAX_SELECTIONS": 1,
-        "EXPANSION_PERCENTAGE": 0.40,
+        "EXPANSION_PERCENTAGE": 0.80,
         "EXPANSION_MAX_DISTANCE": 10,
     },
     "hallway": {
         "MIN_WALL_LENGTH": 5,
-        "MAX_WALL_LENGTH": 40,
+        "MAX_WALL_LENGTH": 50,
         "MAX_ROOMS_TO_EXPAND": 3,
         "MAX_SELECTIONS": 3,
-        "EXPANSION_PERCENTAGE": 0.50,
-        "EXPANSION_MAX_DISTANCE": 10,
+        "EXPANSION_PERCENTAGE": 0.80,
+        "EXPANSION_MAX_DISTANCE": 2,
     },
     "bedroom": {
         "MIN_WALL_LENGTH": 10,
         "MAX_WALL_LENGTH": 40,
         "MAX_ROOMS_TO_EXPAND": 3,
         "MAX_SELECTIONS": 1,
-        "EXPANSION_PERCENTAGE": 0.50,
+        "EXPANSION_PERCENTAGE": 0.80,
         "EXPANSION_MAX_DISTANCE": 10,
     },
     "veranda": {
         "MIN_WALL_LENGTH": 10,
-        "MAX_WALL_LENGTH": 40,
+        "MAX_WALL_LENGTH": 50,
         "MAX_ROOMS_TO_EXPAND": 3,
         "MAX_SELECTIONS": 1,
-        "EXPANSION_PERCENTAGE": 0.50,
-        "EXPANSION_MAX_DISTANCE": 10,
+        "EXPANSION_PERCENTAGE": 0.80,
+        "EXPANSION_MAX_DISTANCE": 40,
     },
 }
 

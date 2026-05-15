@@ -10,7 +10,7 @@ This document explains a simple frontend-backend pattern for sending continuous 
 
 2. **Receive progress updates**
    - Frontend opens an SSE connection to `/algorithms/job/{job_id}/events`.
-   - Backend sends events over that connection as trials complete, such as `trial_completed`, `optimization_completed`, or `job_progress`.
+   - Backend streams stage-based events (examples below) with clear payloads and thresholds.
    - The stream supports reconnects with the `Last-Event-ID` header.
    - SSE is one-way: the server pushes updates, and the browser receives them automatically.
 
@@ -30,6 +30,27 @@ This document explains a simple frontend-backend pattern for sending continuous 
 - **Clear separation**: progress streaming is handled independently of command/control logic.
 - **Good for this project**: trial-by-trial floor plan generation produces natural progress events, and cancel is a simple user action.
 
+## SSE Progress Events
+
+Events are emitted in a single stream. Each event includes an `event` name plus a JSON payload in `data`.
+
+Common event names:
+
+- `trial_{n}` - Optuna trial hint points generated (includes `point_hints`).
+- `solver_gate_not_passed` - Trial score below solver gate.
+- `eligible_point_hints` - Trial passed solver gate and hints are eligible for solver.
+- `initiate_fpg` - Starting an FPG solver attempt.
+- `fpg_feasible` / `fpg_infeasible` - Solver feasibility outcome.
+- `fpg_generated` - Draft layout generated.
+- `refine_1`, `refine_2`, `refine_3` - Refinement passes.
+- `post_processed` - Post-process complete.
+- `fpg_score` - Scoring complete (includes thresholds).
+- `finding_better_plans` - Score passed minimum, searching for best.
+- `optuna_completed` - Optuna optimization finished.
+- `success` - Final result eligible for return.
+- `fpg_low_score` - Final score below minimum.
+- `time_out` - Job exceeded time limit.
+
 ## Summary
 
 Use SSE for the continuous progress feed and a normal HTTP cancel endpoint for stopping work. This gives a lightweight, robust architecture for generation progress + cancellation without the complexity of full WebSockets.
@@ -43,7 +64,7 @@ Use SSE for the continuous progress feed and a normal HTTP cancel endpoint for s
 - **Final output storage:** final result is kept in memory in the job registry (temporary) and available via result endpoint; not persisted to DB/files by default.
 - **Reconnect behavior:** clients may reconnect to the SSE endpoint for the same `job_id` and receive cached events + remaining stream.
 - **Terminal SSE events:** `generation_success`, `generation_time_out`, `trial_count_exceeded`, `generation_failed`, `canceled`, and `COMPLETED`.
-- **Timeout:** when a job exceeds configured timeout the parent terminates the process, sets status `TIMED_OUT` and result `{ "message": "Time Out" }`.
+- **Timeout:** when a job exceeds configured timeout the parent terminates the process, sets status `timed_out` and result `{ "message": "Time Out" }`.
 - **Concurrency rule:** one active job per user; server allows multiple users concurrently but enforces per-user single job.
 - **Separation of concerns:** the worker wrapper invokes the generation flow as-is; SSE, job registry and cancel logic live outside and do not tightly couple into `run_fpg_pipeline_api()`.
 

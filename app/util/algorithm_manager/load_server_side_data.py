@@ -22,25 +22,26 @@ from app.types.room_setup_template import RoomSetupTemplate as RoomSetupType
 from app.types.room_size_constraint import RoomSizeConstraint as RoomSizeType
 
 
-def load_server_side_data(
-    should_bypass: bool = False,
-) -> tuple[list[RoomSetupType], list[RoomSizeType], list[RoomRelationsType]]:
+def load_server_side_data() -> tuple[
+    list[RoomSetupType], list[RoomSizeType], list[RoomRelationsType]
+]:
     """Load templates, size constraints and relation constraints from server side source.
 
     During development this mirrors existing manager behavior by using mock JSON data.
     The results are converted to Pydantic types for consistent downstream usage.
     """
 
-    if should_bypass:
-        print("\n\n ########## Bypass Data = TRUE ########## \n\n")
-        templates = load_room_setup_templates()
-        size_constraints = load_room_size_constraints()
-        relation_constraints = load_room_relations_constraints()
-    else:
+    try:
         with Session(engine) as session:
             templates = room_setup_template_crud.get_all(session)
             size_constraints = room_size_constraint_crud.get_all(session)
             relation_constraints = room_relations_constraint_crud.get_all(session)
+    except Exception:
+        # Fall back to mock data if database retrieval fails.
+        print("\n\n ########## DB FAILED, USING MOCK DATA ########## \n\n")
+        templates = load_room_setup_templates()
+        size_constraints = load_room_size_constraints()
+        relation_constraints = load_room_relations_constraints()
 
     return _convert_to_types(templates, size_constraints, relation_constraints)
 

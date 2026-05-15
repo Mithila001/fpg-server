@@ -5,7 +5,7 @@ import json
 
 from fastapi import APIRouter, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from app.services.job_lifecycle import JobKind, JobStatus, job_registry
 from app.schemas.db.room_setup_template import RoomSetupTemplateBase
@@ -20,9 +20,40 @@ class JobSubmitResponse(BaseModel):
 class FormatterV2ApiRequest(BaseModel):
     floor_width: float
     floor_height: float
+    aspect_ratio: float
     room_template: RoomSetupTemplateBase
     should_optuna_run: bool = False
     optuna_trial_count: int = 20
+
+    @field_validator("aspect_ratio", mode="before")
+    def _validate_and_normalize_aspect_ratio(cls, v):
+        """Normalize aspect_ratio input to a float H/W and validate range [0.5,2.0].
+
+        Accepts numeric values or string forms like "2:1" interpreted as H:W.
+        """
+        # Accept numeric values
+        if isinstance(v, (int, float)):
+            ratio = float(v)
+        elif isinstance(v, str):
+            parts = v.split(":")
+            if len(parts) != 2:
+                raise ValueError(
+                    "Invalid aspect_ratio format. Use numeric or 'H:W' string like '2:1'."
+                )
+            try:
+                h = float(parts[0])
+                w = float(parts[1])
+            except Exception:
+                raise ValueError("Invalid numeric parts in aspect_ratio string.")
+            if w == 0:
+                raise ValueError("Invalid aspect_ratio: width part cannot be zero.")
+            ratio = h / w
+        else:
+            raise ValueError("aspect_ratio must be a number or a string of the form 'H:W'.")
+
+        if not (0.5 <= ratio <= 2.0):
+            raise ValueError("aspect_ratio must be between 0.5 and 2.0 (H/W).")
+        return ratio
 
 
 router = APIRouter(prefix="/algorithms", tags=["algorithms"])

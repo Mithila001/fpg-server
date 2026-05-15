@@ -15,10 +15,10 @@ from app.algorithms.types.solvers import (
 )
 from app.core.fpg_rooms.config_fpg import (
     MINIMUM_REQUIRED_FPG_SCORE,
-    OPTUNA_NODE_PLACEMENT_PRIVATE,
-    OPTUNA_NODE_PLACEMENT_PUBLIC,
+    BEST_FLOOR_PLAN_SCORE,
     OPTUNA_SEARCH_SPACE_GRID_SCALE,
     TRIAL_OPTIMIZATION_TIMEOUT_SECONDS,
+    TRIAL_GRAPH_SOLVER_GATE_THRESHOLD,
 )
 from app.core.fpg_rooms.config_optuna import (
     OPTUNA_DEFAULT_STUDY_NAME,
@@ -28,63 +28,9 @@ from app.core.fpg_rooms.config_optuna import (
 from app.dev.dev_print import debug_log_data
 from app.util.tracking import get_tracking_context
 from .exceptions import TrialTimeoutError
-from .sampling_logic import RoomAwareTPESampler
 
 EVALUATION_FN = Callable[[FpgRequirements, bool], FpgEvaluationResult]
-CONSTRAINTS_FN = Callable[[FrozenTrial], Sequence[float]]
 PROGRESS_EMITTER = Callable[[str, str, dict[str, Any] | None], None]
-
-
-def _opposite_side(side: str) -> str:
-    return "right" if side == "left" else "left"
-
-
-def _resolve_room_side_lock(
-    room_type: str,
-    private_side: str,
-    public_side: str,
-) -> str | None:
-    normalized_room_type = room_type.strip()
-    if normalized_room_type in OPTUNA_NODE_PLACEMENT_PRIVATE:
-        return private_side
-    if normalized_room_type in OPTUNA_NODE_PLACEMENT_PUBLIC:
-        return public_side
-    return None
-
-
-def _apply_side_lock_to_x_bounds(
-    min_x: float,
-    max_x: float,
-    side: str | None,
-) -> tuple[float, float]:
-    if side is None:
-        return min_x, max_x
-
-    midpoint = (float(min_x) + float(max_x)) / 2.0
-    if side == "left":
-        clamped_min = float(min_x)
-        clamped_max = min(float(max_x), midpoint)
-        if clamped_min <= clamped_max:
-            return clamped_min, clamped_max
-        return midpoint, midpoint
-
-    clamped_min = max(float(min_x), midpoint)
-    clamped_max = float(max_x)
-    if clamped_min <= clamped_max:
-        return clamped_min, clamped_max
-    return midpoint, midpoint
-
-
-def _normalize_score(score: float, max_score: float) -> float:
-    return max(0.0, min(float(max_score), float(score)))
-
-
-def _weighted_graph_score(graph_total_score: float) -> float:
-    return (_normalize_score(graph_total_score, 90.0) / 90.0) * 90.0
-
-
-def _weighted_solver_score(solver_total_score: float) -> float:
-    return (_normalize_score(solver_total_score, 100.0) / 100.0) * 10.0
 
 
 def _effective_sampling_radius(boundary_width: float, boundary_height: float) -> float:
@@ -93,21 +39,6 @@ def _effective_sampling_radius(boundary_width: float, boundary_height: float) ->
     return max(
         1.0,
         min(8.0, half_width, half_height),
-    )
-
-
-def _sorted_rooms_for_sampling(requirements: FpgRequirements) -> list[Any]:
-    priority_map = {
-        "veranda": 0,
-        "garage": 0,
-        "livingRoom": 1,
-        "diningRoom": 2,
-        "kitchen": 3,
-        "bathroom": 4,
-    }
-    return sorted(
-        requirements.rooms,
-        key=lambda room: (priority_map.get(getattr(room, "type", ""), 3), room.name),
     )
 
 
@@ -128,44 +59,6 @@ def _snap_search_bounds_to_grid(
         return float(min_value), float(max_value)
 
     return float(snapped_min), float(snapped_max)
-
-
-def _normalized_coordinate_key(
-    position_data: dict[str, float | str],
-) -> tuple[int, int] | None:
-    try:
-        return (
-            int(round(float(position_data["x"]))),
-            int(round(float(position_data["y"]))),
-        )
-    except (KeyError, TypeError, ValueError):
-        return None
-
-
-def _duplicate_coordinate_count(
-    sampled_positions: dict[str, dict[str, float | str]],
-) -> float:
-    seen_coordinates: set[tuple[int, int]] = set()
-    duplicate_count = 0
-
-    for position_data in sampled_positions.values():
-        coordinate_key = _normalized_coordinate_key(position_data)
-        if coordinate_key is None:
-            continue
-        if coordinate_key in seen_coordinates:
-            duplicate_count += 1
-            continue
-        seen_coordinates.add(coordinate_key)
-
-    return float(duplicate_count)
-
-
-def _trial_coordinate_constraints(trial: FrozenTrial) -> Sequence[float]:
-    sampled_positions = trial.user_attrs.get("fpg_sampled_positions")
-    if not isinstance(sampled_positions, dict):
-        return (0.0,)
-
-    return (_duplicate_coordinate_count(sampled_positions),)
 
 
 def _uncrossed_hallway_names_from_diagnostics(
@@ -209,7 +102,7 @@ class OptunaOptimizationController:
     def __init__(
         self,
         timeout_seconds: float = TRIAL_OPTIMIZATION_TIMEOUT_SECONDS,
-        score_threshold: float = MINIMUM_REQUIRED_FPG_SCORE,
+        score_threshold: float = BEST_FLOOR_PLAN_SCORE,
     ):
         self.timeout_seconds = timeout_seconds
         self.score_threshold = score_threshold
@@ -256,17 +149,30 @@ def run_optuna_optimization(
 
     optuna.logging.set_verbosity(optuna.logging.WARN)
 
+    def _format_point_hints(
+        positions: Mapping[str, Mapping[str, Any]],
+        round_xy: bool = True,
+    ) -> list[dict[str, Any]]:
+        hints: list[dict[str, Any]] = []
+        for room_name, position_data in positions.items():
+            x_value = float(position_data.get("x", 0.0))
+            y_value = float(position_data.get("y", 0.0))
+            hints.append(
+                {
+                    "name": room_name,
+                    "type": str(position_data.get("type", "")),
+                    "x": int(round(x_value)) if round_xy else x_value,
+                    "y": int(round(y_value)) if round_xy else y_value,
+                    "radius": float(position_data.get("radius", 0.0)),
+                }
+            )
+        return hints
+
     def objective(trial: optuna.Trial) -> float:
         controller.check_timeout_and_raise()
         tracking_context = get_tracking_context()
         if tracking_context is not None:
             tracking_context.next_trial_id()
-
-        emit_progress(
-            "trial_started",
-            f"Starting trial {trial.number + 1}.",
-            {"trial_number": trial.number + 1},
-        )
 
         try:
             hallway_count = int(OPTUNA_HALLWAY_COUNT)
@@ -276,23 +182,8 @@ def run_optuna_optimization(
                 boundary_height=float(base_requirements.config.floor_plan_height),
             )
 
-            explicit_positions: dict[str, tuple[float, float]] = {}
             sampled_positions: dict[str, dict[str, float | str]] = {}
-            for room in _sorted_rooms_for_sampling(base_requirements):
-                trial.set_user_attr(
-                    "fpg_current_room_context",
-                    {
-                        "room_id": room.name,
-                        "room_name": room.name,
-                        "room_type": room.type,
-                        "radius": sampling_radius,
-                        "floor_width": float(base_requirements.config.floor_plan_width),
-                        "floor_height": float(
-                            base_requirements.config.floor_plan_height
-                        ),
-                    },
-                )
-
+            for room in base_requirements.rooms:
                 min_x = sampling_radius
                 max_x = max(
                     min_x,
@@ -318,7 +209,6 @@ def run_optuna_optimization(
                     f"{room.name}_y", min_y, max_y, step=OPTUNA_SEARCH_SPACE_GRID_SCALE
                 )
 
-                explicit_positions[room.name] = (float(sample_x), float(sample_y))
                 sampled_positions[room.name] = {
                     "type": room.type,
                     "x": float(sample_x),
@@ -328,20 +218,6 @@ def run_optuna_optimization(
                 trial.set_user_attr("fpg_sampled_positions", sampled_positions)
 
             for hallway_name in _hallway_names(hallway_count):
-                trial.set_user_attr(
-                    "fpg_current_room_context",
-                    {
-                        "room_id": hallway_name,
-                        "room_name": hallway_name,
-                        "room_type": "hallway",
-                        "radius": sampling_radius,
-                        "floor_width": float(base_requirements.config.floor_plan_width),
-                        "floor_height": float(
-                            base_requirements.config.floor_plan_height
-                        ),
-                    },
-                )
-
                 min_x = sampling_radius
                 max_x = max(
                     min_x,
@@ -373,7 +249,6 @@ def run_optuna_optimization(
                     step=OPTUNA_SEARCH_SPACE_GRID_SCALE,
                 )
 
-                explicit_positions[hallway_name] = (float(sample_x), float(sample_y))
                 sampled_positions[hallway_name] = {
                     "type": "hallway",
                     "x": float(sample_x),
@@ -382,36 +257,14 @@ def run_optuna_optimization(
                 }
                 trial.set_user_attr("fpg_sampled_positions", sampled_positions)
 
-            duplicate_coordinate_count = _duplicate_coordinate_count(sampled_positions)
-            if duplicate_coordinate_count > 0:
-                emit_progress(
-                    "trial_completed",
-                    "Trial rejected because of duplicate coordinates.",
-                    {
-                        "trial_number": trial.number + 1,
-                        "status": "duplicate_coordinate_rejected",
-                        "optuna_score": 0.0,
-                        "solver_invoked": False,
-                        "solver_passed": False,
-                    },
-                )
-                trial.set_user_attr("optuna_score", 0.0)
-                trial.set_user_attr("optuna_section_scores", {})
-                trial.set_user_attr("optuna_usable_layout", False)
-                trial.set_user_attr("solver_score", 0.0)
-                trial.set_user_attr("solver_weighted_score", 0.0)
-                trial.set_user_attr("solver_invoked", False)
-                trial.set_user_attr("solver_passed", False)
-                trial.set_user_attr(
-                    "duplicate_coordinate_count", duplicate_coordinate_count
-                )
-                trial.set_user_attr("status", "duplicate_coordinate_rejected")
-                trial.set_user_attr("composite_score", 0.0)
-                print(
-                    f"[Optuna] trial={trial.number} score=0.00 solver=SKIP reason=duplicate_coordinate_rejected "
-                    f"duplicates={duplicate_coordinate_count:.0f} composite=0.00"
-                )
-                return 0.0
+            emit_progress(
+                f"trial_{trial.number + 1}",
+                "Trial hint points generated.",
+                {
+                    "trial_number": trial.number + 1,
+                    "point_hints": _format_point_hints(sampled_positions),
+                },
+            )
 
             score_result = score_optuna_layout(
                 requirements=base_requirements,
@@ -432,14 +285,12 @@ def run_optuna_optimization(
 
             if not score_result.usable_layout:
                 emit_progress(
-                    "trial_completed",
-                    "Trial completed below solver gate.",
+                    "solver_gate_not_passed",
+                    "Trial score did not pass the solver gate.",
                     {
                         "trial_number": trial.number + 1,
-                        "status": "score_below_solver_gate",
                         "optuna_score": optuna_score,
-                        "solver_invoked": False,
-                        "solver_passed": False,
+                        "solver_gate_threshold": TRIAL_GRAPH_SOLVER_GATE_THRESHOLD,
                     },
                 )
                 trial.set_user_attr("status", "score_below_solver_gate")
@@ -479,6 +330,17 @@ def run_optuna_optimization(
                 )
             ]
 
+            emit_progress(
+                "eligible_point_hints",
+                "Trial passed solver gate; using eligible point hints.",
+                {
+                    "trial_number": trial.number + 1,
+                    "optuna_score": optuna_score,
+                    "solver_gate_threshold": TRIAL_GRAPH_SOLVER_GATE_THRESHOLD,
+                    "point_hints": point_hints,
+                },
+            )
+
             filtered_hallway_names = [
                 hint["name"]
                 for hint in point_hints
@@ -506,17 +368,6 @@ def run_optuna_optimization(
                 debug_log_data(
                     run_result.fpg_score_results, tag="[Optuna] Solver Failure Result"
                 )
-                emit_progress(
-                    "trial_completed",
-                    "Trial completed without a solved layout.",
-                    {
-                        "trial_number": trial.number + 1,
-                        "status": run_result.status,
-                        "optuna_score": optuna_score,
-                        "solver_invoked": True,
-                        "solver_passed": False,
-                    },
-                )
                 trial.set_user_attr("composite_score", optuna_score)
                 print(
                     f"[Optuna] trial={trial.number} score={optuna_score:.2f} solver=FAILED composite={optuna_score:.2f}"
@@ -532,30 +383,19 @@ def run_optuna_optimization(
             except Exception:
                 solver_score = 0.0
 
-            weighted_solver_score = _weighted_solver_score(solver_score)
             solver_passed = solver_score >= MINIMUM_REQUIRED_FPG_SCORE
+            solver_best = solver_score >= BEST_FLOOR_PLAN_SCORE
 
             trial.set_user_attr("solver_score", solver_score)
-            trial.set_user_attr("solver_weighted_score", weighted_solver_score)
+            trial.set_user_attr("solver_weighted_score", solver_score)
             trial.set_user_attr("solver_passed", solver_passed)
+            trial.set_user_attr("solver_best", solver_best)
 
             if not solver_passed:
-                emit_progress(
-                    "trial_completed",
-                    "Trial completed but solver score did not pass the threshold.",
-                    {
-                        "trial_number": trial.number + 1,
-                        "status": run_result.status,
-                        "optuna_score": optuna_score,
-                        "solver_score": solver_score,
-                        "solver_invoked": True,
-                        "solver_passed": False,
-                    },
-                )
                 trial.set_user_attr("composite_score", optuna_score)
                 print(
                     f"[Optuna] trial={trial.number} score={optuna_score:.2f} solver={solver_score:.2f} "
-                    f"solver_w={weighted_solver_score:.2f} composite={optuna_score:.2f} solver_passed=False"
+                    f"composite={optuna_score:.2f} solver_passed=False"
                 )
                 return optuna_score
 
@@ -568,20 +408,18 @@ def run_optuna_optimization(
                 run_result.fpg_score_results, tag="[Optuna] Solver Success Result"
             )
             emit_progress(
-                "trial_completed",
+                "solver_gate_passed",
                 "Trial produced a solver-passed layout.",
                 {
                     "trial_number": trial.number + 1,
                     "status": run_result.status,
                     "optuna_score": optuna_score,
                     "solver_score": solver_score,
-                    "solver_invoked": True,
-                    "solver_passed": True,
                 },
             )
             print(
                 f"[Optuna] trial={trial.number} score={optuna_score:.2f} solver={solver_score:.2f} "
-                f"solver_w={weighted_solver_score:.2f} composite={final_composite_score:.2f} solver_passed={solver_passed}"
+                f"composite={final_composite_score:.2f} solver_passed={solver_passed}"
             )
 
             return final_composite_score
@@ -595,11 +433,7 @@ def run_optuna_optimization(
             return
         controller.record_best_score(float(trial.value))
 
-        if bool(trial.user_attrs.get("solver_passed", False)):
-            study.stop()
-            return
-
-        if float(trial.value) >= controller.score_threshold:
+        if bool(trial.user_attrs.get("solver_best", False)):
             study.stop()
             return
 
@@ -611,7 +445,7 @@ def run_optuna_optimization(
     study = optuna.create_study(
         direction="maximize",
         study_name=study_name,
-        sampler=RoomAwareTPESampler(constraints_func=_trial_coordinate_constraints),
+        sampler=optuna.samplers.TPESampler(),
         storage=storage,
         load_if_exists=True,
     )
@@ -660,7 +494,7 @@ def run_optuna_optimization(
             )
 
     emit_progress(
-        "optimization_completed",
+        "optuna_completed",
         "Optuna optimization finished.",
         {
             "termination_reason": termination_reason,

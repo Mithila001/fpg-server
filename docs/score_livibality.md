@@ -15,8 +15,8 @@ Instead of static geometric analysis, we will simulate "Heuristic Walking Paths"
 ## 3. Technical Implementation Strategy
 
 ### A. The Walkable Mesh
-* **Tool:** `Shapely`(Already Installed to python virtual environment)
-* **Logic:** Subtract all "Wall" polygons from the "Total Floor" polygon to create a "Navigation Mesh" (the walkable area).
+* **Tool:** `Shapely`(Already Installed to python virtual environment), Or use better optuna if you have to
+* **Logic:** Subtract all "Wall" polygons from the "Total Floor" polygon to create a "Navigation Mesh" (the walkable area). Also Subtract the Door Opening from those walls.
 
 ### B. Pathfinding & Smoothing
 * **Tool:** `NetworkX` + `Scipy.interpolate` (Already Installed to python virtual environment)
@@ -35,6 +35,8 @@ For initial implementation, these are will be the path we simulate
 3. Front Door to Every Bathroom Entrance
 4. All Bedroom Entrance to Closest Bathroom Entrance (Can pick only closest bathroom)
 5. All Bedroom Entrance to Kitchen Entrance 
+
+You will have to keep track of all room doors for this. 
 
 ## 5. Scoring Metrics (The Evaluator)
 
