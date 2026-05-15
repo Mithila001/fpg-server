@@ -1,12 +1,12 @@
 {
   "bedroom": {
     "small": {
-      "min_w": 24,
+      "min_w": 25,
       "max_w": 30,
-      "min_h": 24,
+      "min_h": 27,
       "max_h": 30,
-      "min_area": 576,
-      "max_area": 900,
+      "min_area": 900,
+      "max_area": 1200,
       "preset_id": "bed_s"
     },
     "regular": {
@@ -30,11 +30,11 @@
   },
   "kitchen": {
     "small": {
-      "min_w": 21,
+      "min_w": 15,
       "max_w": 27,
-      "min_h": 24,
+      "min_h": 27,
       "max_h": 30,
-      "min_area": 504,
+      "min_area": 300,
       "max_area": 810,
       "preset_id": "kit_s"
     },
@@ -59,11 +59,11 @@
   },
   "bathroom": {
     "small": {
-      "min_w": 12,
+      "min_w": 11,
       "max_w": 15,
-      "min_h": 18,
+      "min_h": 21,
       "max_h": 25,
-      "min_area": 216,
+      "min_area": 170,
       "max_area": 375,
       "preset_id": "bath_s"
     },
@@ -88,11 +88,11 @@
   },
   "livingRoom": {
     "small": {
-      "min_w": 30,
+      "min_w": 25,
       "max_w": 36,
-      "min_h": 36,
+      "min_h": 27,
       "max_h": 45,
-      "min_area": 1080,
+      "min_area": 300,
       "max_area": 1620,
       "preset_id": "living_s"
     },
@@ -204,12 +204,12 @@
   },
   "diningRoom": {
     "small": {
-      "min_w": 24,
+      "min_w": 25,
       "max_w": 30,
       "min_h": 24,
       "max_h": 30,
-      "min_area": 576,
-      "max_area": 900,
+      "min_area": 900,
+      "max_area": 1200,
       "preset_id": "dining_s"
     },
     "regular": {
