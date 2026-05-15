@@ -9,16 +9,27 @@ from .geometry import Point, inward_normal, is_polygon_ccw
 EPS = 1e-6
 
 # Offsets are defined in solver units (10 units = 1 meter).
+# Default Always apply the base direction offset, then add any applicable road setback.
 DIRECTION_OFFSETS: dict[SegmentCategory, float] = {
     "front": 10.0,
-    "back": 10.0,
-    "left": 5.0,
-    "right": 5.0,
+    "back": 30,
+    "left": 10,
+    "right": 10,
 }
 
-ROAD_OFFSETS: dict[str, float] = {
-    "mainRoad": 10.0,
-    "privateRoad": 10.0,
+ROAD_SETBACKS: dict[str, dict[SegmentCategory, float]] = {
+    "mainRoad": {
+        "front": 5,
+        "back": 0,
+        "left": 5,
+        "right": 5,
+    },
+    "privateRoad": {
+        "front": 5.0,
+        "back": 0,
+        "left": 0,
+        "right": 0,
+    },
 }
 
 CATEGORIES: list[SegmentCategory] = ["front", "back", "left", "right"]
@@ -126,15 +137,19 @@ def _ensure_all_categories(
 
 def _road_offset_by_segment(
     segments: list[tuple[Point, Point]],
+    assignments: list[SegmentCategory],
     roads: list[RoadConnectedPayload],
 ) -> list[float]:
     road_offsets = [0.0] * len(segments)
 
     for road in roads:
         road_type = road.get("roadType")
-        bonus = ROAD_OFFSETS.get(road_type or "")
-        if bonus is None:
-            raise ValueError(f"Unsupported road type: {road_type}")
+        setbacks = ROAD_SETBACKS.get(road_type or "")
+        if setbacks is None:
+            supported = ", ".join(sorted(ROAD_SETBACKS))
+            raise ValueError(
+                f"Unsupported road type: {road_type}. Supported: {supported}"
+            )
 
         road_segment = road.get("segment", [])
         if len(road_segment) < 2:
@@ -148,7 +163,8 @@ def _road_offset_by_segment(
                 "A roadConnected segment does not match any boundary segment."
             )
 
-        road_offsets[segment_index] += bonus
+        category = assignments[segment_index]
+        road_offsets[segment_index] += setbacks.get(category, 0.0)
 
     return road_offsets
 
@@ -186,7 +202,7 @@ def classify_segments_and_offsets(
     assignments[ta_segment_index] = "front"
     assignments = _ensure_all_categories(assignments, score_table, ta_segment_index)
 
-    road_offsets = _road_offset_by_segment(segments, roads)
+    road_offsets = _road_offset_by_segment(segments, assignments, roads)
     final_offsets = [
         DIRECTION_OFFSETS[assignments[index]] + road_offsets[index]
         for index in range(len(assignments))
