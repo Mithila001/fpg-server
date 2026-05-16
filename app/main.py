@@ -1,6 +1,13 @@
 # uvicorn app.main:app --reload
 
+import multiprocessing as mp
 from time import perf_counter
+
+# Set start method to spawn to prevent thread inheritance issues on Linux (Ubuntu)
+try:
+    mp.set_start_method("spawn", force=True)
+except RuntimeError:
+    pass
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

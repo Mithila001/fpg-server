@@ -273,10 +273,11 @@ class InMemoryJobRegistry:
                     "job": self._serialize_job_locked(managed_job),
                 }
 
+            self._mark_terminal_status(
+                target_job_id, JobStatus.TERMINATED, "Job terminated by client request."
+            )
+
         self._terminate_process(managed_job.process)
-        self._mark_terminal_status(
-            target_job_id, JobStatus.TERMINATED, "Job terminated by client request."
-        )
         job_payload = self.get_job(target_job_id)
         return {
             "cancelled": True,
@@ -405,25 +406,27 @@ class InMemoryJobRegistry:
                 return
             best_result = managed_job.current_best_result
             process = managed_job.process
+
+            if best_result is not None:
+                self._mark_terminal_status(
+                    job_id=job_id,
+                    status=JobStatus.COMPLETED,
+                    event_message=(
+                        f"Job exceeded timeout of {self.timeout_seconds}s; "
+                        "returning best result."
+                    ),
+                    result=best_result,
+                    event_name="success",
+                )
+            else:
+                self._mark_terminal_status(
+                    job_id=job_id,
+                    status=JobStatus.TIMED_OUT,
+                    event_message=f"Job exceeded timeout of {self.timeout_seconds}s and was terminated.",
+                    result=_build_failure_payload("time_out"),
+                )
+
         self._terminate_process(process)
-        if best_result is not None:
-            self._mark_terminal_status(
-                job_id=job_id,
-                status=JobStatus.COMPLETED,
-                event_message=(
-                    f"Job exceeded timeout of {self.timeout_seconds}s; "
-                    "returning best result."
-                ),
-                result=best_result,
-                event_name="success",
-            )
-            return
-        self._mark_terminal_status(
-            job_id=job_id,
-            status=JobStatus.TIMED_OUT,
-            event_message=f"Job exceeded timeout of {self.timeout_seconds}s and was terminated.",
-            result=_build_failure_payload("time_out"),
-        )
 
     def _monitor_completion(self, job_id: str) -> None:
         with self._lock:

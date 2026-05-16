@@ -1,4 +1,5 @@
 """Floor plan generation config (shared)."""
+from app.core.config import settings
 
 # Floor Dimensions (default)
 FLOOR_WIDTH = 100
@@ -138,7 +139,7 @@ DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
 # Trial optimization control
 MINIMUM_REQUIRED_FPG_SCORE = 80  # Acceptable score to store as best candidate
 BEST_FLOOR_PLAN_SCORE = 95  # Stop early when this score is reached
-TRIAL_OPTIMIZATION_TIMEOUT_SECONDS = 120  # Hard deadline for all trials
+TRIAL_OPTIMIZATION_TIMEOUT_SECONDS = max(10, settings.FPG_GENERATION_API_TIMEOUT - 5)  # Allow 5s buffer for graceful exit
 TRIAL_GRAPH_SOLVER_GATE_THRESHOLD = (
     84  # Invoke solver only when graph score reaches this
 )
@@ -150,7 +151,7 @@ OPTUNA_SEARCH_SPACE_GRID_SCALE = 10  # Reduce search space resolution by this in
 DEFAULT_ASPECT_RATIO_MAX = 16.0
 DEFAULT_ASPECT_RATIO_MIN = 0.0
 DEFAULT_HALLWAY_COUNT = 2
-DEFAULT_SOLVER_MAX_TIME_SECONDS = 5
+DEFAULT_SOLVER_MAX_TIME_SECONDS = 10
 WIGGLE_ROOM = 10
 
 # Hallway dimensions (narrow side min/max defined above)
