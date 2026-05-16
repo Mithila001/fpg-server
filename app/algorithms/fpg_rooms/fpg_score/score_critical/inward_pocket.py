@@ -9,6 +9,8 @@ from matplotlib.lines import Line2D as MplLine2D
 from shapely.geometry import box, LineString
 from shapely.ops import unary_union
 
+from app.core.fpg_rooms.config_fpg import ENABLE_PLOT_SAVING
+
 from ..utils import (
     extract_contact_points,
     is_close_to_any,
@@ -341,7 +343,7 @@ def detect_inward_pocket_violation_v2(
         pockets=pockets,
         pockets_info=pockets_info,
         hull_contact_points=hull_contact_points,
-    )
+    ) if ENABLE_PLOT_SAVING else None
 
     purple_groups: list[Dict[str, Any]] = []
     violating_segments: list[Dict[str, Any]] = []

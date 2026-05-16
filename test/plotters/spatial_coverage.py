@@ -38,7 +38,7 @@ HEATMAP_OUTPUT_DIR = (
     / "optuna_score"
     / "spatial_coverage"
 )
-PLOT_THRESHOLD_PERCENT = 40
+PLOT_THRESHOLD_PERCENT = 50
 
 
 max_score_limit = OPTUNA_SCORING_VALUES.get("optuna_score_spatial_coverage", 0)

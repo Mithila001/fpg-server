@@ -1,6 +1,10 @@
 """Floor plan generation config (shared)."""
 from app.core.config import settings
 
+# ── Plot-saving kill-switch (set ENABLE_PLOT_SAVING=false in .env) ──────────
+# When False every matplotlib savefig call is skipped server-wide.
+ENABLE_PLOT_SAVING: bool = settings.ENABLE_PLOT_SAVING
+
 # Floor Dimensions (default)
 FLOOR_WIDTH = 100
 FLOOR_HEIGHT = 150
@@ -131,7 +135,8 @@ MANDATORY_ROOMS = ["bedroom", "kitchen", "bathroom", "veranda"]
 
 # Default solver/optuna execution settings
 DEFAULT_ROOM_DIMENSION = 70
-DEFAULT_OPTUNA_TRIALS = 20
+# Driven by OPTUNA_TRIAL_COUNT env var (default 20)
+DEFAULT_OPTUNA_TRIALS: int = settings.OPTUNA_TRIAL_COUNT
 DEFAULT_OPTUNA_STORAGE_ENABLED = False
 DEFAULT_OPTUNA_STUDY_NAME = "FPG_study"
 DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
@@ -139,7 +144,11 @@ DEFAULT_OPTUNA_STORAGE_URL = "sqlite:///optuna_fpg.db"
 # Trial optimization control
 MINIMUM_REQUIRED_FPG_SCORE = 80  # Acceptable score to store as best candidate
 BEST_FLOOR_PLAN_SCORE = 95  # Stop early when this score is reached
-TRIAL_OPTIMIZATION_TIMEOUT_SECONDS = max(10, settings.FPG_GENERATION_API_TIMEOUT - 5)  # Allow 5s buffer for graceful exit
+# Driven by OPTUNA_TRIAL_TIMEOUT env var; capped by FPG_GENERATION_API_TIMEOUT.
+TRIAL_OPTIMIZATION_TIMEOUT_SECONDS: int = max(
+    10,
+    min(settings.OPTUNA_TRIAL_TIMEOUT, settings.FPG_GENERATION_API_TIMEOUT - 5),
+)
 TRIAL_GRAPH_SOLVER_GATE_THRESHOLD = (
     84  # Invoke solver only when graph score reaches this
 )
@@ -213,6 +222,7 @@ OPTUNA_SCORING_VALUES: dict[str, float] = {
 }
 
 __all__ = [
+    "ENABLE_PLOT_SAVING",
     "FLOOR_WIDTH",
     "FLOOR_HEIGHT",
     "MIN_FLOOR_WIDTH",
