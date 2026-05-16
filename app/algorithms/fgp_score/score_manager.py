@@ -168,20 +168,20 @@ def score_manager(
         inward_pocket=inward_diag,
     )
 
-    try:
-        critical_plot_path = save_critical_score_plot(
-            scoring_plan.floor_plan,
-            relation_constraints,
-            floor_width,
-            floor_height,
-            inward_pocket_max_length,
-            min_overlap=int(SCORE_VALIDATION_MIN_OVERLAP),
-            tolerance=tolerance,
-        )
-        diagnostics.critical_plot_path = critical_plot_path
-        print(f"[fgp_score/score_manager] critical plot saved: {critical_plot_path}")
-    except Exception as exc:
-        print(f"[fgp_score/score_manager] critical plot generation failed: {exc}")
+    # try:
+    #     critical_plot_path = save_critical_score_plot(
+    #         scoring_plan.floor_plan,
+    #         relation_constraints,
+    #         floor_width,
+    #         floor_height,
+    #         inward_pocket_max_length,
+    #         min_overlap=int(SCORE_VALIDATION_MIN_OVERLAP),
+    #         tolerance=tolerance,
+    #     )
+    #     diagnostics.critical_plot_path = critical_plot_path
+    #     print(f"[fgp_score/score_manager] critical plot saved: {critical_plot_path}")
+    # except Exception as exc:
+    #     print(f"[fgp_score/score_manager] critical plot generation failed: {exc}")
 
     final_score = 0
 

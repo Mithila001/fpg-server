@@ -7,7 +7,7 @@ services:
       - "8000:8000"
     environment:
       # ── Database ──────────────────────────────────────────────────────
-      - DB_URL=postgresql://fpg:fpg@db:5432/fpg_db
+      - DB_URL=postgresql://fpg:fpg@db:5433/fpg_db
 
       # ── Job / SSE timeouts ───────────────────────────────────────────
       - FPG_GENERATION_API_TIMEOUT=180
@@ -42,7 +42,7 @@ services:
     ports:
       # Expose to host so you can connect with DBeaver / psql during presentation.
       # Access: host=<OCI_PUBLIC_IP>, port=5432, user=fpg, password=fpg, db=fpg_db
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       # Named volume — survives container restarts; data lives in Docker's volume store.
       - postgres_db_data:/var/lib/postgresql/data

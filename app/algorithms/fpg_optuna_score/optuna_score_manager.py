@@ -91,36 +91,36 @@ def score_optuna_layout(
     print(f"Total Score: {total_score:.1f}/90.0")
     usable_layout = total_score >= float(TRIAL_GRAPH_SOLVER_GATE_THRESHOLD)
 
-    # Save relation plots when requested and score passes the gate threshold
-    if save_debug_plots and total_score > TRIAL_GRAPH_SOLVER_GATE_THRESHOLD:
-        try:
-            print("Saving room relation graph and path plots...")
-            output_root = Path("test/outputs/optuna_score")
-            details = relation_result.details or {}
-            graph = details.get("graph")
-            path_summaries = details.get("path_summaries", [])
-            if graph is not None:
-                floor_width = float(requirements.config.floor_plan_width)
-                floor_height = float(requirements.config.floor_plan_height)
-                save_relation_graph_plot(
-                    graph,
-                    room_points,
-                    output_root / "graph",
-                    floor_width=floor_width,
-                    floor_height=floor_height,
-                    grid_scale=OPTUNA_SEARCH_SPACE_GRID_SCALE,
-                )
-                save_relation_path_plot(
-                    graph,
-                    room_points,
-                    path_summaries,
-                    output_root / "pathing",
-                    floor_width=floor_width,
-                    floor_height=floor_height,
-                )
-        except Exception:
-            # avoid breaking scoring if plotting fails
-            pass
+    # # Save relation plots when requested and score passes the gate threshold
+    # if save_debug_plots and total_score > TRIAL_GRAPH_SOLVER_GATE_THRESHOLD:
+    #     try:
+    #         print("Saving room relation graph and path plots...")
+    #         output_root = Path("test/outputs/optuna_score")
+    #         details = relation_result.details or {}
+    #         graph = details.get("graph")
+    #         path_summaries = details.get("path_summaries", [])
+    #         if graph is not None:
+    #             floor_width = float(requirements.config.floor_plan_width)
+    #             floor_height = float(requirements.config.floor_plan_height)
+    #             save_relation_graph_plot(
+    #                 graph,
+    #                 room_points,
+    #                 output_root / "graph",
+    #                 floor_width=floor_width,
+    #                 floor_height=floor_height,
+    #                 grid_scale=OPTUNA_SEARCH_SPACE_GRID_SCALE,
+    #             )
+    #             save_relation_path_plot(
+    #                 graph,
+    #                 room_points,
+    #                 path_summaries,
+    #                 output_root / "pathing",
+    #                 floor_width=floor_width,
+    #                 floor_height=floor_height,
+    #             )
+    #     except Exception:
+    #         # avoid breaking scoring if plotting fails
+    #         pass
 
     diagnostics = {
         "floor_plan_zones": zone_result.details,

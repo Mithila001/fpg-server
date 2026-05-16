@@ -18,7 +18,9 @@ def _error_payload(message: str, status: str = "ERROR") -> dict[str, Any]:
     }
 
 
-def _extract_polygon_coordinates(land_data: dict[str, Any]) -> list[tuple[float, float]]:
+def _extract_polygon_coordinates(
+    land_data: dict[str, Any],
+) -> list[tuple[float, float]]:
     raw_points = [
         (point["x"], point["y"])
         for point in land_data.get("segmentsCoordinates", [])
@@ -38,7 +40,9 @@ def _extract_polygon_coordinates(land_data: dict[str, Any]) -> list[tuple[float,
     return raw_points
 
 
-def _extract_ta_line(land_data: dict[str, Any]) -> tuple[tuple[float, float], tuple[float, float]]:
+def _extract_ta_line(
+    land_data: dict[str, Any],
+) -> tuple[tuple[float, float], tuple[float, float]]:
     roads = land_data.get("roadConnected", [])
     for road in roads:
         segment = road.get("segment", [])
@@ -72,7 +76,9 @@ def _point_line_distance(
     return abs(dy * x0 - dx * y0 + x2 * y1 - y2 * x1) / denom
 
 
-def _build_edge_payload(edge: tuple[tuple[float, float], tuple[float, float]]) -> list[dict[str, float]]:
+def _build_edge_payload(
+    edge: tuple[tuple[float, float], tuple[float, float]],
+) -> list[dict[str, float]]:
     return [
         {"x": edge[0][0], "y": edge[0][1]},
         {"x": edge[1][0], "y": edge[1][1]},
@@ -128,7 +134,10 @@ def _rectangle_sides_payload(
         front_edge = parallel_edges[1]
         back_edge = parallel_edges[0]
 
-    front_vector = (front_edge[1][0] - front_edge[0][0], front_edge[1][1] - front_edge[0][1])
+    front_vector = (
+        front_edge[1][0] - front_edge[0][0],
+        front_edge[1][1] - front_edge[0][1],
+    )
     front_unit = _normalize_vector(front_vector)
     if front_unit is None:
         return None
@@ -215,8 +224,12 @@ def plot_buildable_space(
 
         fig, ax = plt.subplots(figsize=(8, 8))
 
-        raw_x = [point[0] for point in raw_polygon_coordinates] + [raw_polygon_coordinates[0][0]]
-        raw_y = [point[1] for point in raw_polygon_coordinates] + [raw_polygon_coordinates[0][1]]
+        raw_x = [point[0] for point in raw_polygon_coordinates] + [
+            raw_polygon_coordinates[0][0]
+        ]
+        raw_y = [point[1] for point in raw_polygon_coordinates] + [
+            raw_polygon_coordinates[0][1]
+        ]
         ax.plot(raw_x, raw_y, color="tab:blue", linewidth=2, label="Raw land boundary")
 
         shrunk_x = [point[0] for point in shrunk_polygon_coordinates] + [
@@ -281,7 +294,6 @@ def run_buildable_space_pipeline(
     """Compute buildable space from API land payload and return normalized response payload."""
     start_time = perf_counter()
 
-
     try:
         raw_polygon_coordinates = _extract_polygon_coordinates(land_data)
         ta_line = _extract_ta_line(land_data)
@@ -303,18 +315,20 @@ def run_buildable_space_pipeline(
         rectangle = _rectangle_payload(best_rectangle, ta_line)
         if rectangle is None:
             status = "OK"
-            message = "Buildable space computed, but no feasible rectangle met constraints."
+            message = (
+                "Buildable space computed, but no feasible rectangle met constraints."
+            )
         else:
             status = "OK"
             message = "Buildable space computed successfully."
 
-        if should_plot:
-            plot_buildable_space(
-                raw_polygon_coordinates=raw_polygon_coordinates,
-                shrunk_polygon_coordinates=shrunk_polygon_coordinates,
-                ta_line=ta_line,
-                best_rectangle=best_rectangle,
-            )
+        # if should_plot:
+        #     plot_buildable_space(
+        #         raw_polygon_coordinates=raw_polygon_coordinates,
+        #         shrunk_polygon_coordinates=shrunk_polygon_coordinates,
+        #         ta_line=ta_line,
+        #         best_rectangle=best_rectangle,
+        #     )
 
         payload = {
             "status": status,
