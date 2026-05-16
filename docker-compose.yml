@@ -7,7 +7,7 @@ services:
       - "8000:8000"
     environment:
       # ── Database ──────────────────────────────────────────────────────
-      - DB_URL=postgresql://fpg:fpg@db:5433/fpg_db
+      - DB_URL=postgresql://fpg:fpg@db:5432/fpg_db
 
       # ── Job / SSE timeouts ───────────────────────────────────────────
       - FPG_GENERATION_API_TIMEOUT=180
