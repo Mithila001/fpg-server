@@ -17,6 +17,9 @@ services:
       - OPTUNA_TRIAL_COUNT=20
       - OPTUNA_TRIAL_TIMEOUT=170
 
+      # ── FPG Rooms solver ─────────────────────────────────────────────
+      - DEFAULT_SOLVER_MAX_TIME_SECONDS=10
+
       # ── Feature flags ─────────────────────────────────────────────────
       # Set to false to skip ALL matplotlib savefig calls (recommended for cloud)
       - ENABLE_PLOT_SAVING=false

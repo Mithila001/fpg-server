@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     # Per-trial running timeout (seconds). Keep < FPG_GENERATION_API_TIMEOUT.
     OPTUNA_TRIAL_TIMEOUT: int = 170
 
+    # ── FPG Rooms solver ─────────────────────────────────────────────
+    # Default max time (seconds) for OR-Tools solver in fpg_rooms.
+    DEFAULT_SOLVER_MAX_TIME_SECONDS: int = 10
+
     # ── Feature flags ────────────────────────────────────────────────
     # Set to False in production / cloud to skip all matplotlib saves.
     ENABLE_PLOT_SAVING: bool = True

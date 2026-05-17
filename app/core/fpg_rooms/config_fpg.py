@@ -1,4 +1,5 @@
 """Floor plan generation config (shared)."""
+
 from app.core.config import settings
 
 # ── Plot-saving kill-switch (set ENABLE_PLOT_SAVING=false in .env) ──────────
@@ -160,7 +161,7 @@ OPTUNA_SEARCH_SPACE_GRID_SCALE = 10  # Reduce search space resolution by this in
 DEFAULT_ASPECT_RATIO_MAX = 16.0
 DEFAULT_ASPECT_RATIO_MIN = 0.0
 DEFAULT_HALLWAY_COUNT = 2
-DEFAULT_SOLVER_MAX_TIME_SECONDS = 10
+DEFAULT_SOLVER_MAX_TIME_SECONDS = settings.DEFAULT_SOLVER_MAX_TIME_SECONDS
 WIGGLE_ROOM = 10
 
 # Hallway dimensions (narrow side min/max defined above)
