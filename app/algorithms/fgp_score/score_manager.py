@@ -61,8 +61,9 @@ def score_manager(
     rectilinear_ok = verify_post_processed_floor_plan(
         scoring_plan.floor_plan, tolerance=tolerance
     )
+    
 
-    # print(f"\n\n[fgp_score/score_manager1] Scoring Plan: {scoring_plan}\n")
+    print(f"\n\n[fgp_score/score_manager1] Scoring Plan: {scoring_plan}\n")
 
     if not rectilinear_ok:
         print(
@@ -120,7 +121,18 @@ def score_manager(
             "Inward pocket violation detected "
             f"(max_delta={max_delta:.2f}, threshold={inward_pocket_max_length:.2f})"
         ]
-    # path_result = run_path_simulation(scoring_plan)
+    # --- Path simulation (dev/testing only — does not affect scoring) ---
+    try:
+        path_result = run_path_simulation(scoring_plan)
+        print(
+            f"\n[fgp_score/score_manager] path_simulation done: "
+            f"score={path_result.total_score:.1f}  "
+            f"paths={len(path_result.paths)}  "
+            f"plot={path_result.plot_path}"
+        )
+    except Exception as _path_exc:
+        print(f"[fgp_score/score_manager] path_simulation ERROR: {_path_exc}")
+        import traceback; traceback.print_exc()
     checks: List[CheckResult] = [
         CheckResult(
             name="adjacency_relations",
