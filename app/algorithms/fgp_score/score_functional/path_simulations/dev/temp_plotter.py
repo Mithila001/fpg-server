@@ -499,53 +499,7 @@ def plot_path_simulation(
     return save_path
 
 
-# ---------------------------------------------------------------------------
-# Legacy function kept for backwards compatibility
-# ---------------------------------------------------------------------------
 
-
-def plot_nav_mesh(
-    nav_mesh: Any,
-    total_floor: Any,
-    rooms: List[Any],
-    output_dir: Optional[str] = None,
-) -> str:
-    """Legacy nav mesh plotter — now a thin wrapper that saves a simple room outline."""
-    if output_dir is None:
-        here = os.path.dirname(__file__)
-        output_dir = os.path.join(here, "output")
-    os.makedirs(output_dir, exist_ok=True)
-    save_path = _timestamped_path(output_dir).replace("_paths", "_navmesh")
-
-    fig, ax = plt.subplots(figsize=(10, 8), dpi=110, facecolor="#f5f2ec")
-    ax.set_facecolor("#f8f6f0")
-    ax.set_title("Navigation Mesh (room outlines)", fontsize=11, weight="bold")
-
-    for room in rooms:
-        verts = _get(room, "vertices", [])
-        if not verts or len(verts) < 3:
-            continue
-        rtype = str(_get(room, "type", ""))
-        color = ROOM_COLORS.get(rtype, DEFAULT_ROOM_COLOR)
-        patch = MplPolygon(verts, closed=True, facecolor=color,
-                           edgecolor="#555555", linewidth=1.2, alpha=0.8)
-        ax.add_patch(patch)
-        c = _room_centroid(room)
-        if c:
-            ax.text(c[0], c[1], _room_label(room), ha="center", va="center",
-                    fontsize=7, weight="bold", color="#222222")
-
-    xmin, ymin, xmax, ymax = _get_floor_bounds(rooms)
-    ax.set_xlim(xmin, xmax)
-    ax.set_ylim(ymin, ymax)
-    ax.set_aspect("equal")
-    ax.invert_yaxis()
-    ax.grid(True, color="#dddddd", linewidth=0.4, alpha=0.6)
-
-    plt.tight_layout()
-    plt.savefig(save_path, dpi=110, bbox_inches="tight")
-    plt.close(fig)
-    return save_path
 
 
 # expose constant for import

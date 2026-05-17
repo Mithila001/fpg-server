@@ -118,7 +118,7 @@ def _run_one(
 
 def _analyse_overlaps(
     paths: List[PathResult],
-    buffer_cm: float = 10.0,
+    buffer_cm: float = 5.0,
 ) -> List[Dict[str, Any]]:
     """Return list of dicts describing pairs of paths that overlap/come close."""
     results: List[Dict[str, Any]] = []
@@ -188,7 +188,10 @@ def _analyse_hallway_utility(
             "polygon": poly,
         }
 
-    dev_print("path", f"Hallway utility: { {k: v['count'] for k,v in hallway_usage.items()} }")
+    dev_print(
+        "path",
+        f"Hallway utility: { {k: v['count'] for k, v in hallway_usage.items()} }",
+    )
     return hallway_usage
 
 
@@ -212,7 +215,9 @@ def run_path_simulation(
     rooms: List[Any] = _get(floor_plan_with_openings, "floor_plan", [])
     openings: List[Any] = _get(floor_plan_with_openings, "openings", [])
 
-    dev_print("path", f"Starting simulation: {len(rooms)} rooms, {len(openings)} openings.")
+    dev_print(
+        "path", f"Starting simulation: {len(rooms)} rooms, {len(openings)} openings."
+    )
 
     if not rooms:
         return _error_result("No rooms provided.")
@@ -237,16 +242,21 @@ def run_path_simulation(
     paths: List[PathResult] = []
 
     bedroom_rooms = [r for r in rooms if _get(r, "type", "") == "bedroom"]
-    bathroom_rooms = [r for r in rooms if _get(r, "type", "") in ("bathroom", "attachedBathroom")]
+    bathroom_rooms = [
+        r for r in rooms if _get(r, "type", "") in ("bathroom", "attachedBathroom")
+    ]
     kitchen_rooms = [r for r in rooms if _get(r, "type", "") == "kitchen"]
 
     # Class 1: Entry -> Kitchen
     if kitchen_rooms:
         k_name = str(_get(kitchen_rooms[0], "name", ""))
         res = _run_one(
-            graph, "Entry->Kitchen",
+            graph,
+            "Entry->Kitchen",
             path_sim_config.PATH_COLORS["entry_kitchen"],
-            entry_room, k_name, is_public=True,
+            entry_room,
+            k_name,
+            is_public=True,
         )
         if res:
             paths.append(res)
@@ -255,9 +265,12 @@ def run_path_simulation(
     for idx, room in enumerate(bedroom_rooms):
         rname = str(_get(room, "name", ""))
         res = _run_one(
-            graph, f"Entry->Bed {idx + 1}",
+            graph,
+            f"Entry->Bed {idx + 1}",
             path_sim_config.PATH_COLORS["entry_bedroom"],
-            entry_room, rname, is_public=False,
+            entry_room,
+            rname,
+            is_public=False,
         )
         if res:
             paths.append(res)
@@ -266,9 +279,12 @@ def run_path_simulation(
     for idx, room in enumerate(bathroom_rooms):
         rname = str(_get(room, "name", ""))
         res = _run_one(
-            graph, f"Entry->Bath {idx + 1}",
+            graph,
+            f"Entry->Bath {idx + 1}",
             path_sim_config.PATH_COLORS["entry_bathroom"],
-            entry_room, rname, is_public=True,
+            entry_room,
+            rname,
+            is_public=True,
         )
         if res:
             paths.append(res)
@@ -286,14 +302,18 @@ def run_path_simulation(
             key=lambda r: math.sqrt(
                 (graph.get_centroid(str(_get(r, "name", "")))[0] - bed_c[0]) ** 2
                 + (graph.get_centroid(str(_get(r, "name", "")))[1] - bed_c[1]) ** 2
-                if graph.get_centroid(str(_get(r, "name", ""))) else float("inf")
+                if graph.get_centroid(str(_get(r, "name", "")))
+                else float("inf")
             ),
         )
         ba_name = str(_get(best_bath, "name", ""))
         res = _run_one(
-            graph, f"Bed {b_idx + 1}->Bath",
+            graph,
+            f"Bed {b_idx + 1}->Bath",
             path_sim_config.PATH_COLORS["bedroom_bathroom"],
-            bed_name, ba_name, is_public=False,
+            bed_name,
+            ba_name,
+            is_public=False,
         )
         if res:
             paths.append(res)
@@ -304,9 +324,12 @@ def run_path_simulation(
         for b_idx, bed_room in enumerate(bedroom_rooms):
             bed_name = str(_get(bed_room, "name", ""))
             res = _run_one(
-                graph, f"Bed {b_idx + 1}->Kitchen",
+                graph,
+                f"Bed {b_idx + 1}->Kitchen",
                 path_sim_config.PATH_COLORS["bedroom_kitchen"],
-                bed_name, k_name, is_public=False,
+                bed_name,
+                k_name,
+                is_public=False,
             )
             if res:
                 paths.append(res)
@@ -319,7 +342,7 @@ def run_path_simulation(
     # ------------------------------------------------------------------
     # 4. Overlap analysis + hallway utility
     # ------------------------------------------------------------------
-    overlaps = _analyse_overlaps(paths, buffer_cm=10.0)
+    overlaps = _analyse_overlaps(paths, buffer_cm=2)
     hallway_usage = _analyse_hallway_utility(rooms, paths)
 
     # ------------------------------------------------------------------
@@ -338,15 +361,14 @@ def run_path_simulation(
     except Exception as exc:
         dev_print("path", f"Plot failed: {exc}")
         import traceback
+
         traceback.print_exc()
         plot_path = ""
 
     # ------------------------------------------------------------------
     # 6. Stub scoring (placeholder — to be implemented separately)
     # ------------------------------------------------------------------
-    total_unused_hallways = sum(
-        1 for v in hallway_usage.values() if not v["used"]
-    )
+    total_unused_hallways = sum(1 for v in hallway_usage.values() if not v["used"])
     hallway_score = max(0.0, 25.0 - total_unused_hallways * 10.0)
 
     overlap_penalty = min(30.0, len(overlaps) * 3.0)
@@ -354,23 +376,30 @@ def run_path_simulation(
 
     total = round(circulation_score + hallway_score, 2)
 
-    dev_print("path", {
-        "paths_found": len(paths),
-        "overlapping_pairs": len(overlaps),
-        "unused_hallways": total_unused_hallways,
-        "stub_total_score": total,
-    })
+    dev_print(
+        "path",
+        {
+            "paths_found": len(paths),
+            "overlapping_pairs": len(overlaps),
+            "unused_hallways": total_unused_hallways,
+            "stub_total_score": total,
+        },
+    )
 
     return PathScoreResult(
         total_score=total,
         circulation_efficiency=circulation_score,
-        privacy_score=0.0,   # TODO
+        privacy_score=0.0,  # TODO
         hallway_utility=hallway_score,
         furniture_flexibility=0.0,  # TODO
         paths=paths,
         details={
             "overlaps": [
-                {"path_a": o["path_a"], "path_b": o["path_b"], "overlap_area": o["overlap_area"]}
+                {
+                    "path_a": o["path_a"],
+                    "path_b": o["path_b"],
+                    "overlap_area": o["overlap_area"],
+                }
                 for o in overlaps
             ],
             "hallway_usage": {
