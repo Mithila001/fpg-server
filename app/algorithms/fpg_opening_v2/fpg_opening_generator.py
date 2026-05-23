@@ -7,9 +7,13 @@ from app.algorithms.fpg_opening_v2.constratins.internal_doors_placement import (
     build_internal_door_candidates,
     select_internal_doors,
 )
-from app.algorithms.fpg_opening_v2.constratins.main_door_to_outside import select_main_door
+from app.algorithms.fpg_opening_v2.constratins.main_door_to_outside import (
+    select_main_door,
+)
 from app.algorithms.fpg_opening_v2.constratins.windows_placement import select_windows
-from app.algorithms.fpg_opening_v2.dev.opening_plotter import fpg_opening_results_plotter
+from app.algorithms.fpg_opening_v2.dev.opening_plotter import (
+    fpg_opening_results_plotter,
+)
 
 
 def generate_fpg_openings(
@@ -87,15 +91,15 @@ def generate_fpg_openings(
 
     result = FloorPlanWithOpenings(floor_plan=floor_plan, openings=openings)
 
-    # Best-effort debug plot only; generation must stay functional even if plotting fails.
-    try:
-        if openings:
-            fpg_opening_results_plotter(
-                requirements=requirements,
-                floor_plan=floor_plan,
-                openings=openings,
-            )
-    except Exception:
-        pass
+    # # Best-effort debug plot only; generation must stay functional even if plotting fails.
+    # try:
+    #     if openings:
+    #         fpg_opening_results_plotter(
+    #             requirements=requirements,
+    #             floor_plan=floor_plan,
+    #             openings=openings,
+    #         )
+    # except Exception:
+    #     pass
 
     return result

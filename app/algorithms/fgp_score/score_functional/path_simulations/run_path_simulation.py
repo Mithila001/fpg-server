@@ -1,50 +1,45 @@
 """Path simulation orchestrator (public entry point).
 
-Runs all 5 heuristic simulation classes, scores the result,
-and optionally saves a 4-panel debug PNG.
+Pipeline:
+  1. Build room connectivity graph (nodes=rooms, edges=doors)
+  2. Simulate 5 path classes through the graph — paths can ONLY travel
+     via door openings, never through walls
+  3. Analyse path overlaps and hallway utility
+  4. Save a multi-panel diagnostic plot via temp_plotter
+  5. Return PathScoreResult (scoring is a stub for now)
+
+No imports from outside this package (except app.algorithms.types).
 """
 
 from __future__ import annotations
 
-from typing import Any, List, Tuple
+import math
+from typing import Any, Dict, List, Optional, Tuple
+
+from shapely.geometry import LineString, Polygon
 
 from app.algorithms.fgp_score.score_functional.path_simulations.dev.temp_plotter import (
-    plot_nav_mesh,
+    plot_path_simulation,
 )
 from app.algorithms.types.openings import FloorPlanWithOpenings
 
 from . import path_sim_config
-from .util._dev_print import dev_print
-from .util.nav_mesh import build_nav_mesh
-from .util.pathfinder import AStarGrid
-from test.plotters.path_plotter import save_path_score_plot, save_path_only_grid_plot
-from .util.scorer import score_path_simulation
-from .util.simulation_points import extract_simulation_points, nearest_bathroom_key
 from .types import PathResult, PathScoreResult
+from .util._dev_print import dev_print
+from .util.room_graph import RoomGraph, build_room_graph
+
+_WorldPt = Tuple[float, float]
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 
 def _get(obj: Any, key: str, default: Any = None) -> Any:
     if isinstance(obj, dict):
         return obj.get(key, default)
     return getattr(obj, key, default)
-
-
-def _run_one(
-    grid: AStarGrid,
-    label: str,
-    color: str,
-    start: Tuple[float, float],
-    end: Tuple[float, float],
-    is_public: bool = False,
-) -> PathResult | None:
-    """Run A* for one pair and return a PathResult, or None if no path found."""
-    coords = grid.find_path(start, end)
-    if not coords:
-        dev_print("path", f"WARNING: No path found for '{label}' from {start} to {end}")
-        return None
-
-    dev_print("path", f"Success: Path found for '{label}' ({len(coords)} nodes)")
-    return PathResult(label=label, coords=coords, color=color, is_public=is_public)
 
 
 def _error_result(message: str) -> PathScoreResult:
@@ -58,289 +53,359 @@ def _error_result(message: str) -> PathScoreResult:
     )
 
 
+def _room_name_for_type(rooms: List[Any], rtype: str) -> Optional[str]:
+    """Return the name of the first room matching rtype."""
+    for r in rooms:
+        if _get(r, "type", "") == rtype:
+            return str(_get(r, "name", ""))
+    return None
+
+
+def _entry_room_name(rooms: List[Any], openings: List[Any]) -> Optional[str]:
+    """Find the room name that the main door opens INTO (inside the house).
+
+    Strategy:
+      1. Find the opening with type containing 'main'
+      2. Its connected_room (the non-veranda side) is the entry room
+      3. Fallback: first livingRoom found
+    """
+    for op in openings:
+        otype = str(_get(op, "opening_type", "")).lower()
+        if "main" not in otype:
+            continue
+        rt = str(_get(op, "room_type", "")).lower()
+        crt = str(_get(op, "connected_room_type", "")).lower()
+        rn = str(_get(op, "room_name", ""))
+        crn = str(_get(op, "connected_room_name", ""))
+
+        # Pick whichever side is NOT outside/veranda
+        if "veranda" in rt or "outside" in rt:
+            return crn
+        if "veranda" in crt or "outside" in crt:
+            return rn
+        # Both are interior rooms — pick the livingRoom side
+        if "living" in rt:
+            return rn
+        if "living" in crt:
+            return crn
+        return crn  # fallback: connected room
+
+    # No main door found — use first livingRoom
+    return _room_name_for_type(rooms, "livingRoom")
+
+
+def _run_one(
+    graph: RoomGraph,
+    label: str,
+    color: str,
+    start_room: str,
+    end_room: str,
+    is_public: bool = False,
+) -> Optional[PathResult]:
+    """Simulate one path and return PathResult, or None on failure."""
+    coords = graph.find_path(start_room, end_room)
+    if not coords or len(coords) < 2:
+        dev_print("path", f"No path: {label!r}  ({start_room} -> {end_room})")
+        return None
+    dev_print("path", f"Path OK: {label!r}  {len(coords)} pts")
+    return PathResult(label=label, coords=coords, color=color, is_public=is_public)
+
+
+# ---------------------------------------------------------------------------
+# Overlap analysis
+# ---------------------------------------------------------------------------
+
+
+def _analyse_overlaps(
+    paths: List[PathResult],
+    buffer_cm: float = 5.0,
+) -> List[Dict[str, Any]]:
+    """Return list of dicts describing pairs of paths that overlap/come close."""
+    results: List[Dict[str, Any]] = []
+    lines = []
+    for p in paths:
+        if len(p.coords) >= 2:
+            lines.append((p.label, p.color, LineString(p.coords).buffer(buffer_cm)))
+        else:
+            lines.append((p.label, p.color, None))
+
+    for i in range(len(lines)):
+        la, ca, buf_a = lines[i]
+        if buf_a is None:
+            continue
+        for j in range(i + 1, len(lines)):
+            lb, cb, buf_b = lines[j]
+            if buf_b is None:
+                continue
+            if buf_a.intersects(buf_b):
+                overlap = buf_a.intersection(buf_b)
+                results.append(
+                    {
+                        "path_a": la,
+                        "path_b": lb,
+                        "color_a": ca,
+                        "color_b": cb,
+                        "overlap_area": overlap.area,
+                        "overlap_geom": overlap,
+                    }
+                )
+    dev_print("path", f"Overlap analysis: {len(results)} overlapping pairs")
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Hallway utility analysis
+# ---------------------------------------------------------------------------
+
+
+def _analyse_hallway_utility(
+    rooms: List[Any],
+    paths: List[PathResult],
+) -> Dict[str, Dict[str, Any]]:
+    """For each hallway, count how many paths pass through it."""
+    hallway_usage: Dict[str, Dict[str, Any]] = {}
+
+    for room in rooms:
+        rtype = str(_get(room, "type", ""))
+        if rtype != "hallway":
+            continue
+        rname = str(_get(room, "name", "hallway"))
+        verts = _get(room, "vertices", [])
+        if len(verts) < 3:
+            continue
+        poly = Polygon(verts)
+        crossing: List[str] = []
+        for p in paths:
+            if len(p.coords) >= 2:
+                line = LineString(p.coords)
+                if line.intersects(poly):
+                    crossing.append(p.label)
+
+        hallway_usage[rname] = {
+            "count": len(crossing),
+            "paths": crossing,
+            "used": len(crossing) > 0,
+            "polygon": poly,
+        }
+
+    dev_print(
+        "path",
+        f"Hallway utility: { {k: v['count'] for k, v in hallway_usage.items()} }",
+    )
+    return hallway_usage
+
+
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
+
+
 def run_path_simulation(
-    floor_plan_with_openings: FloorPlanWithOpenings, score_margin: float = 100.0
+    floor_plan_with_openings: FloorPlanWithOpenings,
+    score_margin: float = 100.0,
 ) -> PathScoreResult:
     """Run full path simulation pipeline.
 
-    Parameters
-    ----------
-    floor_plan_with_openings:
-        Either a dict or a dataclass-like object with floor_plan and openings.
-    score_margin:
-        Margin to normalize final scores. Default 100.0 keeps scores unchanged.
-        Values are normalized as: normalized_score = (raw_score / 100) * score_margin
-
-    Returns
-    -------
-    PathScoreResult with total_score (0-score_margin) and optional plot_path.
+    1. Build room connectivity graph
+    2. Simulate 5 path classes (room-graph based — no wall crossing)
+    3. Analyse overlaps and hallway utility
+    4. Save diagnostic plot
+    5. Return PathScoreResult (scoring stub — values are placeholders)
     """
-
     rooms: List[Any] = _get(floor_plan_with_openings, "floor_plan", [])
     openings: List[Any] = _get(floor_plan_with_openings, "openings", [])
 
     dev_print(
-        "path",
-        f"Starting simulation: {len(rooms)} rooms, {len(openings)} openings found.",
+        "path", f"Starting simulation: {len(rooms)} rooms, {len(openings)} openings."
     )
 
     if not rooms:
-        dev_print("path", "ERROR: No rooms provided.")
         return _error_result("No rooms provided.")
 
     # ------------------------------------------------------------------
-    # 1. Build navigation mesh
+    # 1. Build room graph
     # ------------------------------------------------------------------
-    dev_print("path", "Building navigation mesh...")
-    nav_mesh, total_floor = build_nav_mesh(rooms, openings)
-
-    if nav_mesh.is_empty:
-        dev_print("path", "ERROR: Navigation mesh is empty.")
-        return _error_result("Navigation mesh is empty.")
-    dev_print("path", f"Nav mesh built. Total floor area: {total_floor.area:.2f}")
+    dev_print("path", "Building room connectivity graph...")
+    graph = build_room_graph(rooms, openings)
 
     # ------------------------------------------------------------------
-    # 2. Rasterize + label room types
+    # 2. Determine entry room (inside main door)
     # ------------------------------------------------------------------
-    dev_print(
-        "path",
-        f"Rasterizing grid at {path_sim_config.GRID_RESOLUTION_CM}cm resolution...",
-    )
-    grid = AStarGrid(resolution=path_sim_config.GRID_RESOLUTION_CM)
-    grid.rasterize(nav_mesh)
-    grid.label_room_types(rooms)
-    dev_print("path", f"Grid rasterized. Bounds: {grid.width}x{grid.height} nodes.")
+    entry_room = _entry_room_name(rooms, openings)
+    if not entry_room:
+        return _error_result("Cannot determine entry room.")
+    dev_print("path", f"Entry room: {entry_room!r}")
 
     # ------------------------------------------------------------------
-    # 3. Extract simulation anchor points
+    # 3. Run simulation classes
     # ------------------------------------------------------------------
-    dev_print("path", "Extracting simulation anchor points...")
-    sim_points = extract_simulation_points(rooms, openings)
-    dev_print("path", f"Anchor points found: {list(sim_points.keys())}")
-
-    if "front_door" not in sim_points:
-        dev_print(
-            "path",
-            "WARNING: front door anchor not found – attempting fallback to Living Room...",
-        )
-        for room in rooms:
-            if _get(room, "type", "") == "livingRoom":
-                verts = _get(room, "vertices", [])
-                if verts:
-                    xs = [v[0] for v in verts]
-                    ys = [v[1] for v in verts]
-                    sim_points["front_door"] = (sum(xs) / len(xs), sum(ys) / len(ys))
-                    dev_print(
-                        "path",
-                        "Fallback success: Front door set to Living Room centroid "
-                        f"{sim_points['front_door']}",
-                    )
-                    break
-
-    # If still not found, try scanning openings for a main/outside door
-    if "front_door" not in sim_points:
-        for op in openings:
-            optype = str(_get(op, "opening_type", "")).lower()
-            rn = str(_get(op, "room_name", "")).upper()
-            crn = str(_get(op, "connected_room_name", "")).upper()
-            if "main" in optype or rn == "OUTSIDE" or crn == "OUTSIDE":
-                sim_points["front_door"] = (
-                    (float(_get(op, "x1", 0.0)) + float(_get(op, "x2", 0.0))) / 2.0,
-                    (float(_get(op, "y1", 0.0)) + float(_get(op, "y2", 0.0))) / 2.0,
-                )
-                dev_print(
-                    "path",
-                    f"Fallback: front_door located via openings at {sim_points['front_door']}",
-                )
-                break
-
-    if "front_door" not in sim_points:
-        dev_print(
-            "path",
-            "CRITICAL ERROR: Cannot determine front door anchor – simulation aborted.",
-        )
-        return _error_result("Cannot determine front door anchor – simulation aborted.")
-
     paths: List[PathResult] = []
 
-    # Helper: compute room centroid
-    def _room_centroid(room: Any) -> Tuple[float, float]:
-        verts = _get(room, "vertices", [])
-        if not verts:
-            return (0.0, 0.0)
-        xs = [v[0] for v in verts]
-        ys = [v[1] for v in verts]
-        return (sum(xs) / len(xs), sum(ys) / len(ys))
-
-    # Prepare typed lists to resolve keys -> room objects
     bedroom_rooms = [r for r in rooms if _get(r, "type", "") == "bedroom"]
     bathroom_rooms = [
         r for r in rooms if _get(r, "type", "") in ("bathroom", "attachedBathroom")
     ]
     kitchen_rooms = [r for r in rooms if _get(r, "type", "") == "kitchen"]
 
-    def coord_for_key(key: str) -> Tuple[float, float]:
-        # Entrance
-        if key == "front_door":
-            return sim_points["front_door"]
-        # Kitchen -> room center if exists
-        if key == "kitchen":
-            if kitchen_rooms:
-                return _room_centroid(kitchen_rooms[0])
-            return sim_points.get("kitchen", (0.0, 0.0))
-        # Bedrooms
-        if key.startswith("bedroom_"):
-            try:
-                idx = int(key.split("_")[1])
-                return _room_centroid(bedroom_rooms[idx])
-            except Exception:
-                return sim_points.get(key, (0.0, 0.0))
-        # Bathrooms
-        if key.startswith("bathroom_"):
-            try:
-                idx = int(key.split("_")[1])
-                return _room_centroid(bathroom_rooms[idx])
-            except Exception:
-                return sim_points.get(key, (0.0, 0.0))
-        # Fallback to whatever sim_points returned
-        return sim_points.get(key, (0.0, 0.0))
-
-    # ------------------------------------------------------------------
-    # 4. Run the 5 simulation classes
-    # ------------------------------------------------------------------
-    dev_print("path", "Executing simulation classes...")
-
-    # Class 1: Front Door -> Kitchen
-    if "kitchen" in sim_points:
-        result = _run_one(
-            grid,
+    # Class 1: Entry -> Kitchen
+    if kitchen_rooms:
+        k_name = str(_get(kitchen_rooms[0], "name", ""))
+        res = _run_one(
+            graph,
             "Entry->Kitchen",
             path_sim_config.PATH_COLORS["entry_kitchen"],
-            coord_for_key("front_door"),
-            coord_for_key("kitchen"),
+            entry_room,
+            k_name,
             is_public=True,
         )
-        if result:
-            paths.append(result)
+        if res:
+            paths.append(res)
 
-    # Class 2: Front Door -> Every Bedroom
-    bedroom_keys = sorted(k for k in sim_points if k.startswith("bedroom_"))
-    for bk in bedroom_keys:
-        idx = bk.split("_")[1]
-        result = _run_one(
-            grid,
-            f"Entry->Bedroom {idx}",
+    # Class 2: Entry -> Each Bedroom
+    for idx, room in enumerate(bedroom_rooms):
+        rname = str(_get(room, "name", ""))
+        res = _run_one(
+            graph,
+            f"Entry->Bed {idx + 1}",
             path_sim_config.PATH_COLORS["entry_bedroom"],
-            coord_for_key("front_door"),
-            coord_for_key(bk),
+            entry_room,
+            rname,
             is_public=False,
         )
-        if result:
-            paths.append(result)
+        if res:
+            paths.append(res)
 
-    # Class 3: Front Door -> Every Bathroom
-    bathroom_keys = sorted(k for k in sim_points if k.startswith("bathroom_"))
-    for bk in bathroom_keys:
-        idx = bk.split("_")[1]
-        result = _run_one(
-            grid,
-            f"Entry->Bathroom {idx}",
+    # Class 3: Entry -> Each Bathroom
+    for idx, room in enumerate(bathroom_rooms):
+        rname = str(_get(room, "name", ""))
+        res = _run_one(
+            graph,
+            f"Entry->Bath {idx + 1}",
             path_sim_config.PATH_COLORS["entry_bathroom"],
-            coord_for_key("front_door"),
-            coord_for_key(bk),
+            entry_room,
+            rname,
             is_public=True,
         )
-        if result:
-            paths.append(result)
+        if res:
+            paths.append(res)
 
     # Class 4: Each Bedroom -> Nearest Bathroom
-    for bed_key in bedroom_keys:
-        bath_key = nearest_bathroom_key(bed_key, sim_points)
-        if bath_key is None:
-            dev_print("path", f"Notice: No nearby bathroom found for {bed_key}")
+    for b_idx, bed_room in enumerate(bedroom_rooms):
+        bed_name = str(_get(bed_room, "name", ""))
+        bed_c = graph.get_centroid(bed_name)
+        if not bed_c or not bathroom_rooms:
             continue
-        b_idx = bed_key.split("_")[1]
-        ba_idx = bath_key.split("_")[1]
-        result = _run_one(
-            grid,
-            f"Bed {b_idx}->Bath {ba_idx}",
+
+        # Find nearest bathroom by Euclidean distance
+        best_bath = min(
+            bathroom_rooms,
+            key=lambda r: math.sqrt(
+                (graph.get_centroid(str(_get(r, "name", "")))[0] - bed_c[0]) ** 2
+                + (graph.get_centroid(str(_get(r, "name", "")))[1] - bed_c[1]) ** 2
+                if graph.get_centroid(str(_get(r, "name", "")))
+                else float("inf")
+            ),
+        )
+        ba_name = str(_get(best_bath, "name", ""))
+        res = _run_one(
+            graph,
+            f"Bed {b_idx + 1}->Bath",
             path_sim_config.PATH_COLORS["bedroom_bathroom"],
-            coord_for_key(bed_key),
-            coord_for_key(bath_key),
+            bed_name,
+            ba_name,
             is_public=False,
         )
-        if result:
-            paths.append(result)
+        if res:
+            paths.append(res)
 
     # Class 5: Each Bedroom -> Kitchen
-    if "kitchen" in sim_points:
-        for bed_key in bedroom_keys:
-            b_idx = bed_key.split("_")[1]
-            result = _run_one(
-                grid,
-                f"Bed {b_idx}->Kitchen",
+    if kitchen_rooms:
+        k_name = str(_get(kitchen_rooms[0], "name", ""))
+        for b_idx, bed_room in enumerate(bedroom_rooms):
+            bed_name = str(_get(bed_room, "name", ""))
+            res = _run_one(
+                graph,
+                f"Bed {b_idx + 1}->Kitchen",
                 path_sim_config.PATH_COLORS["bedroom_kitchen"],
-                coord_for_key(bed_key),
-                coord_for_key("kitchen"),
+                bed_name,
+                k_name,
                 is_public=False,
             )
-            if result:
-                paths.append(result)
+            if res:
+                paths.append(res)
 
-    dev_print("path", f"Simulated {len(paths)} total paths successfully.")
+    dev_print("path", f"Total paths simulated: {len(paths)}")
 
     if not paths:
-        dev_print("path", "ERROR: No valid paths found. Simulation aborted.")
         return _error_result("No valid paths found.")
 
     # ------------------------------------------------------------------
-    # 5. Score
+    # 4. Overlap analysis + hallway utility
     # ------------------------------------------------------------------
-    dev_print("path", "Calculating final scores...")
-    bedroom_door_pts = [sim_points[k] for k in bedroom_keys if k in sim_points]
-    score_result = score_path_simulation(grid, paths, bedroom_door_pts, score_margin)
+    overlaps = _analyse_overlaps(paths, buffer_cm=2)
+    hallway_usage = _analyse_hallway_utility(rooms, paths)
+
+    # ------------------------------------------------------------------
+    # 5. Save diagnostic plot
+    # ------------------------------------------------------------------
+    try:
+        plot_path = plot_path_simulation(
+            rooms=rooms,
+            openings=openings,
+            paths=paths,
+            overlaps=overlaps,
+            hallway_usage=hallway_usage,
+            output_dir=None,  # uses dev/output default
+        )
+        dev_print("path", f"Plot saved: {plot_path}")
+    except Exception as exc:
+        dev_print("path", f"Plot failed: {exc}")
+        import traceback
+
+        traceback.print_exc()
+        plot_path = ""
+
+    # ------------------------------------------------------------------
+    # 6. Stub scoring (placeholder — to be implemented separately)
+    # ------------------------------------------------------------------
+    total_unused_hallways = sum(1 for v in hallway_usage.values() if not v["used"])
+    hallway_score = max(0.0, 25.0 - total_unused_hallways * 10.0)
+
+    overlap_penalty = min(30.0, len(overlaps) * 3.0)
+    circulation_score = max(0.0, 30.0 - overlap_penalty)
+
+    total = round(circulation_score + hallway_score, 2)
 
     dev_print(
         "path",
         {
-            "total_score": score_result.total_score,
-            "circulation": score_result.circulation_efficiency,
-            "privacy": score_result.privacy_score,
-            "hallway": score_result.hallway_utility,
-            "furniture": score_result.furniture_flexibility,
+            "paths_found": len(paths),
+            "overlapping_pairs": len(overlaps),
+            "unused_hallways": total_unused_hallways,
+            "stub_total_score": total,
         },
     )
 
-    plot_path = plot_nav_mesh(
-        nav_mesh=nav_mesh,
-        total_floor=total_floor,
-        rooms=rooms,
-        output_dir=None,  # Uses default dev/output directory
+    return PathScoreResult(
+        total_score=total,
+        circulation_efficiency=circulation_score,
+        privacy_score=0.0,  # TODO
+        hallway_utility=hallway_score,
+        furniture_flexibility=0.0,  # TODO
+        paths=paths,
+        details={
+            "overlaps": [
+                {
+                    "path_a": o["path_a"],
+                    "path_b": o["path_b"],
+                    "overlap_area": o["overlap_area"],
+                }
+                for o in overlaps
+            ],
+            "hallway_usage": {
+                k: {"count": v["count"], "paths": v["paths"], "used": v["used"]}
+                for k, v in hallway_usage.items()
+            },
+        },
+        plot_path=plot_path,
     )
-
-    # ------------------------------------------------------------------
-    # 6. Plot (only when score exceeds margin)
-    # ------------------------------------------------------------------
-    if score_result.total_score > path_sim_config.PATH_SCORE_PLOT_SCORE_MARGIN:
-        try:
-            dev_print(
-                "path",
-                f"Score {score_result.total_score:.1f} > margin. Generating debug plot...",
-            )
-            plot_path = save_path_score_plot(grid, score_result, rooms)
-            score_result.plot_path = plot_path
-            dev_print("path", f"Plot saved to: {plot_path}")
-
-            path_only_plot_path = save_path_only_grid_plot(score_result, rooms)
-            score_result.details["path_only_plot_path"] = path_only_plot_path
-            dev_print("path", f"Path-only grid plot saved to: {path_only_plot_path}")
-        except Exception as exc:
-            dev_print("path", f"ERROR: Plot generation failed: {exc}")
-    else:
-        dev_print(
-            "path",
-            f"Score {score_result.total_score:.1f} below margin "
-            f"({path_sim_config.PATH_SCORE_PLOT_SCORE_MARGIN}). Skipping plot.",
-        )
-
-    return score_result

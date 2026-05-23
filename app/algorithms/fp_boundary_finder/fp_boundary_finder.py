@@ -25,8 +25,8 @@ class FPBoundaryFinder:
         self,
         polygon_coordinates: list,
         TA_line: tuple,
-        min_width: float = 100,
-        min_height: float = 100,
+        min_width: float = 80,
+        min_height: float = 80,
     ):
         """
         Finds the largest valid buildable rectangles inside the given polygon.
@@ -112,9 +112,7 @@ class FPBoundaryFinder:
         ):
             return (tuple(TA_line[0]), tuple(TA_line[1]))
 
-        raise ValueError(
-            "TA_line must be ((x1, y1), (x2, y2)) or (x1, y1, x2, y2)."
-        )
+        raise ValueError("TA_line must be ((x1, y1), (x2, y2)) or (x1, y1, x2, y2).")
 
     def _rectangle_area(self, rectangle):
         if not rectangle:

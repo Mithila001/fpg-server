@@ -40,6 +40,6 @@ def snap_floor_plan_to_grid(
         snapped_room = replace(room, vertices=snapped_vertices, area=new_area)
         snapped_plan.append(snapped_room)
 
-    plot_post_process(processed_floor_plan, snapped_plan)
+    # plot_post_process(processed_floor_plan, snapped_plan)
 
     return snapped_plan

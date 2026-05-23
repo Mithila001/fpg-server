@@ -16,5 +16,14 @@ COPY . .
 # Expose port 8000
 EXPOSE 8000
 
-# Start server
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Production uvicorn settings:
+# --timeout-keep-alive 120  keeps the TCP connection alive for 120 s between SSE events
+# --timeout-graceful-shutdown 10  gives workers time to finish before forced kill
+# --workers 1  CPU-bound workload: multiple workers would fight for the GIL / memory;
+#              job isolation is handled by multiprocessing inside the app.
+CMD ["uvicorn", "app.main:app", \
+     "--host", "0.0.0.0", \
+     "--port", "8000", \
+     "--workers", "1", \
+     "--timeout-keep-alive", "120", \
+     "--timeout-graceful-shutdown", "10"]

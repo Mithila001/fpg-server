@@ -6,12 +6,36 @@ services:
     ports:
       - "8000:8000"
     environment:
+      # ── Database ──────────────────────────────────────────────────────
       - DB_URL=postgresql://fpg:fpg@db:5432/fpg_db
+
+      # ── Job / SSE timeouts ───────────────────────────────────────────
+      - FPG_GENERATION_API_TIMEOUT=180
+      - JOB_REGISTRY_CLEANUP_DELAY=60
+
+      # ── Optuna tunables ──────────────────────────────────────────────
+      - OPTUNA_TRIAL_COUNT=20
+      - OPTUNA_TRIAL_TIMEOUT=170
+
+      # ── FPG Rooms solver ─────────────────────────────────────────────
+      - DEFAULT_SOLVER_MAX_TIME_SECONDS=10
+
+      # ── Feature flags ─────────────────────────────────────────────────
+      # Set to false to skip ALL matplotlib savefig calls (recommended for cloud)
+      - ENABLE_PLOT_SAVING=false
+
+      # ── CORS ──────────────────────────────────────────────────────────
+      # Comma-separated list of allowed frontend origins.
+      # Add your local machine IP if it differs from localhost, e.g.:
+      #   http://192.168.1.42:5173,http://localhost:5173
+      - CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   db:
-    image: postgres:18
+    image: postgres:16
     container_name: postgres_db_fpg
     restart: always
     environment:
@@ -19,6 +43,17 @@ services:
       POSTGRES_PASSWORD: fpg
       POSTGRES_DB: fpg_db
     ports:
+      # Expose to host so you can connect with DBeaver / psql during presentation.
+      # Access: host=<OCI_PUBLIC_IP>, port=5432, user=fpg, password=fpg, db=fpg_db
       - "5433:5432"
     volumes:
-      - ./postgres_data:/var/lib/postgresql
+      # Named volume — survives container restarts; data lives in Docker's volume store.
+      - postgres_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fpg -d fpg_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_db_data:

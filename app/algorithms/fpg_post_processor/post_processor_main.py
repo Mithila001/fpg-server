@@ -65,10 +65,10 @@ def process_floor_plans():
         )
         floor_plan_wall_union(snapped_results)
         union_hallways_fp = hallway_union(snapped_results)
-        # save_floor_plan_plots(union_hallways_fp)
-        plot_floorplan_comparison(snapped_results, union_hallways_fp)
-        print(f"Before {snapped_results}\n")
-        print(f"After {union_hallways_fp}\n")
+        # # save_floor_plan_plots(union_hallways_fp)
+        # plot_floorplan_comparison(snapped_results, union_hallways_fp)
+        # print(f"Before {snapped_results}\n")
+        # print(f"After {union_hallways_fp}\n")
 
 
 if __name__ == "__main__":

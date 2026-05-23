@@ -2,6 +2,7 @@
 
 import multiprocessing as mp
 from time import perf_counter
+import os
 
 # Set start method to spawn to prevent thread inheritance issues on Linux (Ubuntu)
 try:
@@ -35,10 +36,19 @@ def on_startup():
         print(f"Failed to seed database: {e}")
 
 
-# dev-safe CORS — restrict to your frontend origins
+# CORS: read allowed origins from CORS_ORIGINS env var (comma-separated).
+# Default permits the local Vite dev server used during development / presentation.
+_raw_origins = os.environ.get(
+    "CORS_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173",
+)
+ALLOWED_ORIGINS: list[str] = [
+    o.strip() for o in _raw_origins.split(",") if o.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

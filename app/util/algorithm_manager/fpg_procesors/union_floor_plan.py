@@ -4,6 +4,8 @@ import math
 from datetime import datetime
 from typing import TypedDict, Tuple
 
+from app.core.fpg_rooms.config_fpg import ENABLE_PLOT_SAVING
+
 import matplotlib
 
 from app.algorithms.types.base import WallSegmentPayload
@@ -160,8 +162,9 @@ def union_floor_plan(
                 )
                 total_length += segment_length
 
-    # Plot and save to the test output directory
-    _plot_union_floor_plan(unique_segments)
+    # Plot and save to the test output directory (disabled in cloud via ENABLE_PLOT_SAVING=false)
+    if ENABLE_PLOT_SAVING:
+        _plot_union_floor_plan(unique_segments)
 
     return {
         "floor_plan_with_openings": floor_plan_with_openings,

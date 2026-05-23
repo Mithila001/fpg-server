@@ -256,5 +256,5 @@ def score_spatial_coverage(
         "floor_area": floor_area,
     }
 
-    save_spatial_coverage_heatmap(room_points, requirements, scoring_details)
+    # save_spatial_coverage_heatmap(room_points, requirements, scoring_details)
     return SectionScore(final_score, max_score_limit, scoring_details, warnings)

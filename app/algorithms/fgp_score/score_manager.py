@@ -120,7 +120,20 @@ def score_manager(
             "Inward pocket violation detected "
             f"(max_delta={max_delta:.2f}, threshold={inward_pocket_max_length:.2f})"
         ]
-    # path_result = run_path_simulation(scoring_plan)
+    # --- Path simulation (dev/testing only — does not affect scoring) ---
+    # try:
+    #     path_result = run_path_simulation(scoring_plan)
+    #     print(
+    #         f"\n[fgp_score/score_manager] path_simulation done: "
+    #         f"score={path_result.total_score:.1f}  "
+    #         f"paths={len(path_result.paths)}  "
+    #         f"plot={path_result.plot_path}"
+    #     )
+    # except Exception as _path_exc:
+    #     print(f"[fgp_score/score_manager] path_simulation ERROR: {_path_exc}")
+    #     import traceback
+
+    # traceback.print_exc()
     checks: List[CheckResult] = [
         CheckResult(
             name="adjacency_relations",
@@ -168,20 +181,20 @@ def score_manager(
         inward_pocket=inward_diag,
     )
 
-    try:
-        critical_plot_path = save_critical_score_plot(
-            scoring_plan.floor_plan,
-            relation_constraints,
-            floor_width,
-            floor_height,
-            inward_pocket_max_length,
-            min_overlap=int(SCORE_VALIDATION_MIN_OVERLAP),
-            tolerance=tolerance,
-        )
-        diagnostics.critical_plot_path = critical_plot_path
-        print(f"[fgp_score/score_manager] critical plot saved: {critical_plot_path}")
-    except Exception as exc:
-        print(f"[fgp_score/score_manager] critical plot generation failed: {exc}")
+    # try:
+    #     critical_plot_path = save_critical_score_plot(
+    #         scoring_plan.floor_plan,
+    #         relation_constraints,
+    #         floor_width,
+    #         floor_height,
+    #         inward_pocket_max_length,
+    #         min_overlap=int(SCORE_VALIDATION_MIN_OVERLAP),
+    #         tolerance=tolerance,
+    #     )
+    #     diagnostics.critical_plot_path = critical_plot_path
+    #     print(f"[fgp_score/score_manager] critical plot saved: {critical_plot_path}")
+    # except Exception as exc:
+    #     print(f"[fgp_score/score_manager] critical plot generation failed: {exc}")
 
     final_score = 0
 

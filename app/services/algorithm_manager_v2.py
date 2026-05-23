@@ -42,6 +42,7 @@ from app.core.fpg_rooms.config_fpg import (
     DEFAULT_OPTUNA_STORAGE_ENABLED,
     DEFAULT_OPTUNA_STORAGE_URL,
     WIGGLE_ROOM,
+    ENABLE_PLOT_SAVING,
 )
 from app.algorithms.types.domain import ProcessedRoomData
 from app.schemas.db.room_setup_template import RoomSetupTemplateBase
@@ -235,19 +236,22 @@ def _run_single_fpg_solve(
     )
 
     try:
-        plot_refine_floor_plan(
-            stage1_rooms=stage1_rooms,
-            stage2_rooms=stage2_rooms,
-            stage4_rooms=final_rooms,
-        )
+        if ENABLE_PLOT_SAVING:
+            plot_refine_floor_plan(
+                stage1_rooms=stage1_rooms,
+                stage2_rooms=stage2_rooms,
+                stage4_rooms=final_rooms,
+            )
     except Exception as e:
         print(f"Failed to plot refine floor plan: {e}")
 
     # Provide a timestamped filename so the post-processor saves a plot for inspection
     timestamp = int(time.time())
     verandaUpdatedPlan = modify_veranda_layout(final_rooms)
+    # Only pass a filename when plot saving is enabled
+    _extend_filename = f"refine_{timestamp}.png" if ENABLE_PLOT_SAVING else None
     processed_floor_plan: list[ProcessedRoomData] = extend_floor_plan_walls(
-        verandaUpdatedPlan, filename=f"refine_{timestamp}.png"
+        verandaUpdatedPlan, filename=_extend_filename
     )
 
     hallway_processed_floor_plan: list[ProcessedRoomData] = hallway_union(
@@ -537,10 +541,11 @@ def run_fpg_pipeline_api(
             )
 
         # Plot the final solver result via public plotter API before payload construction
-        try:
-            plot_final_solver_result(run_result, show=False)
-        except Exception as e:
-            print(f"Failed to plot final solver result: {e}")
+        if ENABLE_PLOT_SAVING:
+            try:
+                plot_final_solver_result(run_result, show=False)
+            except Exception as e:
+                print(f"Failed to plot final solver result: {e}")
 
         SystemLogger.log_event(
             tag="SOLVER",

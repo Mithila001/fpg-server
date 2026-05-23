@@ -1,7 +1,7 @@
 source /home/mithila/ssd_projects/fpg-server/venv/bin/activate
 
 source /venv/bin/Activate.ps1
-
+.\.venv\Scripts\Activate.ps1
 
 uvicorn app.main:app --reload
 
