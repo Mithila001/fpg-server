@@ -1,14 +1,8 @@
-import os
 from typing import List
-import matplotlib.pyplot as plt
 from shapely.affinity import translate
 from shapely.geometry import box, MultiPolygon, Polygon, LineString
 from shapely.ops import unary_union, substring
 from app.algorithms.types.domain import ProcessedRoomData
-
-from test.plotters.dev_step_plotter import (
-    plot_step_progression,
-)
 
 # --- CONSTANTS & CONFIGURATION ---
 
@@ -182,9 +176,6 @@ def extend_floor_plan_walls(floor_plan_data, filename=None) -> List[ProcessedRoo
         for i, room in enumerate(floor_plan_data)
     }
 
-    all_chosen_segments = []
-    hierarchy_snapshots = []
-
     for room_type in ROOM_EXPAND_HIERARCHY:
         if room_type not in ROOM_EXPANSION_CONFIG:
             continue
@@ -197,8 +188,6 @@ def extend_floor_plan_walls(floor_plan_data, filename=None) -> List[ProcessedRoo
         # Sort by area (smallest rooms often get priority in expansion logic)
         eligible_rooms.sort(key=lambda item: room_geoms[item[0]].area)
         rooms_to_process = eligible_rooms[: config["MAX_ROOMS_TO_EXPAND"]]
-
-        step_chosen_segments = []
 
         for i, room in rooms_to_process:
             # Re-calculate spaces because previous room expansions change the voids
@@ -247,8 +236,6 @@ def extend_floor_plan_walls(floor_plan_data, filename=None) -> List[ProcessedRoo
             chosen_segments = expandable_segments[: config["MAX_SELECTIONS"]]
 
             if chosen_segments:
-                all_chosen_segments.extend(chosen_segments)
-                step_chosen_segments.extend(chosen_segments)
                 expanded_patches = []
 
                 for seg_idx, seg in enumerate(chosen_segments):
@@ -268,35 +255,6 @@ def extend_floor_plan_walls(floor_plan_data, filename=None) -> List[ProcessedRoo
 
                 if expanded_patches:
                     room_geoms[i] = unary_union([current_poly] + expanded_patches)
-
-        hierarchy_snapshots.append(
-            {
-                "step_name": room_type,
-                "room_geoms": room_geoms.copy(),
-                "chosen_segments": step_chosen_segments,
-            }
-        )
-
-    (
-        floor_union,
-        orthogonal_envelope,
-        all_holes,
-        final_internal_voids,
-        final_external_recesses,
-    ) = _get_spaces(list(room_geoms.values()))
-
-    if filename:
-        plot_step_progression(floor_plan_data, hierarchy_snapshots, filename=filename)
-        _plot_side_by_side(
-            floor_plan_data,
-            orthogonal_envelope,
-            all_holes,
-            final_internal_voids,
-            final_external_recesses,
-            all_chosen_segments,
-            room_geoms,
-            filename,
-        )
 
     return _get_reconstructed_data(floor_plan_data, room_geoms)
 
@@ -323,135 +281,3 @@ def _get_reconstructed_data(floor_plan_data, room_geoms) -> List[ProcessedRoomDa
 
     return reconstructed
 
-
-## Plotter Function Below
-
-
-def _plot_side_by_side(
-    floor_plan_data,
-    envelope,
-    all_holes,
-    voids,
-    recesses,
-    chosen_segments,
-    final_room_geoms,
-    filename,
-):
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    output_dir = os.path.abspath(
-        os.path.join(current_dir, "../../../test/outputs/post_process/dev/")
-    )
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    save_path = os.path.join(output_dir, filename)
-
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(22, 11), facecolor="#FAFAFA")
-
-    def plot_geom_fill(ax, geom, color, alpha, label="", hatch=None, edgecolor=None):
-        if geom is None or geom.is_empty:
-            return
-        geoms = getattr(geom, "geoms", [geom])
-        for i, p in enumerate(geoms):
-            if isinstance(p, Polygon):
-                ax.fill(
-                    *p.exterior.xy,
-                    color=color,
-                    alpha=alpha,
-                    label=label if i == 0 else "_nolegend_",
-                    hatch=hatch,
-                    edgecolor=edgecolor or color,
-                )
-
-    def plot_rooms(ax, geoms_dict, use_color_map=True):
-        for i, room in enumerate(floor_plan_data):
-            r_type = room["type"]
-            color = (
-                ROOM_COLOR_MAP.get(r_type, "#EEEEEE") if use_color_map else "#E0E7FF"
-            )
-
-            if geoms_dict is not None and i in geoms_dict:
-                geom = geoms_dict[i]
-            else:
-                geom = box(room["x"], room["y"], room["x_end"], room["y_end"])
-
-            ax.fill(
-                *geom.exterior.xy,
-                color=color,
-                alpha=0.8,
-                edgecolor="#2D3748",
-                linewidth=1.2,
-            )
-
-            c_x, c_y = geom.centroid.x, geom.centroid.y
-            ax.text(
-                c_x,
-                c_y,
-                room["name"],
-                fontsize=7,
-                fontweight="bold",
-                ha="center",
-                color="#2D3748",
-            )
-
-    # --- LEFT PLOT: DIAGNOSTIC ---
-    ax1.set_title(
-        "STEP 1: EXPANSION ANALYSIS (ORTHOGONAL)",
-        fontsize=14,
-        fontweight="bold",
-        pad=15,
-    )
-
-    if not envelope.is_empty:
-        ax1.plot(
-            *envelope.exterior.xy,
-            color="#2E7D32",
-            linestyle="--",
-            linewidth=1.2,
-            alpha=0.6,
-            label="Bounding Envelope",
-        )
-
-    plot_geom_fill(ax1, all_holes, "#FF5252", 0.05, label="All Empty Spaces")
-    plot_geom_fill(ax1, voids, "#E040FB", 0.3, label="Internal Voids", hatch="///")
-    plot_geom_fill(
-        ax1, recesses, "#FFD740", 0.3, label="External Recesses", hatch="\\\\\\"
-    )
-
-    plot_rooms(ax1, None, use_color_map=False)
-
-    for i, seg in enumerate(chosen_segments):
-        x, y = seg["line"].xy
-        ax1.plot(
-            x,
-            y,
-            color="#00E676",
-            linewidth=6,
-            solid_capstyle="round",
-            label="Chosen Wall" if i == 0 else "_nolegend_",
-        )
-
-    # --- RIGHT PLOT: FINAL RESULT ---
-    ax2.set_title(
-        "STEP 2: FINAL OPTIMIZED PLAN", fontsize=14, fontweight="bold", pad=15
-    )
-    plot_rooms(ax2, final_room_geoms, use_color_map=True)
-
-    for ax in [ax1, ax2]:
-        ax.set_aspect("equal")
-        ax.axis("off")
-
-    ax1.legend(
-        loc="upper center",
-        bbox_to_anchor=(0.5, -0.05),
-        ncol=3,
-        frameon=False,
-        fontsize=10,
-    )
-
-    plt.suptitle(
-        f"Floor Plan Optimization: {filename}", fontsize=18, y=0.98, fontweight="bold"
-    )
-    plt.tight_layout(rect=[0, 0.05, 1, 0.95])
-    plt.savefig(save_path, dpi=200, facecolor=fig.get_facecolor())
-    plt.close()
-    print(f"Success: Analysis saved to {save_path}")

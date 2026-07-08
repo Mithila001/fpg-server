@@ -1,11 +1,7 @@
-import os
-from datetime import datetime
-import matplotlib.pyplot as plt
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from typing import Tuple, Sequence
 
 from app.algorithms.types.domain import ProcessedRoomData
-from test.plotters.plot_grid_snapping import plot_post_process  # Import Sequence
 
 
 def calculate_polygon_area(vertices: Sequence[Tuple[float, float]]) -> float:
@@ -39,7 +35,5 @@ def snap_floor_plan_to_grid(
 
         snapped_room = replace(room, vertices=snapped_vertices, area=new_area)
         snapped_plan.append(snapped_room)
-
-    # plot_post_process(processed_floor_plan, snapped_plan)
 
     return snapped_plan

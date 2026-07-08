@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from time import perf_counter
 from typing import Any
 
@@ -202,89 +201,6 @@ def _rectangle_payload(
     }
 
 
-def plot_buildable_space(
-    raw_polygon_coordinates: list[tuple[float, float]],
-    shrunk_polygon_coordinates: list[tuple[float, float]],
-    ta_line: tuple[tuple[float, float], tuple[float, float]],
-    best_rectangle: list[tuple[float, float]],
-) -> str | None:
-    """Plot raw/shrunk boundaries and rectangle for dev-side debugging."""
-    try:
-        import matplotlib
-
-        if "DISPLAY" not in os.environ and matplotlib.get_backend().lower() == "agg":
-            for candidate in ["TkAgg", "Qt5Agg", "WXAgg", "GTK3Agg", "WebAgg"]:
-                try:
-                    matplotlib.use(candidate, force=True)
-                    break
-                except Exception:
-                    continue
-
-        import matplotlib.pyplot as plt
-
-        fig, ax = plt.subplots(figsize=(8, 8))
-
-        raw_x = [point[0] for point in raw_polygon_coordinates] + [
-            raw_polygon_coordinates[0][0]
-        ]
-        raw_y = [point[1] for point in raw_polygon_coordinates] + [
-            raw_polygon_coordinates[0][1]
-        ]
-        ax.plot(raw_x, raw_y, color="tab:blue", linewidth=2, label="Raw land boundary")
-
-        shrunk_x = [point[0] for point in shrunk_polygon_coordinates] + [
-            shrunk_polygon_coordinates[0][0]
-        ]
-        shrunk_y = [point[1] for point in shrunk_polygon_coordinates] + [
-            shrunk_polygon_coordinates[0][1]
-        ]
-        ax.plot(
-            shrunk_x,
-            shrunk_y,
-            color="tab:orange",
-            linewidth=2,
-            linestyle="-",
-            label="Shrunk boundary",
-        )
-
-        ta_x = [ta_line[0][0], ta_line[1][0]]
-        ta_y = [ta_line[0][1], ta_line[1][1]]
-        ax.plot(ta_x, ta_y, color="gold", linewidth=2, linestyle="-.", label="TA line")
-
-        if best_rectangle:
-            rect_x = [point[0] for point in best_rectangle] + [best_rectangle[0][0]]
-            rect_y = [point[1] for point in best_rectangle] + [best_rectangle[0][1]]
-            ax.plot(
-                rect_x,
-                rect_y,
-                color="tab:red",
-                linewidth=2,
-                linestyle="--",
-                label="Largest fitting rectangle",
-            )
-
-        ax.set_aspect("equal", adjustable="box")
-        ax.set_title("Raw Boundary, Shrunk Boundary, and Largest Fitting Rectangle")
-        ax.legend()
-        ax.grid(True, alpha=0.3)
-
-        output_dir = "test/dev/land_boundary_output"
-        os.makedirs(output_dir, exist_ok=True)
-
-        file_index = 1
-        while True:
-            out_path = f"{output_dir}/land_boundary_output_{file_index:03d}.png"
-            if not os.path.exists(out_path):
-                break
-            file_index += 1
-
-        plt.savefig(out_path)
-        plt.close(fig)
-        return out_path
-    except Exception as exc:
-        return None
-
-
 def run_buildable_space_pipeline(
     land_data: dict[str, Any],
     min_width: float = 100,
@@ -321,14 +237,6 @@ def run_buildable_space_pipeline(
         else:
             status = "OK"
             message = "Buildable space computed successfully."
-
-        # if should_plot:
-        #     plot_buildable_space(
-        #         raw_polygon_coordinates=raw_polygon_coordinates,
-        #         shrunk_polygon_coordinates=shrunk_polygon_coordinates,
-        #         ta_line=ta_line,
-        #         best_rectangle=best_rectangle,
-        #     )
 
         payload = {
             "status": status,

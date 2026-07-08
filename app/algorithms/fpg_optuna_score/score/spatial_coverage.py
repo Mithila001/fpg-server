@@ -1,21 +1,8 @@
 from __future__ import annotations
 
 import math
-from datetime import datetime
-from pathlib import Path
 from typing import Any
 
-import matplotlib
-
-from test.plotters.spatial_coverage import save_spatial_coverage_heatmap
-
-# Force Matplotlib to use the non-interactive 'Agg' backend.
-# CRITICAL for backend servers/Optuna workers to prevent UI thread crashes and memory leaks.
-matplotlib.use("Agg")
-import matplotlib.colors as mcolors
-import matplotlib.patches as mpatches
-import matplotlib.pyplot as plt
-import matplotlib.patheffects as patheffects
 import numpy as np
 from scipy.spatial import KDTree
 
@@ -39,19 +26,6 @@ POINT_SPREAD_DISCREPANCY = 8.0
 # Weight between NND uniformity score and Grid-Sampling gap score (must sum to 1.0).
 NND_WEIGHT = 0.40
 GRID_WEIGHT = 0.60
-
-HEATMAP_OUTPUT_DIR = (
-    Path(__file__).parent.parent.parent.parent.parent
-    / "test"
-    / "outputs"
-    / "optuna_score"
-    / "spatial_coverage"
-)
-
-# Only save plots when the score is at least this percent of the maximum score.
-
-PLOT_THRESHOLD_PERCENT = 40  # Matches "2.5 out of 10" request
-
 
 # ---------------------------------------------------------------------------
 # NND sub-score  (anti-clumping)
@@ -205,7 +179,6 @@ def score_spatial_coverage(
             "floor_area": floor_area,
             "grid_scale": SPATIAL_COVERAGE_ZONE_GRID_SCALE,
         }
-        save_spatial_coverage_heatmap(room_points, requirements, details)
         return SectionScore(0.0, max_score_limit, details, warnings)
 
     nnd_score_100, nnd_debug = _calculate_nnd_score(
@@ -256,5 +229,4 @@ def score_spatial_coverage(
         "floor_area": floor_area,
     }
 
-    # save_spatial_coverage_heatmap(room_points, requirements, scoring_details)
     return SectionScore(final_score, max_score_limit, scoring_details, warnings)

@@ -50,9 +50,6 @@ from app.util.algorithm_manager import (
     build_requirements,
     validate_and_compute_floor_bounds,
 )
-from test.plotters.final_result_plotter import plot_final_solver_result
-from test.plotters.plot_refiner import plot_refine_floor_plan
-
 FPG_SOLVER_RUN_COUNT = 2
 
 
@@ -234,16 +231,6 @@ def _run_single_fpg_solve(
         "Refinement pass 3 complete.",
         {"room_count": len(final_rooms)},
     )
-
-    try:
-        if ENABLE_PLOT_SAVING:
-            plot_refine_floor_plan(
-                stage1_rooms=stage1_rooms,
-                stage2_rooms=stage2_rooms,
-                stage4_rooms=final_rooms,
-            )
-    except Exception as e:
-        print(f"Failed to plot refine floor plan: {e}")
 
     # Provide a timestamped filename so the post-processor saves a plot for inspection
     timestamp = int(time.time())
@@ -539,13 +526,6 @@ def run_fpg_pipeline_api(
             termination_reason = (
                 "generation_success" if run_result.solved else "generation_failed"
             )
-
-        # Plot the final solver result via public plotter API before payload construction
-        if ENABLE_PLOT_SAVING:
-            try:
-                plot_final_solver_result(run_result, show=False)
-            except Exception as e:
-                print(f"Failed to plot final solver result: {e}")
 
         SystemLogger.log_event(
             tag="SOLVER",
