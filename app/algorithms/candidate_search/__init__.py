@@ -1,17 +1,19 @@
 from .models import (
-    Coordinate,
-    CoordinateEvaluator,
-    CoordinateOptimizationResult,
-    CoordinateOptimizationSettings,
-    CoordinateTarget,
+    CandidateEvaluator,
+    CandidatePoint,
+    CandidateSearchInput,
+    CandidateSearchResult,
+    CandidateSearchSettings,
+    CandidateSearchTarget,
 )
-from .optimizer import optimize_coordinates
+from .optimizer import search_candidates
 
 __all__ = [
-    "Coordinate",
-    "CoordinateEvaluator",
-    "CoordinateOptimizationResult",
-    "CoordinateOptimizationSettings",
-    "CoordinateTarget",
-    "optimize_coordinates",
+    "CandidateEvaluator",
+    "CandidatePoint",
+    "CandidateSearchInput",
+    "CandidateSearchResult",
+    "CandidateSearchSettings",
+    "CandidateSearchTarget",
+    "search_candidates",
 ]

@@ -2,116 +2,96 @@ from __future__ import annotations
 
 import math
 from decimal import Decimal
-from typing import Mapping, Sequence
+from typing import Any, Mapping, cast
 
 import optuna
 
 from .models import (
-    Coordinate,
-    CoordinateEvaluator,
-    CoordinateOptimizationResult,
-    CoordinateOptimizationSettings,
-    CoordinateTarget,
+    CandidatePoint,
+    CandidateSearchInput,
+    CandidateSearchResult,
+    CandidateSearchSettings,
+    CandidateSearchTarget,
 )
 
 
-def optimize_coordinates(
-    targets: Sequence[CoordinateTarget],
-    settings: CoordinateOptimizationSettings,
-    evaluator: CoordinateEvaluator,
-) -> CoordinateOptimizationResult:
+def search_candidates(
+    search_input: CandidateSearchInput,
+) -> CandidateSearchResult:
     """
-    Search for the highest-scoring coordinate arrangement.
+    Search for the highest-scoring candidate coordinate arrangement.
 
-    Flow:
+    Public contract:
 
-        Generate coordinates
-            -> pass coordinates to evaluator
-            -> receive numeric score
-            -> repeat for configured trial count
-            -> return best coordinates and score
+        CandidateSearchInput
+            -> search_candidates()
+            -> CandidateSearchResult
 
-    The optimizer does not know what the labels represent and does not know
-    anything about rooms, hallways, floor plans, scoring sections, or solvers.
+    Candidate Search does not know how candidate points are interpreted.
+    Architectural and floor-plan scoring remains the evaluator's responsibility.
     """
 
-    validated_targets = _validate_targets(targets)
+    if not isinstance(search_input, CandidateSearchInput):
+        raise TypeError("search_input must be a CandidateSearchInput instance.")
+
+    sampler = optuna.samplers.TPESampler(
+        seed=search_input.settings.random_seed,
+    )
 
     study = optuna.create_study(
         direction="maximize",
-        sampler=optuna.samplers.TPESampler(),
+        sampler=sampler,
     )
 
     def objective(trial: optuna.Trial) -> float:
-        coordinates = _sample_coordinates(
+        points = _sample_candidate_points(
             trial=trial,
-            targets=validated_targets,
-            settings=settings,
+            targets=search_input.targets,
+            settings=search_input.settings,
         )
 
-        score = evaluator(coordinates)
+        evaluator_score = search_input.evaluator(points)
 
-        if isinstance(score, bool):
-            raise TypeError("The coordinate evaluator must return a numeric score.")
-
-        try:
-            numeric_score = float(score)
-        except (TypeError, ValueError) as exc:
-            raise TypeError(
-                "The coordinate evaluator must return a numeric score."
-            ) from exc
-
-        if not math.isfinite(numeric_score):
-            raise ValueError("The coordinate evaluator returned a non-finite score.")
-
-        return numeric_score
+        return _validate_evaluator_score(evaluator_score)
 
     study.optimize(
         objective,
-        n_trials=settings.trial_count,
+        n_trials=search_input.settings.trial_count,
     )
+
+    if not study.trials:
+        raise RuntimeError("Candidate search completed without any trials.")
 
     best_trial = study.best_trial
 
     if best_trial.value is None:
         raise RuntimeError("The best Optuna trial does not contain a score.")
 
-    best_coordinates = _coordinates_from_parameters(
-        targets=validated_targets,
-        settings=settings,
+    best_points = _points_from_trial_parameters(
+        targets=search_input.targets,
+        settings=search_input.settings,
         parameters=best_trial.params,
     )
 
-    return CoordinateOptimizationResult(
-        coordinates=best_coordinates,
+    completed_trials = sum(
+        trial.state == optuna.trial.TrialState.COMPLETE for trial in study.trials
+    )
+
+    if completed_trials <= 0:
+        raise RuntimeError("Candidate search did not complete any successful trials.")
+
+    return CandidateSearchResult(
+        points=best_points,
         score=float(best_trial.value),
+        completed_trials=completed_trials,
     )
 
 
-def _validate_targets(
-    targets: Sequence[CoordinateTarget],
-) -> tuple[CoordinateTarget, ...]:
-    validated_targets = tuple(targets)
-
-    if not validated_targets:
-        raise ValueError("At least one coordinate target is required.")
-
-    labels = [target.label for target in validated_targets]
-
-    duplicate_labels = {label for label in labels if labels.count(label) > 1}
-
-    if duplicate_labels:
-        duplicates = ", ".join(sorted(duplicate_labels))
-        raise ValueError(f"Coordinate target labels must be unique: {duplicates}")
-
-    return validated_targets
-
-
-def _sample_coordinates(
+def _sample_candidate_points(
     trial: optuna.Trial,
-    targets: tuple[CoordinateTarget, ...],
-    settings: CoordinateOptimizationSettings,
-) -> tuple[Coordinate, ...]:
+    targets: tuple[CandidateSearchTarget, ...],
+    settings: CandidateSearchSettings,
+) -> tuple[CandidatePoint, ...]:
     max_x_index = _maximum_grid_index(
         minimum=settings.min_x,
         maximum=settings.max_x,
@@ -124,7 +104,7 @@ def _sample_coordinates(
         resolution=settings.grid_resolution,
     )
 
-    coordinates: list[Coordinate] = []
+    points: list[CandidatePoint] = []
 
     for target_index, target in enumerate(targets):
         x_index = trial.suggest_int(
@@ -139,9 +119,9 @@ def _sample_coordinates(
             high=max_y_index,
         )
 
-        coordinates.append(
-            Coordinate(
-                label=target.label,
+        points.append(
+            CandidatePoint(
+                room_id=target.room_id,
                 x=_grid_value(
                     minimum=settings.min_x,
                     index=x_index,
@@ -155,42 +135,98 @@ def _sample_coordinates(
             )
         )
 
-    return tuple(coordinates)
+    return tuple(points)
 
 
-def _coordinates_from_parameters(
-    targets: tuple[CoordinateTarget, ...],
-    settings: CoordinateOptimizationSettings,
+def _points_from_trial_parameters(
+    targets: tuple[CandidateSearchTarget, ...],
+    settings: CandidateSearchSettings,
     parameters: Mapping[str, int | float],
-) -> tuple[Coordinate, ...]:
-    coordinates: list[Coordinate] = []
+) -> tuple[CandidatePoint, ...]:
+    points: list[CandidatePoint] = []
 
     for target_index, target in enumerate(targets):
-        x_parameter = _x_parameter_name(target_index)
-        y_parameter = _y_parameter_name(target_index)
+        x_parameter_name = _x_parameter_name(target_index)
+        y_parameter_name = _y_parameter_name(target_index)
 
-        if x_parameter not in parameters or y_parameter not in parameters:
+        if x_parameter_name not in parameters:
             raise RuntimeError(
-                f"Best trial is missing parameters for target '{target.label}'."
+                f"Best trial is missing the X parameter for room '{target.room_id}'."
             )
 
-        coordinates.append(
-            Coordinate(
-                label=target.label,
+        if y_parameter_name not in parameters:
+            raise RuntimeError(
+                f"Best trial is missing the Y parameter for room '{target.room_id}'."
+            )
+
+        x_index = _validated_parameter_index(
+            parameter_name=x_parameter_name,
+            value=parameters[x_parameter_name],
+        )
+
+        y_index = _validated_parameter_index(
+            parameter_name=y_parameter_name,
+            value=parameters[y_parameter_name],
+        )
+
+        points.append(
+            CandidatePoint(
+                room_id=target.room_id,
                 x=_grid_value(
                     minimum=settings.min_x,
-                    index=int(parameters[x_parameter]),
+                    index=x_index,
                     resolution=settings.grid_resolution,
                 ),
                 y=_grid_value(
                     minimum=settings.min_y,
-                    index=int(parameters[y_parameter]),
+                    index=y_index,
                     resolution=settings.grid_resolution,
                 ),
             )
         )
 
-    return tuple(coordinates)
+    return tuple(points)
+
+
+def _validate_evaluator_score(value: object) -> float:
+    if isinstance(value, bool):
+        raise TypeError("Candidate evaluator must return a numeric score, not boolean.")
+
+    try:
+        numeric_score = float(cast(Any, value))
+    except (TypeError, ValueError) as exc:
+        raise TypeError("Candidate evaluator must return a numeric score.") from exc
+
+    if not math.isfinite(numeric_score):
+        raise ValueError("Candidate evaluator returned a non-finite score.")
+
+    return numeric_score
+
+
+def _validated_parameter_index(
+    parameter_name: str,
+    value: int | float,
+) -> int:
+    if isinstance(value, bool):
+        raise RuntimeError(
+            f"Trial parameter '{parameter_name}' contains a boolean value."
+        )
+
+    numeric_value = float(value)
+
+    if not numeric_value.is_integer():
+        raise RuntimeError(
+            f"Trial parameter '{parameter_name}' is not an integer index."
+        )
+
+    index = int(numeric_value)
+
+    if index < 0:
+        raise RuntimeError(
+            f"Trial parameter '{parameter_name}' contains a negative index."
+        )
+
+    return index
 
 
 def _maximum_grid_index(
@@ -221,8 +257,8 @@ def _grid_value(
 
 
 def _x_parameter_name(target_index: int) -> str:
-    return f"coordinate_{target_index}_x_index"
+    return f"candidate_{target_index}_x_index"
 
 
 def _y_parameter_name(target_index: int) -> str:
-    return f"coordinate_{target_index}_y_index"
+    return f"candidate_{target_index}_y_index"
