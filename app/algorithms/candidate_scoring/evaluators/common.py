@@ -1,0 +1,232 @@
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Iterable, Mapping, Sequence
+
+from ..context import ScoringContext
+
+
+@dataclass(frozen=True, slots=True)
+class EvaluationPoint:
+    room_id: str
+    room_type: str
+    name: str
+    x: float
+    y: float
+
+
+@dataclass(frozen=True, slots=True)
+class EvaluationData:
+    floor_width: float
+    floor_height: float
+    points: tuple[EvaluationPoint, ...]
+
+
+def build_evaluation_data(context: ScoringContext) -> EvaluationData:
+    """Convert supported project/domain shapes into evaluator-friendly data.
+
+    The adapter supports the planned typed structures as well as mapping-based
+    fixtures. It intentionally lives outside individual evaluators so each
+    evaluator sees one stable internal representation.
+    """
+
+    specification = context.scoring_input.specification
+    candidate = context.scoring_input.candidate
+    floor_width, floor_height = _extract_floor_size(specification)
+    room_metadata = _extract_room_metadata(specification)
+    points = _extract_candidate_points(candidate, room_metadata)
+
+    return EvaluationData(
+        floor_width=floor_width,
+        floor_height=floor_height,
+        points=tuple(points),
+    )
+
+
+def setting_float(settings: Mapping[str, Any], key: str, default: float) -> float:
+    value = settings.get(key, default)
+    result = float(value)
+    if not math.isfinite(result):
+        raise ValueError(f"Setting '{key}' must be finite.")
+    return result
+
+
+def setting_int(settings: Mapping[str, Any], key: str, default: int) -> int:
+    value = int(settings.get(key, default))
+    return value
+
+
+def setting_mapping(
+    settings: Mapping[str, Any], key: str, default: Mapping[str, Any]
+) -> Mapping[str, Any]:
+    value = settings.get(key, default)
+    if not isinstance(value, Mapping):
+        raise ValueError(f"Setting '{key}' must be a mapping.")
+    return value
+
+
+def normalize_room_type(value: Any) -> str:
+    if isinstance(value, Enum):
+        value = value.value
+    text = str(value).strip()
+    compact = text.replace("-", "_").replace(" ", "_")
+    aliases = {
+        "livingRoom": "living_room",
+        "livingroom": "living_room",
+        "diningRoom": "dining_room",
+        "diningroom": "dining_room",
+        "attachedBathroom": "attached_bathroom",
+        "attachedbathroom": "attached_bathroom",
+        "openArea": "open_area",
+    }
+    return aliases.get(compact, compact.lower())
+
+
+def clamp_score(value: float) -> float:
+    return max(0.0, min(100.0, float(value)))
+
+
+def distance(a: EvaluationPoint, b: EvaluationPoint) -> float:
+    return math.hypot(a.x - b.x, a.y - b.y)
+
+
+def _extract_floor_size(specification: Any) -> tuple[float, float]:
+    floor = _get(specification, "floor")
+    config = _get(specification, "config")
+
+    width = _first_not_none(
+        _get(floor, "width"),
+        _get(specification, "floor_width"),
+        _get(specification, "width"),
+        _get(config, "floor_plan_width"),
+    )
+    height = _first_not_none(
+        _get(floor, "height"),
+        _get(specification, "floor_height"),
+        _get(specification, "height"),
+        _get(config, "floor_plan_height"),
+    )
+
+    if width is None or height is None:
+        raise ValueError("Could not determine floor width and height from specification.")
+
+    floor_width = float(width)
+    floor_height = float(height)
+    if not math.isfinite(floor_width) or floor_width <= 0:
+        raise ValueError("Floor width must be a finite positive value.")
+    if not math.isfinite(floor_height) or floor_height <= 0:
+        raise ValueError("Floor height must be a finite positive value.")
+    return floor_width, floor_height
+
+
+def _extract_room_metadata(specification: Any) -> dict[str, tuple[str, str]]:
+    rooms = _get(specification, "rooms") or ()
+    metadata: dict[str, tuple[str, str]] = {}
+    for index, room in enumerate(_iterable(rooms)):
+        room_id = str(_first_not_none(_get(room, "id"), _get(room, "name"), index))
+        name = str(_first_not_none(_get(room, "name"), room_id))
+        raw_type = _first_not_none(_get(room, "room_type"), _get(room, "type"))
+        if raw_type is None:
+            continue
+        metadata[room_id] = (normalize_room_type(raw_type), name)
+        metadata.setdefault(name, (normalize_room_type(raw_type), name))
+    return metadata
+
+
+def _extract_candidate_points(
+    candidate: Any,
+    room_metadata: Mapping[str, tuple[str, str]],
+) -> list[EvaluationPoint]:
+    raw_points = _first_not_none(
+        _get(candidate, "candidate_points"),
+        _get(candidate, "points"),
+        _get(candidate, "positions"),
+        candidate,
+    )
+
+    if isinstance(raw_points, Mapping):
+        items: Iterable[tuple[Any, Any]] = raw_points.items()
+    else:
+        items = enumerate(_iterable(raw_points))
+
+    points: list[EvaluationPoint] = []
+    seen_ids: set[str] = set()
+    for fallback_key, value in items:
+        room_id = str(
+            _first_not_none(
+                _get(value, "room_id"),
+                _get(value, "id"),
+                fallback_key,
+            )
+        )
+        metadata = room_metadata.get(room_id)
+        name = str(_first_not_none(_get(value, "name"), metadata[1] if metadata else None, room_id))
+        raw_type = _first_not_none(
+            _get(value, "room_type"),
+            _get(value, "type"),
+            metadata[0] if metadata else None,
+        )
+        if raw_type is None:
+            raise ValueError(f"Candidate point '{room_id}' has no room type.")
+
+        x, y = _extract_xy(value)
+        if not math.isfinite(x) or not math.isfinite(y):
+            raise ValueError(f"Candidate point '{room_id}' has non-finite coordinates.")
+        if room_id in seen_ids:
+            raise ValueError(f"Candidate point '{room_id}' is duplicated.")
+        seen_ids.add(room_id)
+
+        points.append(
+            EvaluationPoint(
+                room_id=room_id,
+                room_type=normalize_room_type(raw_type),
+                name=name,
+                x=x,
+                y=y,
+            )
+        )
+    return points
+
+
+def _extract_xy(value: Any) -> tuple[float, float]:
+    position = _get(value, "position")
+    if position is not None:
+        return _extract_xy(position)
+
+    x = _get(value, "x")
+    y = _get(value, "y")
+    if x is not None and y is not None:
+        return float(x), float(y)
+
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        if len(value) >= 2:
+            return float(value[0]), float(value[1])
+
+    raise ValueError(f"Could not extract x/y coordinates from candidate value: {value!r}")
+
+
+def _get(value: Any, key: str) -> Any:
+    if value is None:
+        return None
+    if isinstance(value, Mapping):
+        return value.get(key)
+    return getattr(value, key, None)
+
+
+def _first_not_none(*values: Any) -> Any:
+    for value in values:
+        if value is not None:
+            return value
+    return None
+
+
+def _iterable(value: Any) -> Iterable[Any]:
+    if value is None:
+        return ()
+    if isinstance(value, Mapping):
+        return value.values()
+    if isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
+        return value
+    raise ValueError(f"Expected an iterable value, received {type(value).__name__}.")
