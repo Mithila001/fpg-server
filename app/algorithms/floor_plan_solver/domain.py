@@ -5,14 +5,17 @@ shared types are moved or re-exported differently, update this file and leave
 the solver internals unchanged.
 """
 
-from app.algorithms.types.domain import (
-    ConstraintStrength,
+from app.algorithms.types_new.floor_plan import (
     FloorPlan,
-    FloorPlanGenerationSpec,
     FloorPlanRoom,
-    MatchPolicy,
     Point,
     Polygon,
+)
+
+from app.algorithms.types_new.floor_plan_spec import (
+    ConstraintStrength,
+    FloorPlanGenerationSpec,
+    MatchPolicy,
     RoomId,
     RoomType,
 )

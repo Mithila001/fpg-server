@@ -44,10 +44,21 @@ class ZoneSuitabilityEvaluator(CandidateEvaluator):
             raise ValueError("grid_size must be positive.")
         falloff_multiplier = setting_float(settings, "falloff_multiplier", 1.5)
         configured_zones = setting_mapping(settings, "valid_zones", DEFAULT_VALID_ZONES)
-        valid_zones = {
-            str(room_type): {tuple(map(int, cell)) for cell in cells}
-            for room_type, cells in configured_zones.items()
-        }
+        valid_zones: dict[str, set[tuple[int, int]]] = {}
+
+        for room_type, cells in configured_zones.items():
+            parsed_cells: set[tuple[int, int]] = set()
+
+            for cell in cells:
+                if len(cell) != 2:
+                    raise ValueError(
+                        f"Zone cell for '{room_type}' must contain exactly two coordinates."
+                    )
+
+                cell_x, cell_y = cell
+                parsed_cells.add((int(cell_x), int(cell_y)))
+
+            valid_zones[str(room_type)] = parsed_cells
 
         scores: list[float] = []
         findings: list[ScoreFinding] = []
