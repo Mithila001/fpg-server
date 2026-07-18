@@ -78,3 +78,4 @@ optuna_fpg.db
 test/outputs/*
 logs/*
 postgres_data/*
+var/visualizations/
