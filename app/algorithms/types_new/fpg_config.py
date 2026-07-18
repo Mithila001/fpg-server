@@ -1,3 +1,4 @@
+# app\algorithms\types_new\fpg_config.py
 from dataclasses import dataclass
 from .floor_plan_spec import RoomType
 

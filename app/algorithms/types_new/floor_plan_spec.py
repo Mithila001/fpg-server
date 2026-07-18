@@ -1,3 +1,4 @@
+# app\algorithms\types_new\floor_plan_spec.py
 from dataclasses import dataclass
 from enum import Enum
 from typing import NewType

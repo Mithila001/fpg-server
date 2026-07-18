@@ -1,3 +1,4 @@
+# app\algorithms\types_new\__init__.py
 from .floor_plan import (
     FloorPlan,
     FloorPlanOpening,
