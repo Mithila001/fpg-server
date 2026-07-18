@@ -1,0 +1,207 @@
+from __future__ import annotations
+
+import math
+import re
+from collections import Counter
+
+from app.algorithms.types_new import ConstraintStrength, MatchPolicy, RoomType
+
+from .config import PreprocessingPolicy
+from .context import (
+    NormalizedRequest,
+    NormalizedRoom,
+    PreparedReferenceData,
+    PreparedRoomRelationReference,
+    PreparedRoomSizeReference,
+)
+from .contracts import (
+    NormalizationRecord,
+    PreprocessingReferenceData,
+    PreprocessingRequest,
+)
+from .exceptions import NormalizationError, ReferenceDataError
+
+
+_ROOM_TYPE_ALIASES = {
+    "livingroom": "living_room",
+    "diningroom": "dining_room",
+    "attachedbathroom": "attached_bathroom",
+    "openarea": "open_area",
+}
+
+
+def _enum_text(value: object) -> str:
+    return str(getattr(value, "value", value)).strip()
+
+
+def normalize_room_type(value: object, *, reference: bool = False) -> RoomType:
+    raw = _enum_text(value)
+    key = re.sub(r"[-\s]+", "_", raw).lower()
+    key = _ROOM_TYPE_ALIASES.get(key, key)
+    try:
+        return RoomType(key)
+    except ValueError as exc:
+        error = ReferenceDataError if reference else NormalizationError
+        raise error(f"Unsupported room type '{raw}'") from exc
+
+
+def _normalize_size(value: object) -> str:
+    return re.sub(r"[-\s]+", "_", str(value).strip().lower())
+
+
+def _reference_float(value: object, field: str) -> float:
+    if isinstance(value, bool):
+        raise ReferenceDataError(f"{field} must be numeric")
+    if not isinstance(value, (int, float, str)):
+        raise ReferenceDataError(f"{field} must be numeric")
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise ReferenceDataError(f"{field} must be numeric") from exc
+
+
+def _parse_aspect_ratio(value: float | str) -> float:
+    if isinstance(value, bool):
+        raise NormalizationError("aspect_ratio must be numeric or an H:W string")
+    if isinstance(value, (int, float)):
+        ratio = float(value)
+    elif isinstance(value, str):
+        parts = value.strip().split(":")
+        if len(parts) != 2:
+            raise NormalizationError("aspect_ratio must use the H:W form")
+        try:
+            height, width = (float(part.strip()) for part in parts)
+        except ValueError as exc:
+            raise NormalizationError("aspect_ratio H:W parts must be numeric") from exc
+        if width == 0:
+            raise NormalizationError("aspect_ratio width part cannot be zero")
+        ratio = height / width
+    else:
+        raise NormalizationError("aspect_ratio must be numeric or an H:W string")
+    if not math.isfinite(ratio) or ratio <= 0:
+        raise NormalizationError("aspect_ratio must be finite and greater than zero")
+    return ratio
+
+
+def normalize_request(
+    request: PreprocessingRequest, policy: PreprocessingPolicy
+) -> NormalizedRequest:
+    ratio = _parse_aspect_ratio(request.aspect_ratio)
+    records: list[NormalizationRecord] = []
+    decisions = []
+    defaults: list[str] = []
+
+    supplied_ids = {
+        room.id.strip()
+        for room in request.rooms
+        if isinstance(room.id, str) and room.id.strip()
+    }
+    generated_counts: Counter[RoomType] = Counter()
+    used_ids: set[str] = set()
+    rooms: list[NormalizedRoom] = []
+
+    for index, room in enumerate(request.rooms):
+        room_type = normalize_room_type(room.room_type)
+        raw_type = _enum_text(room.room_type)
+        if raw_type != room_type.value:
+            records.append(
+                NormalizationRecord("room_type", raw_type, room_type.value)
+            )
+
+        room_id = room.id.strip() if isinstance(room.id, str) else ""
+        if not room_id:
+            while True:
+                generated_counts[room_type] += 1
+                room_id = f"{room_type.value}_{generated_counts[room_type]}"
+                if room_id not in supplied_ids and room_id not in used_ids:
+                    break
+            defaults.append(f"generated room id '{room_id}'")
+
+        name = room.name.strip() if isinstance(room.name, str) else ""
+        if not name:
+            name = room_id.replace("_", " ").title()
+            defaults.append(f"generated room name '{name}' for '{room_id}'")
+
+        requested_size = None
+        if room.requested_size is not None:
+            requested_size = _normalize_size(room.requested_size)
+            if not requested_size:
+                requested_size = None
+            elif str(room.requested_size).strip() != requested_size:
+                records.append(
+                    NormalizationRecord(
+                        "requested_size", str(room.requested_size), requested_size
+                    )
+                )
+
+        rooms.append(
+            NormalizedRoom(
+                id=room_id,
+                room_type=room_type,
+                name=name,
+                requested_size=requested_size,
+                required=room.required,
+                request_index=index,
+            )
+        )
+        used_ids.add(room_id)
+
+    return NormalizedRequest(
+        max_width=float(request.floor_limits.max_width),
+        max_height=float(request.floor_limits.max_height),
+        aspect_ratio=ratio,
+        rooms=tuple(rooms),
+        normalizations=tuple(records),
+        room_decisions=tuple(decisions),
+        applied_defaults=tuple(defaults),
+    )
+
+
+def _normalize_match_policy(value: MatchPolicy | str) -> MatchPolicy:
+    raw = _enum_text(value).lower()
+    try:
+        return MatchPolicy(raw)
+    except ValueError as exc:
+        raise ReferenceDataError(f"Unsupported relation match policy '{raw}'") from exc
+
+
+def _normalize_strength(value: ConstraintStrength | str) -> ConstraintStrength:
+    raw = _enum_text(value).lower()
+    try:
+        return ConstraintStrength(raw)
+    except ValueError as exc:
+        raise ReferenceDataError(f"Unsupported relation strength '{raw}'") from exc
+
+
+def prepare_reference_data(
+    reference_data: PreprocessingReferenceData,
+) -> PreparedReferenceData:
+    sizes = tuple(
+        PreparedRoomSizeReference(
+            room_type=normalize_room_type(item.room_type, reference=True),
+            size=_normalize_size(item.size),
+            min_width=_reference_float(item.min_width, "min_width"),
+            max_width=_reference_float(item.max_width, "max_width"),
+            min_height=_reference_float(item.min_height, "min_height"),
+            max_height=_reference_float(item.max_height, "max_height"),
+            min_area=_reference_float(item.min_area, "min_area"),
+            max_area=_reference_float(item.max_area, "max_area"),
+        )
+        for item in reference_data.room_sizes
+    )
+    relations = tuple(
+        PreparedRoomRelationReference(
+            source_room_type=normalize_room_type(
+                item.source_room_type, reference=True
+            ),
+            target_room_types=tuple(
+                normalize_room_type(value, reference=True)
+                for value in item.target_room_types
+            ),
+            match_policy=_normalize_match_policy(item.match_policy),
+            strength=_normalize_strength(item.strength),
+            required=item.required,
+        )
+        for item in reference_data.room_relations
+    )
+    return PreparedReferenceData(room_sizes=sizes, room_relations=relations)
