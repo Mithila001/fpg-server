@@ -23,6 +23,13 @@ class OpeningType(str, Enum):
     WINDOW = "window"
 
 
+class OpeningPurpose(str, Enum):
+    ROOM_CONNECTION = "room_connection"
+    MAIN_ENTRANCE = "main_entrance"
+    SECONDARY_ENTRANCE = "secondary_entrance"
+    DAYLIGHT = "daylight"
+
+
 class RoomRole(str, Enum):
     STANDARD = "standard"
     SOLVER_PLACEHOLDER = "solver_placeholder"
@@ -51,6 +58,7 @@ class FloorPlanRoom:
 class FloorPlanOpening:
     id: OpeningId
     opening_type: OpeningType
+    purpose: OpeningPurpose
     start: Point
     end: Point
     connected_room_ids: tuple[RoomId, ...] = ()

@@ -10,6 +10,7 @@ from app.algorithms.types_new import (
     FloorPlan,
     FloorPlanOpening,
     OpeningId,
+    OpeningPurpose,
     OpeningType,
     Point,
     RoomId,
@@ -56,6 +57,7 @@ def test_geometry_profile_rejects_existing_openings():
             FloorPlanOpening(
                 OpeningId("door"),
                 OpeningType.DOOR,
+                OpeningPurpose.ROOM_CONNECTION,
                 Point(0, 1),
                 Point(0, 2),
                 (RoomId("bed"),),
