@@ -1,0 +1,33 @@
+{
+  "floor_limits": {
+    "max_width": 120.0,
+    "max_height": 100.0
+  },
+  "aspect_ratio": 1.33,
+  "rooms": [
+    {
+      "id": "bedroom_1",
+      "room_type": "bedroom",
+      "requested_size": "regular",
+      "required": true
+    },
+    {
+      "id": "bathroom_1",
+      "room_type": "bathroom",
+      "requested_size": "regular",
+      "required": true
+    },
+    {
+      "id": "kitchen",
+      "room_type": "kitchen",
+      "requested_size": "regular",
+      "required": true
+    },
+    {
+      "id": "veranda",
+      "room_type": "veranda",
+      "requested_size": "regular",
+      "required": true
+    }
+  ]
+}

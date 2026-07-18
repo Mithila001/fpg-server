@@ -1,0 +1,2 @@
+python -m app.algorithms.floor_plan_preprocessing.tests.debug
+python -m pytest app/algorithms/floor_plan_preprocessing/tests -sv

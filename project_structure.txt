@@ -83,6 +83,13 @@ app/algorithms/floor_plan_post_processing/pipeline.py
 app/algorithms/floor_plan_post_processing/profiles.py
 app/algorithms/floor_plan_post_processing/registry.py
 app/algorithms/floor_plan_post_processing/validation.py
+app/algorithms/floor_plan_preprocessing/tests/data/valid_reference_data.json
+app/algorithms/floor_plan_preprocessing/tests/data/valid_request.json
+app/algorithms/floor_plan_preprocessing/tests/__init__.py
+app/algorithms/floor_plan_preprocessing/tests/builders.py
+app/algorithms/floor_plan_preprocessing/tests/conftest.py
+app/algorithms/floor_plan_preprocessing/tests/debug.py
+app/algorithms/floor_plan_preprocessing/tests/test_input_output.py
 app/algorithms/floor_plan_preprocessing/__init__.py
 app/algorithms/floor_plan_preprocessing/api.py
 app/algorithms/floor_plan_preprocessing/business_rules.py
