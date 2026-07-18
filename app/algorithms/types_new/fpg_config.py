@@ -1,7 +1,8 @@
 from dataclasses import dataclass
-from floor_plan_spec import RoomType
+from .floor_plan_spec import RoomType
 
 # These types are currently not being actively used. There are in configuration phase to layer replace as the better data structure for the project flow.
+
 
 @dataclass(frozen=True)
 class LayoutRuleConfig:

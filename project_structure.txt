@@ -53,8 +53,6 @@ app/algorithms/floor_plan_scoring/evaluators/inward_recess.py
 app/algorithms/floor_plan_scoring/evaluators/kitchen_dining.py
 app/algorithms/floor_plan_scoring/evaluators/living_room_balance.py
 app/algorithms/floor_plan_scoring/evaluators/required_adjacency.py
-app/algorithms/floor_plan_scoring/tests/__init__.py
-app/algorithms/floor_plan_scoring/tests/test_scoring.py
 app/algorithms/floor_plan_scoring/__init__.py
 app/algorithms/floor_plan_scoring/api.py
 app/algorithms/floor_plan_scoring/config.py
@@ -205,7 +203,6 @@ app/algorithms/fpg_rooms/fpgr_p_refine_1.py
 app/algorithms/fpg_rooms/fpgr_p_refine_extender.py
 app/algorithms/fpg_rooms/generator.py
 app/algorithms/fpg_rooms/rules.py
-app/algorithms/test/
 app/algorithms/types/solvers/__init__.py
 app/algorithms/types/solvers/optimization.py
 app/algorithms/types/__init__.py
@@ -216,6 +213,10 @@ app/algorithms/types/interfaces.py
 app/algorithms/types/openings.py
 app/algorithms/types/print_py_files.ps1
 app/algorithms/types/room_relations_constraints.py
+app/algorithms/types_new/__init__.py
+app/algorithms/types_new/floor_plan.py
+app/algorithms/types_new/floor_plan_spec.py
+app/algorithms/types_new/fpg_config.py
 app/algorithms/usable_land_space_finder/types/__init__.py
 app/algorithms/usable_land_space_finder/types/land_types.py
 app/algorithms/usable_land_space_finder/utils/__init__.py
