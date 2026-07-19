@@ -54,7 +54,11 @@ def build_floor_plan(
         if room_id in excluded_room_ids:
             continue
 
-        raw_boundary = boundary_overrides.get(room_id, raw_room["boundary"])
+        raw_boundary = (
+            boundary_overrides[room_id]
+            if room_id in boundary_overrides
+            else raw_room["boundary"]
+        )
         rooms.append(
             FloorPlanRoom(
                 id=RoomId(room_id),

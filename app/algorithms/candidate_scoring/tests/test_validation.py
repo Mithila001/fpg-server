@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import math
+from typing import cast
 
 import pytest
+from app.algorithms.types_new import FloorPlanGenerationSpec
 
 from app.algorithms.candidate_scoring import (
     CandidateScoreManager,
@@ -29,7 +31,12 @@ def test_scoring_input_rejects_missing_specification() -> None:
     )
 
     with pytest.raises(ScoringInputError, match="specification"):
-        manager.score(CandidateScoringInput(specification=None, candidate={}))
+        manager.score(
+            CandidateScoringInput(
+                specification=cast(FloorPlanGenerationSpec, None),
+                candidate={},
+            )
+        )
 
 
 def test_scoring_input_rejects_missing_candidate() -> None:
@@ -40,7 +47,12 @@ def test_scoring_input_rejects_missing_candidate() -> None:
     )
 
     with pytest.raises(ScoringInputError, match="candidate"):
-        manager.score(CandidateScoringInput(specification={}, candidate=None))
+        manager.score(
+            CandidateScoringInput(
+                specification=cast(FloorPlanGenerationSpec, {}),
+                candidate=None,
+            )
+        )
 
 
 def test_config_requires_at_least_one_rule() -> None:

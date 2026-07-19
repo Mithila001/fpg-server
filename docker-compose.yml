@@ -6,7 +6,5 @@ services:
     ports:
       - "8001:8000"
     environment:
-      FPG_GENERATION_API_TIMEOUT: "180"
-      JOB_REGISTRY_CLEANUP_DELAY: "60"
       LOG_LEVEL: "INFO"
       CORS_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173"

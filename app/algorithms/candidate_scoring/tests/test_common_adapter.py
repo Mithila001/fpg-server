@@ -1,12 +1,19 @@
 from __future__ import annotations
 
 import pytest
+from typing import cast
 
 from app.algorithms.candidate_scoring import CandidateScoringInput, ScoringContext
 from app.algorithms.candidate_scoring.evaluators.common import build_evaluation_data
-from app.algorithms.types_new import RoomType
+from app.algorithms.types_new import FloorPlanGenerationSpec, RoomType
 
 from .builders import build_scoring_input
+
+
+def _legacy_specification(value: object) -> FloorPlanGenerationSpec:
+    """Type an intentionally legacy-shaped specification used by adapter tests."""
+
+    return cast(FloorPlanGenerationSpec, value)
 
 
 def test_adapter_reads_typed_specification_and_candidate_mapping() -> None:
@@ -23,14 +30,14 @@ def test_adapter_reads_typed_specification_and_candidate_mapping() -> None:
 
 def test_adapter_supports_wrapped_points_and_sequence_coordinates() -> None:
     scoring_input = CandidateScoringInput(
-        specification={
+        specification=_legacy_specification({
             "width": 80,
             "height": 60,
             "rooms": [
                 {"id": "living", "type": "livingRoom", "name": "Living"},
                 {"id": "bath", "type": "attachedBathroom", "name": "Bath"},
             ],
-        },
+        }),
         candidate={"points": {"living": (10, 20), "bath": (30, 40)}},
     )
 
@@ -44,7 +51,9 @@ def test_adapter_supports_wrapped_points_and_sequence_coordinates() -> None:
 
 def test_adapter_rejects_duplicate_candidate_ids() -> None:
     scoring_input = CandidateScoringInput(
-        specification={"floor": {"width": 80, "height": 60}},
+        specification=_legacy_specification(
+            {"floor": {"width": 80, "height": 60}}
+        ),
         candidate=[
             {"room_id": "same", "room_type": "bedroom", "x": 10, "y": 10},
             {"room_id": "same", "room_type": "bedroom", "x": 20, "y": 20},
@@ -57,7 +66,9 @@ def test_adapter_rejects_duplicate_candidate_ids() -> None:
 
 def test_adapter_rejects_candidate_without_room_type() -> None:
     scoring_input = CandidateScoringInput(
-        specification={"floor": {"width": 80, "height": 60}},
+        specification=_legacy_specification(
+            {"floor": {"width": 80, "height": 60}}
+        ),
         candidate={"unknown": {"x": 10, "y": 10}},
     )
 
@@ -75,7 +86,7 @@ def test_adapter_rejects_candidate_without_room_type() -> None:
 )
 def test_adapter_rejects_invalid_floor_dimensions(specification: object) -> None:
     scoring_input = CandidateScoringInput(
-        specification=specification,
+        specification=_legacy_specification(specification),
         candidate={
             "bedroom": {
                 "room_type": "bedroom",
@@ -91,7 +102,9 @@ def test_adapter_rejects_invalid_floor_dimensions(specification: object) -> None
 
 def test_adapter_rejects_non_finite_coordinates() -> None:
     scoring_input = CandidateScoringInput(
-        specification={"floor": {"width": 80, "height": 60}},
+        specification=_legacy_specification(
+            {"floor": {"width": 80, "height": 60}}
+        ),
         candidate={
             "bedroom": {
                 "room_type": "bedroom",

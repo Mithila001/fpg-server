@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from typing import cast
 
 import pytest
 
@@ -12,6 +13,7 @@ from app.algorithms.candidate_scoring.evaluators import (
     ZoneSuitabilityEvaluator,
 )
 from app.algorithms.candidate_scoring.types import CandidateScoringInput
+from app.algorithms.types_new import FloorPlanGenerationSpec
 
 from .builders import build_scoring_input
 
@@ -20,14 +22,20 @@ def _context(scoring_input: CandidateScoringInput) -> ScoringContext:
     return ScoringContext(scoring_input=scoring_input)
 
 
+def _legacy_specification(value: object) -> FloorPlanGenerationSpec:
+    """Type an intentionally mapping-shaped specification used by adapter tests."""
+
+    return cast(FloorPlanGenerationSpec, value)
+
+
 def test_zone_suitability_scores_room_inside_preferred_zone_at_100() -> None:
     scoring_input = CandidateScoringInput(
-        specification={
+        specification=_legacy_specification({
             "floor": {"width": 90, "height": 90},
             "rooms": [
                 {"id": "living", "room_type": "living_room", "name": "Living"}
             ],
-        },
+        }),
         candidate={"living": {"x": 45, "y": 15}},
     )
 
@@ -41,12 +49,12 @@ def test_zone_suitability_scores_room_inside_preferred_zone_at_100() -> None:
 
 def test_zone_suitability_penalizes_room_outside_preferred_zone() -> None:
     scoring_input = CandidateScoringInput(
-        specification={
+        specification=_legacy_specification({
             "floor": {"width": 90, "height": 90},
             "rooms": [
                 {"id": "living", "room_type": "living_room", "name": "Living"}
             ],
-        },
+        }),
         candidate={"living": {"x": 45, "y": 85}},
     )
 
@@ -61,12 +69,12 @@ def test_zone_suitability_penalizes_room_outside_preferred_zone() -> None:
 
 def test_zone_suitability_is_not_applicable_without_configured_room_types() -> None:
     scoring_input = CandidateScoringInput(
-        specification={
+        specification=_legacy_specification({
             "floor": {"width": 90, "height": 90},
             "rooms": [
                 {"id": "bedroom", "room_type": "bedroom", "name": "Bedroom"}
             ],
-        },
+        }),
         candidate={"bedroom": {"x": 45, "y": 45}},
     )
 
@@ -79,12 +87,12 @@ def test_zone_suitability_is_not_applicable_without_configured_room_types() -> N
 
 def test_zone_suitability_supports_custom_zone_settings() -> None:
     scoring_input = CandidateScoringInput(
-        specification={
+        specification=_legacy_specification({
             "floor": {"width": 100, "height": 100},
             "rooms": [
                 {"id": "bedroom", "room_type": "bedroom", "name": "Bedroom"}
             ],
-        },
+        }),
         candidate={"bedroom": {"x": 75, "y": 75}},
     )
 
@@ -99,14 +107,14 @@ def test_zone_suitability_supports_custom_zone_settings() -> None:
 
 def test_exterior_clearance_scores_unblocked_access_at_100() -> None:
     scoring_input = CandidateScoringInput(
-        specification={
+        specification=_legacy_specification({
             "floor": {"width": 100, "height": 100},
             "rooms": [
                 {"id": "veranda", "room_type": "veranda", "name": "Veranda"},
                 {"id": "kitchen", "room_type": "kitchen", "name": "Kitchen"},
                 {"id": "bedroom", "room_type": "bedroom", "name": "Bedroom"},
             ],
-        },
+        }),
         candidate={
             "veranda": {"x": 50, "y": 10},
             "kitchen": {"x": 80, "y": 60},
@@ -124,13 +132,13 @@ def test_exterior_clearance_scores_unblocked_access_at_100() -> None:
 
 def test_exterior_clearance_applies_penalty_for_front_blocker() -> None:
     scoring_input = CandidateScoringInput(
-        specification={
+        specification=_legacy_specification({
             "floor": {"width": 100, "height": 100},
             "rooms": [
                 {"id": "veranda", "room_type": "veranda", "name": "Veranda"},
                 {"id": "blocker", "room_type": "bedroom", "name": "Bedroom"},
             ],
-        },
+        }),
         candidate={
             "veranda": {"x": 50, "y": 20},
             "blocker": {"x": 50, "y": 10},
@@ -147,14 +155,14 @@ def test_exterior_clearance_applies_penalty_for_front_blocker() -> None:
 
 def test_exterior_clearance_uses_best_available_back_access_candidate() -> None:
     scoring_input = CandidateScoringInput(
-        specification={
+        specification=_legacy_specification({
             "floor": {"width": 100, "height": 100},
             "rooms": [
                 {"id": "kitchen", "room_type": "kitchen", "name": "Kitchen"},
                 {"id": "hallway", "room_type": "hallway", "name": "Hallway"},
                 {"id": "blocker", "room_type": "bedroom", "name": "Bedroom"},
             ],
-        },
+        }),
         candidate={
             "kitchen": {"x": 20, "y": 60},
             "hallway": {"x": 80, "y": 60},
@@ -171,12 +179,12 @@ def test_exterior_clearance_uses_best_available_back_access_candidate() -> None:
 
 def test_exterior_clearance_is_not_applicable_without_access_rooms() -> None:
     scoring_input = CandidateScoringInput(
-        specification={
+        specification=_legacy_specification({
             "floor": {"width": 100, "height": 100},
             "rooms": [
                 {"id": "bedroom", "room_type": "bedroom", "name": "Bedroom"}
             ],
-        },
+        }),
         candidate={"bedroom": {"x": 50, "y": 50}},
     )
 
@@ -189,13 +197,13 @@ def test_exterior_clearance_is_not_applicable_without_access_rooms() -> None:
 
 def test_relationship_quality_scores_known_direct_relation() -> None:
     scoring_input = CandidateScoringInput(
-        specification={
+        specification=_legacy_specification({
             "floor": {"width": 100, "height": 100},
             "rooms": [
                 {"id": "living", "room_type": "living_room", "name": "Living"},
                 {"id": "kitchen", "room_type": "kitchen", "name": "Kitchen"},
             ],
-        },
+        }),
         candidate={
             "living": {"x": 10, "y": 10},
             "kitchen": {"x": 20, "y": 10},
@@ -221,13 +229,13 @@ def test_relationship_quality_scores_known_direct_relation() -> None:
 
 def test_relationship_quality_reports_missing_route() -> None:
     scoring_input = CandidateScoringInput(
-        specification={
+        specification=_legacy_specification({
             "floor": {"width": 100, "height": 100},
             "rooms": [
                 {"id": "bedroom", "room_type": "bedroom", "name": "Bedroom"},
                 {"id": "garage", "room_type": "garage", "name": "Garage"},
             ],
-        },
+        }),
         candidate={
             "bedroom": {"x": 10, "y": 10},
             "garage": {"x": 90, "y": 90},
@@ -250,7 +258,7 @@ def test_relationship_quality_reports_missing_route() -> None:
 
 def test_relationship_quality_detects_mixed_hallway_flow() -> None:
     scoring_input = CandidateScoringInput(
-        specification={
+        specification=_legacy_specification({
             "floor": {"width": 100, "height": 100},
             "rooms": [
                 {"id": "living", "room_type": "living_room", "name": "Living"},
@@ -258,7 +266,7 @@ def test_relationship_quality_detects_mixed_hallway_flow() -> None:
                 {"id": "kitchen", "room_type": "kitchen", "name": "Kitchen"},
                 {"id": "hallway", "room_type": "hallway", "name": "Hallway"},
             ],
-        },
+        }),
         candidate={
             "living": {"x": 10, "y": 50},
             "hallway": {"x": 50, "y": 50},
@@ -288,12 +296,12 @@ def test_relationship_quality_detects_mixed_hallway_flow() -> None:
 
 def test_relationship_quality_is_not_applicable_without_active_query() -> None:
     scoring_input = CandidateScoringInput(
-        specification={
+        specification=_legacy_specification({
             "floor": {"width": 100, "height": 100},
             "rooms": [
                 {"id": "garage", "room_type": "garage", "name": "Garage"}
             ],
-        },
+        }),
         candidate={"garage": {"x": 20, "y": 20}},
     )
 
@@ -306,7 +314,9 @@ def test_relationship_quality_is_not_applicable_without_active_query() -> None:
 
 def test_spatial_distribution_returns_zero_for_empty_candidate() -> None:
     scoring_input = CandidateScoringInput(
-        specification={"floor": {"width": 100, "height": 100}, "rooms": []},
+        specification=_legacy_specification(
+            {"floor": {"width": 100, "height": 100}, "rooms": []}
+        ),
         candidate={},
     )
 
@@ -318,13 +328,13 @@ def test_spatial_distribution_returns_zero_for_empty_candidate() -> None:
 
 
 def test_spatial_distribution_scores_regular_points_better_than_clustered_points() -> None:
-    specification = {
+    specification = _legacy_specification({
         "floor": {"width": 100, "height": 100},
         "rooms": [
             {"id": room_id, "room_type": "bedroom", "name": room_id}
             for room_id in ("a", "b", "c", "d")
         ],
-    }
+    })
     regular = CandidateScoringInput(
         specification=specification,
         candidate={

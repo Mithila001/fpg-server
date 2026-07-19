@@ -214,12 +214,18 @@ def run_generation_pipeline(
         expected_errors=(FloorPlanSolverError,),
         summary=lambda value: f"status={value.status.value}",
     )
-    assert solve_result.floor_plan is not None
+    solved_floor_plan = solve_result.floor_plan
+    if solved_floor_plan is None:
+        raise GenerationPipelineError(
+            GenerationStage.SOLVER,
+            "solver_missing_floor_plan",
+            "Solver reported success without returning a floor plan.",
+        )
 
     def post_process():
         result = post_process_floor_plan(
             PostProcessingRequest(
-                floor_plan=solve_result.floor_plan,
+                floor_plan=solved_floor_plan,
                 profile=POST_PROCESSING_PROFILE,
                 specification=specification,
                 request_id=request.request_id,
@@ -263,20 +269,30 @@ def run_generation_pipeline(
         GenerationStage.OPENINGS,
         add_openings,
         expected_errors=(OpeningGenerationError,),
-        summary=lambda value: f"openings={len(value.floor_plan.openings)}",
+        summary=lambda value: (
+            f"openings={len(value.floor_plan.openings)}"
+            if value.floor_plan is not None
+            else "openings=0"
+        ),
     )
-    assert opening_result.floor_plan is not None
+    opened_floor_plan = opening_result.floor_plan
+    if opened_floor_plan is None:
+        raise GenerationPipelineError(
+            GenerationStage.OPENINGS,
+            "openings_missing_floor_plan",
+            "Opening generation reported success without returning a floor plan.",
+        )
 
     scoring_result = _run_stage(
         request.request_id,
         GenerationStage.SCORING,
-        lambda: score_floor_plan(opening_result.floor_plan, specification),
+        lambda: score_floor_plan(opened_floor_plan, specification),
         expected_errors=(FloorPlanScoringError,),
         summary=lambda value: (
             f"score={value.total_score:.2f} passed_critical={value.passed_critical}"
         ),
     )
     return GenerationPipelineResult(
-        floor_plan=opening_result.floor_plan,
+        floor_plan=opened_floor_plan,
         scoring=scoring_result,
     )

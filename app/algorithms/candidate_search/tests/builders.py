@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Iterable
 
+from app.algorithms.types_new import RoomId
+
 from ..models import (
     CandidateEvaluator,
     CandidatePoint,
@@ -42,7 +44,7 @@ class RecordingEvaluator:
 def build_candidate_target(
     room_id: str = "room_1",
 ) -> CandidateSearchTarget:
-    return CandidateSearchTarget(room_id=room_id)
+    return CandidateSearchTarget(room_id=RoomId(room_id))
 
 
 def build_candidate_targets(
@@ -88,7 +90,13 @@ def build_recording_evaluator(
     score_function: ScoreFunction | None = None,
 ) -> RecordingEvaluator:
     if score_function is None:
-        score_function = lambda points, trial_index: _coordinate_score(points)
+        def default_score_function(
+            points: tuple[CandidatePoint, ...], trial_index: int
+        ) -> float:
+            del trial_index
+            return _coordinate_score(points)
+
+        score_function = default_score_function
 
     return RecordingEvaluator(score_function=score_function)
 

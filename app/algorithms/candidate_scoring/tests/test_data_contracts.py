@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from typing import cast
 
 from app.algorithms.candidate_scoring import (
     CandidateScoringInput,
@@ -11,6 +12,7 @@ from app.algorithms.candidate_scoring import (
     EvaluatorCategory,
     ScoringContext,
 )
+from app.algorithms.types_new import FloorPlanGenerationSpec
 
 
 def test_evaluator_rule_copies_and_freezes_settings() -> None:
@@ -30,7 +32,10 @@ def test_evaluator_rule_copies_and_freezes_settings() -> None:
 def test_scoring_context_copies_and_freezes_derived_values() -> None:
     source = {"prepared": 1}
     context = ScoringContext(
-        scoring_input=CandidateScoringInput(specification={}, candidate={}),
+        scoring_input=CandidateScoringInput(
+            specification=cast(FloorPlanGenerationSpec, {}),
+            candidate={},
+        ),
         derived=source,
     )
     source["prepared"] = 2

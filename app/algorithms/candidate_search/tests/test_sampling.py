@@ -5,7 +5,6 @@ from decimal import Decimal
 from ..models import CandidatePoint
 from ..optimizer import search_candidates
 from .builders import (
-    RecordingEvaluator,
     build_candidate_search_input,
     build_candidate_settings,
     build_candidate_targets,

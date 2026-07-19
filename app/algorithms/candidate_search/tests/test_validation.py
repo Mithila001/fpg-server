@@ -5,6 +5,8 @@ from typing import Any
 
 import pytest
 
+from app.algorithms.types_new import RoomId
+
 from ..models import (
     CandidateSearchInput,
     CandidateSearchSettings,
@@ -132,9 +134,9 @@ def test_evaluator_exception_is_not_silently_ignored() -> None:
 
 
 def test_target_room_id_is_trimmed_and_must_not_be_empty() -> None:
-    target = CandidateSearchTarget(room_id="  bedroom_1  ")
+    target = CandidateSearchTarget(room_id=RoomId("  bedroom_1  "))
 
     assert target.room_id == "bedroom_1"
 
     with pytest.raises(ValueError, match="cannot be empty"):
-        CandidateSearchTarget(room_id="   ")
+        CandidateSearchTarget(room_id=RoomId("   "))
