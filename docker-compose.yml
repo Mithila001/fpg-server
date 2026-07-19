@@ -4,7 +4,7 @@ services:
     container_name: fpg_server_api
     restart: always
     ports:
-      - "8000:8000"
+      - "8001:8000"
     environment:
       # ── Database ──────────────────────────────────────────────────────
       - DB_URL=postgresql://fpg:fpg@db:5432/fpg_db
@@ -45,7 +45,7 @@ services:
     ports:
       # Expose to host so you can connect with DBeaver / psql during presentation.
       # Access: host=<OCI_PUBLIC_IP>, port=5432, user=fpg, password=fpg, db=fpg_db
-      - "5433:5432"
+      - "15432:5432"
     volumes:
       # Named volume — survives container restarts; data lives in Docker's volume store.
       - postgres_db_data:/var/lib/postgresql/data
