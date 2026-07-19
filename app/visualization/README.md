@@ -1,83 +1,68 @@
-# Server-side Visualization
+# Visualization
 
-This package creates headless image files for candidate search, scoring, solver, post-processing, opening generation, and final floor-plan output.
+`app/visualization` is a small, developer-oriented package for inspecting algorithm behavior, intermediate pipeline data, and explicitly producing server-side PNG artifacts. It is not a general graphics framework, reusable UI system, renderer registry, or plugin architecture.
 
-## Location
+## Design
 
-```text
-app/visualization/
-```
+Visualization code is feature-owned. A feature owns its models, geometry, Matplotlib calls, labels, colors, layout, axes, and layer order. There is deliberately no shared primitive or reusable-component layer: modest duplication is safer than coupling unrelated visualizations before stable reuse exists.
 
-Generated files should not be stored inside `app/`. The default runtime location is:
-
-```text
-var/visualizations/<job-id>/<stage>/<name>.png
-```
-
-Override it with the `FPG_VISUALIZATION_DIR` environment variable or pass a directory to `create_default_visualization_service()`.
-
-## Structure
+The initial package contains only Candidate Search:
 
 ```text
 app/visualization/
-├── api.py                    # server-facing VisualizationService
-├── backend.py                # backend protocol
-├── config.py                 # image and grid configuration
-├── geometry.py               # bounds and geometry helpers
-├── models.py                 # point, zone, path, and graph DTOs
-├── output.py                 # runtime output path management
-├── matplotlib_backend/
-│   └── renderer.py           # headless Matplotlib drawing engine
-├── renderers/
-│   ├── floor_plan.py         # FloorPlan rendering
-│   ├── points.py             # Optuna/candidate point maps
-│   ├── graph.py              # scoring graph visualization
-│   ├── heatmap.py            # heatmaps with overlays
-│   └── common.py             # shared overlay composition
-└── tests/
+├── api.py                         supported public boundary
+├── config.py                      package-wide figure/export defaults
+├── output_manager.py              safe PNG paths, saving, and cleanup
+├── matplotlib_backend/            headless figure lifecycle only
+├── features/candidate_search/     models and complete drawing behavior
+├── playground/candidate_search/   realistic manual runner and JSON data
+└── output/                         ignored generated PNG artifacts
 ```
 
-## Install
+The dependency direction is application code → `api.py` → feature renderer → Matplotlib/backend. Separately, `api.py` delegates persistence to `output_manager.py` → PNG. The backend never imports features; features do not import one another; the output manager contains no drawing; algorithms do not accept Matplotlib objects; and production code never imports playground modules.
 
-```bash
-pip install matplotlib numpy pytest
-```
+## Public API
 
-Matplotlib is used without `pyplot`; every render owns a separate `FigureCanvasAgg`, which is appropriate for headless server image export.
-
-## Basic server usage
+Outside code uses only:
 
 ```python
-from app.visualization import create_default_visualization_service
-
-visualization = create_default_visualization_service()
-
-path = visualization.render_floor_plan(
-    floor_plan,
-    job_id=job_id,
-    stage="solver",
-    name="initial-layout",
+from app.visualization.api import (
+    CandidatePoint,
+    CandidateSearchVisualization,
+    SearchBounds,
+    render_candidate_search,
 )
 ```
 
-Candidate points, zones, graph nodes, paths, and heatmaps use the same service through `render_point_map()`, `render_graph()`, and `render_heatmap()`.
+The root package intentionally re-exports this function and its three input model types. Feature modules, the backend, and the output manager are private implementation details. Rendering is explicit: importing the package creates no figures, directories, or files.
 
-## Unique visualizations
+`config.py` holds only universal image size, DPI, background, transparency, export bounding-box, and output-root defaults. Candidate Search appearance and geometry remain in its feature folder.
 
-A specialized algorithm visualization can use `MatplotlibRenderer` directly. It supports polygons, lines, segments, circles, labels, arrows, arcs, quadratic curves, points, grids, and heatmaps. Keep the algorithm-specific composition in the owning algorithm package, but reuse this package for drawing and output management.
+## Candidate Search output
 
-## Run tests
+The API creates sortable, collision-resistant PNG names beneath the managed root:
 
-From the project root:
-
-```bash
-python -m pytest app/visualization/tests -sv
+```text
+output/candidate_search/<optional-run-id>/
+  20260719-214530-123456_trial-17_a1b2c3d4.png
 ```
 
-## Generate sample images
+All path components are sanitized. The output manager creates directories, saves the PNG, and closes the figure even if saving fails. Feature renderers never choose paths or call `savefig()` in the official flow.
+
+Project coordinates use integer units where **10 units = 1 metre**.
+
+## Playground
+
+From the repository root, run:
 
 ```bash
-python -m app.visualization.tests.debug
+python -m app.visualization.playground.candidate_search.run
 ```
 
-The sample images will be written under `var/visualizations/debug-job/`.
+It loads realistic adjacent JSON, constructs the Candidate Search view model, calls the public API, and prints the generated path. This is development-only manual validation, not production code.
+
+## Adding a feature
+
+Create `features/<feature_name>/models.py` and `<feature_name>_render.py`; keep its complete appearance and geometry there. Add feature-local `styles.py`, `layers.py`, or helpers only when complexity warrants them. Then add one explicit API function, a matching JSON-backed playground runner, managed PNG persistence, and update this README. Do not introduce a generic dispatcher or shared component merely because two features look somewhat similar.
+
+The previous generic renderers, overlay/domain contracts, mock runner, and visualization test suite were intentionally removed in this complete redesign.

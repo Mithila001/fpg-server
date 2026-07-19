@@ -49,7 +49,8 @@ def search_candidates(
             targets=search_input.targets,
             settings=search_input.settings,
         )
-
+        
+        ##  Ideal Place for Visualizer
         evaluator_score = search_input.evaluator(points)
 
         return _validate_evaluator_score(evaluator_score)
