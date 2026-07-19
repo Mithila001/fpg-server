@@ -4,7 +4,7 @@ import math
 from dataclasses import dataclass
 from typing import Callable, TypeAlias, Any, cast
 
-from Restructure_Data.floor_plan_spec import RoomId
+from app.algorithms.types_new import RoomId
 
 
 @dataclass(frozen=True, slots=True)

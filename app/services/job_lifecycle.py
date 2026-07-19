@@ -12,13 +12,7 @@ from uuid import uuid4
 
 from app.core.config import settings
 from app.schemas.db.room_setup_template import RoomSetupTemplateBase
-from app.services.algorithm_manager_v2 import run_fpg_pipeline_api
 from app.services.buildable_space_manager import run_buildable_space_pipeline
-from app.util.room_requirements import floor_values
-from app.util.unit_converter import (
-    converter_cm_to_unit,
-    converter_unit_to_centimeters,
-)
 
 
 class JobStatus(str, Enum):
@@ -41,6 +35,16 @@ def _run_format_job(
     request_payload: dict[str, Any],
     progress_emitter: Callable[[str, str, dict[str, Any] | None], None] | None = None,
 ) -> dict[str, Any]:
+    # Keep the legacy formatter dependency isolated from unrelated routes. The
+    # cleaned synchronous generation pipeline must remain bootable even when a
+    # legacy formatter installation is incomplete.
+    from app.services.algorithm_manager_v2 import run_fpg_pipeline_api
+    from app.util.room_requirements import floor_values
+    from app.util.unit_converter import (
+        converter_cm_to_unit,
+        converter_unit_to_centimeters,
+    )
+
     room_template = RoomSetupTemplateBase.model_validate(
         request_payload["room_template"]
     )
@@ -70,6 +74,11 @@ def _run_format_job(
 
 
 def _run_buildable_space_job(request_payload: dict[str, Any]) -> dict[str, Any]:
+    from app.util.unit_converter import (
+        converter_cm_to_unit,
+        converter_unit_to_centimeters,
+    )
+
     land_payload = converter_cm_to_unit(
         {
             "area": request_payload["area"],

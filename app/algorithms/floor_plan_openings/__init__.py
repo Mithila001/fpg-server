@@ -15,6 +15,7 @@ from .contracts import (
 )
 from .profiles import DEFAULT_OPENING_PROFILE, OpeningGenerationProfile
 from .registry import OpeningFeatureRegistry, create_default_registry
+from .exceptions import OpeningGenerationError
 
 __all__ = [
     "DEFAULT_OPENING_PROFILE",
@@ -24,6 +25,7 @@ __all__ = [
     "OpeningDiagnostics",
     "OpeningFeatureRegistry",
     "OpeningGenerationProfile",
+    "OpeningGenerationError",
     "OpeningGenerationRequest",
     "OpeningGenerationResult",
     "OpeningGenerationStatus",

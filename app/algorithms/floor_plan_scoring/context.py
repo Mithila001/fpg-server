@@ -64,6 +64,7 @@ class ScoringContext:
     relations: tuple[NormalizedRelation, ...]
     rooms_by_id: Mapping[str, NormalizedRoom]
     specs_by_id: Mapping[str, NormalizedRoomSpec]
+    identity_redirects: Mapping[str, str]
     room_union: BaseGeometry | None
     geometry_build_error: str | None
     shared_boundary_lengths: Mapping[tuple[str, str], float]
@@ -110,7 +111,19 @@ class ScoringContextFactory:
             _required_attr(floor_plan, "rooms", "floor_plan"),
             specs_by_id,
         )
-        rooms_by_id = _unique_by_id(rooms, "floor-plan room")
+        physical_rooms_by_id = _unique_by_id(rooms, "floor-plan room")
+        identity_redirects = _normalize_identity_redirects(
+            getattr(floor_plan, "identity_redirects", {}),
+            specs_by_id,
+            physical_rooms_by_id,
+        )
+        rooms_by_id = dict(physical_rooms_by_id)
+        rooms_by_id.update(
+            {
+                source_id: physical_rooms_by_id[target_id]
+                for source_id, target_id in identity_redirects.items()
+            }
+        )
 
         missing_required = [
             spec.room_id
@@ -148,6 +161,7 @@ class ScoringContextFactory:
             relations=relations,
             rooms_by_id=MappingProxyType(dict(rooms_by_id)),
             specs_by_id=MappingProxyType(dict(specs_by_id)),
+            identity_redirects=MappingProxyType(dict(identity_redirects)),
             room_union=room_union,
             geometry_build_error=geometry_error,
             shared_boundary_lengths=MappingProxyType(shared_lengths),
@@ -157,7 +171,60 @@ class ScoringContextFactory:
 def shared_boundary_length(
     context: ScoringContext, first_id: str, second_id: str
 ) -> float:
-    return context.shared_boundary_lengths.get(_pair_key(first_id, second_id), 0.0)
+    resolved_first = context.identity_redirects.get(first_id, first_id)
+    resolved_second = context.identity_redirects.get(second_id, second_id)
+    if resolved_first == resolved_second:
+        return 0.0
+    return context.shared_boundary_lengths.get(
+        _pair_key(resolved_first, resolved_second), 0.0
+    )
+
+
+def _normalize_identity_redirects(
+    raw_redirects: Any,
+    specs_by_id: Mapping[str, NormalizedRoomSpec],
+    physical_rooms_by_id: Mapping[str, NormalizedRoom],
+) -> dict[str, str]:
+    if not isinstance(raw_redirects, Mapping):
+        raise ScoringInputError("floor_plan.identity_redirects must be a mapping.")
+
+    redirects: dict[str, str] = {}
+    for raw_source, raw_target in raw_redirects.items():
+        source = _nonempty_text(raw_source, "identity redirect source")
+        target = _nonempty_text(raw_target, f"identity redirect '{source}' target")
+        unknown = [item for item in (source, target) if item not in specs_by_id]
+        if unknown:
+            raise ScoringInputError(
+                "Identity redirect references unknown specification room ID(s): "
+                + ", ".join(sorted(set(unknown)))
+            )
+        if source in physical_rooms_by_id:
+            raise ScoringInputError(
+                f"Identity redirect source '{source}' still exists in the floor plan."
+            )
+        redirects[source] = target
+
+    flattened: dict[str, str] = {}
+    for source in redirects:
+        visited = {source}
+        target = redirects[source]
+        while target in redirects:
+            if target in visited:
+                raise ScoringInputError(
+                    f"Identity redirects contain a cycle involving '{target}'."
+                )
+            visited.add(target)
+            target = redirects[target]
+        if target not in physical_rooms_by_id:
+            raise ScoringInputError(
+                f"Identity redirect '{source}' does not resolve to a surviving room."
+            )
+        if specs_by_id[source].room_type != specs_by_id[target].room_type:
+            raise ScoringInputError(
+                f"Identity redirect '{source}' changes room type when resolving to '{target}'."
+            )
+        flattened[source] = target
+    return flattened
 
 
 def _normalize_specs(raw_specs: Any) -> tuple[NormalizedRoomSpec, ...]:

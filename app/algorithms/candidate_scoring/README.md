@@ -48,9 +48,10 @@ result = manager.score(
 )
 ```
 
-The framework-level input currently keeps domain values generic. Once the new
-project types have final active module locations, replace those two fields with
-concrete types and add domain checks in a project-specific context factory.
+The specification uses the active
+`app.algorithms.types_new.FloorPlanGenerationSpec`. Candidate arrangements are
+kept structurally typed because Candidate Search owns their point contract and
+passes them to the scorer through its evaluator callback.
 
 ## Included evaluators
 

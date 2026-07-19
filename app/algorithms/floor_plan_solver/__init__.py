@@ -16,12 +16,14 @@ from .profiles import (
     SoftConstraintUse,
     build_default_profiles,
 )
+from .exceptions import FloorPlanSolverError
 
 __all__ = [
     "DEFAULT_PROFILES",
     "FloorPlanSolveRequest",
     "FloorPlanSolveResult",
     "FloorPlanSolver",
+    "FloorPlanSolverError",
     "GenerationProfile",
     "HardConstraintUse",
     "INITIAL_GENERATION_PROFILE",

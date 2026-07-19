@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from types import MappingProxyType
-from typing import Any, Mapping, NewType
+from typing import Mapping, NewType
+
+from app.algorithms.types_new import FloorPlanGenerationSpec
 
 EvaluatorKey = NewType("EvaluatorKey", str)
 
@@ -95,12 +97,12 @@ class ScoringResult:
 
 @dataclass(frozen=True, slots=True)
 class CandidateScoringInput:
-    """Framework-level scoring input.
+    """Scoring input for one typed generation specification and candidate.
 
-    Replace `specification` and `candidate` with the project's concrete domain
-    types when their final module locations are fixed. The scoring framework
-    treats both as immutable input and exposes them through ScoringContext.
+    Candidate arrangements remain structurally typed because Candidate Search
+    owns their point contract. The shared generation specification comes from
+    the project's active ``types_new`` domain package.
     """
 
-    specification: Any
-    candidate: Any
+    specification: FloorPlanGenerationSpec
+    candidate: object
