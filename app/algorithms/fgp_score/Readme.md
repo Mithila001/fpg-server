@@ -1,1 +1,0 @@
-# This Section is not related to `app/algorithms/fpg_rooms/fpg_score` Sector.  `app/algorithms/fpg_rooms/fpg_score` is plan to deprecate and delete in future

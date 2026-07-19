@@ -1,6 +1,5 @@
-# from .log_manager import LogManager
-# from .fpg_rooms.api_logger import ApiLogger
-# from .fpg_rooms.optuna_logger import OptunaLogger
-# from .fpg_rooms.score_logger import ScoreLogger
+"""Structured application logging."""
 
-# __all__ = ["LogManager", "ApiLogger", "OptunaLogger", "ScoreLogger"]
+from .system_logger import SystemLogger, log_event
+
+__all__ = ["SystemLogger", "log_event"]

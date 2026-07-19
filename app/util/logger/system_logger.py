@@ -2,74 +2,67 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
-from datetime import datetime, timezone
-from logging.handlers import RotatingFileHandler
-from pathlib import Path
-from typing import Any
+from datetime import UTC, datetime
+from threading import Lock
+from typing import Any, ClassVar
 
 
-class _JsonlFormatter(logging.Formatter):
-    """Serialize log records as JSON lines with the required fields."""
+_VALID_LEVELS: dict[str, int] = {
+    "DEBUG": logging.DEBUG,
+    "INFO": logging.INFO,
+    "WARNING": logging.WARNING,
+    "ERROR": logging.ERROR,
+    "CRITICAL": logging.CRITICAL,
+}
 
+
+class _StructuredEventFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
-        timestamp = datetime.fromtimestamp(record.created, timezone.utc)
-        entry: dict[str, Any] = {
-            "time": timestamp.isoformat(),
-            "ts": f"{record.created:0.6f}",
+        payload = {
+            "timestamp": datetime.fromtimestamp(record.created, UTC).isoformat(),
             "level": record.levelname,
-            "tag": getattr(record, "tag", ""),
-            "event": getattr(record, "event", ""),
-            "data": getattr(record, "data", {}),
+            "tag": getattr(record, "event_tag", "application"),
+            "event": getattr(record, "event_name", record.getMessage()),
+            "data": getattr(record, "event_data", {}),
         }
-        return json.dumps(entry, ensure_ascii=True, default=str)
+        return json.dumps(
+            payload,
+            ensure_ascii=False,
+            default=str,
+            separators=(",", ":"),
+        )
 
 
 class SystemLogger:
-    """Centralized server logger writing to logs/server_logs.jsonl."""
+    """Write pipeline events as structured JSON lines to standard output."""
 
-    _logger: logging.Logger | None = None
-    _log_file_name = "server_logs.jsonl"
-    _max_bytes = 2 * 1024 * 1024
-    _backup_count = 5
-
-    @staticmethod
-    def _logs_dir() -> Path:
-        return Path(__file__).resolve().parents[3] / "logs"
+    _logger: ClassVar[logging.Logger | None] = None
+    _lock: ClassVar[Lock] = Lock()
 
     @classmethod
-    def _ensure_logger(cls) -> logging.Logger:
+    def _get_logger(cls) -> logging.Logger:
         if cls._logger is not None:
             return cls._logger
 
-        logs_dir = cls._logs_dir()
-        try:
-            logs_dir.mkdir(parents=True, exist_ok=True)
-        except OSError as exc:  # noqa: BLE001
-            cls._logger = logging.getLogger("app.server_logs")
-            cls._logger.propagate = False
-            cls._logger.setLevel(logging.DEBUG)
-            cls._logger.handlers.clear()
-            cls._logger.addHandler(logging.NullHandler())
-            print(f"[LOGGER WARNING] cannot create logs directory at {logs_dir}: {exc}", file=sys.stderr)
-            return cls._logger
+        with cls._lock:
+            if cls._logger is not None:
+                return cls._logger
 
-        log_file_path = logs_dir / cls._log_file_name
-        handler = RotatingFileHandler(
-            filename=log_file_path,
-            maxBytes=cls._max_bytes,
-            backupCount=cls._backup_count,
-            encoding="utf-8",
-        )
-        handler.setLevel(logging.DEBUG)
-        handler.setFormatter(_JsonlFormatter())
+            logger = logging.getLogger("fpg.pipeline")
+            logger.handlers.clear()
+            logger.propagate = False
 
-        cls._logger = logging.getLogger("app.server_logs")
-        cls._logger.setLevel(logging.DEBUG)
-        cls._logger.propagate = False
-        cls._logger.handlers.clear()
-        cls._logger.addHandler(handler)
-        return cls._logger
+            configured_level = os.getenv("LOG_LEVEL", "INFO").strip().upper()
+            logger.setLevel(_VALID_LEVELS.get(configured_level, logging.INFO))
+
+            handler = logging.StreamHandler(sys.stdout)
+            handler.setFormatter(_StructuredEventFormatter())
+            logger.addHandler(handler)
+
+            cls._logger = logger
+            return logger
 
     @classmethod
     def log_event(
@@ -79,33 +72,21 @@ class SystemLogger:
         level: str,
         data: dict[str, Any] | None = None,
     ) -> None:
-        """Write a structured JSONL event to the centralized server log."""
-        logger = cls._ensure_logger()
-        normalized_level = str(level).upper().strip()
-
-        if normalized_level not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+        normalized_level = str(level).strip().upper()
+        if normalized_level not in _VALID_LEVELS:
             raise ValueError(
                 "level must be one of DEBUG, INFO, WARNING, ERROR, CRITICAL"
             )
 
-        safe_data = data if isinstance(data, dict) else {"value": data}
-
-        try:
-            logger.log(
-                getattr(logging, normalized_level),
-                "",
-                extra={
-                    "tag": tag,
-                    "event": event,
-                    "data": safe_data,
-                },
-            )
-        except Exception as exc:  # noqa: BLE001
-            print(
-                f"[LOGGER WARNING] failed to write event '{event}' with tag '{tag}': {exc}",
-                file=sys.stderr,
-            )
+        cls._get_logger().log(
+            _VALID_LEVELS[normalized_level],
+            event,
+            extra={
+                "event_tag": str(tag),
+                "event_name": str(event),
+                "event_data": dict(data or {}),
+            },
+        )
 
 
-# Module-level convenience helper
 log_event = SystemLogger.log_event
