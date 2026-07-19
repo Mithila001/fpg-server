@@ -98,7 +98,7 @@ class DefaultProfileSettings:
     values use the same unit as the shared generation specification.
     """
 
-    coordinate_scale: int = 10
+    coordinate_scale: int = 1
     minimum_coverage_ratio: float = 0.55
     minimum_adjacency_overlap: float = 0.6
     initial_max_time_seconds: float = 30.0
