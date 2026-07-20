@@ -2,6 +2,8 @@
 
 The `test/` directory contains multiple categories of tests. These categories have different responsibilities and must remain independent.
 
+IMPORTANT: THIS IS NOT `pytest suite`, this is intentionally just a runnable script to check if the implemented setup work or not in more focus way, not a testing framework.
+
 ---
 
 ## Overview
