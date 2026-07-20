@@ -79,3 +79,5 @@ test/outputs/*
 logs/*
 postgres_data/*
 var/visualizations/
+.ruff_cache/
+.pytest_cache/
