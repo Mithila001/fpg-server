@@ -3,11 +3,20 @@ from __future__ import annotations
 from pathlib import Path
 
 from .config import DEFAULT_RENDER_CONFIG, RenderConfig
-from .features.candidate_search.candidate_search_render import render_candidate_search_figure
+from .features.candidate_search.candidate_search_render import (
+    render_candidate_search_figure,
+)
 from .features.candidate_search.models import (
     CandidatePoint,
     CandidateSearchVisualization,
     SearchBounds,
+)
+from .features.floor_plan_general.floor_plan_general_render import (
+    render_floor_plan_general_figure,
+)
+from .features.floor_plan_general.models import (
+    FloorPlanFlowVisualization,
+    FloorPlanVisualizationStage,
 )
 from .features.floor_plan_solver.floor_plan_solver_render import (
     render_floor_plan_solver_figure,
@@ -60,8 +69,30 @@ def render_floor_plan_solver(
         figure,
         feature="floor_plan_solver",
         run_id=run_id,
-        name=output_name
-        or f"{payload.profile_name}-{payload.status.value}",
+        name=output_name or f"{payload.profile_name}-{payload.status.value}",
+        config=render_config,
+    )
+
+
+def render_floor_plan_general(
+    payload: FloorPlanFlowVisualization,
+    *,
+    run_id: str | None = None,
+    output_prefix: str = "floor_plan_general",
+    output_root: str | Path | None = None,
+    config: RenderConfig | None = None,
+) -> Path:
+    """Render all ordered floor-plan stages into one timestamped PNG."""
+    render_config = config or DEFAULT_RENDER_CONFIG
+    manager = VisualizationOutputManager(
+        Path(output_root) if output_root is not None else render_config.output_root
+    )
+    figure = render_floor_plan_general_figure(payload, config=render_config)
+    return manager.save_png(
+        figure,
+        feature="floor_plan_general",
+        run_id=run_id,
+        filename_prefix=output_prefix,
         config=render_config,
     )
 
@@ -69,9 +100,12 @@ def render_floor_plan_solver(
 __all__ = [
     "CandidatePoint",
     "CandidateSearchVisualization",
+    "FloorPlanFlowVisualization",
     "FloorPlanSolverStatus",
     "FloorPlanSolverVisualization",
+    "FloorPlanVisualizationStage",
     "SearchBounds",
     "render_candidate_search",
+    "render_floor_plan_general",
     "render_floor_plan_solver",
 ]
