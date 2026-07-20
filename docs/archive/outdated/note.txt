@@ -1,4 +1,0 @@
-- Need to give max room area for these solutions.
-- Need to normalize floor width and height to have some realistic sized instead of massive one.
-- Need to reduce floor plan dimentions to make it closer to realistic aspect ratio.
-- Constraint : Soft : wall coverage per each room.
