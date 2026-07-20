@@ -6,6 +6,15 @@ from typing import Any, Mapping, cast
 
 import optuna
 
+from app.visualization.api import (
+    CandidatePoint as VisualizationCandidatePoint,
+)
+from app.visualization.api import (
+    CandidateSearchVisualization,
+    SearchBounds,
+    render_candidate_search,
+)
+
 from .models import (
     CandidatePoint,
     CandidateSearchInput,
@@ -49,11 +58,35 @@ def search_candidates(
             targets=search_input.targets,
             settings=search_input.settings,
         )
-        
-        ##  Ideal Place for Visualizer
-        evaluator_score = search_input.evaluator(points)
 
-        return _validate_evaluator_score(evaluator_score)
+        ##  Ideal Place for Visualizer
+        score = _validate_evaluator_score(search_input.evaluator(points))
+
+        # Candidate Search visualization
+        render_candidate_search(
+            CandidateSearchVisualization(
+                trial_number=trial.number,
+                score=score,
+                points=tuple(
+                    VisualizationCandidatePoint(
+                        room_id=str(point.room_id),
+                        x=int(point.x),
+                        y=int(point.y),
+                    )
+                    for point in points
+                ),
+                bounds=SearchBounds(
+                    min_x=int(search_input.settings.min_x),
+                    max_x=int(search_input.settings.max_x),
+                    min_y=int(search_input.settings.min_y),
+                    max_y=int(search_input.settings.max_y),
+                ),
+                grid_resolution=int(search_input.settings.grid_resolution),
+                trial_count=search_input.settings.trial_count,
+            )
+        )
+
+        return score
 
     study.optimize(
         objective,
