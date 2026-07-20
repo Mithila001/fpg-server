@@ -7,7 +7,8 @@ not import builders, validators, serializers, or any other code from the
 Flow:
 
     realistic FloorPlanGenerationSpec
-        -> initial solver generation with candidate hints
+        -> generate biased random candidate hints from the specification
+        -> initial solver generation with those candidate hints
         -> Refinement A using the initial floor plan
         -> Refinement B using the Refinement A floor plan
         -> preserve named solver floor-plan stage snapshots
@@ -15,8 +16,8 @@ Flow:
         -> preserve the named post-processing floor-plan stage snapshot
         -> save one combined JSON debug output
 
-No visualization API is called. The named stage arrays are retained so future
-solver-flow and post-processing visualizers can consume them directly.
+The named stage arrays are retained and passed to the general floor-plan
+visualizer after the JSON debug output is saved.
 
 Run from the repository root:
 
@@ -28,6 +29,7 @@ from __future__ import annotations
 import copy
 import json
 import math
+import random
 from dataclasses import fields, is_dataclass, replace
 from enum import Enum
 from pathlib import Path
@@ -75,7 +77,7 @@ from app.visualization.api import (
 
 UNITS_PER_METER = 10
 UNIT_SIZE_CENTIMETERS = 10
-RANDOM_SEED = 42
+RANDOM_SEED = random.randrange(1_000_000)
 INITIAL_MAX_TIME_SECONDS = 8.0
 REFINEMENT_MAX_TIME_SECONDS = 5.0
 EPSILON = 1e-7
@@ -297,7 +299,7 @@ def hint(
     width: int,
     height: int,
 ) -> RoomPlacementHint:
-    """Create one realistic candidate-search placement hint."""
+    """Create one whole-unit room placement hint."""
 
     return RoomPlacementHint(
         room_id=RoomId(room_id),
@@ -308,20 +310,193 @@ def hint(
     )
 
 
-def build_mock_candidate_hints() -> tuple[RoomPlacementHint, ...]:
-    """Build candidate hints that approximate a plausible starting layout."""
+def choose_random_room_dimensions(
+    room_spec: RoomSpec,
+    *,
+    floor_width: int,
+    floor_height: int,
+    rng: random.Random,
+) -> tuple[int, int]:
+    """Choose dimensions that satisfy the room's declared size limits.
 
-    return (
-        hint("veranda", 25, 0, 70, 12),
-        hint("living", 20, 12, 55, 40),
-        hint("dining", 75, 12, 35, 30),
-        hint("kitchen", 75, 42, 35, 30),
-        hint("hallway", 50, 52, 15, 58),
-        hint("bedroom_1", 0, 52, 50, 48),
-        hint("attached_bathroom", 65, 52, 25, 20),
-        hint("bathroom", 90, 52, 20, 20),
-        hint("bedroom_2", 65, 72, 45, 33),
-    )
+    Valid whole-unit width/height pairs are enumerated first. This prevents the
+    random hint generator from producing a width and height whose combined area
+    violates the room specification.
+    """
+
+    min_width = max(1, math.ceil(room_spec.size.min_width))
+    max_width = min(floor_width, math.floor(room_spec.size.max_width))
+    min_height = max(1, math.ceil(room_spec.size.min_height))
+    max_height = min(floor_height, math.floor(room_spec.size.max_height))
+
+    valid_dimensions = [
+        (width, height)
+        for width in range(min_width, max_width + 1)
+        for height in range(min_height, max_height + 1)
+        if room_spec.size.min_area <= width * height <= room_spec.size.max_area
+    ]
+
+    if not valid_dimensions:
+        raise ValueError(
+            f"Room '{room_spec.id}' has no whole-unit dimensions that satisfy "
+            "its width, height, area, and floor-boundary limits."
+        )
+
+    return rng.choice(valid_dimensions)
+
+
+def biased_coordinate(
+    maximum: int,
+    *,
+    start_ratio: float,
+    end_ratio: float,
+    rng: random.Random,
+) -> int:
+    """Sample one coordinate from a normalized section of its valid range."""
+
+    if maximum <= 0:
+        return 0
+
+    lower = max(0, min(maximum, round(maximum * start_ratio)))
+    upper = max(lower, min(maximum, round(maximum * end_ratio)))
+    return rng.randint(lower, upper)
+
+
+def choose_biased_room_position(
+    room_spec: RoomSpec,
+    *,
+    width: int,
+    height: int,
+    floor_width: int,
+    floor_height: int,
+    room_type_index: int,
+    rng: random.Random,
+) -> tuple[int, int]:
+    """Choose a random position biased by the architectural room type.
+
+    The biases are deliberately soft. They only produce a better starting
+    suggestion; CP-SAT remains responsible for enforcing the real geometry and
+    relationship constraints. The project treats y=0 as the front facade.
+    """
+
+    max_x = max(0, floor_width - width)
+    max_y = max(0, floor_height - height)
+
+    if room_spec.room_type is RoomType.VERANDA:
+        return (
+            biased_coordinate(max_x, start_ratio=0.15, end_ratio=0.85, rng=rng),
+            0,
+        )
+
+    if room_spec.room_type is RoomType.LIVING_ROOM:
+        return (
+            biased_coordinate(max_x, start_ratio=0.10, end_ratio=0.45, rng=rng),
+            biased_coordinate(max_y, start_ratio=0.00, end_ratio=0.25, rng=rng),
+        )
+
+    if room_spec.room_type is RoomType.DINING_ROOM:
+        return (
+            biased_coordinate(max_x, start_ratio=0.40, end_ratio=0.75, rng=rng),
+            biased_coordinate(max_y, start_ratio=0.15, end_ratio=0.50, rng=rng),
+        )
+
+    if room_spec.room_type is RoomType.KITCHEN:
+        return (
+            biased_coordinate(max_x, start_ratio=0.55, end_ratio=1.00, rng=rng),
+            biased_coordinate(max_y, start_ratio=0.40, end_ratio=0.80, rng=rng),
+        )
+
+    if room_spec.room_type is RoomType.HALLWAY:
+        return (
+            biased_coordinate(max_x, start_ratio=0.38, end_ratio=0.62, rng=rng),
+            biased_coordinate(max_y, start_ratio=0.20, end_ratio=0.60, rng=rng),
+        )
+
+    if room_spec.room_type is RoomType.BEDROOM:
+        # Alternate bedroom hints between the left and right rear sections.
+        if room_type_index % 2 == 0:
+            x_start, x_end = 0.00, 0.30
+        else:
+            x_start, x_end = 0.70, 1.00
+        return (
+            biased_coordinate(max_x, start_ratio=x_start, end_ratio=x_end, rng=rng),
+            biased_coordinate(max_y, start_ratio=0.50, end_ratio=1.00, rng=rng),
+        )
+
+    if room_spec.room_type is RoomType.ATTACHED_BATHROOM:
+        return (
+            biased_coordinate(max_x, start_ratio=0.55, end_ratio=1.00, rng=rng),
+            biased_coordinate(max_y, start_ratio=0.50, end_ratio=1.00, rng=rng),
+        )
+
+    if room_spec.room_type is RoomType.BATHROOM:
+        return (
+            biased_coordinate(max_x, start_ratio=0.35, end_ratio=0.85, rng=rng),
+            biased_coordinate(max_y, start_ratio=0.45, end_ratio=0.90, rng=rng),
+        )
+
+    if room_spec.room_type is RoomType.GARAGE:
+        return (
+            biased_coordinate(max_x, start_ratio=0.00, end_ratio=0.25, rng=rng),
+            biased_coordinate(max_y, start_ratio=0.00, end_ratio=0.20, rng=rng),
+        )
+
+    # OPEN_AREA and any future room type receive an unrestricted position.
+    return rng.randint(0, max_x), rng.randint(0, max_y)
+
+
+def build_biased_random_candidate_hints(
+    specification: FloorPlanGenerationSpec,
+    *,
+    seed: int = RANDOM_SEED,
+) -> tuple[RoomPlacementHint, ...]:
+    """Generate repeatable random hints with lightweight room-type bias.
+
+    The same seed and specification always produce the same hints, which keeps
+    this flow check reproducible. Change the seed to explore another starting
+    arrangement. Initial overlaps are allowed because hints are soft guidance.
+    """
+
+    floor_width = math.floor(specification.floor.width)
+    floor_height = math.floor(specification.floor.height)
+    if floor_width <= 0 or floor_height <= 0:
+        raise ValueError("Floor dimensions must be positive whole project units.")
+
+    rng = random.Random(seed)
+    room_type_counts: dict[RoomType, int] = {}
+    candidate_hints: list[RoomPlacementHint] = []
+
+    for room_spec in specification.rooms:
+        room_type_index = room_type_counts.get(room_spec.room_type, 0)
+        room_type_counts[room_spec.room_type] = room_type_index + 1
+
+        width, height = choose_random_room_dimensions(
+            room_spec,
+            floor_width=floor_width,
+            floor_height=floor_height,
+            rng=rng,
+        )
+        x, y = choose_biased_room_position(
+            room_spec,
+            width=width,
+            height=height,
+            floor_width=floor_width,
+            floor_height=floor_height,
+            room_type_index=room_type_index,
+            rng=rng,
+        )
+
+        candidate_hints.append(
+            hint(
+                str(room_spec.id),
+                x=x,
+                y=y,
+                width=width,
+                height=height,
+            )
+        )
+
+    return tuple(candidate_hints)
 
 
 def build_runtime_profile(
@@ -753,7 +928,10 @@ def save_flow_output(
 
 def main() -> None:
     specification = build_mock_specification()
-    candidate_hints = build_mock_candidate_hints()
+    candidate_hints = build_biased_random_candidate_hints(
+        specification,
+        seed=RANDOM_SEED,
+    )
 
     initial_profile = build_runtime_profile(
         INITIAL_GENERATION_PROFILE,
@@ -782,6 +960,7 @@ def main() -> None:
     )
     print(f"Rooms requested: {len(specification.rooms)}")
     print(f"Candidate hints: {len(candidate_hints)}")
+    print(f"Candidate hint seed: {RANDOM_SEED}")
     print(f"Project measurement: {UNITS_PER_METER} units = 1 meter")
 
     initial_request = FloorPlanSolveRequest(
