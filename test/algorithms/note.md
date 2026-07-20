@@ -1,0 +1,1 @@
+python -m test.algorithms.floor_plan_solver.run_floor_plan_solver
