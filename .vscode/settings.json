@@ -13,5 +13,27 @@
       "password": "fpg"
     }
   ],
-  "cSpell.words": ["dimentions", "futurthure", "Optuna"]
+  "python.analysis.exclude": [
+    "**/venv",
+    "**/__pycache__",
+    "**/.venv"
+  ],
+  "files.watcherExclude": {
+    "**/venv/**": true,
+    "**/.venv/**": true
+  },
+  "search.exclude": {
+    "**/venv": true,
+    "**/.venv": true
+  },
+  "files.exclude": {
+    "**/venv": true,
+    "**/.venv": true
+  },
+  "cSpell.words": [
+    "dimentions",
+    "futurthure",
+    "Optuna"
+  ],
+  
 }
