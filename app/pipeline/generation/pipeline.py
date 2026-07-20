@@ -1,3 +1,4 @@
+# app/pipeline/generation/pipeline.py
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -6,9 +7,13 @@ from typing import Any, TypeVar
 
 from app.algorithms.candidate_scoring import (
     CandidateScoringInput,
-    create_default_config as create_candidate_scoring_config,
-    create_default_registry as create_candidate_scoring_registry,
     evaluate_candidate,
+)
+from app.algorithms.candidate_scoring import (
+    create_default_config as create_candidate_scoring_config,
+)
+from app.algorithms.candidate_scoring import (
+    create_default_registry as create_candidate_scoring_registry,
 )
 from app.algorithms.candidate_search import (
     CandidateSearchInput,
@@ -23,6 +28,8 @@ from app.algorithms.floor_plan_openings import (
 )
 from app.algorithms.floor_plan_post_processing import (
     INITIAL_GENERATION_PROFILE as POST_PROCESSING_PROFILE,
+)
+from app.algorithms.floor_plan_post_processing import (
     PipelineStatus,
     PostProcessingRequest,
     post_process_floor_plan,
@@ -41,6 +48,8 @@ from app.algorithms.floor_plan_scoring import (
 )
 from app.algorithms.floor_plan_solver import (
     INITIAL_GENERATION_PROFILE as SOLVER_PROFILE,
+)
+from app.algorithms.floor_plan_solver import (
     FloorPlanSolveRequest,
     FloorPlanSolverError,
     RoomPlacementHint,

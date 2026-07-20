@@ -1,18 +1,21 @@
-# test/algorithms/candidate_scoring/run_candidate_scoring.py
+"""Run the real Candidate Scoring feature with five hardcoded candidates.
 
-"""Run the real candidate-scoring component with realistic mock input.
+The execution flow mirrors the generation pipeline's Candidate Search callback:
 
-Run this file from the fpg-server repository root:
+    mock floor-plan specification
+        -> CandidateScoringInput
+        -> evaluate_candidate()
+        -> total score printed for each candidate
+
+Run from the repository root:
+
     python test/algorithms/candidate_scoring/run_candidate_scoring.py
 """
 
 from __future__ import annotations
 
-import random
-
 from app.algorithms.candidate_scoring import (
     CandidateScoringInput,
-    ScoringResult,
     create_default_config,
     create_default_registry,
     evaluate_candidate,
@@ -30,10 +33,6 @@ from app.algorithms.types_new import (
     RoomType,
 )
 
-TRIAL_COUNT = 20
-RANDOM_SEED = 42
-GRID_RESOLUTION = 1.0
-
 
 def room(
     room_id: str,
@@ -47,6 +46,8 @@ def room(
     min_area: float,
     max_area: float,
 ) -> RoomSpec:
+    """Create one room specification."""
+
     return RoomSpec(
         id=RoomId(room_id),
         room_type=room_type,
@@ -63,7 +64,8 @@ def room(
 
 
 def build_mock_specification() -> FloorPlanGenerationSpec:
-    """A realistic small residential floor-plan request."""
+    """Create the same realistic mock specification used by Candidate Search."""
+
     rooms = (
         room(
             "veranda_1",
@@ -177,7 +179,7 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
         ),
     )
 
-    relations = (
+    room_relations = (
         RoomRelationSpec(
             source_room_id=RoomId("kitchen_1"),
             target_room_ids=(RoomId("dining_room_1"),),
@@ -186,7 +188,10 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
         ),
         RoomRelationSpec(
             source_room_id=RoomId("living_room_1"),
-            target_room_ids=(RoomId("kitchen_1"), RoomId("veranda_1")),
+            target_room_ids=(
+                RoomId("kitchen_1"),
+                RoomId("veranda_1"),
+            ),
             match_policy=MatchPolicy.AND,
             strength=ConstraintStrength.SOFT,
         ),
@@ -198,13 +203,19 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
         ),
         RoomRelationSpec(
             source_room_id=RoomId("hallway_1"),
-            target_room_ids=(RoomId("bedroom_1"), RoomId("bedroom_2")),
+            target_room_ids=(
+                RoomId("bedroom_1"),
+                RoomId("bedroom_2"),
+            ),
             match_policy=MatchPolicy.AND,
             strength=ConstraintStrength.SOFT,
         ),
         RoomRelationSpec(
             source_room_id=RoomId("bathroom_1"),
-            target_room_ids=(RoomId("hallway_1"), RoomId("living_room_1")),
+            target_room_ids=(
+                RoomId("hallway_1"),
+                RoomId("living_room_1"),
+            ),
             match_policy=MatchPolicy.OR,
             strength=ConstraintStrength.SOFT,
         ),
@@ -213,132 +224,126 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
     return FloorPlanGenerationSpec(
         floor=FloorSpec(width=20.0, height=16.0),
         rooms=rooms,
-        room_relations=relations,
+        room_relations=room_relations,
     )
 
 
-def build_first_candidate() -> tuple[CandidatePoint, ...]:
-    """A deliberately reasonable arrangement for an easy-to-read first trial."""
-    positions = {
-        "veranda_1": (10.0, 1.0),
-        "garage_1": (2.0, 2.0),
-        "living_room_1": (10.0, 4.0),
-        "kitchen_1": (16.0, 7.0),
-        "dining_room_1": (13.0, 7.0),
-        "hallway_1": (10.0, 9.0),
-        "bedroom_1": (5.0, 12.0),
-        "bedroom_2": (10.0, 13.0),
-        "bathroom_1": (15.0, 12.0),
-        "attached_bathroom_1": (5.0, 14.0),
-    }
+def point(room_id: str, x: float, y: float) -> CandidatePoint:
+    """Create one hardcoded Candidate Search point."""
 
-    return tuple(
-        CandidatePoint(RoomId(room_id), x, y) for room_id, (x, y) in positions.items()
+    return CandidatePoint(
+        room_id=RoomId(room_id),
+        x=x,
+        y=y,
     )
 
 
-def build_random_candidate(
-    specification: FloorPlanGenerationSpec,
-    rng: random.Random,
-) -> tuple[CandidatePoint, ...]:
-    """Mock the search stage by sampling unique points from a simple grid."""
-    x_count = int(specification.floor.width / GRID_RESOLUTION)
-    y_count = int(specification.floor.height / GRID_RESOLUTION)
+def build_hardcoded_candidates() -> tuple[
+    tuple[str, tuple[CandidatePoint, ...]],
+    ...,
+]:
+    """Create five complete candidate inputs with intentionally varied layouts."""
 
-    grid_points = [
-        (x * GRID_RESOLUTION, y * GRID_RESOLUTION)
-        for x in range(x_count + 1)
-        for y in range(y_count + 1)
-    ]
-
-    selected_positions = rng.sample(grid_points, k=len(specification.rooms))
-
-    return tuple(
-        CandidatePoint(room_spec.id, x, y)
-        for room_spec, (x, y) in zip(
-            specification.rooms,
-            selected_positions,
-            strict=True,
-        )
+    return (
+        (
+            "balanced_layout",
+            (
+                point("veranda_1", 10.0, 1.0),
+                point("garage_1", 3.0, 3.0),
+                point("living_room_1", 10.0, 5.0),
+                point("kitchen_1", 14.0, 7.0),
+                point("dining_room_1", 11.0, 7.0),
+                point("hallway_1", 10.0, 10.0),
+                point("bedroom_1", 6.0, 12.0),
+                point("bedroom_2", 14.0, 12.0),
+                point("bathroom_1", 11.0, 12.0),
+                point("attached_bathroom_1", 5.0, 13.0),
+            ),
+        ),
+        (
+            "alternate_balanced_layout",
+            (
+                point("veranda_1", 8.0, 1.0),
+                point("garage_1", 17.0, 3.0),
+                point("living_room_1", 9.0, 5.0),
+                point("kitchen_1", 5.0, 7.0),
+                point("dining_room_1", 8.0, 7.0),
+                point("hallway_1", 10.0, 10.0),
+                point("bedroom_1", 6.0, 13.0),
+                point("bedroom_2", 14.0, 13.0),
+                point("bathroom_1", 11.0, 12.0),
+                point("attached_bathroom_1", 5.0, 14.0),
+            ),
+        ),
+        (
+            "center_clustered_layout",
+            (
+                point("veranda_1", 8.0, 7.0),
+                point("garage_1", 9.0, 7.0),
+                point("living_room_1", 10.0, 7.0),
+                point("kitchen_1", 11.0, 7.0),
+                point("dining_room_1", 12.0, 7.0),
+                point("hallway_1", 8.0, 9.0),
+                point("bedroom_1", 9.0, 9.0),
+                point("bedroom_2", 10.0, 9.0),
+                point("bathroom_1", 11.0, 9.0),
+                point("attached_bathroom_1", 12.0, 9.0),
+            ),
+        ),
+        (
+            "edge_heavy_layout",
+            (
+                point("veranda_1", 1.0, 1.0),
+                point("garage_1", 19.0, 1.0),
+                point("living_room_1", 1.0, 8.0),
+                point("kitchen_1", 19.0, 8.0),
+                point("dining_room_1", 1.0, 15.0),
+                point("hallway_1", 10.0, 1.0),
+                point("bedroom_1", 19.0, 15.0),
+                point("bedroom_2", 10.0, 15.0),
+                point("bathroom_1", 1.0, 12.0),
+                point("attached_bathroom_1", 19.0, 12.0),
+            ),
+        ),
+        (
+            "poor_relationship_layout",
+            (
+                point("veranda_1", 18.0, 15.0),
+                point("garage_1", 2.0, 14.0),
+                point("living_room_1", 2.0, 2.0),
+                point("kitchen_1", 18.0, 2.0),
+                point("dining_room_1", 2.0, 8.0),
+                point("hallway_1", 18.0, 8.0),
+                point("bedroom_1", 3.0, 13.0),
+                point("bedroom_2", 16.0, 13.0),
+                point("bathroom_1", 3.0, 4.0),
+                point("attached_bathroom_1", 17.0, 4.0),
+            ),
+        ),
     )
-
-
-def print_trial(
-    trial_number: int,
-    candidate: tuple[CandidatePoint, ...],
-    result: ScoringResult,
-) -> None:
-    print("\n" + "=" * 78)
-    print(f"TRIAL {trial_number:02d}/{TRIAL_COUNT}")
-    print("=" * 78)
-
-    for point in candidate:
-        print(f"{str(point.room_id):24} x={point.x:5.1f}  y={point.y:5.1f}")
-
-    print("-" * 78)
-    for evaluator in result.evaluator_results:
-        raw_score = (
-            "N/A" if evaluator.raw_score is None else f"{evaluator.raw_score:.2f}"
-        )
-        print(
-            f"{str(evaluator.evaluator_key):26} "
-            f"status={evaluator.status.value:12} "
-            f"raw={raw_score:>7} "
-            f"contribution={evaluator.contribution:6.2f}"
-        )
-
-    print("-" * 78)
-    print(f"TOTAL SCORE: {result.total_score:.2f}")
-    print(f"PASSED CRITICAL CHECKS: {result.passed_critical_checks}")
-
-    if result.stop_reason:
-        print(f"STOP REASON: {result.stop_reason}")
 
 
 def main() -> None:
     specification = build_mock_specification()
-    registry = create_default_registry()
-    config = create_default_config()
-    rng = random.Random(RANDOM_SEED)
+    scoring_registry = create_default_registry()
+    scoring_config = create_default_config()
+    candidates = build_hardcoded_candidates()
 
-    best_trial = 0
-    best_candidate: tuple[CandidatePoint, ...] | None = None
-    best_result: ScoringResult | None = None
+    print("Candidate Scoring mock environment run")
+    print(f"Rooms: {len(specification.rooms)}")
+    print(f"Hardcoded candidates: {len(candidates)}")
 
-    print("Candidate-scoring component run")
-    print(f"Trials: {TRIAL_COUNT} | Seed: {RANDOM_SEED} | Grid: {GRID_RESOLUTION}")
-
-    for trial_number in range(1, TRIAL_COUNT + 1):
-        candidate = (
-            build_first_candidate()
-            if trial_number == 1
-            else build_random_candidate(specification, rng)
-        )
-
+    for index, (candidate_name, candidate_points) in enumerate(candidates, start=1):
         result = evaluate_candidate(
             CandidateScoringInput(
                 specification=specification,
-                candidate=candidate,
+                candidate=candidate_points,
             ),
-            registry=registry,
-            config=config,
+            registry=scoring_registry,
+            config=scoring_config,
         )
 
-        print_trial(trial_number, candidate, result)
-
-        if best_result is None or result.total_score > best_result.total_score:
-            best_trial = trial_number
-            best_candidate = candidate
-            best_result = result
-
-    assert best_candidate is not None
-    assert best_result is not None
-
-    print("\n" + "#" * 78)
-    print(f"BEST TRIAL: {best_trial:02d} | SCORE: {best_result.total_score:.2f}")
-    print("#" * 78)
-    for point in best_candidate:
-        print(f"{str(point.room_id):24} x={point.x:5.1f}  y={point.y:5.1f}")
+        print(f"Candidate {index}: {candidate_name:<28} score={result.total_score:.2f}")
 
 
 if __name__ == "__main__":
