@@ -2,6 +2,7 @@ from .context import (
     GenerationPipelineError,
     GenerationPipelineRequest,
     GenerationPipelineResult,
+    GenerationPipelineSettings,
     GenerationStage,
     RequestedGenerationRoom,
 )
@@ -11,6 +12,7 @@ __all__ = [
     "GenerationPipelineError",
     "GenerationPipelineRequest",
     "GenerationPipelineResult",
+    "GenerationPipelineSettings",
     "GenerationStage",
     "RequestedGenerationRoom",
     "run_generation_pipeline",

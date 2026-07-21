@@ -21,9 +21,13 @@ class GenerationStage(str, Enum):
     PREPROCESSING = "preprocessing"
     CANDIDATE_SEARCH = "candidate_search"
     SOLVER = "solver"
+    REFINEMENT = "refinement"
+    ATTEMPT_SCORING = "attempt_scoring"
     POST_PROCESSING = "post_processing"
+    VISUALIZATION = "visualization"
     OPENINGS = "openings"
     SCORING = "scoring"
+    FINAL_VALIDATION = "final_validation"
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,9 +50,22 @@ class GenerationPipelineRequest:
 
 @dataclass(frozen=True, slots=True)
 class GenerationPipelineSettings:
+    candidate_search_enabled: bool = True
     candidate_trial_count: int = 20
     candidate_grid_resolution: float = 1.0
     candidate_random_seed: int | None = None
+    solver_max_attempts: int = 3
+    target_floor_plan_score: float | None = None
+    render_solver_attempts: bool = True
+    require_final_critical_pass: bool = True
+
+    def __post_init__(self) -> None:
+        if self.candidate_trial_count <= 0:
+            raise ValueError("candidate_trial_count must be greater than zero")
+        if self.candidate_grid_resolution <= 0:
+            raise ValueError("candidate_grid_resolution must be greater than zero")
+        if self.solver_max_attempts <= 0:
+            raise ValueError("solver_max_attempts must be greater than zero")
 
 
 @dataclass(frozen=True, slots=True)
