@@ -71,18 +71,14 @@ class GenerationProfile:
             ),
         )
 
-    def with_hard_constraints(
-        self, *uses: HardConstraintUse
-    ) -> GenerationProfile:
+    def with_hard_constraints(self, *uses: HardConstraintUse) -> GenerationProfile:
         remove_keys = {use.key for use in uses}
         current = tuple(
             use for use in self.hard_constraints if use.key not in remove_keys
         )
         return replace(self, hard_constraints=current + tuple(uses))
 
-    def with_soft_constraints(
-        self, *uses: SoftConstraintUse
-    ) -> GenerationProfile:
+    def with_soft_constraints(self, *uses: SoftConstraintUse) -> GenerationProfile:
         remove_keys = {use.key for use in uses}
         current = tuple(
             use for use in self.soft_constraints if use.key not in remove_keys
@@ -101,8 +97,8 @@ class DefaultProfileSettings:
     coordinate_scale: int = 1
     minimum_coverage_ratio: float = 0.55
     minimum_adjacency_overlap: float = 0.6
-    initial_max_time_seconds: float = 30.0
-    refinement_max_time_seconds: float = 20.0
+    initial_max_time_seconds: float = 5.0
+    refinement_max_time_seconds: float = 2.0
     refinement_position_tolerance: float = 1.0
     refinement_size_tolerance: float = 0.5
 
@@ -137,7 +133,7 @@ def _default_hard_constraints(
             {
                 "min_ratio": 0.35,
                 "max_ratio": 2.85,
-                "excluded_room_types": ("hallway",),
+                "hallway_room_types": ("hallway",),
                 "overrides": {
                     "garage": {"min_ratio": 0.4, "max_ratio": 2.5},
                     "veranda": {"min_ratio": 0.25, "max_ratio": 4.0},
@@ -158,6 +154,14 @@ def _default_hard_constraints(
                 "minimum_overlap": settings.minimum_adjacency_overlap,
                 "hallway_room_types": ("hallway",),
                 "anchor_room_types": ("living_room",),
+            },
+        ),
+        HardConstraintUse(
+            "hallway_dimensions",
+            {
+                "hallway_room_types": ("hallway",),
+                "minimum_width": 8,
+                "maximum_width": 10,
             },
         ),
         HardConstraintUse(

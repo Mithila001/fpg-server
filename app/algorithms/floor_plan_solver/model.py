@@ -5,8 +5,8 @@ from typing import Any
 
 from ortools.sat.python import cp_model
 
-from .profiles import GenerationProfile
 from .preparation import PreparedProblem, PreparedRoom
+from .profiles import GenerationProfile
 
 
 @dataclass(slots=True)

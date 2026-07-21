@@ -24,16 +24,24 @@ class AspectRatioConstraint:
         if default_min <= 0 or default_max < default_min:
             raise InvalidProfileError("Invalid default aspect-ratio range")
 
+        hallway_types = {
+            normalize_room_type(value)
+            for value in tuple(
+                settings.get("hallway_room_types", ("hallway",))
+            )
+        }
         excluded = {
             normalize_room_type(value)
             for value in tuple(settings.get("excluded_room_types", ()))
         }
+        excluded_room_types = excluded | hallway_types
+
         raw_overrides = settings.get("overrides", {})
         overrides = raw_overrides if isinstance(raw_overrides, Mapping) else {}
 
         for variables in context.room_variables.values():
             room_type = variables.room.room_type_key
-            if room_type in excluded:
+            if room_type in excluded_room_types:
                 continue
 
             min_ratio = default_min
