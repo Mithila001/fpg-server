@@ -40,7 +40,7 @@ class PreprocessingPolicy:
     room_size_strategy: RoomSizeSelectionStrategy = RoomSizeSelectionStrategy.MAJORITY
     size_normalization_exclusions: tuple[RoomType, ...] = (RoomType.HALLWAY,)
     excess_attached_bathrooms: ExcessAttachedBathroomPolicy = (
-        ExcessAttachedBathroomPolicy.REMOVE
+        ExcessAttachedBathroomPolicy.REJECT
     )
     optional_room_failures: OptionalRoomFailurePolicy = OptionalRoomFailurePolicy.REMOVE
     derive_living_room: bool = True

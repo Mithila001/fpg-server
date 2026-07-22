@@ -1,4 +1,5 @@
 from .aspect_ratio import AspectRatioConstraint
+from .attached_bathroom_pairing import AttachedBathroomPairingConstraint
 from .boundary_placement import BoundaryPlacementConstraint
 from .front_anchor import FrontAnchorConstraint
 from .garage_placement import GaragePlacementConstraint
@@ -10,6 +11,7 @@ from .room_size_hierarchy import RoomSizeHierarchyConstraint
 
 __all__ = [
     "AspectRatioConstraint",
+    "AttachedBathroomPairingConstraint",
     "BoundaryPlacementConstraint",
     "FrontAnchorConstraint",
     "GaragePlacementConstraint",

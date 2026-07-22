@@ -49,19 +49,29 @@ def apply_business_rules(
     decisions = list(request.room_decisions)
     defaults = list(request.applied_defaults)
     bedrooms = [r for r in request.rooms if r.room_type is RoomType.BEDROOM]
+    attached_bathrooms = [
+        room
+        for room in request.rooms
+        if room.room_type is RoomType.ATTACHED_BATHROOM
+    ]
+
+    if (
+        len(attached_bathrooms) > len(bedrooms)
+        and policy.excess_attached_bathrooms
+        is ExcessAttachedBathroomPolicy.REJECT
+    ):
+        raise BusinessRuleError(
+            f"Requested {len(attached_bathrooms)} attached bathroom(s), "
+            f"but only {len(bedrooms)} bedroom(s) were provided. "
+            "Each attached bathroom requires a unique bedroom."
+        )
+
     attached_seen = 0
     sanitized: list[NormalizedRoom] = []
     for room in request.rooms:
         if room.room_type is RoomType.ATTACHED_BATHROOM:
             attached_seen += 1
             if attached_seen > len(bedrooms):
-                if (
-                    policy.excess_attached_bathrooms
-                    is ExcessAttachedBathroomPolicy.REJECT
-                ):
-                    raise BusinessRuleError(
-                        "Attached bathroom count cannot exceed bedroom count"
-                    )
                 decisions.append(
                     RoomDecision(
                         room.id,

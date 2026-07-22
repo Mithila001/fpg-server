@@ -4,7 +4,7 @@ import math
 
 from app.algorithms.types_new import FloorPlanGenerationSpec, RoomType
 
-from .config import PreprocessingPolicy
+from .config import ExcessAttachedBathroomPolicy, PreprocessingPolicy
 from .context import NormalizedRequest, PreparedReferenceData, PreprocessingContext
 from .contracts import (
     FloorLimits,
@@ -36,6 +36,32 @@ def _finite_number(value: object, field: str, *, positive: bool = False) -> floa
         suffix = " and greater than zero" if positive else ""
         raise InputValidationError(f"{field} must be finite{suffix}")
     return number
+
+
+def _validate_attached_bathroom_count(
+    request: PreprocessingRequest,
+    policy: PreprocessingPolicy,
+) -> None:
+    if (
+        policy.excess_attached_bathrooms
+        is not ExcessAttachedBathroomPolicy.REJECT
+    ):
+        return
+
+    bedroom_count = sum(
+        room.room_type is RoomType.BEDROOM for room in request.rooms
+    )
+    attached_bathroom_count = sum(
+        room.room_type is RoomType.ATTACHED_BATHROOM
+        for room in request.rooms
+    )
+
+    if attached_bathroom_count > bedroom_count:
+        raise InputValidationError(
+            f"Requested {attached_bathroom_count} attached bathroom(s), "
+            f"but only {bedroom_count} bedroom(s) were provided. "
+            "Each attached bathroom requires a unique bedroom."
+        )
 
 
 def validate_input(value: PreprocessingInput) -> None:
@@ -78,6 +104,7 @@ def validate_input(value: PreprocessingInput) -> None:
                 f"room_relations[{index}].required must be a boolean"
             )
     validate_policy(value.policy)
+    _validate_attached_bathroom_count(request, value.policy)
 
 
 def validate_policy(policy: PreprocessingPolicy) -> None:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .hard import (
     AspectRatioConstraint,
+    AttachedBathroomPairingConstraint,
     BoundaryPlacementConstraint,
     FrontAnchorConstraint,
     GaragePlacementConstraint,
@@ -26,6 +27,7 @@ def build_default_registry() -> ConstraintRegistry:
     registry = ConstraintRegistry()
 
     registry.register_hard(AspectRatioConstraint())
+    registry.register_hard(AttachedBathroomPairingConstraint())
     registry.register_hard(HardRoomRelationsConstraint())
     registry.register_hard(MinimumCoverageConstraint())
     registry.register_hard(HallwayConnectivityConstraint())
