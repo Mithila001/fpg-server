@@ -35,18 +35,15 @@ class PreprocessingPolicy:
     )
     min_aspect_ratio: float = 0.5
     max_aspect_ratio: float = 2.0
-    floor_area_buffer: float = 500.0
+    floor_area_buffer: float = 200.0
     default_room_size: str = "regular"
     room_size_strategy: RoomSizeSelectionStrategy = RoomSizeSelectionStrategy.MAJORITY
     size_normalization_exclusions: tuple[RoomType, ...] = (RoomType.HALLWAY,)
     excess_attached_bathrooms: ExcessAttachedBathroomPolicy = (
         ExcessAttachedBathroomPolicy.REMOVE
     )
-    optional_room_failures: OptionalRoomFailurePolicy = (
-        OptionalRoomFailurePolicy.REMOVE
-    )
+    optional_room_failures: OptionalRoomFailurePolicy = OptionalRoomFailurePolicy.REMOVE
     derive_living_room: bool = True
     hallway_count: int = 2
     hallway_min_width: float = 10.0
     hallway_min_height: float = 10.0
-
