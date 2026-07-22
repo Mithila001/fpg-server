@@ -34,10 +34,15 @@ def render_candidate_search_figure(
     axes.set_xticks(range(bounds.min_x, bounds.max_x + 1, payload.grid_resolution))
     axes.set_yticks(range(bounds.min_y, bounds.max_y + 1, payload.grid_resolution))
     axes.grid(linestyle="--", linewidth=0.5, color="#94a3b8", alpha=0.55, zorder=0)
-    axes.set_title(
-        f"Candidate Search Trial {payload.trial_number}",
-        fontsize=14, weight="bold", pad=16,
+    attempt_number = payload.metadata.get("attempt_number")
+    completed_trials = payload.metadata.get("completed_trials")
+    is_best_result = payload.metadata.get("result") == "best_candidate"
+    title = (
+        f"Candidate Search Best Result — Attempt {attempt_number}"
+        if is_best_result
+        else f"Candidate Search Trial {payload.trial_number}"
     )
+    axes.set_title(title, fontsize=14, weight="bold", pad=16)
 
     configured_trials = payload.trial_count if payload.trial_count is not None else "-"
     info = (
@@ -49,6 +54,8 @@ def render_candidate_search_figure(
         f"Grid : {payload.grid_resolution}\n"
         f"Configured Trials : {configured_trials}"
     )
+    if completed_trials is not None:
+        info += f"\nCompleted Trials : {completed_trials}"
     figure.text(
         0.02, 0.97, info, fontsize=10, va="top", family="monospace",
         bbox={"facecolor": "white", "edgecolor": "#64748b", "alpha": 0.92},

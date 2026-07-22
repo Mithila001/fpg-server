@@ -119,6 +119,46 @@ No module should redefine or reinterpret the coordinate orientation.
 
 ---
 
+# Generated Output Convention
+
+All newly generated visualization images, JSON artifacts, and application logs
+must be stored under the root-level `output/` directory. Set `OUTPUT_ROOT` to
+override this location; relative values are resolved from the running process.
+
+```text
+output/
+├── visualizations/
+│   ├── candidate_search/<timestamp>_<request-id>/
+│   └── floor_plan_general/<timestamp>_<request-id>/
+├── json/
+│   └── <feature>/<timestamp>_<debug-or-run-name>/
+└── logs/
+    └── <timestamp>_server-<process-id>/
+```
+
+Timestamps use UTC and the sortable `YYYYMMDDTHHMMSSffffffZ` format. For
+example, `20260722T061530123456Z` represents a UTC instant with microsecond
+precision.
+
+Runtime-created folders and files use these templates:
+
+```text
+Folder: <timestamp>_<descriptive-run-name>/
+File:   <timestamp>_<descriptive-name>_<short-unique-id>.<extension>
+```
+
+The root and the stable category/feature folders (`visualizations`, `json`,
+`logs`, and their feature names) are organizational exceptions and do not need
+timestamps. Timestamp requirements apply to runtime-created run folders and
+artifact files.
+
+Algorithms must return data without writing visualization artifacts or knowing
+about Matplotlib. Pipeline and explicit debug/manual orchestration code own
+visualization and artifact persistence. Production generation results remain
+API responses and are not automatically saved as JSON files.
+
+---
+
 # AI Coding Agent Instructions
 
 When implementing or modifying any geometry-related feature:
@@ -132,3 +172,4 @@ When implementing or modifying any geometry-related feature:
 - Do not introduce a different coordinate orientation.
 - If a feature references "front", "back", "left", or "right", interpret those directions according to this document.
 - If adding new geometry algorithms, constraints, visualization features, or API contracts, they must remain compatible with this coordinate system.
+- Send every new generated PNG, JSON artifact, and file log through the root `output/` convention above.

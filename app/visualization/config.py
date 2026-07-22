@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+
+from app.util.output_paths import get_output_root
 
 
 @dataclass(frozen=True, slots=True)
@@ -14,7 +16,9 @@ class RenderConfig:
     background_color: str = "#ffffff"
     transparent: bool = False
     bbox_inches: str = "tight"
-    output_root: Path = Path(__file__).resolve().parent / "output"
+    output_root: Path = field(
+        default_factory=lambda: get_output_root() / "visualizations"
+    )
 
     def __post_init__(self) -> None:
         if self.width_inches <= 0 or self.height_inches <= 0:

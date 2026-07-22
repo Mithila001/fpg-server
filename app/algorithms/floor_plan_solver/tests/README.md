@@ -32,7 +32,8 @@ Use a shorter manual per-stage time limit:
 python -m app.algorithms.floor_plan_solver.tests.debug --max-time-seconds 5
 ```
 
-Generated files are JSON only and are written to `tests/output/`:
+Generated files are JSON only and are written to a timestamped run beneath
+`output/json/floor_plan_solver/`:
 
 ```text
 initial_generation.json

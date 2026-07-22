@@ -12,6 +12,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response, StreamingResponse
 
+from app.util.logger import SystemLogger, configure_application_logging
+
+
+configure_application_logging()
+
 
 app = FastAPI(title="House Plan Generator API")
 
@@ -57,6 +62,18 @@ async def log_api_requests(request, call_next):
         # Detect streaming SSE responses by media_type or StreamingResponse
         media_type = getattr(response, "media_type", "")
         if media_type == "text/event-stream" or isinstance(response, StreamingResponse):
+            SystemLogger.log_event(
+                "api",
+                "request_completed",
+                "INFO",
+                {
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status_code": response.status_code,
+                    "duration_ms": (perf_counter() - start) * 1000,
+                    "streaming": True,
+                },
+            )
             return response
 
         response_body = b""
@@ -65,16 +82,40 @@ async def log_api_requests(request, call_next):
 
         response_headers = dict(response.headers)
         response_headers.pop("content-length", None)
-        return Response(
+        completed_response = Response(
             content=response_body,
             status_code=response.status_code,
             headers=response_headers,
             media_type=response.media_type,
             background=response.background,
         )
+        SystemLogger.log_event(
+            "api",
+            "request_completed",
+            "INFO",
+            {
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": response.status_code,
+                "duration_ms": (perf_counter() - start) * 1000,
+                "streaming": False,
+            },
+        )
+        return completed_response
     except Exception as exc:
         duration_ms = (perf_counter() - start) * 1000
-        print(f"duration: {duration_ms}, Exception: {exc}")
+        SystemLogger.log_event(
+            "api",
+            "request_failed",
+            "ERROR",
+            {
+                "method": request.method,
+                "path": request.url.path,
+                "duration_ms": duration_ms,
+                "error_type": type(exc).__name__,
+                "error": str(exc),
+            },
+        )
         raise
 
 

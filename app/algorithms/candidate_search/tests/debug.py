@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from time import perf_counter
+
+from app.util.output_paths import create_artifact_path, create_run_directory
 
 from ..models import CandidatePoint
 from ..optimizer import search_candidates
@@ -12,10 +13,6 @@ from .builders import (
     build_candidate_targets,
     build_recording_evaluator,
 )
-
-OUTPUT_DIRECTORY = Path(__file__).resolve().parent / "output"
-OUTPUT_FILE = OUTPUT_DIRECTORY / "candidate_search_debug.json"
-
 
 def main() -> None:
     evaluator = build_recording_evaluator()
@@ -64,8 +61,13 @@ def main() -> None:
         ],
     }
 
-    OUTPUT_DIRECTORY.mkdir(parents=True, exist_ok=True)
-    OUTPUT_FILE.write_text(
+    output_directory = create_run_directory(
+        "json", "candidate_search", "candidate-search-debug"
+    )
+    output_file = create_artifact_path(
+        output_directory, "candidate-search-debug", "json"
+    )
+    output_file.write_text(
         json.dumps(report, indent=2),
         encoding="utf-8",
     )
@@ -78,7 +80,7 @@ def main() -> None:
     for point in result.points:
         print(f"  {point.room_id}: ({point.x}, {point.y})")
 
-    print(f"Debug report: {OUTPUT_FILE}")
+    print(f"Debug report: {output_file}")
 
 
 def _point_payload(point: CandidatePoint) -> dict[str, object]:

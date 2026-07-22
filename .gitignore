@@ -81,3 +81,7 @@ postgres_data/*
 var/visualizations/
 .ruff_cache/
 .pytest_cache/
+
+# Centralized generated artifacts (retain only the directory placeholder)
+/output/*
+!/output/.gitignore

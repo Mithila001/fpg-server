@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from dataclasses import fields, is_dataclass
 from enum import Enum
-from pathlib import Path
 from time import perf_counter
 from typing import Any, Mapping
 
@@ -12,12 +11,9 @@ from app.algorithms.candidate_scoring import (
     create_default_registry,
     evaluate_candidate,
 )
+from app.util.output_paths import create_artifact_path, create_run_directory
 
 from .builders import build_scoring_input
-
-OUTPUT_DIR = Path(__file__).resolve().parent / "output"
-OUTPUT_FILE = OUTPUT_DIR / "candidate_scoring_debug.json"
-
 
 def _to_jsonable(value: Any) -> Any:
     if is_dataclass(value):
@@ -48,8 +44,13 @@ def main() -> None:
         "elapsed_ms": elapsed_ms,
         "result": _to_jsonable(result),
     }
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    OUTPUT_FILE.write_text(
+    output_directory = create_run_directory(
+        "json", "candidate_scoring", "candidate-scoring-debug"
+    )
+    output_file = create_artifact_path(
+        output_directory, "candidate-scoring-debug", "json"
+    )
+    output_file.write_text(
         json.dumps(report, indent=2, sort_keys=True),
         encoding="utf-8",
     )
@@ -58,7 +59,7 @@ def main() -> None:
     print(f"Passed critical checks: {result.passed_critical_checks}")
     print(f"Evaluator count: {len(result.evaluator_results)}")
     print(f"Elapsed: {elapsed_ms:.3f} ms")
-    print(f"Report written to: {OUTPUT_FILE}")
+    print(f"Report written to: {output_file}")
 
 
 if __name__ == "__main__":

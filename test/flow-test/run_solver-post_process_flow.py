@@ -74,6 +74,7 @@ from app.visualization.api import (
     FloorPlanVisualizationStage,
     render_floor_plan_general,
 )
+from app.util.output_paths import create_artifact_path, create_run_directory
 
 UNITS_PER_METER = 10
 UNIT_SIZE_CENTIMETERS = 10
@@ -81,8 +82,6 @@ RANDOM_SEED = random.randrange(1_000_000)
 INITIAL_MAX_TIME_SECONDS = 8.0
 REFINEMENT_MAX_TIME_SECONDS = 5.0
 EPSILON = 1e-7
-OUTPUT_DIR = Path(__file__).resolve().parent / "output" / "solver_post_process"
-OUTPUT_FILENAME = "solver_post_process_flow.json"
 REQUEST_ID = "solver-post-process-flow"
 
 
@@ -872,8 +871,12 @@ def save_flow_output(
 ) -> Path:
     """Save the complete flow and both named visualization-stage arrays."""
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    output_path = OUTPUT_DIR / OUTPUT_FILENAME
+    output_directory = create_run_directory(
+        "json", "solver_post_process", REQUEST_ID
+    )
+    output_path = create_artifact_path(
+        output_directory, "solver-post-process-flow", "json"
+    )
 
     # The post-processing pipeline mutates request.floor_plan in place. Use the
     # preserved input snapshot here so the JSON accurately shows both sides of

@@ -16,7 +16,7 @@ app/visualization/
 ├── matplotlib_backend/            headless figure lifecycle only
 ├── features/candidate_search/     models and complete drawing behavior
 ├── playground/candidate_search/   realistic manual runner and JSON data
-└── output/                         ignored generated PNG artifacts
+└── playground/                    development-only manual runners
 ```
 
 The dependency direction is application code → `api.py` → feature renderer → Matplotlib/backend. Separately, `api.py` delegates persistence to `output_manager.py` → PNG. The backend never imports features; features do not import one another; the output manager contains no drawing; algorithms do not accept Matplotlib objects; and production code never imports playground modules.
@@ -43,11 +43,12 @@ The root package intentionally re-exports this function and its three input mode
 The API creates sortable, collision-resistant PNG names beneath the managed root:
 
 ```text
-output/candidate_search/<optional-run-id>/
-  20260719-214530-123456_trial-17_a1b2c3d4.png
+output/visualizations/candidate_search/
+  20260719T214530123456Z_request-id/
+    20260719T214531123456Z_attempt-1-best-candidate_a1b2c3d4.png
 ```
 
-All path components are sanitized. The output manager creates directories, saves the PNG, and closes the figure even if saving fails. Feature renderers never choose paths or call `savefig()` in the official flow.
+All path components are sanitized. Runtime folders and files use sortable UTC timestamps. The output manager creates directories, saves the PNG, and closes the figure even if saving fails. Feature renderers never choose paths or call `savefig()` in the official flow. Set `OUTPUT_ROOT` to override the project-level output root.
 
 Project coordinates use integer units where **10 units = 1 metre**.
 

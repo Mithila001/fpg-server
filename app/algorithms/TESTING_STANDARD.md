@@ -27,8 +27,7 @@ tests/
 ├── conftest.py
 ├── debug.py
 ├── test_input_output.py
-├── data/
-└── output/
+└── data/
 ```
 
 Additional files and helper modules may be added when required, but these should complement the standard rather than replace it.
@@ -169,11 +168,12 @@ Contain generated files.
 
 ---
 
-## output/
+## Root output directory
 
 ### Purpose
 
-Store generated artifacts created while debugging.
+Store generated artifacts created while debugging beneath the project-level
+`output/` hierarchy, not inside an algorithm's `tests/` package.
 
 Typical contents:
 
@@ -190,7 +190,7 @@ This directory is intended for generated output only.
 
 It should not contain source test data.
 
-The directory should normally be excluded from version control.
+Generated contents are excluded from version control.
 
 ---
 
@@ -232,10 +232,10 @@ Prefer meaningful sample datasets over artificially minimal examples whenever pr
 
 # Debug Output Guidelines
 
-All generated artifacts should be written to:
+All generated artifacts should use the appropriate root category:
 
 ```text
-tests/output/
+output/<json|visualizations|logs>/<feature>/<timestamp>_<debug-run>/
 ```
 
 Examples include:
@@ -260,7 +260,6 @@ conftest.py
 debug.py
 test_input_output.py
 data/
-output/
 ```
 
 Maintaining consistent naming allows developers to immediately understand the testing layout of any feature without learning feature-specific conventions.
@@ -299,7 +298,8 @@ When writing tests for algorithm modules:
 - Prefer reusable builders over duplicated setup.
 - Keep debugging separate from automated testing.
 - Store reusable test data in `tests/data/`.
-- Store generated artifacts in `tests/output/`.
+- Store generated artifacts beneath the root `output/` hierarchy using the
+  shared timestamped path utility.
 - Keep test code easy to read.
 - Avoid unnecessary complexity.
 - Favor consistency across the project over feature-specific variations.

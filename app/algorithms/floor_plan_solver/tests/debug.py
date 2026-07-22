@@ -16,6 +16,7 @@ from app.algorithms.floor_plan_solver import (
     REFINEMENT_A_PROFILE,
     REFINEMENT_B_PROFILE,
 )
+from app.util.output_paths import create_artifact_path, create_run_directory
 
 from .builders import (
     UNIT_SIZE_CENTIMETERS,
@@ -23,9 +24,6 @@ from .builders import (
     build_realistic_candidate_hints,
     build_realistic_generation_spec,
 )
-
-OUTPUT_DIR = Path(__file__).resolve().parent / "output"
-
 
 def _jsonable(value: Any) -> Any:
     if is_dataclass(value):
@@ -60,12 +58,14 @@ def _runtime_profile(
 
 
 def _write_stage_output(
-    filename: str,
+    output_directory: Path,
+    descriptive_name: str,
     request: FloorPlanSolveRequest,
     result: FloorPlanSolveResult,
 ) -> Path:
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    output_path = OUTPUT_DIR / filename
+    output_path = create_artifact_path(
+        output_directory, descriptive_name, "json"
+    )
     payload = {
         "measurement": {
             "units_per_meter": UNITS_PER_METER,
@@ -93,6 +93,9 @@ def _print_result(result: FloorPlanSolveResult, output_path: Path) -> None:
 
 
 def run_debug_pipeline(max_time_seconds: float | None = None) -> int:
+    output_directory = create_run_directory(
+        "json", "floor_plan_solver", "floor-plan-solver-debug"
+    )
     solver = FloorPlanSolver()
     specification = build_realistic_generation_spec()
     hints = build_realistic_candidate_hints()
@@ -108,7 +111,8 @@ def run_debug_pipeline(max_time_seconds: float | None = None) -> int:
     )
     initial_result = solver.solve(initial_request)
     initial_path = _write_stage_output(
-        "initial_generation.json",
+        output_directory,
+        "initial-generation",
         initial_request,
         initial_result,
     )
@@ -127,7 +131,8 @@ def run_debug_pipeline(max_time_seconds: float | None = None) -> int:
     )
     refinement_a_result = solver.solve(refinement_a_request)
     refinement_a_path = _write_stage_output(
-        "refinement_a.json",
+        output_directory,
+        "refinement-a",
         refinement_a_request,
         refinement_a_result,
     )
@@ -146,7 +151,8 @@ def run_debug_pipeline(max_time_seconds: float | None = None) -> int:
     )
     refinement_b_result = solver.solve(refinement_b_request)
     refinement_b_path = _write_stage_output(
-        "refinement_b.json",
+        output_directory,
+        "refinement-b",
         refinement_b_request,
         refinement_b_result,
     )

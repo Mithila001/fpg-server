@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from app.algorithms.types_new import FloorPlan, FloorPlanGenerationSpec
@@ -25,8 +23,3 @@ def realistic_case(
     realistic_specification: FloorPlanGenerationSpec,
 ) -> tuple[FloorPlan, FloorPlanGenerationSpec]:
     return realistic_floor_plan, realistic_specification
-
-
-@pytest.fixture
-def debug_output_dir() -> Path:
-    return Path(__file__).resolve().parent / "output"

@@ -55,6 +55,7 @@ from app.visualization.features.floor_plan_solver.models import (
     FloorPlanSolverStatus,
     FloorPlanSolverVisualization,
 )
+from app.util.output_paths import create_artifact_path, create_run_directory
 
 UNITS_PER_METER = 10
 UNIT_SIZE_CENTIMETERS = 10
@@ -62,9 +63,6 @@ RANDOM_SEED = 42
 INITIAL_MAX_TIME_SECONDS = 8.0
 REFINEMENT_MAX_TIME_SECONDS = 5.0
 EPSILON = 1e-7
-OUTPUT_DIR = Path(__file__).resolve().parent / "output"
-
-
 def room(
     room_id: str,
     room_type: RoomType,
@@ -506,14 +504,16 @@ def jsonable(value: Any) -> Any:
 
 
 def save_stage_output(
-    filename: str,
+    output_directory: Path,
+    descriptive_name: str,
     request: FloorPlanSolveRequest,
     result: FloorPlanSolveResult,
 ) -> Path:
     """Save one complete request/result pair for debugging."""
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    output_path = OUTPUT_DIR / filename
+    output_path = create_artifact_path(
+        output_directory, descriptive_name, "json"
+    )
     payload = {
         "measurement": {
             "units_per_meter": UNITS_PER_METER,
@@ -570,6 +570,9 @@ def print_stage_result(
 
 
 def main() -> None:
+    output_directory = create_run_directory(
+        "json", "floor_plan_solver", "manual-floor-plan-solver"
+    )
     specification = build_mock_specification()
     candidate_hints = build_mock_candidate_hints()
 
@@ -617,7 +620,8 @@ def main() -> None:
     )
     assert "seed_stability" not in (initial_result.diagnostics.applied_soft_constraints)
     initial_output = save_stage_output(
-        "initial_generation.json",
+        output_directory,
+        "initial-generation",
         initial_request,
         initial_result,
     )
@@ -652,7 +656,8 @@ def main() -> None:
         refinement_a_profile,
     )
     refinement_a_output = save_stage_output(
-        "refinement_a.json",
+        output_directory,
+        "refinement-a",
         refinement_a_request,
         refinement_a_result,
     )
@@ -686,7 +691,8 @@ def main() -> None:
         refinement_b_profile,
     )
     refinement_b_output = save_stage_output(
-        "refinement_b.json",
+        output_directory,
+        "refinement-b",
         refinement_b_request,
         refinement_b_result,
     )

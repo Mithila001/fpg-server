@@ -56,6 +56,7 @@ class GenerationPipelineSettings:
     candidate_random_seed: int | None = None
     solver_max_attempts: int = 3
     target_floor_plan_score: float | None = None
+    render_candidate_search: bool = True
     render_solver_attempts: bool = True
     require_final_critical_pass: bool = True
 

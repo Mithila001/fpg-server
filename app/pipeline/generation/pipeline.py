@@ -21,6 +21,7 @@ from app.algorithms.candidate_scoring import (
     create_default_registry as create_candidate_scoring_registry,
 )
 from app.algorithms.candidate_search import (
+    CandidateSearchResult,
     CandidateSearchInput,
     CandidateSearchSettings,
     CandidateSearchTarget,
@@ -60,11 +61,17 @@ from app.algorithms.floor_plan_solver import (
     generate_floor_plan,
 )
 from app.algorithms.types_new import FloorPlan
+from app.util.logger import SystemLogger
 from app.visualization.api import (
+    CandidatePoint as VisualizationCandidatePoint,
+    CandidateSearchVisualization,
     FloorPlanFlowVisualization,
     FloorPlanVisualizationStage,
+    SearchBounds,
+    render_candidate_search,
     render_floor_plan_general,
 )
+from app.util.output_paths import utc_timestamp
 
 from .context import (
     GenerationPipelineError,
@@ -88,6 +95,20 @@ _REFINEMENT_FLOOR_PLAN_ARGUMENTS = (
     "input_floor_plan",
     "base_floor_plan",
 )
+
+
+def _log_generation(
+    request_id: str,
+    event: str,
+    level: str = "INFO",
+    data: dict[str, object] | None = None,
+) -> None:
+    SystemLogger.log_event(
+        "generation_pipeline",
+        event,
+        level,
+        {"request_id": request_id, **(data or {})},
+    )
 
 
 @dataclass(slots=True)
@@ -118,37 +139,71 @@ def _run_stage(
 ) -> T:
     started = perf_counter()
     stage_label = label or stage.value
-    print(f"[generation:{request_id}] {stage_label} started")
+    _log_generation(
+        request_id,
+        "stage_started",
+        data={"stage": stage.value, "label": stage_label},
+    )
     try:
         result = operation()
     except GenerationPipelineError as exc:
         duration_ms = (perf_counter() - started) * 1000
-        print(
-            f"[generation:{request_id}] {stage_label} failed "
-            f"code={exc.code} duration_ms={duration_ms:.1f}: {exc.message}"
+        _log_generation(
+            request_id,
+            "stage_failed",
+            "ERROR",
+            {
+                "stage": stage.value,
+                "label": stage_label,
+                "code": exc.code,
+                "duration_ms": duration_ms,
+                "message": exc.message,
+            },
         )
         raise
     except expected_errors as exc:
         duration_ms = (perf_counter() - started) * 1000
         error = GenerationPipelineError(stage, _error_code(exc), str(exc))
-        print(
-            f"[generation:{request_id}] {stage_label} failed "
-            f"code={error.code} duration_ms={duration_ms:.1f}: {error.message}"
+        _log_generation(
+            request_id,
+            "stage_failed",
+            "ERROR",
+            {
+                "stage": stage.value,
+                "label": stage_label,
+                "code": error.code,
+                "duration_ms": duration_ms,
+                "message": error.message,
+            },
         )
         raise error from exc
     except Exception as exc:
         duration_ms = (perf_counter() - started) * 1000
-        print(
-            f"[generation:{request_id}] {stage_label} failed "
-            f"code=unexpected_error duration_ms={duration_ms:.1f}: {exc}"
+        _log_generation(
+            request_id,
+            "stage_failed",
+            "ERROR",
+            {
+                "stage": stage.value,
+                "label": stage_label,
+                "code": "unexpected_error",
+                "duration_ms": duration_ms,
+                "error_type": type(exc).__name__,
+                "message": str(exc),
+            },
         )
         raise
 
     duration_ms = (perf_counter() - started) * 1000
-    suffix = f" {summary(result)}" if summary is not None else ""
-    print(
-        f"[generation:{request_id}] {stage_label} completed "
-        f"duration_ms={duration_ms:.1f}{suffix}"
+    _log_generation(
+        request_id,
+        "stage_completed",
+        data={
+            "stage": stage.value,
+            "label": stage_label,
+            "duration_ms": duration_ms,
+            "summary": summary(result) if summary is not None else None,
+        },
     )
     return result
 
@@ -285,6 +340,7 @@ def _render_solver_attempt(
     request_id: str,
     attempt: _SuccessfulSolverAttempt,
     last_refinement_profile_name: str,
+    run_timestamp: str,
 ) -> None:
     payload = FloorPlanFlowVisualization(
         stages=(
@@ -314,7 +370,49 @@ def _render_solver_attempt(
     render_floor_plan_general(
         payload,
         run_id=request_id,
+        run_timestamp=run_timestamp,
         output_prefix=f"solver-attempt-{attempt.attempt_number}",
+    )
+
+
+def _render_candidate_search_result(
+    *,
+    request_id: str,
+    attempt_number: int,
+    result: CandidateSearchResult,
+    settings: CandidateSearchSettings,
+    run_timestamp: str,
+) -> None:
+    payload = CandidateSearchVisualization(
+        trial_number=attempt_number,
+        score=result.score,
+        points=tuple(
+            VisualizationCandidatePoint(
+                room_id=str(point.room_id),
+                x=int(point.x),
+                y=int(point.y),
+            )
+            for point in result.points
+        ),
+        bounds=SearchBounds(
+            min_x=int(settings.min_x),
+            max_x=int(settings.max_x),
+            min_y=int(settings.min_y),
+            max_y=int(settings.max_y),
+        ),
+        grid_resolution=max(1, int(settings.grid_resolution)),
+        trial_count=settings.trial_count,
+        metadata={
+            "attempt_number": attempt_number,
+            "completed_trials": result.completed_trials,
+            "result": "best_candidate",
+        },
+    )
+    render_candidate_search(
+        payload,
+        run_id=request_id,
+        run_timestamp=run_timestamp,
+        output_name=f"attempt-{attempt_number}-best-candidate",
     )
 
 
@@ -324,6 +422,8 @@ def run_generation_pipeline(
     settings: GenerationPipelineSettings = GenerationPipelineSettings(),
 ) -> GenerationPipelineResult:
     """Run the modular generation features with bounded retry orchestration."""
+
+    output_run_timestamp = utc_timestamp()
 
     def preprocess():
         preprocessing_input = PreprocessingInput(
@@ -375,13 +475,29 @@ def run_generation_pipeline(
 
     for attempt_number in range(1, settings.solver_max_attempts + 1):
         attempt_label = f"attempt-{attempt_number}"
-        print(
-            f"[generation:{request.request_id}] {attempt_label} started "
-            f"max_attempts={settings.solver_max_attempts}"
+        _log_generation(
+            request.request_id,
+            "attempt_started",
+            data={
+                "attempt_number": attempt_number,
+                "max_attempts": settings.solver_max_attempts,
+            },
         )
 
         try:
             if settings.candidate_search_enabled:
+                candidate_search_settings = CandidateSearchSettings(
+                    min_x=0.0,
+                    max_x=specification.floor.width,
+                    min_y=0.0,
+                    max_y=specification.floor.length,
+                    grid_resolution=settings.candidate_grid_resolution,
+                    trial_count=settings.candidate_trial_count,
+                    random_seed=_candidate_seed(
+                        settings.candidate_random_seed,
+                        attempt_number,
+                    ),
+                )
                 search_result = _run_stage(
                     request.request_id,
                     GenerationStage.CANDIDATE_SEARCH,
@@ -391,18 +507,7 @@ def run_generation_pipeline(
                                 CandidateSearchTarget(room.id)
                                 for room in specification.rooms
                             ),
-                            settings=CandidateSearchSettings(
-                                min_x=0.0,
-                                max_x=specification.floor.width,
-                                min_y=0.0,
-                                max_y=specification.floor.length,
-                                grid_resolution=settings.candidate_grid_resolution,
-                                trial_count=settings.candidate_trial_count,
-                                random_seed=_candidate_seed(
-                                    settings.candidate_random_seed,
-                                    attempt_number,
-                                ),
-                            ),
+                            settings=candidate_search_settings,
                             evaluator=score_candidate,
                         )
                     ),
@@ -416,6 +521,32 @@ def run_generation_pipeline(
                     RoomPlacementHint(point.room_id, point.x, point.y)
                     for point in search_result.points
                 )
+                if settings.render_candidate_search:
+                    try:
+                        _run_stage(
+                            request.request_id,
+                            GenerationStage.VISUALIZATION,
+                            lambda: _render_candidate_search_result(
+                                request_id=request.request_id,
+                                attempt_number=attempt_number,
+                                result=search_result,
+                                settings=candidate_search_settings,
+                                run_timestamp=output_run_timestamp,
+                            ),
+                            label=f"{attempt_label}.candidate_visualization",
+                        )
+                    except Exception as exc:
+                        _log_generation(
+                            request.request_id,
+                            "visualization_skipped",
+                            "WARNING",
+                            {
+                                "attempt_number": attempt_number,
+                                "visualization": "candidate_search",
+                                "error_type": type(exc).__name__,
+                                "message": str(exc),
+                            },
+                        )
             else:
                 candidate_hints = _default_candidate_hints(specification)
 
@@ -565,29 +696,46 @@ def run_generation_pipeline(
                             last_refinement_profile_name=(
                                 last_refinement_profile_name
                             ),
+                            run_timestamp=output_run_timestamp,
                         ),
                         label=f"{attempt_label}.visualization",
                     )
                 except Exception as exc:
-                    print(
-                        f"[generation:{request.request_id}] "
-                        f"{attempt_label}.visualization skipped: {exc}"
+                    _log_generation(
+                        request.request_id,
+                        "visualization_skipped",
+                        "WARNING",
+                        {
+                            "attempt_number": attempt_number,
+                            "visualization": "floor_plan_general",
+                            "error_type": type(exc).__name__,
+                            "message": str(exc),
+                        },
                     )
 
             if _is_better_attempt(successful_attempt, best_attempt):
                 best_attempt = successful_attempt
-                print(
-                    f"[generation:{request.request_id}] {attempt_label} "
-                    f"saved_as_best score={attempt_scoring.total_score:.2f}"
+                _log_generation(
+                    request.request_id,
+                    "attempt_saved_as_best",
+                    data={
+                        "attempt_number": attempt_number,
+                        "score": attempt_scoring.total_score,
+                    },
                 )
 
             if _target_reached(
                 attempt_scoring,
                 settings.target_floor_plan_score,
             ):
-                print(
-                    f"[generation:{request.request_id}] target score reached "
-                    f"on {attempt_label}; stopping solver loop"
+                _log_generation(
+                    request.request_id,
+                    "target_score_reached",
+                    data={
+                        "attempt_number": attempt_number,
+                        "score": attempt_scoring.total_score,
+                        "target_score": settings.target_floor_plan_score,
+                    },
                 )
                 break
 
@@ -601,9 +749,17 @@ def run_generation_pipeline(
                     "details": dict(exc.details),
                 }
             )
-            print(
-                f"[generation:{request.request_id}] {attempt_label} failed; "
-                "continuing when attempts remain"
+            _log_generation(
+                request.request_id,
+                "attempt_failed",
+                "WARNING",
+                {
+                    "attempt_number": attempt_number,
+                    "stage": exc.stage.value,
+                    "code": exc.code,
+                    "message": exc.message,
+                    "will_retry": attempt_number < settings.solver_max_attempts,
+                },
             )
             continue
 

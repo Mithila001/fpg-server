@@ -32,6 +32,7 @@ def render_candidate_search(
     payload: CandidateSearchVisualization,
     *,
     run_id: str | None = None,
+    run_timestamp: str | None = None,
     output_name: str | None = None,
     output_root: str | Path | None = None,
     config: RenderConfig | None = None,
@@ -46,6 +47,7 @@ def render_candidate_search(
         figure,
         feature="candidate_search",
         run_id=run_id,
+        run_timestamp=run_timestamp,
         name=output_name or f"trial-{payload.trial_number}",
         config=render_config,
     )
@@ -55,6 +57,7 @@ def render_floor_plan_solver(
     payload: FloorPlanSolverVisualization,
     *,
     run_id: str | None = None,
+    run_timestamp: str | None = None,
     output_name: str | None = None,
     output_root: str | Path | None = None,
     config: RenderConfig | None = None,
@@ -69,6 +72,7 @@ def render_floor_plan_solver(
         figure,
         feature="floor_plan_solver",
         run_id=run_id,
+        run_timestamp=run_timestamp,
         name=output_name or f"{payload.profile_name}-{payload.status.value}",
         config=render_config,
     )
@@ -78,6 +82,7 @@ def render_floor_plan_general(
     payload: FloorPlanFlowVisualization,
     *,
     run_id: str | None = None,
+    run_timestamp: str | None = None,
     output_prefix: str = "floor_plan_general",
     output_root: str | Path | None = None,
     config: RenderConfig | None = None,
@@ -92,6 +97,7 @@ def render_floor_plan_general(
         figure,
         feature="floor_plan_general",
         run_id=run_id,
+        run_timestamp=run_timestamp,
         filename_prefix=output_prefix,
         config=render_config,
     )
