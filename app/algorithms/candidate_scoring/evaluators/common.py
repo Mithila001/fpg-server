@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence, TypeVar, cast
 
 from app.algorithms.types_new import RoomType
 
 from ..context import ScoringContext
 from ..exceptions import ScoringInputError
+
+MappingKey = TypeVar("MappingKey")
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,12 +63,12 @@ def setting_int(settings: Mapping[str, Any], key: str, default: int) -> int:
 
 
 def setting_mapping(
-    settings: Mapping[str, Any], key: str, default: Mapping[str, Any]
-) -> Mapping[str, Any]:
+    settings: Mapping[str, Any], key: str, default: Mapping[MappingKey, Any]
+) -> Mapping[MappingKey, Any]:
     value = settings.get(key, default)
     if not isinstance(value, Mapping):
         raise ValueError(f"Setting '{key}' must be a mapping.")
-    return value
+    return cast(Mapping[MappingKey, Any], value)
 
 
 def require_room_type(value: Any, label: str) -> RoomType:
@@ -114,7 +116,7 @@ def _extract_floor_size(specification: Any) -> tuple[float, float]:
 
 def _extract_room_metadata(specification: Any) -> dict[str, tuple[RoomType, str]]:
     rooms = _get(specification, "rooms") or ()
-    metadata: dict[str, tuple[str, str]] = {}
+    metadata: dict[str, tuple[RoomType, str]] = {}
     for index, room in enumerate(_iterable(rooms)):
         room_id = str(_first_not_none(_get(room, "id"), _get(room, "name"), index))
         name = str(_first_not_none(_get(room, "name"), room_id))

@@ -15,15 +15,17 @@ ConstraintSettings = Mapping[str, Any]
 
 def require_room_types(values: Iterable[object], label: str) -> tuple[RoomType, ...]:
     try:
-        room_types = tuple(values)
+        raw_values = tuple(values)
     except TypeError as exc:
         raise InvalidProfileError(f"{label} must be an iterable of RoomType members") from exc
-    for value in room_types:
+    room_types: list[RoomType] = []
+    for value in raw_values:
         if not isinstance(value, RoomType):
             raise InvalidProfileError(
                 f"{label} must contain only RoomType enum members"
             )
-    return room_types
+        room_types.append(value)
+    return tuple(room_types)
 
 
 def require_room_type_keys(values: Mapping[object, Any], label: str) -> None:
