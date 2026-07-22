@@ -5,7 +5,7 @@ from typing import Any
 from fastapi import APIRouter
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.algorithms.types_new import RoomType
 from app.pipeline.generation import GenerationPipelineError
@@ -19,8 +19,10 @@ router = APIRouter(tags=["generation"])
 
 
 class FloorLimitsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     max_width: float = Field(gt=0)
-    max_height: float = Field(gt=0)
+    max_length: float = Field(gt=0)
 
 
 class GenerationRoomRequest(BaseModel):
@@ -59,7 +61,7 @@ def generate(body: GenerationRequest):
         result = execute_generation(
             GenerationServiceRequest(
                 max_width=body.floor_limits.max_width,
-                max_height=body.floor_limits.max_height,
+                max_length=body.floor_limits.max_length,
                 aspect_ratio=body.aspect_ratio,
                 rooms=tuple(
                     GenerationServiceRoom(

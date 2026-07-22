@@ -27,12 +27,12 @@ class RectangleBounds:
         return self.max_x - self.min_x
 
     @property
-    def height(self) -> float:
+    def length(self) -> float:
         return self.max_y - self.min_y
 
     @property
     def area(self) -> float:
-        return self.width * self.height
+        return self.width * self.length
 
     @property
     def center_y(self) -> float:
@@ -96,7 +96,7 @@ def assert_floor_plan_contract(
     assert _approximately_equal(floor_bounds.min_x, 0)
     assert _approximately_equal(floor_bounds.min_y, 0)
     assert _approximately_equal(floor_bounds.width, specification.floor.width)
-    assert _approximately_equal(floor_bounds.height, specification.floor.height)
+    assert _approximately_equal(floor_bounds.length, specification.floor.length)
 
     expected_required_ids = {
         str(room.id) for room in specification.rooms if room.required
@@ -128,14 +128,14 @@ def assert_room_size_contract(
         spec = specs_by_id[str(room.id)]
         bounds = rectangle_bounds(room.boundary)
         assert spec.size.min_width - EPSILON <= bounds.width <= spec.size.max_width + EPSILON
-        assert spec.size.min_height - EPSILON <= bounds.height <= spec.size.max_height + EPSILON
+        assert spec.size.min_length - EPSILON <= bounds.length <= spec.size.max_length + EPSILON
         assert spec.size.min_area - EPSILON <= bounds.area <= spec.size.max_area + EPSILON
 
 
 def overlap_area(first: RectangleBounds, second: RectangleBounds) -> float:
     width = max(0.0, min(first.max_x, second.max_x) - max(first.min_x, second.min_x))
-    height = max(0.0, min(first.max_y, second.max_y) - max(first.min_y, second.min_y))
-    return width * height
+    length = max(0.0, min(first.max_y, second.max_y) - max(first.min_y, second.min_y))
+    return width * length
 
 
 def assert_rooms_do_not_overlap(floor_plan: FloorPlan) -> None:
@@ -213,7 +213,7 @@ def assert_minimum_coverage(
     occupied_area = sum(
         rectangle_bounds(room.boundary).area for room in floor_plan.rooms
     )
-    floor_area = specification.floor.width * specification.floor.height
+    floor_area = specification.floor.width * specification.floor.length
     assert occupied_area / floor_area >= minimum_ratio - EPSILON
 
 
@@ -302,4 +302,4 @@ def assert_refinement_stays_within_seed_policy(
             assert abs(new.min_y - old.min_y) <= position_tolerance + EPSILON
         if size_tolerance is not None:
             assert abs(new.width - old.width) <= size_tolerance + EPSILON
-            assert abs(new.height - old.height) <= size_tolerance + EPSILON
+            assert abs(new.length - old.length) <= size_tolerance + EPSILON

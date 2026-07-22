@@ -26,7 +26,7 @@ class FPBoundaryFinder:
         polygon_coordinates: list,
         TA_line: tuple,
         min_width: float = 80,
-        min_height: float = 80,
+        min_length: float = 80,
     ):
         """
         Finds the largest valid buildable rectangles inside the given polygon.
@@ -36,18 +36,18 @@ class FPBoundaryFinder:
             TA_line: Orientation line segment ((x1, y1), (x2, y2)) or
                      (x1, y1, x2, y2).
             min_width:  Minimum acceptable rectangle width.
-            min_height: Minimum acceptable rectangle height.
+            min_length: Minimum acceptable rectangle length.
 
         Returns:
             List of 4 (x, y) points for the largest candidate rectangle.
         """
-        return self._run(polygon_coordinates, TA_line, min_width, min_height)
+        return self._run(polygon_coordinates, TA_line, min_width, min_length)
 
     # ------------------------------------------------------------------ #
     #  Private Pipeline Steps                                              #
     # ------------------------------------------------------------------ #
 
-    def _run(self, polygon_coordinates, TA_line, min_width, min_height):
+    def _run(self, polygon_coordinates, TA_line, min_width, min_length):
         TA_line = self._normalize_ta_line(TA_line)
 
         zeroed_polygon, TA_zeroed = self._translate_and_reorder_polygon(
@@ -61,12 +61,12 @@ class FPBoundaryFinder:
         )
 
         largest_rect_parallel = self._sweep_for_best_rectangle(
-            positive_polygon, min_width, min_height
+            positive_polygon, min_width, min_length
         )
 
         flipped = PolygonGeomUtils._flip_xy_coordinates(positive_polygon)
         largest_rect_perp_raw = self._sweep_for_best_rectangle(
-            flipped, min_width, min_height
+            flipped, min_width, min_length
         )
         largest_rect_perpendicular = PolygonGeomUtils._flip_xy_coordinates(
             largest_rect_perp_raw
@@ -121,8 +121,8 @@ class FPBoundaryFinder:
         xs = [p[0] for p in rectangle]
         ys = [p[1] for p in rectangle]
         width = max(xs) - min(xs)
-        height = max(ys) - min(ys)
-        return max(width, 0.0) * max(height, 0.0)
+        length = max(ys) - min(ys)
+        return max(width, 0.0) * max(length, 0.0)
 
     def _translate_and_reorder_polygon(self, polygon_coordinates, TA):
         point_A = TA[0]
@@ -241,12 +241,12 @@ class FPBoundaryFinder:
 
         return cross_sections_data
 
-    def _find_max_area_rectangle(self, cross_sections_data, min_height, min_width):
+    def _find_max_area_rectangle(self, cross_sections_data, min_length, min_width):
         max_area = 0.0
         best_result = {
             "max_area": 0.0,
             "width": 0.0,
-            "height": 0.0,
+            "length": 0.0,
             "y_bottom_index": -1,
             "y_top_index": -1,
         }
@@ -269,18 +269,18 @@ class FPBoundaryFinder:
                     min_x_right = top_line_data["x_right"]
 
                 local_width = min_x_right - max_x_left
-                local_height = y_top - y_bottom
+                local_length = y_top - y_bottom
 
-                if local_height < min_height:
+                if local_length < min_length:
                     continue
 
-                area = local_width * local_height
+                area = local_width * local_length
 
                 if area > max_area:
                     max_area = area
                     best_result["max_area"] = area
                     best_result["width"] = local_width
-                    best_result["height"] = local_height
+                    best_result["length"] = local_length
                     best_result["y_bottom_index"] = i
                     best_result["y_top_index"] = j
 
@@ -316,7 +316,7 @@ class FPBoundaryFinder:
             (max_x_left, y_top),
         ]
 
-    def _sweep_for_best_rectangle(self, polygon, min_width, min_height):
+    def _sweep_for_best_rectangle(self, polygon, min_width, min_length):
         left_chain, right_chain, y_min, y_max = self._split_polygon_chains(polygon)
         cross_section_data = self._sweep_line_width_profile(
             left_chain, right_chain, min_y=y_min, max_y=y_max, min_width=min_width
@@ -325,6 +325,6 @@ class FPBoundaryFinder:
             return []
 
         best_rectangle = self._find_max_area_rectangle(
-            cross_section_data, min_height=min_height, min_width=min_width
+            cross_section_data, min_length=min_length, min_width=min_width
         )
         return self._get_rectangle_coordinates(best_rectangle, cross_section_data)

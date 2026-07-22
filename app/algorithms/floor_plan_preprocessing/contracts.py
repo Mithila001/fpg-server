@@ -15,7 +15,7 @@ from .config import PreprocessingPolicy
 @dataclass(frozen=True, slots=True)
 class FloorLimits:
     max_width: float
-    max_height: float
+    max_length: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,8 +40,8 @@ class RoomSizeReference:
     size: str
     min_width: float
     max_width: float
-    min_height: float
-    max_height: float
+    min_length: float
+    max_length: float
     min_area: float
     max_area: float
 
@@ -93,9 +93,9 @@ class RelationDecision:
 @dataclass(frozen=True, slots=True)
 class FloorSelection:
     requested_width: float
-    requested_height: float
+    requested_length: float
     selected_width: float
-    selected_height: float
+    selected_length: float
     aspect_ratio: float
     minimum_required_area: float
     maximum_target_area: float

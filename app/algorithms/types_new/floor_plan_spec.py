@@ -25,8 +25,8 @@ class RoomType(str, Enum):
 class RoomSizeSpec:
     min_width: float
     max_width: float
-    min_height: float
-    max_height: float
+    min_length: float
+    max_length: float
     min_area: float
     max_area: float
 
@@ -43,7 +43,7 @@ class RoomSpec:
 @dataclass(frozen=True)
 class FloorSpec:
     width: float
-    height: float
+    length: float
 
 
 class MatchPolicy(str, Enum):

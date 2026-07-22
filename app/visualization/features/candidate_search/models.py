@@ -20,7 +20,7 @@ class SearchBounds:
 
     def __post_init__(self) -> None:
         if self.min_x >= self.max_x or self.min_y >= self.max_y:
-            raise ValueError("search bounds must have positive width and height")
+            raise ValueError("search bounds must have positive width and length")
 
 
 @dataclass(frozen=True, slots=True)

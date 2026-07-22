@@ -68,11 +68,11 @@ class CoordinateScale:
 @dataclass(frozen=True, slots=True)
 class PreparedFloor:
     width: int
-    height: int
+    length: int
 
     @property
     def area(self) -> int:
-        return self.width * self.height
+        return self.width * self.length
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,8 +86,8 @@ class PreparedRoom:
     required: bool
     min_width: int
     max_width: int
-    min_height: int
-    max_height: int
+    min_length: int
+    max_length: int
     min_area: int
     max_area: int
 
@@ -109,7 +109,7 @@ class PreparedRoomSeed:
     x: int
     y: int
     width: int | None
-    height: int | None
+    length: int | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,25 +175,25 @@ def _prepare_rooms(
         max_width_value = _positive_float(
             getattr(size, "max_width"), f"rooms[{id_key}].size.max_width"
         )
-        min_height_value = _positive_float(
-            getattr(size, "min_height"), f"rooms[{id_key}].size.min_height"
+        min_length_value = _positive_float(
+            getattr(size, "min_length"), f"rooms[{id_key}].size.min_length"
         )
-        max_height_value = _positive_float(
-            getattr(size, "max_height"), f"rooms[{id_key}].size.max_height"
+        max_length_value = _positive_float(
+            getattr(size, "max_length"), f"rooms[{id_key}].size.max_length"
         )
 
         min_width = scale.minimum_length(min_width_value)
         max_width = min(floor.width, scale.maximum_length(max_width_value))
-        min_height = scale.minimum_length(min_height_value)
-        max_height = min(floor.height, scale.maximum_length(max_height_value))
+        min_length = scale.minimum_length(min_length_value)
+        max_length = min(floor.length, scale.maximum_length(max_length_value))
 
         if min_width > max_width:
             raise InvalidSpecificationError(
                 f"Room '{id_key}' width range does not fit inside the floor"
             )
-        if min_height > max_height:
+        if min_length > max_length:
             raise InvalidSpecificationError(
-                f"Room '{id_key}' height range does not fit inside the floor"
+                f"Room '{id_key}' length range does not fit inside the floor"
             )
 
         min_area_value = _non_negative_float(
@@ -203,8 +203,8 @@ def _prepare_rooms(
             getattr(size, "max_area"), f"rooms[{id_key}].size.max_area"
         )
 
-        dimension_min_area = min_width * min_height
-        dimension_max_area = max_width * max_height
+        dimension_min_area = min_width * min_length
+        dimension_max_area = max_width * max_length
         requested_min_area = (
             scale.minimum_area(min_area_value)
             if min_area_value > 0
@@ -235,8 +235,8 @@ def _prepare_rooms(
                 required=bool(getattr(room, "required", True)),
                 min_width=min_width,
                 max_width=max_width,
-                min_height=min_height,
-                max_height=max_height,
+                min_length=min_length,
+                max_length=max_length,
                 min_area=min_area,
                 max_area=max_area,
             )
@@ -341,17 +341,17 @@ def _prepare_candidate_seed(
             if hint.width is not None
             else None
         )
-        height = (
+        length = (
             _clamp(
-                scale.nearest_length(hint.height), room.min_height, room.max_height
+                scale.nearest_length(hint.length), room.min_length, room.max_length
             )
-            if hint.height is not None
+            if hint.length is not None
             else None
         )
         bound_width = width if width is not None else room.min_width
-        bound_height = height if height is not None else room.min_height
+        bound_length = length if length is not None else room.min_length
         x = _clamp(scale.nearest_length(hint.x), 0, floor.width - bound_width)
-        y = _clamp(scale.nearest_length(hint.y), 0, floor.height - bound_height)
+        y = _clamp(scale.nearest_length(hint.y), 0, floor.length - bound_length)
 
         seeds[key] = PreparedRoomSeed(
             room_id=room.id,
@@ -359,7 +359,7 @@ def _prepare_candidate_seed(
             x=x,
             y=y,
             width=width,
-            height=height,
+            length=length,
         )
 
     if not seeds:
@@ -396,8 +396,8 @@ def _prepare_existing_floor_plan_seed(
             getattr(floor_plan_room, "boundary")
         )
         width_value = max_x - min_x
-        height_value = max_y - min_y
-        if width_value <= 0 or height_value <= 0:
+        length_value = max_y - min_y
+        if width_value <= 0 or length_value <= 0:
             raise InvalidSpecificationError(
                 f"Existing room '{key}' has an empty boundary"
             )
@@ -405,11 +405,11 @@ def _prepare_existing_floor_plan_seed(
         width = _clamp(
             scale.nearest_length(width_value), room.min_width, room.max_width
         )
-        height = _clamp(
-            scale.nearest_length(height_value), room.min_height, room.max_height
+        length = _clamp(
+            scale.nearest_length(length_value), room.min_length, room.max_length
         )
         x = _clamp(scale.nearest_length(min_x), 0, floor.width - width)
-        y = _clamp(scale.nearest_length(min_y), 0, floor.height - height)
+        y = _clamp(scale.nearest_length(min_y), 0, floor.length - length)
 
         seeds[key] = PreparedRoomSeed(
             room_id=room.id,
@@ -417,7 +417,7 @@ def _prepare_existing_floor_plan_seed(
             x=x,
             y=y,
             width=width,
-            height=height,
+            length=length,
         )
 
     if not seeds:
@@ -463,12 +463,12 @@ def prepare_problem(request: FloorPlanSolveRequest) -> PreparedProblem:
 
     floor_spec = getattr(spec, "floor")
     floor_width = _positive_float(getattr(floor_spec, "width"), "floor.width")
-    floor_height = _positive_float(getattr(floor_spec, "height"), "floor.height")
+    floor_length = _positive_float(getattr(floor_spec, "length"), "floor.length")
     floor = PreparedFloor(
         width=scale.nearest_length(floor_width),
-        height=scale.nearest_length(floor_height),
+        length=scale.nearest_length(floor_length),
     )
-    if floor.width < 1 or floor.height < 1:
+    if floor.width < 1 or floor.length < 1:
         raise InvalidSpecificationError(
             "Scaled floor dimensions must both be at least one solver unit"
         )

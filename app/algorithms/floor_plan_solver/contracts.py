@@ -15,13 +15,13 @@ class RoomPlacementHint:
     x: float
     y: float
     width: float | None = None
-    height: float | None = None
+    length: float | None = None
 
     def __post_init__(self) -> None:
         if self.width is not None and self.width <= 0:
             raise ValueError("Hint width must be greater than zero")
-        if self.height is not None and self.height <= 0:
-            raise ValueError("Hint height must be greater than zero")
+        if self.length is not None and self.length <= 0:
+            raise ValueError("Hint length must be greater than zero")
 
 
 @dataclass(frozen=True, slots=True)

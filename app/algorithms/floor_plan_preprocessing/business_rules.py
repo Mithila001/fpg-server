@@ -159,7 +159,7 @@ def apply_business_rules(
     )
     return RuledRequest(
         max_width=request.max_width,
-        max_height=request.max_height,
+        max_length=request.max_length,
         aspect_ratio=request.aspect_ratio,
         rooms=normalized_rooms,
         selected_room_size=selected_size,

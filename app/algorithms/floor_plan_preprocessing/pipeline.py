@@ -45,9 +45,9 @@ def run_pipeline(value: PreprocessingInput) -> PreparedGenerationInput:
         selected_room_size=context.request.selected_room_size,
         floor_selection=FloorSelection(
             requested_width=context.request.max_width,
-            requested_height=context.request.max_height,
+            requested_length=context.request.max_length,
             selected_width=context.floor.width,
-            selected_height=context.floor.height,
+            selected_length=context.floor.length,
             aspect_ratio=context.request.aspect_ratio,
             minimum_required_area=context.minimum_required_area,
             maximum_target_area=context.maximum_target_area,

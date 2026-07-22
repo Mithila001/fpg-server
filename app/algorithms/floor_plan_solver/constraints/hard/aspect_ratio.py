@@ -59,8 +59,8 @@ class AspectRatioConstraint:
             min_scaled = int(round(min_ratio * precision))
             max_scaled = int(round(max_ratio * precision))
             context.model.Add(
-                variables.width * precision >= variables.height * min_scaled
+                variables.width * precision >= variables.length * min_scaled
             ).OnlyEnforceIf(variables.present)
             context.model.Add(
-                variables.width * precision <= variables.height * max_scaled
+                variables.width * precision <= variables.length * max_scaled
             ).OnlyEnforceIf(variables.present)

@@ -56,16 +56,16 @@ class HallwayDimensionsConstraint:
             # optional hallway chooses neither orientation.
             context.model.Add(horizontal + vertical == variables.present)
 
-            # Horizontal hallway: height is the corridor width; room width may
+            # Horizontal hallway: length is the corridor width; room width may
             # extend as far as its prepared room-size bounds allow.
             context.model.Add(
-                variables.height >= minimum_width
+                variables.length >= minimum_width
             ).OnlyEnforceIf(horizontal)
             context.model.Add(
-                variables.height <= maximum_width
+                variables.length <= maximum_width
             ).OnlyEnforceIf(horizontal)
 
-            # Vertical hallway: width is the corridor width; room height may
+            # Vertical hallway: width is the corridor width; room length may
             # extend as far as its prepared room-size bounds allow.
             context.model.Add(
                 variables.width >= minimum_width

@@ -103,8 +103,8 @@ def room(
     *,
     min_width: int,
     max_width: int,
-    min_height: int,
-    max_height: int,
+    min_length: int,
+    max_length: int,
     min_area: int,
     max_area: int,
     required: bool = True,
@@ -118,8 +118,8 @@ def room(
         size=RoomSizeSpec(
             min_width=min_width,
             max_width=max_width,
-            min_height=min_height,
-            max_height=max_height,
+            min_length=min_length,
+            max_length=max_length,
             min_area=min_area,
             max_area=max_area,
         ),
@@ -157,8 +157,8 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "Front Veranda",
             min_width=50,
             max_width=75,
-            min_height=10,
-            max_height=15,
+            min_length=10,
+            max_length=15,
             min_area=500,
             max_area=1125,
         ),
@@ -168,8 +168,8 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "Living Room",
             min_width=45,
             max_width=60,
-            min_height=35,
-            max_height=45,
+            min_length=35,
+            max_length=45,
             min_area=1575,
             max_area=2700,
         ),
@@ -179,8 +179,8 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "Dining Room",
             min_width=30,
             max_width=40,
-            min_height=25,
-            max_height=35,
+            min_length=25,
+            max_length=35,
             min_area=750,
             max_area=1400,
         ),
@@ -190,8 +190,8 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "Kitchen",
             min_width=30,
             max_width=40,
-            min_height=25,
-            max_height=35,
+            min_length=25,
+            max_length=35,
             min_area=750,
             max_area=1400,
         ),
@@ -201,8 +201,8 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "Main Hallway",
             min_width=10,
             max_width=16,
-            min_height=40,
-            max_height=58,
+            min_length=40,
+            max_length=58,
             min_area=400,
             max_area=928,
         ),
@@ -212,8 +212,8 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "Bedroom 1",
             min_width=35,
             max_width=50,
-            min_height=30,
-            max_height=48,
+            min_length=30,
+            max_length=48,
             min_area=1050,
             max_area=2400,
         ),
@@ -223,8 +223,8 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "Bedroom 2",
             min_width=35,
             max_width=48,
-            min_height=30,
-            max_height=40,
+            min_length=30,
+            max_length=40,
             min_area=1050,
             max_area=1920,
         ),
@@ -234,8 +234,8 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "Common Bathroom",
             min_width=18,
             max_width=25,
-            min_height=18,
-            max_height=28,
+            min_length=18,
+            max_length=28,
             min_area=324,
             max_area=700,
         ),
@@ -245,8 +245,8 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "Attached Bathroom",
             min_width=18,
             max_width=25,
-            min_height=18,
-            max_height=25,
+            min_length=18,
+            max_length=25,
             min_area=324,
             max_area=625,
         ),
@@ -286,7 +286,7 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
     )
 
     return FloorPlanGenerationSpec(
-        floor=FloorSpec(width=120, height=110),
+        floor=FloorSpec(width=120, length=110),
         rooms=rooms,
         room_relations=room_relations,
     )
@@ -297,7 +297,7 @@ def hint(
     x: int,
     y: int,
     width: int,
-    height: int,
+    length: int,
 ) -> RoomPlacementHint:
     """Create one whole-unit room placement hint."""
 
@@ -306,7 +306,7 @@ def hint(
         x=x,
         y=y,
         width=width,
-        height=height,
+        length=length,
     )
 
 
@@ -314,32 +314,32 @@ def choose_random_room_dimensions(
     room_spec: RoomSpec,
     *,
     floor_width: int,
-    floor_height: int,
+    floor_length: int,
     rng: random.Random,
 ) -> tuple[int, int]:
     """Choose dimensions that satisfy the room's declared size limits.
 
-    Valid whole-unit width/height pairs are enumerated first. This prevents the
-    random hint generator from producing a width and height whose combined area
+    Valid whole-unit width/length pairs are enumerated first. This prevents the
+    random hint generator from producing a width and length whose combined area
     violates the room specification.
     """
 
     min_width = max(1, math.ceil(room_spec.size.min_width))
     max_width = min(floor_width, math.floor(room_spec.size.max_width))
-    min_height = max(1, math.ceil(room_spec.size.min_height))
-    max_height = min(floor_height, math.floor(room_spec.size.max_height))
+    min_length = max(1, math.ceil(room_spec.size.min_length))
+    max_length = min(floor_length, math.floor(room_spec.size.max_length))
 
     valid_dimensions = [
-        (width, height)
+        (width, length)
         for width in range(min_width, max_width + 1)
-        for height in range(min_height, max_height + 1)
-        if room_spec.size.min_area <= width * height <= room_spec.size.max_area
+        for length in range(min_length, max_length + 1)
+        if room_spec.size.min_area <= width * length <= room_spec.size.max_area
     ]
 
     if not valid_dimensions:
         raise ValueError(
             f"Room '{room_spec.id}' has no whole-unit dimensions that satisfy "
-            "its width, height, area, and floor-boundary limits."
+            "its width, length, area, and floor-boundary limits."
         )
 
     return rng.choice(valid_dimensions)
@@ -366,9 +366,9 @@ def choose_biased_room_position(
     room_spec: RoomSpec,
     *,
     width: int,
-    height: int,
+    length: int,
     floor_width: int,
-    floor_height: int,
+    floor_length: int,
     room_type_index: int,
     rng: random.Random,
 ) -> tuple[int, int]:
@@ -380,7 +380,7 @@ def choose_biased_room_position(
     """
 
     max_x = max(0, floor_width - width)
-    max_y = max(0, floor_height - height)
+    max_y = max(0, floor_length - length)
 
     if room_spec.room_type is RoomType.VERANDA:
         return (
@@ -458,8 +458,8 @@ def build_biased_random_candidate_hints(
     """
 
     floor_width = math.floor(specification.floor.width)
-    floor_height = math.floor(specification.floor.height)
-    if floor_width <= 0 or floor_height <= 0:
+    floor_length = math.floor(specification.floor.length)
+    if floor_width <= 0 or floor_length <= 0:
         raise ValueError("Floor dimensions must be positive whole project units.")
 
     rng = random.Random(seed)
@@ -470,18 +470,18 @@ def build_biased_random_candidate_hints(
         room_type_index = room_type_counts.get(room_spec.room_type, 0)
         room_type_counts[room_spec.room_type] = room_type_index + 1
 
-        width, height = choose_random_room_dimensions(
+        width, length = choose_random_room_dimensions(
             room_spec,
             floor_width=floor_width,
-            floor_height=floor_height,
+            floor_length=floor_length,
             rng=rng,
         )
         x, y = choose_biased_room_position(
             room_spec,
             width=width,
-            height=height,
+            length=length,
             floor_width=floor_width,
-            floor_height=floor_height,
+            floor_length=floor_length,
             room_type_index=room_type_index,
             rng=rng,
         )
@@ -492,7 +492,7 @@ def build_biased_random_candidate_hints(
                 x=x,
                 y=y,
                 width=width,
-                height=height,
+                length=length,
             )
         )
 
@@ -577,12 +577,12 @@ def assert_no_room_overlap(floor_plan: FloorPlan) -> None:
                 first_min_x,
                 second_min_x,
             )
-            overlap_height = min(first_max_y, second_max_y) - max(
+            overlap_length = min(first_max_y, second_max_y) - max(
                 first_min_y,
                 second_min_y,
             )
 
-            assert not (overlap_width > EPSILON and overlap_height > EPSILON), (
+            assert not (overlap_width > EPSILON and overlap_length > EPSILON), (
                 f"Rooms '{first_id}' and '{second_id}' overlap."
             )
 
@@ -620,7 +620,7 @@ def validate_solved_result(
     )
     assert math.isclose(
         floor_max_y,
-        specification.floor.height,
+        specification.floor.length,
         abs_tol=EPSILON,
     )
 
@@ -678,9 +678,9 @@ def assert_refinement_respects_seed_policy(
         )
 
         old_width = old_max_x - old_min_x
-        old_height = old_max_y - old_min_y
+        old_length = old_max_y - old_min_y
         new_width = new_max_x - new_min_x
-        new_height = new_max_y - new_min_y
+        new_length = new_max_y - new_min_y
 
         if position_tolerance is not None:
             assert abs(new_min_x - old_min_x) <= position_tolerance + EPSILON
@@ -688,7 +688,7 @@ def assert_refinement_respects_seed_policy(
 
         if size_tolerance is not None:
             assert abs(new_width - old_width) <= size_tolerance + EPSILON
-            assert abs(new_height - old_height) <= size_tolerance + EPSILON
+            assert abs(new_length - old_length) <= size_tolerance + EPSILON
 
 
 def jsonable(value: Any) -> Any:
@@ -781,7 +781,7 @@ def validate_post_processing_result(
     )
     assert math.isclose(
         floor_max_y,
-        specification.floor.height,
+        specification.floor.length,
         abs_tol=EPSILON,
     )
 
@@ -954,9 +954,9 @@ def main() -> None:
 
     print("Solver -> Post Processing realistic flow run")
     print(
-        f"Floor: {specification.floor.width} x {specification.floor.height} units "
+        f"Floor: {specification.floor.width} x {specification.floor.length} units "
         f"({specification.floor.width / UNITS_PER_METER:.1f} x "
-        f"{specification.floor.height / UNITS_PER_METER:.1f} meters)"
+        f"{specification.floor.length / UNITS_PER_METER:.1f} meters)"
     )
     print(f"Rooms requested: {len(specification.rooms)}")
     print(f"Candidate hints: {len(candidate_hints)}")

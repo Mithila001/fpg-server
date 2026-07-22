@@ -17,7 +17,7 @@ def test_realistic_case_uses_project_measurement_convention(
 
     assert data["measurement"]["units_per_meter"] == 10
     assert specification.floor.width == 120
-    assert specification.floor.height == 100
+    assert specification.floor.length == 100
 
     context = ScoringContextFactory().build(floor_plan, specification)
     living_room = context.rooms_by_id["living_1"]

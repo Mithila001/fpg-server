@@ -24,7 +24,7 @@ class GenerationServiceRoom:
 @dataclass(frozen=True, slots=True)
 class GenerationServiceRequest:
     max_width: float
-    max_height: float
+    max_length: float
     aspect_ratio: float | str
     rooms: tuple[GenerationServiceRoom, ...]
 
@@ -35,7 +35,7 @@ def execute_generation(
     pipeline_request = GenerationPipelineRequest(
         request_id=str(uuid4()),
         max_width=request.max_width,
-        max_height=request.max_height,
+        max_length=request.max_length,
         aspect_ratio=request.aspect_ratio,
         rooms=tuple(
             RequestedGenerationRoom(

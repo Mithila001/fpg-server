@@ -59,8 +59,8 @@ def _build_room_spec(data: dict[str, Any]) -> RoomSpec:
         size=RoomSizeSpec(
             min_width=size["min_width"],
             max_width=size["max_width"],
-            min_height=size["min_height"],
-            max_height=size["max_height"],
+            min_length=size["min_length"],
+            max_length=size["max_length"],
             min_area=size["min_area"],
             max_area=size["max_area"],
         ),
@@ -80,7 +80,7 @@ def _build_relation_spec(data: dict[str, Any]) -> RoomRelationSpec:
 def build_realistic_generation_spec(
     *,
     floor_width: int | None = None,
-    floor_height: int | None = None,
+    floor_length: int | None = None,
 ) -> FloorPlanGenerationSpec:
     """Build the realistic family-house specification used by integration tests.
 
@@ -92,7 +92,7 @@ def build_realistic_generation_spec(
     return FloorPlanGenerationSpec(
         floor=FloorSpec(
             width=floor_width if floor_width is not None else floor["width"],
-            height=floor_height if floor_height is not None else floor["height"],
+            length=floor_length if floor_length is not None else floor["length"],
         ),
         rooms=tuple(_build_room_spec(room) for room in data["rooms"]),
         room_relations=tuple(
@@ -109,7 +109,7 @@ def build_realistic_candidate_hints() -> tuple[RoomPlacementHint, ...]:
             x=hint["x"],
             y=hint["y"],
             width=hint.get("width"),
-            height=hint.get("height"),
+            length=hint.get("length"),
         )
         for hint in data["candidate_hints"]
     )
@@ -185,13 +185,13 @@ def build_infeasible_generation_spec() -> FloorPlanGenerationSpec:
     fixed_room_size = RoomSizeSpec(
         min_width=30,
         max_width=30,
-        min_height=30,
-        max_height=30,
+        min_length=30,
+        max_length=30,
         min_area=900,
         max_area=900,
     )
     return FloorPlanGenerationSpec(
-        floor=FloorSpec(width=40, height=40),
+        floor=FloorSpec(width=40, length=40),
         rooms=(
             RoomSpec(
                 id=RoomId("large_room_a"),

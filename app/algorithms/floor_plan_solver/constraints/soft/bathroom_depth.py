@@ -30,11 +30,11 @@ class BathroomDepthConstraint:
         for variables in context.room_variables.values():
             if variables.room.room_type_key not in target_types:
                 continue
-            expression = 2 * floor.height - (2 * variables.y + variables.height)
+            expression = 2 * floor.length - (2 * variables.y + variables.length)
             penalty = active_linear_penalty(
                 context,
                 expression,
-                2 * floor.height,
+                2 * floor.length,
                 variables.present,
                 f"bathroom_depth_penalty_{variables.room.id_key}",
             )

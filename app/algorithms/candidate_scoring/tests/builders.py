@@ -20,12 +20,12 @@ from app.algorithms.types_new import (
 )
 
 DEFAULT_FLOOR_WIDTH = 120.0
-DEFAULT_FLOOR_HEIGHT = 100.0
+DEFAULT_FLOOR_LENGTH = 100.0
 DEFAULT_ROOM_SIZE = RoomSizeSpec(
     min_width=20.0,
     max_width=50.0,
-    min_height=20.0,
-    max_height=50.0,
+    min_length=20.0,
+    max_length=50.0,
     min_area=400.0,
     max_area=2500.0,
 )
@@ -54,7 +54,7 @@ DEFAULT_ROOM_LAYOUT: tuple[tuple[str, RoomType, str, float, float], ...] = (
 def build_generation_spec(
     *,
     width: float = DEFAULT_FLOOR_WIDTH,
-    height: float = DEFAULT_FLOOR_HEIGHT,
+    length: float = DEFAULT_FLOOR_LENGTH,
     room_layout: Sequence[tuple[str, RoomType, str, float, float]] = DEFAULT_ROOM_LAYOUT,
 ) -> FloorPlanGenerationSpec:
     """Build a valid typed floor-plan specification."""
@@ -69,7 +69,7 @@ def build_generation_spec(
         for room_id, room_type, name, _, _ in room_layout
     )
     return FloorPlanGenerationSpec(
-        floor=FloorSpec(width=width, height=height),
+        floor=FloorSpec(width=width, length=length),
         rooms=rooms,
         room_relations=(),
     )
@@ -112,7 +112,7 @@ def build_scoring_input(
     specification: Any | None = None,
     candidate: Any | None = None,
     width: float = DEFAULT_FLOOR_WIDTH,
-    height: float = DEFAULT_FLOOR_HEIGHT,
+    length: float = DEFAULT_FLOOR_LENGTH,
     room_layout: Sequence[tuple[str, RoomType, str, float, float]] = DEFAULT_ROOM_LAYOUT,
     include_room_ids: Iterable[str] | None = None,
     coordinate_overrides: Mapping[str, tuple[float, float]] | None = None,
@@ -123,7 +123,7 @@ def build_scoring_input(
     if resolved_specification is None:
         resolved_specification = build_generation_spec(
             width=width,
-            height=height,
+            length=length,
             room_layout=room_layout,
         )
 

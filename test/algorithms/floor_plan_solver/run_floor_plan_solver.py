@@ -72,8 +72,8 @@ def room(
     *,
     min_width: int,
     max_width: int,
-    min_height: int,
-    max_height: int,
+    min_length: int,
+    max_length: int,
     min_area: int,
     max_area: int,
     required: bool = True,
@@ -87,8 +87,8 @@ def room(
         size=RoomSizeSpec(
             min_width=min_width,
             max_width=max_width,
-            min_height=min_height,
-            max_height=max_height,
+            min_length=min_length,
+            max_length=max_length,
             min_area=min_area,
             max_area=max_area,
         ),
@@ -126,8 +126,8 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "Front Veranda",
             min_width=50,
             max_width=75,
-            min_height=10,
-            max_height=15,
+            min_length=10,
+            max_length=15,
             min_area=500,
             max_area=1125,
         ),
@@ -137,8 +137,8 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "Living Room",
             min_width=45,
             max_width=60,
-            min_height=35,
-            max_height=45,
+            min_length=35,
+            max_length=45,
             min_area=1575,
             max_area=2700,
         ),
@@ -148,8 +148,8 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "Dining Room",
             min_width=30,
             max_width=40,
-            min_height=25,
-            max_height=35,
+            min_length=25,
+            max_length=35,
             min_area=750,
             max_area=1400,
         ),
@@ -159,8 +159,8 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "Kitchen",
             min_width=30,
             max_width=40,
-            min_height=25,
-            max_height=35,
+            min_length=25,
+            max_length=35,
             min_area=750,
             max_area=1400,
         ),
@@ -170,8 +170,8 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "Main Hallway",
             min_width=10,
             max_width=16,
-            min_height=40,
-            max_height=58,
+            min_length=40,
+            max_length=58,
             min_area=400,
             max_area=928,
         ),
@@ -181,8 +181,8 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "Bedroom 1",
             min_width=35,
             max_width=50,
-            min_height=30,
-            max_height=48,
+            min_length=30,
+            max_length=48,
             min_area=1050,
             max_area=2400,
         ),
@@ -192,8 +192,8 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "Bedroom 2",
             min_width=35,
             max_width=48,
-            min_height=30,
-            max_height=40,
+            min_length=30,
+            max_length=40,
             min_area=1050,
             max_area=1920,
         ),
@@ -203,8 +203,8 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "Common Bathroom",
             min_width=18,
             max_width=25,
-            min_height=18,
-            max_height=28,
+            min_length=18,
+            max_length=28,
             min_area=324,
             max_area=700,
         ),
@@ -214,8 +214,8 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "Attached Bathroom",
             min_width=18,
             max_width=25,
-            min_height=18,
-            max_height=25,
+            min_length=18,
+            max_length=25,
             min_area=324,
             max_area=625,
         ),
@@ -255,7 +255,7 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
     )
 
     return FloorPlanGenerationSpec(
-        floor=FloorSpec(width=120, height=110),
+        floor=FloorSpec(width=120, length=110),
         rooms=rooms,
         room_relations=room_relations,
     )
@@ -266,7 +266,7 @@ def hint(
     x: int,
     y: int,
     width: int,
-    height: int,
+    length: int,
 ) -> RoomPlacementHint:
     """Create one realistic candidate-search placement hint."""
 
@@ -275,7 +275,7 @@ def hint(
         x=x,
         y=y,
         width=width,
-        height=height,
+        length=length,
     )
 
 
@@ -373,12 +373,12 @@ def assert_no_room_overlap(floor_plan: FloorPlan) -> None:
                 first_min_x,
                 second_min_x,
             )
-            overlap_height = min(first_max_y, second_max_y) - max(
+            overlap_length = min(first_max_y, second_max_y) - max(
                 first_min_y,
                 second_min_y,
             )
 
-            assert not (overlap_width > EPSILON and overlap_height > EPSILON), (
+            assert not (overlap_width > EPSILON and overlap_length > EPSILON), (
                 f"Rooms '{first_id}' and '{second_id}' overlap."
             )
 
@@ -416,7 +416,7 @@ def validate_solved_result(
     )
     assert math.isclose(
         floor_max_y,
-        specification.floor.height,
+        specification.floor.length,
         abs_tol=EPSILON,
     )
 
@@ -474,9 +474,9 @@ def assert_refinement_respects_seed_policy(
         )
 
         old_width = old_max_x - old_min_x
-        old_height = old_max_y - old_min_y
+        old_length = old_max_y - old_min_y
         new_width = new_max_x - new_min_x
-        new_height = new_max_y - new_min_y
+        new_length = new_max_y - new_min_y
 
         if position_tolerance is not None:
             assert abs(new_min_x - old_min_x) <= position_tolerance + EPSILON
@@ -484,7 +484,7 @@ def assert_refinement_respects_seed_policy(
 
         if size_tolerance is not None:
             assert abs(new_width - old_width) <= size_tolerance + EPSILON
-            assert abs(new_height - old_height) <= size_tolerance + EPSILON
+            assert abs(new_length - old_length) <= size_tolerance + EPSILON
 
 
 def jsonable(value: Any) -> Any:
@@ -557,12 +557,12 @@ def print_stage_result(
         for room_result in result.floor_plan.rooms:
             min_x, min_y, max_x, max_y = rectangle_bounds(room_result.boundary)
             width = max_x - min_x
-            height = max_y - min_y
-            area = width * height
+            length = max_y - min_y
+            area = width * length
             print(
                 f"  {str(room_result.id):22} "
                 f"x={min_x:5.1f} y={min_y:5.1f} "
-                f"w={width:5.1f} h={height:5.1f} "
+                f"w={width:5.1f} h={length:5.1f} "
                 f"area={area:7.1f}"
             )
 
@@ -588,9 +588,9 @@ def main() -> None:
 
     print("Floor Plan Solver realistic algorithm run")
     print(
-        f"Floor: {specification.floor.width} x {specification.floor.height} units "
+        f"Floor: {specification.floor.width} x {specification.floor.length} units "
         f"({specification.floor.width / UNITS_PER_METER:.1f} x "
-        f"{specification.floor.height / UNITS_PER_METER:.1f} meters)"
+        f"{specification.floor.length / UNITS_PER_METER:.1f} meters)"
     )
     print(f"Rooms: {len(specification.rooms)}")
     print(f"Candidate hints: {len(candidate_hints)}")

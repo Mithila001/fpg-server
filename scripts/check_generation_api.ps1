@@ -5,7 +5,7 @@ param(
 $requestBody = @{
     floor_limits = @{
         max_width = 120.0
-        max_height = 100.0
+        max_length = 100.0
     }
     aspect_ratio = "4:3"
     rooms = @(

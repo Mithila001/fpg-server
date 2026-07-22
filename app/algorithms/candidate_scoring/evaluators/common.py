@@ -20,7 +20,7 @@ class EvaluationPoint:
 @dataclass(frozen=True, slots=True)
 class EvaluationData:
     floor_width: float
-    floor_height: float
+    floor_length: float
     points: tuple[EvaluationPoint, ...]
 
 
@@ -34,13 +34,13 @@ def build_evaluation_data(context: ScoringContext) -> EvaluationData:
 
     specification = context.scoring_input.specification
     candidate = context.scoring_input.candidate
-    floor_width, floor_height = _extract_floor_size(specification)
+    floor_width, floor_length = _extract_floor_size(specification)
     room_metadata = _extract_room_metadata(specification)
     points = _extract_candidate_points(candidate, room_metadata)
 
     return EvaluationData(
         floor_width=floor_width,
-        floor_height=floor_height,
+        floor_length=floor_length,
         points=tuple(points),
     )
 
@@ -102,23 +102,23 @@ def _extract_floor_size(specification: Any) -> tuple[float, float]:
         _get(specification, "width"),
         _get(config, "floor_plan_width"),
     )
-    height = _first_not_none(
-        _get(floor, "height"),
-        _get(specification, "floor_height"),
-        _get(specification, "height"),
-        _get(config, "floor_plan_height"),
+    length = _first_not_none(
+        _get(floor, "length"),
+        _get(specification, "floor_length"),
+        _get(specification, "length"),
+        _get(config, "floor_plan_length"),
     )
 
-    if width is None or height is None:
-        raise ValueError("Could not determine floor width and height from specification.")
+    if width is None or length is None:
+        raise ValueError("Could not determine floor width and length from specification.")
 
     floor_width = float(width)
-    floor_height = float(height)
+    floor_length = float(length)
     if not math.isfinite(floor_width) or floor_width <= 0:
         raise ValueError("Floor width must be a finite positive value.")
-    if not math.isfinite(floor_height) or floor_height <= 0:
-        raise ValueError("Floor height must be a finite positive value.")
-    return floor_width, floor_height
+    if not math.isfinite(floor_length) or floor_length <= 0:
+        raise ValueError("Floor length must be a finite positive value.")
+    return floor_width, floor_length
 
 
 def _extract_room_metadata(specification: Any) -> dict[str, tuple[str, str]]:

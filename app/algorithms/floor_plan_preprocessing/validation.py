@@ -47,7 +47,7 @@ def validate_input(value: PreprocessingInput) -> None:
     if not isinstance(request.floor_limits, FloorLimits):
         raise InputValidationError("floor_limits must be a FloorLimits")
     _finite_number(request.floor_limits.max_width, "max_width", positive=True)
-    _finite_number(request.floor_limits.max_height, "max_height", positive=True)
+    _finite_number(request.floor_limits.max_length, "max_length", positive=True)
     if not request.rooms:
         raise InputValidationError("At least one requested room is required")
     for index, room in enumerate(request.rooms):
@@ -97,7 +97,7 @@ def validate_policy(policy: PreprocessingPolicy) -> None:
     ):
         raise InputValidationError("hallway_count must be a non-negative integer")
     _finite_number(policy.hallway_min_width, "hallway_min_width", positive=True)
-    _finite_number(policy.hallway_min_height, "hallway_min_height", positive=True)
+    _finite_number(policy.hallway_min_length, "hallway_min_length", positive=True)
     if not isinstance(policy.default_room_size, str) or not policy.default_room_size.strip():
         raise InputValidationError("default_room_size cannot be empty")
 
@@ -132,8 +132,8 @@ def validate_reference_data(reference_data: PreparedReferenceData) -> None:
         values = (
             item.min_width,
             item.max_width,
-            item.min_height,
-            item.max_height,
+            item.min_length,
+            item.max_length,
             item.min_area,
             item.max_area,
         )
@@ -141,7 +141,7 @@ def validate_reference_data(reference_data: PreparedReferenceData) -> None:
             raise ReferenceDataError(
                 f"Room-size reference {key[0].value}/{key[1]} must be positive and finite"
             )
-        if item.min_width > item.max_width or item.min_height > item.max_height:
+        if item.min_width > item.max_width or item.min_length > item.max_length:
             raise ReferenceDataError(
                 f"Invalid dimension range for {key[0].value}/{key[1]}"
             )
@@ -149,11 +149,11 @@ def validate_reference_data(reference_data: PreparedReferenceData) -> None:
             raise ReferenceDataError(
                 f"Invalid area range for {key[0].value}/{key[1]}"
             )
-        if item.min_area > item.max_width * item.max_height:
+        if item.min_area > item.max_width * item.max_length:
             raise ReferenceDataError(
                 f"Minimum area cannot fit dimension bounds for {key[0].value}/{key[1]}"
             )
-        if item.max_area < item.min_width * item.min_height:
+        if item.max_area < item.min_width * item.min_length:
             raise ReferenceDataError(
                 f"Maximum area is below minimum dimensions for {key[0].value}/{key[1]}"
             )
@@ -171,14 +171,14 @@ def validate_reference_data(reference_data: PreparedReferenceData) -> None:
 def validate_context(context: PreprocessingContext) -> None:
     if not context.rooms:
         raise ContextValidationError("Prepared context contains no rooms")
-    if context.minimum_required_area > context.floor.width * context.floor.height:
+    if context.minimum_required_area > context.floor.width * context.floor.length:
         raise ContextValidationError("Selected floor does not meet minimum required area")
 
 
 def validate_output(
     specification: FloorPlanGenerationSpec, policy: PreprocessingPolicy
 ) -> None:
-    if specification.floor.width <= 0 or specification.floor.height <= 0:
+    if specification.floor.width <= 0 or specification.floor.length <= 0:
         raise OutputValidationError("Final floor dimensions must be positive")
     if not specification.rooms:
         raise OutputValidationError("Final specification must contain rooms")
@@ -210,9 +210,9 @@ def validate_output(
         size = room.size
         if (
             size.min_width <= 0
-            or size.min_height <= 0
+            or size.min_length <= 0
             or size.min_width > size.max_width
-            or size.min_height > size.max_height
+            or size.min_length > size.max_length
             or size.min_area <= 0
             or size.min_area > size.max_area
         ):

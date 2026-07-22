@@ -2,7 +2,7 @@
   "specification": {
     "floor": {
       "width": 120,
-      "height": 100
+      "length": 100
     },
     "rooms": [
       {"id": "veranda_1", "room_type": "veranda", "name": "Veranda"},

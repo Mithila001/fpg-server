@@ -47,7 +47,7 @@ class CenterProximityConstraint:
             context.model.AddAbsEquality(horizontal_distance, center_delta)
 
             expression = horizontal_distance + front_bias * variables.y
-            upper_bound = floor.width + front_bias * floor.height
+            upper_bound = floor.width + front_bias * floor.length
             penalty = active_linear_penalty(
                 context,
                 expression,

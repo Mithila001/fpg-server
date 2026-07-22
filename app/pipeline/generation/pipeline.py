@@ -233,7 +233,7 @@ def _default_candidate_hints(specification: Any) -> tuple[RoomPlacementHint, ...
     columns = max(1, ceil(sqrt(room_count)))
     rows = max(1, ceil(room_count / columns))
     horizontal_step = specification.floor.width / (columns + 1)
-    vertical_step = specification.floor.height / (rows + 1)
+    vertical_step = specification.floor.length / (rows + 1)
 
     return tuple(
         RoomPlacementHint(
@@ -328,7 +328,7 @@ def run_generation_pipeline(
     def preprocess():
         preprocessing_input = PreprocessingInput(
             request=PreprocessingRequest(
-                floor_limits=FloorLimits(request.max_width, request.max_height),
+                floor_limits=FloorLimits(request.max_width, request.max_length),
                 aspect_ratio=request.aspect_ratio,
                 rooms=tuple(
                     RequestedRoom(
@@ -395,7 +395,7 @@ def run_generation_pipeline(
                                 min_x=0.0,
                                 max_x=specification.floor.width,
                                 min_y=0.0,
-                                max_y=specification.floor.height,
+                                max_y=specification.floor.length,
                                 grid_resolution=settings.candidate_grid_resolution,
                                 trial_count=settings.candidate_trial_count,
                                 random_seed=_candidate_seed(

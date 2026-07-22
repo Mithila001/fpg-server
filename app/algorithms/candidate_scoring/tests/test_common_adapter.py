@@ -20,7 +20,7 @@ def test_adapter_reads_typed_specification_and_candidate_mapping() -> None:
     data = build_evaluation_data(ScoringContext(build_scoring_input()))
 
     assert data.floor_width == pytest.approx(120.0)
-    assert data.floor_height == pytest.approx(100.0)
+    assert data.floor_length == pytest.approx(100.0)
     assert len(data.points) == 10
     living = next(point for point in data.points if point.room_id == "living_1")
     assert living.room_type == RoomType.LIVING_ROOM.value
@@ -32,7 +32,7 @@ def test_adapter_supports_wrapped_points_and_sequence_coordinates() -> None:
     scoring_input = CandidateScoringInput(
         specification=_legacy_specification({
             "width": 80,
-            "height": 60,
+            "length": 60,
             "rooms": [
                 {"id": "living", "type": "livingRoom", "name": "Living"},
                 {"id": "bath", "type": "attachedBathroom", "name": "Bath"},
@@ -52,7 +52,7 @@ def test_adapter_supports_wrapped_points_and_sequence_coordinates() -> None:
 def test_adapter_rejects_duplicate_candidate_ids() -> None:
     scoring_input = CandidateScoringInput(
         specification=_legacy_specification(
-            {"floor": {"width": 80, "height": 60}}
+            {"floor": {"width": 80, "length": 60}}
         ),
         candidate=[
             {"room_id": "same", "room_type": "bedroom", "x": 10, "y": 10},
@@ -67,7 +67,7 @@ def test_adapter_rejects_duplicate_candidate_ids() -> None:
 def test_adapter_rejects_candidate_without_room_type() -> None:
     scoring_input = CandidateScoringInput(
         specification=_legacy_specification(
-            {"floor": {"width": 80, "height": 60}}
+            {"floor": {"width": 80, "length": 60}}
         ),
         candidate={"unknown": {"x": 10, "y": 10}},
     )
@@ -79,8 +79,8 @@ def test_adapter_rejects_candidate_without_room_type() -> None:
 @pytest.mark.parametrize(
     "specification",
     [
-        {"floor": {"width": 0, "height": 60}},
-        {"floor": {"width": 80, "height": -1}},
+        {"floor": {"width": 0, "length": 60}},
+        {"floor": {"width": 80, "length": -1}},
         {"floor": {"width": 80}},
     ],
 )
@@ -103,7 +103,7 @@ def test_adapter_rejects_invalid_floor_dimensions(specification: object) -> None
 def test_adapter_rejects_non_finite_coordinates() -> None:
     scoring_input = CandidateScoringInput(
         specification=_legacy_specification(
-            {"floor": {"width": 80, "height": 60}}
+            {"floor": {"width": 80, "length": 60}}
         ),
         candidate={
             "bedroom": {

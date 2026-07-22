@@ -51,9 +51,9 @@ class BoundaryPlacementConstraint:
                 raise InvalidProfileError(
                     f"boundary_placement rule {index} offset exceeds floor width"
                 )
-            if side in {"front", "back"} and offset > context.problem.floor.height:
+            if side in {"front", "back"} and offset > context.problem.floor.length:
                 raise InvalidProfileError(
-                    f"boundary_placement rule {index} offset exceeds floor height"
+                    f"boundary_placement rule {index} offset exceeds floor length"
                 )
 
             for variables in context.room_variables.values():
@@ -63,7 +63,7 @@ class BoundaryPlacementConstraint:
                     constraint = context.model.Add(variables.y == offset)
                 elif side == "back":
                     constraint = context.model.Add(
-                        variables.y_end == context.problem.floor.height - offset
+                        variables.y_end == context.problem.floor.length - offset
                     )
                 elif side == "left":
                     constraint = context.model.Add(variables.x == offset)

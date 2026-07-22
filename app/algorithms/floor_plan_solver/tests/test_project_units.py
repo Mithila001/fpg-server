@@ -18,19 +18,19 @@ def test_realistic_input_uses_ten_whole_units_per_meter(
     data = load_scenario_data()
     assert data["measurement"]["units_per_meter"] == UNITS_PER_METER
     assert realistic_specification.floor.width == 12 * UNITS_PER_METER
-    assert realistic_specification.floor.height == 11 * UNITS_PER_METER
+    assert realistic_specification.floor.length == 11 * UNITS_PER_METER
 
     length_values = [
         realistic_specification.floor.width,
-        realistic_specification.floor.height,
+        realistic_specification.floor.length,
     ]
     for room in realistic_specification.rooms:
         length_values.extend(
             (
                 room.size.min_width,
                 room.size.max_width,
-                room.size.min_height,
-                room.size.max_height,
+                room.size.min_length,
+                room.size.max_length,
             )
         )
     assert all(float(value).is_integer() for value in length_values)

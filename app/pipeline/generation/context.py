@@ -43,7 +43,7 @@ class RequestedGenerationRoom:
 class GenerationPipelineRequest:
     request_id: str
     max_width: float
-    max_height: float
+    max_length: float
     aspect_ratio: float | str
     rooms: tuple[RequestedGenerationRoom, ...]
 

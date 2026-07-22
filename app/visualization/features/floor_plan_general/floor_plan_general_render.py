@@ -9,7 +9,6 @@ from matplotlib.figure import Figure
 from matplotlib.patches import Polygon as PolygonPatch
 
 from app.algorithms.types_new import (
-    FloorPlan,
     FloorPlanOpening,
     FloorPlanRoom,
     OpeningType,
@@ -158,7 +157,7 @@ def _draw_stage(
     )
 
     floor_width = max_x - min_x
-    floor_height = max_y - min_y
+    floor_length = max_y - min_y
     profile_name = stage.profile_name or "-"
     title = (
         f"Stage {stage_number} / {total_stages} — {stage.stage_name}\n"
@@ -167,7 +166,7 @@ def _draw_stage(
         f"Profile: {_truncate(profile_name, 24)}\n"
         f"Rooms: {len(floor_plan.rooms)}  |  "
         f"Openings: {len(floor_plan.openings)}  |  "
-        f"Floor: {_metres(floor_width)} × {_metres(floor_height)} m"
+        f"Floor: {_metres(floor_width)} × {_metres(floor_length)} m"
     )
     axes.set_title(title, fontsize=9.5, weight="semibold", pad=10, linespacing=1.35)
 
@@ -195,17 +194,17 @@ def _draw_room(axes: Axes, room: FloorPlanRoom) -> None:
     center_x, center_y = _polygon_centroid(points)
     min_x, max_x, min_y, max_y = _bounds(points)
     width = max_x - min_x
-    height = max_y - min_y
+    length = max_y - min_y
     room_name = "\n".join(wrap(room.name, width=14))
-    label = f"{room_name}\n{_metres(width)} × {_metres(height)} m"
-    rotation = 90.0 if height > width * 2.0 and width < 20 else 0.0
+    label = f"{room_name}\n{_metres(width)} × {_metres(length)} m"
+    rotation = 90.0 if length > width * 2.0 and width < 20 else 0.0
     axes.text(
         center_x,
         center_y,
         label,
         ha="center",
         va="center",
-        fontsize=_room_font_size(width, height),
+        fontsize=_room_font_size(width, length),
         color="#111827",
         weight="semibold",
         rotation=rotation,
@@ -268,8 +267,8 @@ def _metres(project_units: float) -> str:
     return f"{project_units / _PROJECT_UNITS_PER_METRE:.1f}"
 
 
-def _room_font_size(width: float, height: float) -> float:
-    shortest_side = min(width, height)
+def _room_font_size(width: float, length: float) -> float:
+    shortest_side = min(width, length)
     if shortest_side < 20:
         return 5.5
     if shortest_side < 30:

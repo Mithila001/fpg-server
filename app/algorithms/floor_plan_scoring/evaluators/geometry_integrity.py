@@ -70,7 +70,7 @@ class GeometryIntegrityEvaluator(FloorPlanEvaluator):
             min_x < -config.tolerance
             or min_y < -config.tolerance
             or max_x > context.floor_width + config.tolerance
-            or max_y > context.floor_height + config.tolerance
+            or max_y > context.floor_length + config.tolerance
         ):
             containment_failure_count += 1
             findings.append(

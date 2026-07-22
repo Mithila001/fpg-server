@@ -10,14 +10,14 @@ def _rectangle_polygon(
     x: float,
     y: float,
     width: float,
-    height: float,
+    length: float,
 ) -> Polygon:
     return Polygon(
         points=(
             Point(x=x, y=y),
             Point(x=x + width, y=y),
-            Point(x=x + width, y=y + height),
-            Point(x=x, y=y + height),
+            Point(x=x + width, y=y + length),
+            Point(x=x, y=y + length),
         )
     )
 
@@ -36,20 +36,20 @@ def extract_floor_plan(solver: Any, built: BuiltModel) -> FloorPlan:
         x = scale.to_domain(int(solver.Value(variables.x)))
         y = scale.to_domain(int(solver.Value(variables.y)))
         width = scale.to_domain(int(solver.Value(variables.width)))
-        height = scale.to_domain(int(solver.Value(variables.height)))
+        length = scale.to_domain(int(solver.Value(variables.length)))
         rooms.append(
             FloorPlanRoom(
                 id=prepared_room.id,
                 room_type=prepared_room.room_type,
                 name=prepared_room.name,
-                boundary=_rectangle_polygon(x, y, width, height),
+                boundary=_rectangle_polygon(x, y, width, length),
             )
         )
 
     floor_width = scale.to_domain(floor.width)
-    floor_height = scale.to_domain(floor.height)
+    floor_length = scale.to_domain(floor.length)
     return FloorPlan(
-        boundary=_rectangle_polygon(0.0, 0.0, floor_width, floor_height),
+        boundary=_rectangle_polygon(0.0, 0.0, floor_width, floor_length),
         rooms=rooms,
         openings=[],
     )

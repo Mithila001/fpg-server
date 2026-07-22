@@ -63,13 +63,13 @@ class SpatialDistributionEvaluator(CandidateEvaluator):
         nnd_score, nnd_metrics = _nnd_score(
             data.points,
             data.floor_width,
-            data.floor_height,
+            data.floor_length,
             sensitivity,
         )
         coverage_score, coverage_metrics = _coverage_score(
             data.points,
             data.floor_width,
-            data.floor_height,
+            data.floor_length,
             grid_size,
             gap_zero_score_ratio,
         )
@@ -113,22 +113,22 @@ class SpatialDistributionEvaluator(CandidateEvaluator):
 def _nnd_score(
     points: tuple[EvaluationPoint, ...],
     floor_width: float,
-    floor_height: float,
+    floor_length: float,
     sensitivity: float,
 ) -> tuple[float, dict[str, float]]:
     anchors = (
         (0.0, 0.0),
         (floor_width, 0.0),
-        (floor_width, floor_height),
-        (0.0, floor_height),
+        (floor_width, floor_length),
+        (0.0, floor_length),
         (floor_width / 2.0, 0.0),
-        (floor_width / 2.0, floor_height),
-        (0.0, floor_height / 2.0),
-        (floor_width, floor_height / 2.0),
+        (floor_width / 2.0, floor_length),
+        (0.0, floor_length / 2.0),
+        (floor_width, floor_length / 2.0),
         (floor_width / 4.0, 0.0),
         (3.0 * floor_width / 4.0, 0.0),
-        (floor_width / 4.0, floor_height),
-        (3.0 * floor_width / 4.0, floor_height),
+        (floor_width / 4.0, floor_length),
+        (3.0 * floor_width / 4.0, floor_length),
     )
 
     nearest: list[float] = []
@@ -146,7 +146,7 @@ def _nnd_score(
     std_nnd = math.sqrt(variance)
     cv = std_nnd / max(mean_nnd, 1e-9)
     score = clamp_score(100.0 * math.exp(max(-cv * sensitivity, -10.0)))
-    ideal_distance = math.sqrt((floor_width * floor_height) / len(points))
+    ideal_distance = math.sqrt((floor_width * floor_length) / len(points))
     return score, {
         "mean_nearest_distance": mean_nnd,
         "nearest_distance_std": std_nnd,
@@ -158,7 +158,7 @@ def _nnd_score(
 def _coverage_score(
     points: tuple[EvaluationPoint, ...],
     floor_width: float,
-    floor_height: float,
+    floor_length: float,
     grid_size: int,
     gap_zero_score_ratio: float,
 ) -> tuple[float, dict[str, float]]:
@@ -166,7 +166,7 @@ def _coverage_score(
     for x_index in range(grid_size):
         x = floor_width * x_index / (grid_size - 1)
         for y_index in range(grid_size):
-            y = floor_height * y_index / (grid_size - 1)
+            y = floor_length * y_index / (grid_size - 1)
             distances.append(
                 min(math.hypot(x - point.x, y - point.y) for point in points)
             )
@@ -175,7 +175,7 @@ def _coverage_score(
     percentile_index = min(len(ordered) - 1, math.ceil(0.95 * len(ordered)) - 1)
     gap_95 = ordered[percentile_index]
     mean_gap = sum(distances) / len(distances)
-    ideal_distance = math.sqrt((floor_width * floor_height) / len(points))
+    ideal_distance = math.sqrt((floor_width * floor_length) / len(points))
     theoretical_gap = ideal_distance / math.sqrt(2.0)
     gap_ratio = gap_95 / max(theoretical_gap, 1e-9)
     score = clamp_score(

@@ -94,7 +94,7 @@ class RelationshipQualityEvaluator(CandidateEvaluator):
         pathing_weight /= weight_total
         hallway_privacy_weight /= weight_total
         max_cost_multiplier = setting_float(settings, "max_cost_multiplier", 3.0)
-        max_cost = max(1.0, math.hypot(data.floor_width, data.floor_height) * max_cost_multiplier)
+        max_cost = max(1.0, math.hypot(data.floor_width, data.floor_length) * max_cost_multiplier)
 
         query_scores: list[float] = []
         hallway_usage: dict[str, dict[str, int]] = {

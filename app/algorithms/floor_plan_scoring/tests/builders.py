@@ -99,8 +99,8 @@ def build_generation_spec(
                 size=RoomSizeSpec(
                     min_width=float(raw_size["min_width"]),
                     max_width=float(raw_size["max_width"]),
-                    min_height=float(raw_size["min_height"]),
-                    max_height=float(raw_size["max_height"]),
+                    min_length=float(raw_size["min_length"]),
+                    max_length=float(raw_size["max_length"]),
                     min_area=float(raw_size["min_area"]),
                     max_area=float(raw_size["max_area"]),
                 ),
@@ -117,7 +117,7 @@ def build_generation_spec(
     return FloorPlanGenerationSpec(
         floor=FloorSpec(
             width=float(case["floor"]["width"]),
-            height=float(case["floor"]["height"]),
+            length=float(case["floor"]["length"]),
         ),
         rooms=tuple(room_specs),
         room_relations=relations,

@@ -45,7 +45,7 @@ from app.algorithms.floor_plan_preprocessing import (
 )
 
 request = PreprocessingRequest(
-    floor_limits=FloorLimits(max_width=120, max_height=100),
+    floor_limits=FloorLimits(max_width=120, max_length=100),
     aspect_ratio="1:1",
     rooms=(
         RequestedRoom("bedroom", "bedroom_1", requested_size="regular"),

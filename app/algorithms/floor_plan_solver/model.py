@@ -16,7 +16,7 @@ class RoomVariables:
     x: Any
     y: Any
     width: Any
-    height: Any
+    length: Any
     x_end: Any
     y_end: Any
     area: Any
@@ -63,26 +63,26 @@ def _create_room_variables(
 
     present = model.NewBoolVar(f"{prefix}_present")
     x = model.NewIntVar(0, floor.width, f"{prefix}_x")
-    y = model.NewIntVar(0, floor.height, f"{prefix}_y")
+    y = model.NewIntVar(0, floor.length, f"{prefix}_y")
     width = model.NewIntVar(0, room.max_width, f"{prefix}_width")
-    height = model.NewIntVar(0, room.max_height, f"{prefix}_height")
+    length = model.NewIntVar(0, room.max_length, f"{prefix}_length")
     x_end = model.NewIntVar(0, floor.width, f"{prefix}_x_end")
-    y_end = model.NewIntVar(0, floor.height, f"{prefix}_y_end")
+    y_end = model.NewIntVar(0, floor.length, f"{prefix}_y_end")
     area = model.NewIntVar(0, room.max_area, f"{prefix}_area")
 
     model.Add(x_end == x + width)
-    model.Add(y_end == y + height)
-    model.AddMultiplicationEquality(area, [width, height])
+    model.Add(y_end == y + length)
+    model.AddMultiplicationEquality(area, [width, length])
 
     model.Add(width >= room.min_width).OnlyEnforceIf(present)
-    model.Add(height >= room.min_height).OnlyEnforceIf(present)
+    model.Add(length >= room.min_length).OnlyEnforceIf(present)
     model.Add(area >= room.min_area).OnlyEnforceIf(present)
     model.Add(area <= room.max_area).OnlyEnforceIf(present)
 
     model.Add(x == 0).OnlyEnforceIf(present.Not())
     model.Add(y == 0).OnlyEnforceIf(present.Not())
     model.Add(width == 0).OnlyEnforceIf(present.Not())
-    model.Add(height == 0).OnlyEnforceIf(present.Not())
+    model.Add(length == 0).OnlyEnforceIf(present.Not())
     model.Add(x_end == 0).OnlyEnforceIf(present.Not())
     model.Add(y_end == 0).OnlyEnforceIf(present.Not())
     model.Add(area == 0).OnlyEnforceIf(present.Not())
@@ -94,7 +94,7 @@ def _create_room_variables(
         x, width, x_end, present, f"{prefix}_x_interval"
     )
     y_interval = model.NewOptionalIntervalVar(
-        y, height, y_end, present, f"{prefix}_y_interval"
+        y, length, y_end, present, f"{prefix}_y_interval"
     )
 
     return RoomVariables(
@@ -103,7 +103,7 @@ def _create_room_variables(
         x=x,
         y=y,
         width=width,
-        height=height,
+        length=length,
         x_end=x_end,
         y_end=y_end,
         area=area,
@@ -186,8 +186,8 @@ def apply_seed_policy(context: ModelContext) -> None:
             context.model.AddHint(variables.y, room_seed.y)
             if room_seed.width is not None:
                 context.model.AddHint(variables.width, room_seed.width)
-            if room_seed.height is not None:
-                context.model.AddHint(variables.height, room_seed.height)
+            if room_seed.length is not None:
+                context.model.AddHint(variables.length, room_seed.length)
 
         if position_delta is not None:
             _bounded_constraint(
@@ -201,7 +201,7 @@ def apply_seed_policy(context: ModelContext) -> None:
                 context.model,
                 variables.y,
                 max(0, room_seed.y - position_delta),
-                min(floor.height - room.min_height, room_seed.y + position_delta),
+                min(floor.length - room.min_length, room_seed.y + position_delta),
                 variables.present,
             )
 
@@ -213,11 +213,11 @@ def apply_seed_policy(context: ModelContext) -> None:
                 min(room.max_width, room_seed.width + size_delta),
                 variables.present,
             )
-        if size_delta is not None and room_seed.height is not None:
+        if size_delta is not None and room_seed.length is not None:
             _bounded_constraint(
                 context.model,
-                variables.height,
-                max(room.min_height, room_seed.height - size_delta),
-                min(room.max_height, room_seed.height + size_delta),
+                variables.length,
+                max(room.min_length, room_seed.length - size_delta),
+                min(room.max_length, room_seed.length + size_delta),
                 variables.present,
             )

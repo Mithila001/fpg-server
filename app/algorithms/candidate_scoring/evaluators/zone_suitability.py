@@ -69,7 +69,7 @@ class ZoneSuitabilityEvaluator(CandidateEvaluator):
             if not cells:
                 continue
             nx = point.x / data.floor_width
-            ny = point.y / data.floor_height
+            ny = point.y / data.floor_length
             distance_to_zone = _minimum_distance_to_cells(nx, ny, cells, grid_size)
             score = clamp_score(100.0 * (1.0 - distance_to_zone * falloff_multiplier))
             scores.append(score)

@@ -33,10 +33,10 @@ class DeadSpaceConstraint:
                 0, floor.width, context.new_name("bbox_right_candidate")
             )
             front = context.model.NewIntVar(
-                0, floor.height, context.new_name("bbox_front_candidate")
+                0, floor.length, context.new_name("bbox_front_candidate")
             )
             back = context.model.NewIntVar(
-                0, floor.height, context.new_name("bbox_back_candidate")
+                0, floor.length, context.new_name("bbox_back_candidate")
             )
 
             context.model.Add(left == variables.x).OnlyEnforceIf(variables.present)
@@ -50,7 +50,7 @@ class DeadSpaceConstraint:
             context.model.Add(front == variables.y).OnlyEnforceIf(
                 variables.present
             )
-            context.model.Add(front == floor.height).OnlyEnforceIf(
+            context.model.Add(front == floor.length).OnlyEnforceIf(
                 variables.present.Not()
             )
             context.model.Add(back == variables.y_end).OnlyEnforceIf(
@@ -70,10 +70,10 @@ class DeadSpaceConstraint:
             0, floor.width, context.new_name("bbox_right")
         )
         front_edge = context.model.NewIntVar(
-            0, floor.height, context.new_name("bbox_front")
+            0, floor.length, context.new_name("bbox_front")
         )
         back_edge = context.model.NewIntVar(
-            0, floor.height, context.new_name("bbox_back")
+            0, floor.length, context.new_name("bbox_back")
         )
         context.model.AddMinEquality(left_edge, left_candidates)
         context.model.AddMaxEquality(right_edge, right_candidates)
@@ -83,16 +83,16 @@ class DeadSpaceConstraint:
         width = context.model.NewIntVar(
             0, floor.width, context.new_name("bbox_width")
         )
-        height = context.model.NewIntVar(
-            0, floor.height, context.new_name("bbox_height")
+        length = context.model.NewIntVar(
+            0, floor.length, context.new_name("bbox_length")
         )
         context.model.Add(width == right_edge - left_edge)
-        context.model.Add(height == back_edge - front_edge)
+        context.model.Add(length == back_edge - front_edge)
 
         bbox_area = context.model.NewIntVar(
             0, floor.area, context.new_name("bbox_area")
         )
-        context.model.AddMultiplicationEquality(bbox_area, [width, height])
+        context.model.AddMultiplicationEquality(bbox_area, [width, length])
 
         room_area_sum = context.model.NewIntVar(
             0, floor.area, context.new_name("room_area_sum")

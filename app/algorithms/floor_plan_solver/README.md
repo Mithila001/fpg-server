@@ -28,7 +28,7 @@ The following rules are always applied and cannot be disabled by profiles:
 - room variables remain inside the floor bounds,
 - required rooms are present,
 - optional rooms use optional intervals,
-- width, height, and area stay within each `RoomSpec`,
+- width, length, and area stay within each `RoomSpec`,
 - rooms do not overlap.
 
 These are model invariants rather than profile-level business constraints.

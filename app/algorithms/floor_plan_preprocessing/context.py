@@ -31,7 +31,7 @@ class NormalizedRoom:
 @dataclass(frozen=True, slots=True)
 class NormalizedRequest:
     max_width: float
-    max_height: float
+    max_length: float
     aspect_ratio: float
     rooms: tuple[NormalizedRoom, ...]
     normalizations: tuple[NormalizationRecord, ...]
@@ -45,8 +45,8 @@ class PreparedRoomSizeReference:
     size: str
     min_width: float
     max_width: float
-    min_height: float
-    max_height: float
+    min_length: float
+    max_length: float
     min_area: float
     max_area: float
 
@@ -69,7 +69,7 @@ class PreparedReferenceData:
 @dataclass(frozen=True, slots=True)
 class RuledRequest:
     max_width: float
-    max_height: float
+    max_length: float
     aspect_ratio: float
     rooms: tuple[NormalizedRoom, ...]
     selected_room_size: str

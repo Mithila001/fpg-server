@@ -19,8 +19,8 @@ from .exceptions import ScoringInputError
 class NormalizedRoomSize:
     min_width: float
     max_width: float
-    min_height: float
-    max_height: float
+    min_length: float
+    max_length: float
     min_area: float
     max_area: float
 
@@ -56,7 +56,7 @@ class NormalizedRoom:
 @dataclass(frozen=True, slots=True)
 class ScoringContext:
     floor_width: float
-    floor_height: float
+    floor_length: float
     floor_points: tuple[tuple[float, float], ...]
     floor_polygon: Polygon
     rooms: tuple[NormalizedRoom, ...]
@@ -87,8 +87,8 @@ class ScoringContextFactory:
         floor_width = _positive_number(
             _required_attr(floor_spec, "width", "floor"), "floor.width"
         )
-        floor_height = _positive_number(
-            _required_attr(floor_spec, "height", "floor"), "floor.height"
+        floor_length = _positive_number(
+            _required_attr(floor_spec, "length", "floor"), "floor.length"
         )
 
         room_specs = _normalize_specs(
@@ -153,7 +153,7 @@ class ScoringContextFactory:
 
         return ScoringContext(
             floor_width=floor_width,
-            floor_height=floor_height,
+            floor_length=floor_length,
             floor_points=floor_points,
             floor_polygon=floor_polygon,
             rooms=rooms,
@@ -246,13 +246,13 @@ def _normalize_specs(raw_specs: Any) -> tuple[NormalizedRoomSpec, ...]:
                 _required_attr(raw_size, "max_width", f"{label}.size"),
                 f"{label}.size.max_width",
             ),
-            min_height=_positive_number(
-                _required_attr(raw_size, "min_height", f"{label}.size"),
-                f"{label}.size.min_height",
+            min_length=_positive_number(
+                _required_attr(raw_size, "min_length", f"{label}.size"),
+                f"{label}.size.min_length",
             ),
-            max_height=_positive_number(
-                _required_attr(raw_size, "max_height", f"{label}.size"),
-                f"{label}.size.max_height",
+            max_length=_positive_number(
+                _required_attr(raw_size, "max_length", f"{label}.size"),
+                f"{label}.size.max_length",
             ),
             min_area=_positive_number(
                 _required_attr(raw_size, "min_area", f"{label}.size"),
@@ -265,7 +265,7 @@ def _normalize_specs(raw_specs: Any) -> tuple[NormalizedRoomSpec, ...]:
         )
         if (
             size.min_width > size.max_width
-            or size.min_height > size.max_height
+            or size.min_length > size.max_length
             or size.min_area > size.max_area
         ):
             raise ScoringInputError(

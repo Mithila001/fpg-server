@@ -70,12 +70,12 @@ def _parse_aspect_ratio(value: float | str) -> float:
         if len(parts) != 2:
             raise NormalizationError("aspect_ratio must use the H:W form")
         try:
-            height, width = (float(part.strip()) for part in parts)
+            length, width = (float(part.strip()) for part in parts)
         except ValueError as exc:
             raise NormalizationError("aspect_ratio H:W parts must be numeric") from exc
         if width == 0:
             raise NormalizationError("aspect_ratio width part cannot be zero")
-        ratio = height / width
+        ratio = length / width
     else:
         raise NormalizationError("aspect_ratio must be numeric or an H:W string")
     if not math.isfinite(ratio) or ratio <= 0:
@@ -148,7 +148,7 @@ def normalize_request(
 
     return NormalizedRequest(
         max_width=float(request.floor_limits.max_width),
-        max_height=float(request.floor_limits.max_height),
+        max_length=float(request.floor_limits.max_length),
         aspect_ratio=ratio,
         rooms=tuple(rooms),
         normalizations=tuple(records),
@@ -182,8 +182,8 @@ def prepare_reference_data(
             size=_normalize_size(item.size),
             min_width=_reference_float(item.min_width, "min_width"),
             max_width=_reference_float(item.max_width, "max_width"),
-            min_height=_reference_float(item.min_height, "min_height"),
-            max_height=_reference_float(item.max_height, "max_height"),
+            min_length=_reference_float(item.min_length, "min_length"),
+            max_length=_reference_float(item.max_length, "max_length"),
             min_area=_reference_float(item.min_area, "min_area"),
             max_area=_reference_float(item.max_area, "max_area"),
         )

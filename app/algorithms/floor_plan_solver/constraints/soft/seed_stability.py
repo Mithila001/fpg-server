@@ -40,13 +40,13 @@ class SeedStabilityConstraint:
                 0, floor.width, context.new_name("seed_x_delta", room_id_key)
             )
             y_delta = context.model.NewIntVar(
-                0, floor.height, context.new_name("seed_y_delta", room_id_key)
+                0, floor.length, context.new_name("seed_y_delta", room_id_key)
             )
             context.model.AddAbsEquality(x_delta, variables.x - room_seed.x)
             context.model.AddAbsEquality(y_delta, variables.y - room_seed.y)
 
             expression = position_multiplier * (x_delta + y_delta)
-            upper_bound = position_multiplier * (floor.width + floor.height)
+            upper_bound = position_multiplier * (floor.width + floor.length)
 
             if room_seed.width is not None:
                 width_delta = context.model.NewIntVar(
@@ -60,17 +60,17 @@ class SeedStabilityConstraint:
                 expression += size_multiplier * width_delta
                 upper_bound += size_multiplier * floor.width
 
-            if room_seed.height is not None:
-                height_delta = context.model.NewIntVar(
+            if room_seed.length is not None:
+                length_delta = context.model.NewIntVar(
                     0,
-                    floor.height,
-                    context.new_name("seed_height_delta", room_id_key),
+                    floor.length,
+                    context.new_name("seed_length_delta", room_id_key),
                 )
                 context.model.AddAbsEquality(
-                    height_delta, variables.height - room_seed.height
+                    length_delta, variables.length - room_seed.length
                 )
-                expression += size_multiplier * height_delta
-                upper_bound += size_multiplier * floor.height
+                expression += size_multiplier * length_delta
+                upper_bound += size_multiplier * floor.length
 
             penalty = active_linear_penalty(
                 context,

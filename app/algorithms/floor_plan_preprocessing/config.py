@@ -46,4 +46,4 @@ class PreprocessingPolicy:
     derive_living_room: bool = True
     hallway_count: int = 2
     hallway_min_width: float = 10.0
-    hallway_min_height: float = 10.0
+    hallway_min_length: float = 10.0

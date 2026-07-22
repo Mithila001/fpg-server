@@ -1,63 +1,63 @@
 {
   "candidate_hints": [
     {
-      "height": 12,
+      "length": 12,
       "room_id": "veranda",
       "width": 75,
       "x": 8,
       "y": 0
     },
     {
-      "height": 36,
+      "length": 36,
       "room_id": "living",
       "width": 54,
       "x": 21,
       "y": 9
     },
     {
-      "height": 30,
+      "length": 30,
       "room_id": "dining",
       "width": 37,
       "x": 37,
       "y": 34
     },
     {
-      "height": 32,
+      "length": 32,
       "room_id": "kitchen",
       "width": 36,
       "x": 79,
       "y": 34
     },
     {
-      "height": 49,
+      "length": 49,
       "room_id": "hallway",
       "width": 12,
       "x": 52,
       "y": 12
     },
     {
-      "height": 36,
+      "length": 36,
       "room_id": "bedroom_1",
       "width": 40,
       "x": 19,
       "y": 58
     },
     {
-      "height": 32,
+      "length": 32,
       "room_id": "bedroom_2",
       "width": 40,
       "x": 68,
       "y": 61
     },
     {
-      "height": 27,
+      "length": 27,
       "room_id": "bathroom",
       "width": 23,
       "x": 72,
       "y": 49
     },
     {
-      "height": 25,
+      "length": 25,
       "room_id": "attached_bathroom",
       "width": 19,
       "x": 90,
@@ -481,7 +481,7 @@
       "request_id": "solver-post-process-flow",
       "specification": {
         "floor": {
-          "height": 110,
+          "length": 110,
           "width": 120
         },
         "room_relations": [
@@ -534,10 +534,10 @@
             "room_type": "veranda",
             "size": {
               "max_area": 1125,
-              "max_height": 15,
+              "max_length": 15,
               "max_width": 75,
               "min_area": 500,
-              "min_height": 10,
+              "min_length": 10,
               "min_width": 50
             }
           },
@@ -548,10 +548,10 @@
             "room_type": "living_room",
             "size": {
               "max_area": 2700,
-              "max_height": 45,
+              "max_length": 45,
               "max_width": 60,
               "min_area": 1575,
-              "min_height": 35,
+              "min_length": 35,
               "min_width": 45
             }
           },
@@ -562,10 +562,10 @@
             "room_type": "dining_room",
             "size": {
               "max_area": 1400,
-              "max_height": 35,
+              "max_length": 35,
               "max_width": 40,
               "min_area": 750,
-              "min_height": 25,
+              "min_length": 25,
               "min_width": 30
             }
           },
@@ -576,10 +576,10 @@
             "room_type": "kitchen",
             "size": {
               "max_area": 1400,
-              "max_height": 35,
+              "max_length": 35,
               "max_width": 40,
               "min_area": 750,
-              "min_height": 25,
+              "min_length": 25,
               "min_width": 30
             }
           },
@@ -590,10 +590,10 @@
             "room_type": "hallway",
             "size": {
               "max_area": 928,
-              "max_height": 58,
+              "max_length": 58,
               "max_width": 16,
               "min_area": 400,
-              "min_height": 40,
+              "min_length": 40,
               "min_width": 10
             }
           },
@@ -604,10 +604,10 @@
             "room_type": "bedroom",
             "size": {
               "max_area": 2400,
-              "max_height": 48,
+              "max_length": 48,
               "max_width": 50,
               "min_area": 1050,
-              "min_height": 30,
+              "min_length": 30,
               "min_width": 35
             }
           },
@@ -618,10 +618,10 @@
             "room_type": "bedroom",
             "size": {
               "max_area": 1920,
-              "max_height": 40,
+              "max_length": 40,
               "max_width": 48,
               "min_area": 1050,
-              "min_height": 30,
+              "min_length": 30,
               "min_width": 35
             }
           },
@@ -632,10 +632,10 @@
             "room_type": "bathroom",
             "size": {
               "max_area": 700,
-              "max_height": 28,
+              "max_length": 28,
               "max_width": 25,
               "min_area": 324,
-              "min_height": 18,
+              "min_length": 18,
               "min_width": 18
             }
           },
@@ -646,10 +646,10 @@
             "room_type": "attached_bathroom",
             "size": {
               "max_area": 625,
-              "max_height": 25,
+              "max_length": 25,
               "max_width": 25,
               "min_area": 324,
-              "min_height": 18,
+              "min_length": 18,
               "min_width": 18
             }
           }
@@ -1092,63 +1092,63 @@
       "request": {
         "candidate_hints": [
           {
-            "height": 12,
+            "length": 12,
             "room_id": "veranda",
             "width": 75,
             "x": 8,
             "y": 0
           },
           {
-            "height": 36,
+            "length": 36,
             "room_id": "living",
             "width": 54,
             "x": 21,
             "y": 9
           },
           {
-            "height": 30,
+            "length": 30,
             "room_id": "dining",
             "width": 37,
             "x": 37,
             "y": 34
           },
           {
-            "height": 32,
+            "length": 32,
             "room_id": "kitchen",
             "width": 36,
             "x": 79,
             "y": 34
           },
           {
-            "height": 49,
+            "length": 49,
             "room_id": "hallway",
             "width": 12,
             "x": 52,
             "y": 12
           },
           {
-            "height": 36,
+            "length": 36,
             "room_id": "bedroom_1",
             "width": 40,
             "x": 19,
             "y": 58
           },
           {
-            "height": 32,
+            "length": 32,
             "room_id": "bedroom_2",
             "width": 40,
             "x": 68,
             "y": 61
           },
           {
-            "height": 27,
+            "length": 27,
             "room_id": "bathroom",
             "width": 23,
             "x": 72,
             "y": 49
           },
           {
-            "height": 25,
+            "length": 25,
             "room_id": "attached_bathroom",
             "width": 19,
             "x": 90,
@@ -1273,7 +1273,7 @@
         },
         "specification": {
           "floor": {
-            "height": 110,
+            "length": 110,
             "width": 120
           },
           "room_relations": [
@@ -1326,10 +1326,10 @@
               "room_type": "veranda",
               "size": {
                 "max_area": 1125,
-                "max_height": 15,
+                "max_length": 15,
                 "max_width": 75,
                 "min_area": 500,
-                "min_height": 10,
+                "min_length": 10,
                 "min_width": 50
               }
             },
@@ -1340,10 +1340,10 @@
               "room_type": "living_room",
               "size": {
                 "max_area": 2700,
-                "max_height": 45,
+                "max_length": 45,
                 "max_width": 60,
                 "min_area": 1575,
-                "min_height": 35,
+                "min_length": 35,
                 "min_width": 45
               }
             },
@@ -1354,10 +1354,10 @@
               "room_type": "dining_room",
               "size": {
                 "max_area": 1400,
-                "max_height": 35,
+                "max_length": 35,
                 "max_width": 40,
                 "min_area": 750,
-                "min_height": 25,
+                "min_length": 25,
                 "min_width": 30
               }
             },
@@ -1368,10 +1368,10 @@
               "room_type": "kitchen",
               "size": {
                 "max_area": 1400,
-                "max_height": 35,
+                "max_length": 35,
                 "max_width": 40,
                 "min_area": 750,
-                "min_height": 25,
+                "min_length": 25,
                 "min_width": 30
               }
             },
@@ -1382,10 +1382,10 @@
               "room_type": "hallway",
               "size": {
                 "max_area": 928,
-                "max_height": 58,
+                "max_length": 58,
                 "max_width": 16,
                 "min_area": 400,
-                "min_height": 40,
+                "min_length": 40,
                 "min_width": 10
               }
             },
@@ -1396,10 +1396,10 @@
               "room_type": "bedroom",
               "size": {
                 "max_area": 2400,
-                "max_height": 48,
+                "max_length": 48,
                 "max_width": 50,
                 "min_area": 1050,
-                "min_height": 30,
+                "min_length": 30,
                 "min_width": 35
               }
             },
@@ -1410,10 +1410,10 @@
               "room_type": "bedroom",
               "size": {
                 "max_area": 1920,
-                "max_height": 40,
+                "max_length": 40,
                 "max_width": 48,
                 "min_area": 1050,
-                "min_height": 30,
+                "min_length": 30,
                 "min_width": 35
               }
             },
@@ -1424,10 +1424,10 @@
               "room_type": "bathroom",
               "size": {
                 "max_area": 700,
-                "max_height": 28,
+                "max_length": 28,
                 "max_width": 25,
                 "min_area": 324,
-                "min_height": 18,
+                "min_length": 18,
                 "min_width": 18
               }
             },
@@ -1438,10 +1438,10 @@
               "room_type": "attached_bathroom",
               "size": {
                 "max_area": 625,
-                "max_height": 25,
+                "max_length": 25,
                 "max_width": 25,
                 "min_area": 324,
-                "min_height": 18,
+                "min_length": 18,
                 "min_width": 18
               }
             }
@@ -2231,7 +2231,7 @@
         },
         "specification": {
           "floor": {
-            "height": 110,
+            "length": 110,
             "width": 120
           },
           "room_relations": [
@@ -2284,10 +2284,10 @@
               "room_type": "veranda",
               "size": {
                 "max_area": 1125,
-                "max_height": 15,
+                "max_length": 15,
                 "max_width": 75,
                 "min_area": 500,
-                "min_height": 10,
+                "min_length": 10,
                 "min_width": 50
               }
             },
@@ -2298,10 +2298,10 @@
               "room_type": "living_room",
               "size": {
                 "max_area": 2700,
-                "max_height": 45,
+                "max_length": 45,
                 "max_width": 60,
                 "min_area": 1575,
-                "min_height": 35,
+                "min_length": 35,
                 "min_width": 45
               }
             },
@@ -2312,10 +2312,10 @@
               "room_type": "dining_room",
               "size": {
                 "max_area": 1400,
-                "max_height": 35,
+                "max_length": 35,
                 "max_width": 40,
                 "min_area": 750,
-                "min_height": 25,
+                "min_length": 25,
                 "min_width": 30
               }
             },
@@ -2326,10 +2326,10 @@
               "room_type": "kitchen",
               "size": {
                 "max_area": 1400,
-                "max_height": 35,
+                "max_length": 35,
                 "max_width": 40,
                 "min_area": 750,
-                "min_height": 25,
+                "min_length": 25,
                 "min_width": 30
               }
             },
@@ -2340,10 +2340,10 @@
               "room_type": "hallway",
               "size": {
                 "max_area": 928,
-                "max_height": 58,
+                "max_length": 58,
                 "max_width": 16,
                 "min_area": 400,
-                "min_height": 40,
+                "min_length": 40,
                 "min_width": 10
               }
             },
@@ -2354,10 +2354,10 @@
               "room_type": "bedroom",
               "size": {
                 "max_area": 2400,
-                "max_height": 48,
+                "max_length": 48,
                 "max_width": 50,
                 "min_area": 1050,
-                "min_height": 30,
+                "min_length": 30,
                 "min_width": 35
               }
             },
@@ -2368,10 +2368,10 @@
               "room_type": "bedroom",
               "size": {
                 "max_area": 1920,
-                "max_height": 40,
+                "max_length": 40,
                 "max_width": 48,
                 "min_area": 1050,
-                "min_height": 30,
+                "min_length": 30,
                 "min_width": 35
               }
             },
@@ -2382,10 +2382,10 @@
               "room_type": "bathroom",
               "size": {
                 "max_area": 700,
-                "max_height": 28,
+                "max_length": 28,
                 "max_width": 25,
                 "min_area": 324,
-                "min_height": 18,
+                "min_length": 18,
                 "min_width": 18
               }
             },
@@ -2396,10 +2396,10 @@
               "room_type": "attached_bathroom",
               "size": {
                 "max_area": 625,
-                "max_height": 25,
+                "max_length": 25,
                 "max_width": 25,
                 "min_area": 324,
-                "min_height": 18,
+                "min_length": 18,
                 "min_width": 18
               }
             }
@@ -3194,7 +3194,7 @@
         },
         "specification": {
           "floor": {
-            "height": 110,
+            "length": 110,
             "width": 120
           },
           "room_relations": [
@@ -3247,10 +3247,10 @@
               "room_type": "veranda",
               "size": {
                 "max_area": 1125,
-                "max_height": 15,
+                "max_length": 15,
                 "max_width": 75,
                 "min_area": 500,
-                "min_height": 10,
+                "min_length": 10,
                 "min_width": 50
               }
             },
@@ -3261,10 +3261,10 @@
               "room_type": "living_room",
               "size": {
                 "max_area": 2700,
-                "max_height": 45,
+                "max_length": 45,
                 "max_width": 60,
                 "min_area": 1575,
-                "min_height": 35,
+                "min_length": 35,
                 "min_width": 45
               }
             },
@@ -3275,10 +3275,10 @@
               "room_type": "dining_room",
               "size": {
                 "max_area": 1400,
-                "max_height": 35,
+                "max_length": 35,
                 "max_width": 40,
                 "min_area": 750,
-                "min_height": 25,
+                "min_length": 25,
                 "min_width": 30
               }
             },
@@ -3289,10 +3289,10 @@
               "room_type": "kitchen",
               "size": {
                 "max_area": 1400,
-                "max_height": 35,
+                "max_length": 35,
                 "max_width": 40,
                 "min_area": 750,
-                "min_height": 25,
+                "min_length": 25,
                 "min_width": 30
               }
             },
@@ -3303,10 +3303,10 @@
               "room_type": "hallway",
               "size": {
                 "max_area": 928,
-                "max_height": 58,
+                "max_length": 58,
                 "max_width": 16,
                 "min_area": 400,
-                "min_height": 40,
+                "min_length": 40,
                 "min_width": 10
               }
             },
@@ -3317,10 +3317,10 @@
               "room_type": "bedroom",
               "size": {
                 "max_area": 2400,
-                "max_height": 48,
+                "max_length": 48,
                 "max_width": 50,
                 "min_area": 1050,
-                "min_height": 30,
+                "min_length": 30,
                 "min_width": 35
               }
             },
@@ -3331,10 +3331,10 @@
               "room_type": "bedroom",
               "size": {
                 "max_area": 1920,
-                "max_height": 40,
+                "max_length": 40,
                 "max_width": 48,
                 "min_area": 1050,
-                "min_height": 30,
+                "min_length": 30,
                 "min_width": 35
               }
             },
@@ -3345,10 +3345,10 @@
               "room_type": "bathroom",
               "size": {
                 "max_area": 700,
-                "max_height": 28,
+                "max_length": 28,
                 "max_width": 25,
                 "min_area": 324,
-                "min_height": 18,
+                "min_length": 18,
                 "min_width": 18
               }
             },
@@ -3359,10 +3359,10 @@
               "room_type": "attached_bathroom",
               "size": {
                 "max_area": 625,
-                "max_height": 25,
+                "max_length": 25,
                 "max_width": 25,
                 "min_area": 324,
-                "min_height": 18,
+                "min_length": 18,
                 "min_width": 18
               }
             }
@@ -3721,7 +3721,7 @@
   },
   "specification": {
     "floor": {
-      "height": 110,
+      "length": 110,
       "width": 120
     },
     "room_relations": [
@@ -3774,10 +3774,10 @@
         "room_type": "veranda",
         "size": {
           "max_area": 1125,
-          "max_height": 15,
+          "max_length": 15,
           "max_width": 75,
           "min_area": 500,
-          "min_height": 10,
+          "min_length": 10,
           "min_width": 50
         }
       },
@@ -3788,10 +3788,10 @@
         "room_type": "living_room",
         "size": {
           "max_area": 2700,
-          "max_height": 45,
+          "max_length": 45,
           "max_width": 60,
           "min_area": 1575,
-          "min_height": 35,
+          "min_length": 35,
           "min_width": 45
         }
       },
@@ -3802,10 +3802,10 @@
         "room_type": "dining_room",
         "size": {
           "max_area": 1400,
-          "max_height": 35,
+          "max_length": 35,
           "max_width": 40,
           "min_area": 750,
-          "min_height": 25,
+          "min_length": 25,
           "min_width": 30
         }
       },
@@ -3816,10 +3816,10 @@
         "room_type": "kitchen",
         "size": {
           "max_area": 1400,
-          "max_height": 35,
+          "max_length": 35,
           "max_width": 40,
           "min_area": 750,
-          "min_height": 25,
+          "min_length": 25,
           "min_width": 30
         }
       },
@@ -3830,10 +3830,10 @@
         "room_type": "hallway",
         "size": {
           "max_area": 928,
-          "max_height": 58,
+          "max_length": 58,
           "max_width": 16,
           "min_area": 400,
-          "min_height": 40,
+          "min_length": 40,
           "min_width": 10
         }
       },
@@ -3844,10 +3844,10 @@
         "room_type": "bedroom",
         "size": {
           "max_area": 2400,
-          "max_height": 48,
+          "max_length": 48,
           "max_width": 50,
           "min_area": 1050,
-          "min_height": 30,
+          "min_length": 30,
           "min_width": 35
         }
       },
@@ -3858,10 +3858,10 @@
         "room_type": "bedroom",
         "size": {
           "max_area": 1920,
-          "max_height": 40,
+          "max_length": 40,
           "max_width": 48,
           "min_area": 1050,
-          "min_height": 30,
+          "min_length": 30,
           "min_width": 35
         }
       },
@@ -3872,10 +3872,10 @@
         "room_type": "bathroom",
         "size": {
           "max_area": 700,
-          "max_height": 28,
+          "max_length": 28,
           "max_width": 25,
           "min_area": 324,
-          "min_height": 18,
+          "min_length": 18,
           "min_width": 18
         }
       },
@@ -3886,10 +3886,10 @@
         "room_type": "attached_bathroom",
         "size": {
           "max_area": 625,
-          "max_height": 25,
+          "max_length": 25,
           "max_width": 25,
           "min_area": 324,
-          "min_height": 18,
+          "min_length": 18,
           "min_width": 18
         }
       }

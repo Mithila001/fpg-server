@@ -32,11 +32,11 @@ class FrontAnchorConstraint:
         for anchor, selected in priority_selection_literals(
             context, ordered_candidates, "front_anchor_selected"
         ):
-            anchor_center_y2 = 2 * anchor.y + anchor.height
+            anchor_center_y2 = 2 * anchor.y + anchor.length
             for other in all_rooms:
                 if other.room.id_key == anchor.room.id_key:
                     continue
-                other_center_y2 = 2 * other.y + other.height
+                other_center_y2 = 2 * other.y + other.length
                 context.model.Add(
                     anchor_center_y2 <= other_center_y2
                 ).OnlyEnforceIf([selected, other.present])

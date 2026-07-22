@@ -32,8 +32,8 @@ def _room_size_spec(reference: PreparedRoomSizeReference) -> RoomSizeSpec:
     return RoomSizeSpec(
         min_width=reference.min_width,
         max_width=reference.max_width,
-        min_height=reference.min_height,
-        max_height=reference.max_height,
+        min_length=reference.min_length,
+        max_length=reference.max_length,
         min_area=reference.min_area,
         max_area=reference.max_area,
     )
@@ -98,7 +98,7 @@ def _select_floor(
     policy: PreprocessingPolicy,
 ) -> tuple[FloorSpec, float, float]:
     hallway_count = sum(r.room_type is RoomType.HALLWAY for r in request.rooms)
-    hallway_area = policy.hallway_min_width * policy.hallway_min_height
+    hallway_area = policy.hallway_min_width * policy.hallway_min_length
     minimum = (
         sum(room.size.min_area for room in rooms)
         + hallway_count * hallway_area
@@ -112,11 +112,11 @@ def _select_floor(
     ratio = request.aspect_ratio
     width = min(
         request.max_width,
-        request.max_height / ratio,
+        request.max_length / ratio,
         math.sqrt(maximum / ratio),
     )
-    height = width * ratio
-    area = width * height
+    length = width * ratio
+    area = width * length
     if area + 1e-9 < minimum:
         raise FloorPreparationError(
             "The largest permitted floor at the requested aspect ratio has area "
@@ -125,7 +125,7 @@ def _select_floor(
     oversized = [
         str(room.id)
         for room in rooms
-        if room.size.min_width > width or room.size.min_height > height
+        if room.size.min_width > width or room.size.min_length > length
     ]
     if oversized:
         raise FloorPreparationError(
@@ -133,12 +133,12 @@ def _select_floor(
             + ", ".join(oversized)
         )
     if hallway_count and (
-        width < policy.hallway_min_width or height < policy.hallway_min_height
+        width < policy.hallway_min_width or length < policy.hallway_min_length
     ):
         raise FloorPreparationError(
             "Selected floor cannot contain the configured hallway dimensions"
         )
-    return FloorSpec(width=width, height=height), minimum, maximum
+    return FloorSpec(width=width, length=length), minimum, maximum
 
 
 def _add_hallways(
@@ -148,7 +148,7 @@ def _add_hallways(
     policy: PreprocessingPolicy,
 ) -> tuple[RoomSpec, ...]:
     by_id = {str(room.id): room for room in non_hallways}
-    hallway_min_area = policy.hallway_min_width * policy.hallway_min_height
+    hallway_min_area = policy.hallway_min_width * policy.hallway_min_length
     result: list[RoomSpec] = []
     for room in request.rooms:
         if room.room_type is not RoomType.HALLWAY:
@@ -162,10 +162,10 @@ def _add_hallways(
                 size=RoomSizeSpec(
                     min_width=policy.hallway_min_width,
                     max_width=floor.width,
-                    min_height=policy.hallway_min_height,
-                    max_height=floor.height,
+                    min_length=policy.hallway_min_length,
+                    max_length=floor.length,
                     min_area=hallway_min_area,
-                    max_area=floor.width * floor.height,
+                    max_area=floor.width * floor.length,
                 ),
                 required=room.required,
             )
