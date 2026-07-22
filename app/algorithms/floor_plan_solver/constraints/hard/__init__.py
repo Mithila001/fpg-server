@@ -1,6 +1,7 @@
 from .aspect_ratio import AspectRatioConstraint
 from .boundary_placement import BoundaryPlacementConstraint
 from .front_anchor import FrontAnchorConstraint
+from .garage_placement import GaragePlacementConstraint
 from .hallway_connectivity import HallwayConnectivityConstraint
 from .hallway_dimensions import HallwayDimensionsConstraint
 from .minimum_coverage import MinimumCoverageConstraint
@@ -11,6 +12,7 @@ __all__ = [
     "AspectRatioConstraint",
     "BoundaryPlacementConstraint",
     "FrontAnchorConstraint",
+    "GaragePlacementConstraint",
     "HallwayConnectivityConstraint",
     "HallwayDimensionsConstraint",
     "HardRoomRelationsConstraint",

@@ -11,7 +11,7 @@ from shapely.geometry import Polygon
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
-from .domain import FloorPlan, FloorPlanGenerationSpec
+from .domain import FloorPlan, FloorPlanGenerationSpec, RoomType
 from .exceptions import ScoringInputError
 
 
@@ -28,7 +28,7 @@ class NormalizedRoomSize:
 @dataclass(frozen=True, slots=True)
 class NormalizedRoomSpec:
     room_id: str
-    room_type: str
+    room_type: RoomType
     name: str
     size: NormalizedRoomSize
     required: bool
@@ -45,7 +45,7 @@ class NormalizedRelation:
 @dataclass(frozen=True, slots=True)
 class NormalizedRoom:
     room_id: str
-    room_type: str
+    room_type: RoomType
     name: str
     points: tuple[tuple[float, float], ...]
     polygon: Polygon
@@ -232,7 +232,7 @@ def _normalize_specs(raw_specs: Any) -> tuple[NormalizedRoomSpec, ...]:
     for index, raw in enumerate(_as_sequence(raw_specs, "specification.rooms")):
         label = f"specification.rooms[{index}]"
         room_id = _nonempty_text(_required_attr(raw, "id", label), f"{label}.id")
-        room_type = _enum_text(
+        room_type = _required_room_type(
             _required_attr(raw, "room_type", label), f"{label}.room_type"
         )
         name = _nonempty_text(_required_attr(raw, "name", label), f"{label}.name")
@@ -335,13 +335,14 @@ def _normalize_rooms(
         room_id = _nonempty_text(_required_attr(raw, "id", label), f"{label}.id")
         if room_id not in specs_by_id:
             raise ScoringInputError(f"{label} has unknown room ID '{room_id}'.")
-        room_type = _enum_text(
+        room_type = _required_room_type(
             _required_attr(raw, "room_type", label), f"{label}.room_type"
         )
         expected_type = specs_by_id[room_id].room_type
         if room_type != expected_type:
             raise ScoringInputError(
-                f"{label} type '{room_type}' does not match specification type '{expected_type}'."
+                f"{label} type '{room_type.value}' does not match specification "
+                f"type '{expected_type.value}'."
             )
         name = _nonempty_text(_required_attr(raw, "name", label), f"{label}.name")
         boundary = _required_attr(raw, "boundary", label)
@@ -414,6 +415,12 @@ def _as_sequence(value: Any, label: str) -> tuple[Any, ...]:
 def _enum_text(value: Any, label: str) -> str:
     raw = value.value if isinstance(value, Enum) else value
     return _nonempty_text(raw, label).strip().lower()
+
+
+def _required_room_type(value: Any, label: str) -> RoomType:
+    if not isinstance(value, RoomType):
+        raise ScoringInputError(f"{label} must be a RoomType enum member.")
+    return value
 
 
 def _nonempty_text(value: Any, label: str) -> str:

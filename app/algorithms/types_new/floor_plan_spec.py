@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import NewType
 
-# These types are currently not being actively used. There are in configuration phase to layer replace as the better data structure for the project flow.
+# Canonical shared types used throughout the generation pipeline.
 
 RoomId = NewType("RoomId", str)
 
@@ -38,6 +38,10 @@ class RoomSpec:
     name: str
     size: RoomSizeSpec
     required: bool = True
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.room_type, RoomType):
+            raise TypeError("room_type must be a RoomType enum member")
 
 
 @dataclass(frozen=True)

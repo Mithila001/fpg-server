@@ -11,22 +11,9 @@ from .domain import RoomId, RoomType
 from .exceptions import InvalidSpecificationError, MissingSeedError
 
 
-_ROOM_TYPE_ALIASES = {
-    "livingroom": "living_room",
-    "diningroom": "dining_room",
-    "attachedbathroom": "attached_bathroom",
-    "openarea": "open_area",
-}
-
-
 def enum_value(value: object) -> str:
     raw = getattr(value, "value", value)
     return str(raw).strip()
-
-
-def normalize_room_type(value: object) -> str:
-    normalized = enum_value(value).lower().replace("-", "_").replace(" ", "_")
-    return _ROOM_TYPE_ALIASES.get(normalized, normalized)
 
 
 def normalize_enum(value: object) -> str:
@@ -81,7 +68,6 @@ class PreparedRoom:
     id_key: str
     variable_name: str
     room_type: RoomType
-    room_type_key: str
     name: str
     required: bool
     min_width: int
@@ -224,13 +210,16 @@ def _prepare_rooms(
             )
 
         room_type = getattr(room, "room_type")
+        if not isinstance(room_type, RoomType):
+            raise InvalidSpecificationError(
+                f"rooms[{id_key}].room_type must be a RoomType enum member"
+            )
         prepared.append(
             PreparedRoom(
                 id=room_id,
                 id_key=id_key,
                 variable_name=f"r{index}_{_safe_name(id_key)}",
                 room_type=room_type,
-                room_type_key=normalize_room_type(room_type),
                 name=str(getattr(room, "name")),
                 required=bool(getattr(room, "required", True)),
                 min_width=min_width,

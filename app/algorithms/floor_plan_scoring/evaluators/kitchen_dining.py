@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+from ..domain import RoomType
 from ..context import ScoringContext, shared_boundary_length
 from ..types import EvaluationStatus, EvaluatorKey, EvaluatorResult, ScoreMetric
 from .base import FloorPlanEvaluator
@@ -36,9 +37,13 @@ class KitchenDiningEvaluator(FloorPlanEvaluator):
 
     def evaluate(self, context: ScoringContext, settings: object) -> EvaluatorResult:
         config = typed_settings(settings, KitchenDiningSettings, str(self.key))
-        kitchens = [room for room in context.rooms if room.room_type == "kitchen"]
+        kitchens = [
+            room for room in context.rooms if room.room_type is RoomType.KITCHEN
+        ]
         dining_rooms = [
-            room for room in context.rooms if room.room_type == "dining_room"
+            room
+            for room in context.rooms
+            if room.room_type is RoomType.DINING_ROOM
         ]
         if not kitchens or not dining_rooms:
             return EvaluatorResult(self.key, EvaluationStatus.NOT_APPLICABLE, None)

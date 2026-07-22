@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from ...model import ModelContext
-from ...preparation import normalize_room_type
-from ..base import ConstraintSettings, PenaltyTerm
+from ..base import ConstraintSettings, PenaltyTerm, require_room_types
 
 
 class OptionalRoomPresenceConstraint:
@@ -15,14 +14,16 @@ class OptionalRoomPresenceConstraint:
         context: ModelContext,
         settings: ConstraintSettings,
     ) -> tuple[PenaltyTerm, ...]:
-        raw_types = tuple(settings.get("room_types", ()))
-        target_types = {normalize_room_type(value) for value in raw_types}
+        target_types = require_room_types(
+            settings.get("room_types", ()),
+            "optional_room_presence.room_types",
+        )
         penalties: list[PenaltyTerm] = []
 
         for variables in context.room_variables.values():
             if variables.room.required:
                 continue
-            if target_types and variables.room.room_type_key not in target_types:
+            if target_types and variables.room.room_type not in target_types:
                 continue
             penalties.append(
                 PenaltyTerm(

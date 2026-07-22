@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from ...exceptions import InvalidProfileError
 from ...model import ModelContext
-from ...preparation import normalize_room_type
-from ..base import ConstraintSettings, PenaltyTerm
+from ..base import ConstraintSettings, PenaltyTerm, require_room_types
 from ..geometry import active_linear_penalty
 
 
@@ -20,15 +19,15 @@ class CenterProximityConstraint:
         front_bias = int(settings.get("front_bias", 1))
         if front_bias < 0:
             raise InvalidProfileError("center_proximity.front_bias cannot be negative")
-        excluded = {
-            normalize_room_type(value)
-            for value in tuple(settings.get("excluded_room_types", ()))
-        }
+        excluded = require_room_types(
+            settings.get("excluded_room_types", ()),
+            "center_proximity.excluded_room_types",
+        )
 
         floor = context.problem.floor
         penalties: list[PenaltyTerm] = []
         for variables in context.room_variables.values():
-            if variables.room.room_type_key in excluded:
+            if variables.room.room_type in excluded:
                 continue
 
             center_delta = context.model.NewIntVar(

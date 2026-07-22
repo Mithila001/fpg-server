@@ -54,6 +54,10 @@ class FloorPlanRoom:
     parent_room_id: RoomId | None = None
     metadata: RoomMetadata = field(default_factory=RoomMetadata)
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.room_type, RoomType):
+            raise TypeError("room_type must be a RoomType enum member")
+
 
 @dataclass
 class FloorPlanOpening:

@@ -6,6 +6,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from app.algorithms.types_new import RoomType
+
 from ..context import ScoringContext
 from ..types import (
     EvaluationStatus,
@@ -15,27 +17,34 @@ from ..types import (
     ScoreFinding,
 )
 from .base import CandidateEvaluator
-from .common import EvaluationPoint, build_evaluation_data, clamp_score, distance, setting_float
+from .common import (
+    EvaluationPoint,
+    build_evaluation_data,
+    clamp_score,
+    distance,
+    require_room_type,
+    setting_float,
+)
 
 RELATIONSHIP_QUALITY_KEY = EvaluatorKey("relationship_quality")
 
-DEFAULT_RELATION_RULES: tuple[tuple[str, str, float], ...] = (
-    ("kitchen", "dining_room", 0.5),
-    ("living_room", "kitchen", 1.0),
-    ("living_room", "veranda", 0.5),
-    ("living_room", "bedroom", 2.0),
-    ("bedroom", "attached_bathroom", 0.5),
-    ("bathroom", "living_room", 0.5),
+DEFAULT_RELATION_RULES: tuple[tuple[RoomType, RoomType, float], ...] = (
+    (RoomType.KITCHEN, RoomType.DINING_ROOM, 0.5),
+    (RoomType.LIVING_ROOM, RoomType.KITCHEN, 1.0),
+    (RoomType.LIVING_ROOM, RoomType.VERANDA, 0.5),
+    (RoomType.LIVING_ROOM, RoomType.BEDROOM, 2.0),
+    (RoomType.BEDROOM, RoomType.ATTACHED_BATHROOM, 0.5),
+    (RoomType.BATHROOM, RoomType.LIVING_ROOM, 0.5),
 )
-DEFAULT_PATH_QUERIES: tuple[tuple[str, str, str], ...] = (
-    ("veranda", "living_room", "public"),
-    ("living_room", "bedroom", "private"),
-    ("living_room", "kitchen", "public"),
-    ("living_room", "dining_room", "public"),
-    ("living_room", "bathroom", "public"),
-    ("bedroom", "bathroom", "private"),
-    ("kitchen", "dining_room", "public"),
-    ("bedroom", "attached_bathroom", "private"),
+DEFAULT_PATH_QUERIES: tuple[tuple[RoomType, RoomType, str], ...] = (
+    (RoomType.VERANDA, RoomType.LIVING_ROOM, "public"),
+    (RoomType.LIVING_ROOM, RoomType.BEDROOM, "private"),
+    (RoomType.LIVING_ROOM, RoomType.KITCHEN, "public"),
+    (RoomType.LIVING_ROOM, RoomType.DINING_ROOM, "public"),
+    (RoomType.LIVING_ROOM, RoomType.BATHROOM, "public"),
+    (RoomType.BEDROOM, RoomType.BATHROOM, "private"),
+    (RoomType.KITCHEN, RoomType.DINING_ROOM, "public"),
+    (RoomType.BEDROOM, RoomType.ATTACHED_BATHROOM, "private"),
 )
 
 
@@ -60,7 +69,7 @@ class RelationshipQualityEvaluator(CandidateEvaluator):
     ) -> EvaluatorResult:
         data = build_evaluation_data(context)
         points_by_id = {point.room_id: point for point in data.points}
-        points_by_type: dict[str, list[EvaluationPoint]] = defaultdict(list)
+        points_by_type: dict[RoomType, list[EvaluationPoint]] = defaultdict(list)
         for point in data.points:
             points_by_type[point.room_type].append(point)
 
@@ -100,7 +109,7 @@ class RelationshipQualityEvaluator(CandidateEvaluator):
         hallway_usage: dict[str, dict[str, int]] = {
             point.room_id: {"public": 0, "private": 0}
             for point in data.points
-            if point.room_type == "hallway"
+            if point.room_type is RoomType.HALLWAY
         }
         findings: list[ScoreFinding] = []
         metrics: dict[str, float] = {}
@@ -120,7 +129,10 @@ class RelationshipQualityEvaluator(CandidateEvaluator):
                 findings.append(
                     ScoreFinding(
                         code="RELATION_PATH_MISSING",
-                        message=f"No route was found for {start_type} to {end_type}.",
+                        message=(
+                            f"No route was found for {start_type.value} "
+                            f"to {end_type.value}."
+                        ),
                         severity=FindingSeverity.WARNING,
                     )
                 )
@@ -169,27 +181,48 @@ class RelationshipQualityEvaluator(CandidateEvaluator):
         )
 
 
-def _read_relation_rules(settings: Mapping[str, Any]) -> tuple[tuple[str, str, float], ...]:
+def _read_relation_rules(
+    settings: Mapping[str, Any],
+) -> tuple[tuple[RoomType, RoomType, float], ...]:
     raw = settings.get("relation_rules", DEFAULT_RELATION_RULES)
-    return tuple((str(item[0]), str(item[1]), float(item[2])) for item in raw)
+    return tuple(
+        (
+            require_room_type(item[0], "relation_rules source room type"),
+            require_room_type(item[1], "relation_rules target room type"),
+            float(item[2]),
+        )
+        for item in raw
+    )
 
 
-def _read_path_queries(settings: Mapping[str, Any]) -> tuple[tuple[str, str, str], ...]:
+def _read_path_queries(
+    settings: Mapping[str, Any],
+) -> tuple[tuple[RoomType, RoomType, str], ...]:
     raw = settings.get("path_queries", DEFAULT_PATH_QUERIES)
-    return tuple((str(item[0]), str(item[1]), str(item[2])) for item in raw)
+    return tuple(
+        (
+            require_room_type(item[0], "path_queries source room type"),
+            require_room_type(item[1], "path_queries target room type"),
+            str(item[2]),
+        )
+        for item in raw
+    )
 
 
 def _build_graph(
     points: tuple[EvaluationPoint, ...],
-    points_by_type: Mapping[str, list[EvaluationPoint]],
-    relation_rules: tuple[tuple[str, str, float], ...],
+    points_by_type: Mapping[RoomType, list[EvaluationPoint]],
+    relation_rules: tuple[tuple[RoomType, RoomType, float], ...],
 ) -> dict[str, dict[str, float]]:
     graph: dict[str, dict[str, float]] = {point.room_id: {} for point in points}
 
     for room_type_a, room_type_b, relation_cost in relation_rules:
         nodes_a = points_by_type.get(room_type_a, [])
         nodes_b = points_by_type.get(room_type_b, [])
-        if room_type_a == "bedroom" and room_type_b == "attached_bathroom":
+        if (
+            room_type_a is RoomType.BEDROOM
+            and room_type_b is RoomType.ATTACHED_BATHROOM
+        ):
             available = list(nodes_a)
             for bathroom in nodes_b:
                 if not available:
@@ -204,15 +237,15 @@ def _build_graph(
                     _add_edge(graph, node_a, node_b, relation_cost)
 
     connectable = {
-        "living_room",
-        "bathroom",
-        "dining_room",
-        "kitchen",
-        "bedroom",
-        "hallway",
-        "garage",
+        RoomType.LIVING_ROOM,
+        RoomType.BATHROOM,
+        RoomType.DINING_ROOM,
+        RoomType.KITCHEN,
+        RoomType.BEDROOM,
+        RoomType.HALLWAY,
+        RoomType.GARAGE,
     }
-    for hallway in points_by_type.get("hallway", []):
+    for hallway in points_by_type.get(RoomType.HALLWAY, []):
         for other in points:
             if other.room_id != hallway.room_id and other.room_type in connectable:
                 _add_edge(graph, hallway, other, 1.0)

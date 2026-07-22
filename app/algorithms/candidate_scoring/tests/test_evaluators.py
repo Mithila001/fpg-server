@@ -13,7 +13,7 @@ from app.algorithms.candidate_scoring.evaluators import (
     ZoneSuitabilityEvaluator,
 )
 from app.algorithms.candidate_scoring.types import CandidateScoringInput
-from app.algorithms.types_new import FloorPlanGenerationSpec
+from app.algorithms.types_new import FloorPlanGenerationSpec, RoomType
 
 from .builders import build_scoring_input
 
@@ -33,7 +33,7 @@ def test_zone_suitability_scores_room_inside_preferred_zone_at_100() -> None:
         specification=_legacy_specification({
             "floor": {"width": 90, "length": 90},
             "rooms": [
-                {"id": "living", "room_type": "living_room", "name": "Living"}
+                {"id": "living", "room_type": RoomType.LIVING_ROOM, "name": "Living"}
             ],
         }),
         candidate={"living": {"x": 45, "y": 15}},
@@ -52,7 +52,7 @@ def test_zone_suitability_penalizes_room_outside_preferred_zone() -> None:
         specification=_legacy_specification({
             "floor": {"width": 90, "length": 90},
             "rooms": [
-                {"id": "living", "room_type": "living_room", "name": "Living"}
+                {"id": "living", "room_type": RoomType.LIVING_ROOM, "name": "Living"}
             ],
         }),
         candidate={"living": {"x": 45, "y": 85}},
@@ -72,7 +72,7 @@ def test_zone_suitability_is_not_applicable_without_configured_room_types() -> N
         specification=_legacy_specification({
             "floor": {"width": 90, "length": 90},
             "rooms": [
-                {"id": "bedroom", "room_type": "bedroom", "name": "Bedroom"}
+                {"id": "bedroom", "room_type": RoomType.BEDROOM, "name": "Bedroom"}
             ],
         }),
         candidate={"bedroom": {"x": 45, "y": 45}},
@@ -90,7 +90,7 @@ def test_zone_suitability_supports_custom_zone_settings() -> None:
         specification=_legacy_specification({
             "floor": {"width": 100, "length": 100},
             "rooms": [
-                {"id": "bedroom", "room_type": "bedroom", "name": "Bedroom"}
+                {"id": "bedroom", "room_type": RoomType.BEDROOM, "name": "Bedroom"}
             ],
         }),
         candidate={"bedroom": {"x": 75, "y": 75}},
@@ -98,7 +98,7 @@ def test_zone_suitability_supports_custom_zone_settings() -> None:
 
     result = ZoneSuitabilityEvaluator().evaluate(
         _context(scoring_input),
-        {"grid_size": 2, "valid_zones": {"bedroom": ((2, 2),)}},
+        {"grid_size": 2, "valid_zones": {RoomType.BEDROOM: ((2, 2),)}},
     )
 
     assert result.status is EvaluationStatus.COMPLETED
@@ -110,9 +110,9 @@ def test_exterior_clearance_scores_unblocked_access_at_100() -> None:
         specification=_legacy_specification({
             "floor": {"width": 100, "length": 100},
             "rooms": [
-                {"id": "veranda", "room_type": "veranda", "name": "Veranda"},
-                {"id": "kitchen", "room_type": "kitchen", "name": "Kitchen"},
-                {"id": "bedroom", "room_type": "bedroom", "name": "Bedroom"},
+                {"id": "veranda", "room_type": RoomType.VERANDA, "name": "Veranda"},
+                {"id": "kitchen", "room_type": RoomType.KITCHEN, "name": "Kitchen"},
+                {"id": "bedroom", "room_type": RoomType.BEDROOM, "name": "Bedroom"},
             ],
         }),
         candidate={
@@ -135,8 +135,8 @@ def test_exterior_clearance_applies_penalty_for_front_blocker() -> None:
         specification=_legacy_specification({
             "floor": {"width": 100, "length": 100},
             "rooms": [
-                {"id": "veranda", "room_type": "veranda", "name": "Veranda"},
-                {"id": "blocker", "room_type": "bedroom", "name": "Bedroom"},
+                {"id": "veranda", "room_type": RoomType.VERANDA, "name": "Veranda"},
+                {"id": "blocker", "room_type": RoomType.BEDROOM, "name": "Bedroom"},
             ],
         }),
         candidate={
@@ -158,9 +158,9 @@ def test_exterior_clearance_uses_best_available_back_access_candidate() -> None:
         specification=_legacy_specification({
             "floor": {"width": 100, "length": 100},
             "rooms": [
-                {"id": "kitchen", "room_type": "kitchen", "name": "Kitchen"},
-                {"id": "hallway", "room_type": "hallway", "name": "Hallway"},
-                {"id": "blocker", "room_type": "bedroom", "name": "Bedroom"},
+                {"id": "kitchen", "room_type": RoomType.KITCHEN, "name": "Kitchen"},
+                {"id": "hallway", "room_type": RoomType.HALLWAY, "name": "Hallway"},
+                {"id": "blocker", "room_type": RoomType.BEDROOM, "name": "Bedroom"},
             ],
         }),
         candidate={
@@ -182,7 +182,7 @@ def test_exterior_clearance_is_not_applicable_without_access_rooms() -> None:
         specification=_legacy_specification({
             "floor": {"width": 100, "length": 100},
             "rooms": [
-                {"id": "bedroom", "room_type": "bedroom", "name": "Bedroom"}
+                {"id": "bedroom", "room_type": RoomType.BEDROOM, "name": "Bedroom"}
             ],
         }),
         candidate={"bedroom": {"x": 50, "y": 50}},
@@ -200,8 +200,8 @@ def test_relationship_quality_scores_known_direct_relation() -> None:
         specification=_legacy_specification({
             "floor": {"width": 100, "length": 100},
             "rooms": [
-                {"id": "living", "room_type": "living_room", "name": "Living"},
-                {"id": "kitchen", "room_type": "kitchen", "name": "Kitchen"},
+                {"id": "living", "room_type": RoomType.LIVING_ROOM, "name": "Living"},
+                {"id": "kitchen", "room_type": RoomType.KITCHEN, "name": "Kitchen"},
             ],
         }),
         candidate={
@@ -210,8 +210,8 @@ def test_relationship_quality_scores_known_direct_relation() -> None:
         },
     )
     settings = {
-        "relation_rules": (("living_room", "kitchen", 0.0),),
-        "path_queries": (("living_room", "kitchen", "public"),),
+        "relation_rules": ((RoomType.LIVING_ROOM, RoomType.KITCHEN, 0.0),),
+        "path_queries": ((RoomType.LIVING_ROOM, RoomType.KITCHEN, "public"),),
         "max_cost_multiplier": 1.0,
         "pathing_weight": 0.75,
         "hallway_privacy_weight": 0.25,
@@ -232,8 +232,8 @@ def test_relationship_quality_reports_missing_route() -> None:
         specification=_legacy_specification({
             "floor": {"width": 100, "length": 100},
             "rooms": [
-                {"id": "bedroom", "room_type": "bedroom", "name": "Bedroom"},
-                {"id": "garage", "room_type": "garage", "name": "Garage"},
+                {"id": "bedroom", "room_type": RoomType.BEDROOM, "name": "Bedroom"},
+                {"id": "garage", "room_type": RoomType.GARAGE, "name": "Garage"},
             ],
         }),
         candidate={
@@ -246,7 +246,7 @@ def test_relationship_quality_reports_missing_route() -> None:
         _context(scoring_input),
         {
             "relation_rules": (),
-            "path_queries": (("bedroom", "garage", "private"),),
+            "path_queries": ((RoomType.BEDROOM, RoomType.GARAGE, "private"),),
         },
     )
 
@@ -261,10 +261,10 @@ def test_relationship_quality_detects_mixed_hallway_flow() -> None:
         specification=_legacy_specification({
             "floor": {"width": 100, "length": 100},
             "rooms": [
-                {"id": "living", "room_type": "living_room", "name": "Living"},
-                {"id": "bedroom", "room_type": "bedroom", "name": "Bedroom"},
-                {"id": "kitchen", "room_type": "kitchen", "name": "Kitchen"},
-                {"id": "hallway", "room_type": "hallway", "name": "Hallway"},
+                {"id": "living", "room_type": RoomType.LIVING_ROOM, "name": "Living"},
+                {"id": "bedroom", "room_type": RoomType.BEDROOM, "name": "Bedroom"},
+                {"id": "kitchen", "room_type": RoomType.KITCHEN, "name": "Kitchen"},
+                {"id": "hallway", "room_type": RoomType.HALLWAY, "name": "Hallway"},
             ],
         }),
         candidate={
@@ -280,8 +280,8 @@ def test_relationship_quality_detects_mixed_hallway_flow() -> None:
         {
             "relation_rules": (),
             "path_queries": (
-                ("living_room", "bedroom", "private"),
-                ("living_room", "kitchen", "public"),
+                (RoomType.LIVING_ROOM, RoomType.BEDROOM, "private"),
+                (RoomType.LIVING_ROOM, RoomType.KITCHEN, "public"),
             ),
         },
     )
@@ -299,7 +299,7 @@ def test_relationship_quality_is_not_applicable_without_active_query() -> None:
         specification=_legacy_specification({
             "floor": {"width": 100, "length": 100},
             "rooms": [
-                {"id": "garage", "room_type": "garage", "name": "Garage"}
+                {"id": "garage", "room_type": RoomType.GARAGE, "name": "Garage"}
             ],
         }),
         candidate={"garage": {"x": 20, "y": 20}},
@@ -331,7 +331,7 @@ def test_spatial_distribution_scores_regular_points_better_than_clustered_points
     specification = _legacy_specification({
         "floor": {"width": 100, "length": 100},
         "rooms": [
-            {"id": room_id, "room_type": "bedroom", "name": room_id}
+            {"id": room_id, "room_type": RoomType.BEDROOM, "name": room_id}
             for room_id in ("a", "b", "c", "d")
         ],
     })

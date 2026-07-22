@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from ...domain import RoomType
 from ...exceptions import InvalidProfileError
 from ...model import ModelContext
-from ...preparation import normalize_room_type
-from ..base import ConstraintSettings
+from ..base import ConstraintSettings, require_room_type_keys, require_room_types
 
 
 class AspectRatioConstraint:
@@ -24,23 +24,26 @@ class AspectRatioConstraint:
         if default_min <= 0 or default_max < default_min:
             raise InvalidProfileError("Invalid default aspect-ratio range")
 
-        hallway_types = {
-            normalize_room_type(value)
-            for value in tuple(
-                settings.get("hallway_room_types", ("hallway",))
+        hallway_types = set(
+            require_room_types(
+                settings.get("hallway_room_types", (RoomType.HALLWAY,)),
+                "aspect_ratio.hallway_room_types",
             )
-        }
-        excluded = {
-            normalize_room_type(value)
-            for value in tuple(settings.get("excluded_room_types", ()))
-        }
+        )
+        excluded = set(
+            require_room_types(
+                settings.get("excluded_room_types", ()),
+                "aspect_ratio.excluded_room_types",
+            )
+        )
         excluded_room_types = excluded | hallway_types
 
         raw_overrides = settings.get("overrides", {})
         overrides = raw_overrides if isinstance(raw_overrides, Mapping) else {}
+        require_room_type_keys(overrides, "aspect_ratio.overrides")
 
         for variables in context.room_variables.values():
-            room_type = variables.room.room_type_key
+            room_type = variables.room.room_type
             if room_type in excluded_room_types:
                 continue
 
@@ -53,7 +56,7 @@ class AspectRatioConstraint:
 
             if min_ratio <= 0 or max_ratio < min_ratio:
                 raise InvalidProfileError(
-                    f"Invalid aspect-ratio range for room type '{room_type}'"
+                    f"Invalid aspect-ratio range for room type '{room_type.value}'"
                 )
 
             min_scaled = int(round(min_ratio * precision))

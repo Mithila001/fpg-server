@@ -20,6 +20,10 @@ class GenerationServiceRoom:
     requested_size: str | None = "regular"
     required: bool = True
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.room_type, RoomType):
+            raise TypeError("room_type must be a RoomType enum member")
+
 
 @dataclass(frozen=True, slots=True)
 class GenerationServiceRequest:

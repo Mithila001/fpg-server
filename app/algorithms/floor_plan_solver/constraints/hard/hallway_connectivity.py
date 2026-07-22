@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from ...domain import RoomType
 from ...model import ModelContext
-from ...preparation import normalize_room_type
-from ..base import ConstraintSettings
+from ..base import ConstraintSettings, require_room_types
 from ..geometry import adjacency_literal
 
 
@@ -14,16 +14,18 @@ class HallwayConnectivityConstraint:
         context: ModelContext,
         settings: ConstraintSettings,
     ) -> None:
-        hallway_types = {
-            normalize_room_type(value)
-            for value in tuple(settings.get("hallway_room_types", ("hallway",)))
-        }
-        anchor_types = {
-            normalize_room_type(value)
-            for value in tuple(
-                settings.get("anchor_room_types", ("living_room",))
+        hallway_types = set(
+            require_room_types(
+                settings.get("hallway_room_types", (RoomType.HALLWAY,)),
+                "hallway_connectivity.hallway_room_types",
             )
-        }
+        )
+        anchor_types = set(
+            require_room_types(
+                settings.get("anchor_room_types", (RoomType.LIVING_ROOM,)),
+                "hallway_connectivity.anchor_room_types",
+            )
+        )
         minimum_overlap = max(
             1,
             context.problem.scale.minimum_length(
@@ -33,15 +35,15 @@ class HallwayConnectivityConstraint:
 
         all_rooms = tuple(context.room_variables.values())
         hallways = [
-            room for room in all_rooms if room.room.room_type_key in hallway_types
+            room for room in all_rooms if room.room.room_type in hallway_types
         ]
         anchors = [
-            room for room in all_rooms if room.room.room_type_key in anchor_types
+            room for room in all_rooms if room.room.room_type in anchor_types
         ]
         destinations = [
             room
             for room in all_rooms
-            if room.room.room_type_key not in hallway_types | anchor_types
+            if room.room.room_type not in hallway_types | anchor_types
         ]
 
         for hallway in hallways:

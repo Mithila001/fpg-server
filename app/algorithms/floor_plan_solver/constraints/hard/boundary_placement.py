@@ -4,8 +4,7 @@ from collections.abc import Mapping, Sequence
 
 from ...exceptions import InvalidProfileError
 from ...model import ModelContext
-from ...preparation import normalize_room_type
-from ..base import ConstraintSettings
+from ..base import ConstraintSettings, require_room_types
 
 
 class BoundaryPlacementConstraint:
@@ -27,10 +26,10 @@ class BoundaryPlacementConstraint:
                 raise InvalidProfileError(
                     f"boundary_placement rule {index} must be a mapping"
                 )
-            room_types = {
-                normalize_room_type(value)
-                for value in tuple(raw_rule.get("room_types", ()))
-            }
+            room_types = require_room_types(
+                raw_rule.get("room_types", ()),
+                f"boundary_placement.rules[{index}].room_types",
+            )
             side = str(raw_rule.get("side", "")).strip().lower()
             offset_value = float(raw_rule.get("offset", 0.0))
             if not room_types:
@@ -57,7 +56,7 @@ class BoundaryPlacementConstraint:
                 )
 
             for variables in context.room_variables.values():
-                if variables.room.room_type_key not in room_types:
+                if variables.room.room_type not in room_types:
                     continue
                 if side == "front":
                     constraint = context.model.Add(variables.y == offset)

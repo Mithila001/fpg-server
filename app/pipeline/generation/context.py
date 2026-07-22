@@ -32,11 +32,15 @@ class GenerationStage(str, Enum):
 
 @dataclass(frozen=True, slots=True)
 class RequestedGenerationRoom:
-    room_type: RoomType | str
+    room_type: RoomType
     id: str | None = None
     name: str | None = None
     requested_size: str | None = "regular"
     required: bool = True
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.room_type, RoomType):
+            raise TypeError("room_type must be a RoomType enum member")
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,18 +107,27 @@ def load_generation_reference_data(
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
         room_sizes = tuple(
-            RoomSizeReference(**item) for item in payload["room_sizes"]
+            RoomSizeReference(
+                **{
+                    **item,
+                    "room_type": RoomType(item["room_type"]),
+                }
+            )
+            for item in payload["room_sizes"]
         )
         room_relations = tuple(
             RoomRelationReference(
                 **{
                     **item,
-                    "target_room_types": tuple(item["target_room_types"]),
+                    "source_room_type": RoomType(item["source_room_type"]),
+                    "target_room_types": tuple(
+                        RoomType(value) for value in item["target_room_types"]
+                    ),
                 }
             )
             for item in payload.get("room_relations", ())
         )
-    except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
+    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
         raise ReferenceDataError(
             f"Could not load generation reference data from '{path}': {exc}"
         ) from exc

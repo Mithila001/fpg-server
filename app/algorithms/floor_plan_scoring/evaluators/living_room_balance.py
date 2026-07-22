@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ..context import ScoringContext
+from ..domain import RoomType
 from ..types import EvaluationStatus, EvaluatorKey, EvaluatorResult, ScoreMetric
 from .base import FloorPlanEvaluator
 from .common import clamp_score, require_positive, typed_settings
@@ -30,13 +31,17 @@ class LivingRoomBalanceEvaluator(FloorPlanEvaluator):
     def evaluate(self, context: ScoringContext, settings: object) -> EvaluatorResult:
         config = typed_settings(settings, LivingRoomBalanceSettings, str(self.key))
         living_rooms = [
-            room for room in context.rooms if room.room_type == "living_room"
+            room
+            for room in context.rooms
+            if room.room_type is RoomType.LIVING_ROOM
         ]
         if not living_rooms:
             return EvaluatorResult(self.key, EvaluationStatus.NOT_APPLICABLE, None)
         living_area = sum(room.area for room in living_rooms)
         other_area = sum(
-            room.area for room in context.rooms if room.room_type != "living_room"
+            room.area
+            for room in context.rooms
+            if room.room_type is not RoomType.LIVING_ROOM
         )
         if other_area <= 0 or living_area <= other_area:
             score = 100.0

@@ -4,6 +4,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Mapping
 
 from .config import PreparationConfig, SeedPolicy, SeedSource, SolverConfig
+from .domain import RoomType
 from .exceptions import InvalidProfileError
 
 
@@ -133,10 +134,16 @@ def _default_hard_constraints(
             {
                 "min_ratio": 0.35,
                 "max_ratio": 2.85,
-                "hallway_room_types": ("hallway",),
+                "hallway_room_types": (RoomType.HALLWAY,),
                 "overrides": {
-                    "garage": {"min_ratio": 0.4, "max_ratio": 2.5},
-                    "veranda": {"min_ratio": 0.25, "max_ratio": 4.0},
+                    RoomType.GARAGE: {
+                        "min_ratio": 0.4,
+                        "max_ratio": 2.5,
+                    },
+                    RoomType.VERANDA: {
+                        "min_ratio": 0.25,
+                        "max_ratio": 4.0,
+                    },
                 },
             },
         ),
@@ -152,28 +159,39 @@ def _default_hard_constraints(
             "hallway_connectivity",
             {
                 "minimum_overlap": settings.minimum_adjacency_overlap,
-                "hallway_room_types": ("hallway",),
-                "anchor_room_types": ("living_room",),
+                "hallway_room_types": (RoomType.HALLWAY,),
+                "anchor_room_types": (RoomType.LIVING_ROOM,),
             },
         ),
         HardConstraintUse(
             "hallway_dimensions",
             {
-                "hallway_room_types": ("hallway",),
+                "hallway_room_types": (RoomType.HALLWAY,),
                 "minimum_width": 8,
                 "maximum_width": 10,
             },
         ),
         HardConstraintUse(
             "front_anchor",
-            {"anchor_room_types": ("veranda", "living_room")},
+            {
+                "anchor_room_types": (
+                    RoomType.VERANDA,
+                    RoomType.LIVING_ROOM,
+                ),
+            },
+        ),
+        HardConstraintUse(
+            "garage_placement",
+            {
+                "garage_room_types": (RoomType.GARAGE,),
+            },
         ),
         HardConstraintUse(
             "boundary_placement",
             {
                 "rules": (
                     {
-                        "room_types": ("veranda",),
+                        "room_types": (RoomType.VERANDA,),
                         "side": "front",
                         "offset": 0.0,
                     },

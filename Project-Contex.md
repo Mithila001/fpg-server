@@ -119,6 +119,26 @@ No module should redefine or reinterpret the coordinate orientation.
 
 ---
 
+# Room Type Convention
+
+`app.algorithms.types_new.RoomType` is the single canonical room-type
+definition for the entire Python project.
+
+- Serialized API and JSON inputs represent room types with exact enum values,
+  such as `"garage"` for `RoomType.GARAGE`.
+- Every input boundary must parse those values strictly. Case changes, aliases,
+  spaces, and hyphenated alternatives must be rejected as validation errors.
+- After deserialization, server code, configuration, tests, and manual runners
+  must store, pass, index, and compare room types using `RoomType` members only.
+- Do not introduce hardcoded room-type strings or room-type normalization and
+  alias tables in Python code.
+- Access `.value` only when serializing, displaying, or logging a room type.
+  JSON fixtures and API responses may contain the canonical string values.
+- Room identifiers, display names, and non-room-type category labels remain
+  strings and are not governed by this convention.
+
+---
+
 # Generated Output Convention
 
 All newly generated visualization images, JSON artifacts, and application logs

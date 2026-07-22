@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from ...domain import RoomType
 from ...exceptions import InvalidProfileError
 from ...model import ModelContext, RoomVariables
-from ...preparation import normalize_room_type
-from ..base import ConstraintSettings
+from ..base import ConstraintSettings, require_room_type_keys, require_room_types
 from ..geometry import priority_selection_literals
 
 
@@ -22,16 +22,15 @@ class RoomSizeHierarchyConstraint:
         raw_rules = settings.get("ratios_by_room_type", {})
         if not isinstance(raw_rules, Mapping) or not raw_rules:
             return
+        require_room_type_keys(raw_rules, "room_size_hierarchy.ratios_by_room_type")
 
         precision = int(settings.get("precision", 1000))
         if precision < 1:
             raise InvalidProfileError("room_size_hierarchy.precision must be positive")
 
-        priority = tuple(
-            normalize_room_type(value)
-            for value in tuple(
-                settings.get("anchor_room_types", ("living_room",))
-            )
+        priority = require_room_types(
+            settings.get("anchor_room_types", (RoomType.LIVING_ROOM,)),
+            "room_size_hierarchy.anchor_room_types",
         )
         all_rooms = tuple(context.room_variables.values())
         candidates: list[RoomVariables] = []
@@ -39,21 +38,22 @@ class RoomSizeHierarchyConstraint:
             candidates.extend(
                 room
                 for room in all_rooms
-                if room.room.room_type_key == room_type
+                if room.room.room_type is room_type
             )
 
         selected_anchors = priority_selection_literals(
             context, candidates, "size_anchor_selected"
         )
         for variables in all_rooms:
-            raw_rule = raw_rules.get(variables.room.room_type_key)
+            raw_rule = raw_rules.get(variables.room.room_type)
             if not isinstance(raw_rule, Mapping):
                 continue
             min_ratio = float(raw_rule.get("min_ratio", 0.0))
             max_ratio = float(raw_rule.get("max_ratio", 1.0))
             if min_ratio < 0 or max_ratio < min_ratio:
                 raise InvalidProfileError(
-                    f"Invalid size hierarchy for '{variables.room.room_type_key}'"
+                    "Invalid size hierarchy for "
+                    f"'{variables.room.room_type.value}'"
                 )
             min_scaled = int(round(min_ratio * precision))
             max_scaled = int(round(max_ratio * precision))

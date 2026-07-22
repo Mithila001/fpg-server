@@ -2,6 +2,6 @@
 
 from __future__ import annotations
 
-from app.algorithms.types_new import FloorPlan, FloorPlanGenerationSpec
+from app.algorithms.types_new import FloorPlan, FloorPlanGenerationSpec, RoomType
 
-__all__ = ["FloorPlan", "FloorPlanGenerationSpec"]
+__all__ = ["FloorPlan", "FloorPlanGenerationSpec", "RoomType"]

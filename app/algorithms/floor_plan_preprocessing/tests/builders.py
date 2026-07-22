@@ -11,6 +11,7 @@ from app.algorithms.floor_plan_preprocessing import (
     RoomRelationReference,
     RoomSizeReference,
 )
+from app.algorithms.types_new import RoomType
 
 DATA_DIR = Path(__file__).parent / "data"
 
@@ -28,21 +29,25 @@ def build_preprocessing_input() -> PreprocessingInput:
         floor_limits=FloorLimits(**request_data["floor_limits"]),
         aspect_ratio=request_data["aspect_ratio"],
         rooms=tuple(
-            RequestedRoom(**room)
+            RequestedRoom(
+                **{**room, "room_type": RoomType(room["room_type"])}
+            )
             for room in request_data["rooms"]
         ),
     )
 
     references = PreprocessingReferenceData(
         room_sizes=tuple(
-            RoomSizeReference(**room)
+            RoomSizeReference(
+                **{**room, "room_type": RoomType(room["room_type"])}
+            )
             for room in reference_data["room_sizes"]
         ),
         room_relations=tuple(
             RoomRelationReference(
-                source_room_type=relation["source_room_type"],
+                source_room_type=RoomType(relation["source_room_type"]),
                 target_room_types=tuple(
-                    relation["target_room_types"]
+                    RoomType(value) for value in relation["target_room_types"]
                 ),
                 match_policy=relation["match_policy"],
                 strength=relation["strength"],

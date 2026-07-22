@@ -98,7 +98,7 @@ def build_candidate_points(
             point.update(
                 {
                     "room_id": room_id,
-                    "room_type": room_type.value,
+                    "room_type": room_type,
                     "name": name,
                 }
             )

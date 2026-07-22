@@ -22,27 +22,8 @@ from .contracts import (
 from .exceptions import NormalizationError, ReferenceDataError
 
 
-_ROOM_TYPE_ALIASES = {
-    "livingroom": "living_room",
-    "diningroom": "dining_room",
-    "attachedbathroom": "attached_bathroom",
-    "openarea": "open_area",
-}
-
-
 def _enum_text(value: object) -> str:
     return str(getattr(value, "value", value)).strip()
-
-
-def normalize_room_type(value: object, *, reference: bool = False) -> RoomType:
-    raw = _enum_text(value)
-    key = re.sub(r"[-\s]+", "_", raw).lower()
-    key = _ROOM_TYPE_ALIASES.get(key, key)
-    try:
-        return RoomType(key)
-    except ValueError as exc:
-        error = ReferenceDataError if reference else NormalizationError
-        raise error(f"Unsupported room type '{raw}'") from exc
 
 
 def _normalize_size(value: object) -> str:
@@ -101,12 +82,11 @@ def normalize_request(
     rooms: list[NormalizedRoom] = []
 
     for index, room in enumerate(request.rooms):
-        room_type = normalize_room_type(room.room_type)
-        raw_type = _enum_text(room.room_type)
-        if raw_type != room_type.value:
-            records.append(
-                NormalizationRecord("room_type", raw_type, room_type.value)
+        if not isinstance(room.room_type, RoomType):
+            raise NormalizationError(
+                f"rooms[{index}].room_type must be a RoomType enum member"
             )
+        room_type = room.room_type
 
         room_id = room.id.strip() if isinstance(room.id, str) else ""
         if not room_id:
@@ -178,7 +158,7 @@ def prepare_reference_data(
 ) -> PreparedReferenceData:
     sizes = tuple(
         PreparedRoomSizeReference(
-            room_type=normalize_room_type(item.room_type, reference=True),
+            room_type=item.room_type,
             size=_normalize_size(item.size),
             min_width=_reference_float(item.min_width, "min_width"),
             max_width=_reference_float(item.max_width, "max_width"),
@@ -191,13 +171,8 @@ def prepare_reference_data(
     )
     relations = tuple(
         PreparedRoomRelationReference(
-            source_room_type=normalize_room_type(
-                item.source_room_type, reference=True
-            ),
-            target_room_types=tuple(
-                normalize_room_type(value, reference=True)
-                for value in item.target_room_types
-            ),
+            source_room_type=item.source_room_type,
+            target_room_types=item.target_room_types,
             match_policy=_normalize_match_policy(item.match_policy),
             strength=_normalize_strength(item.strength),
             required=item.required,

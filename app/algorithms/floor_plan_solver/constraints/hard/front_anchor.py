@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from ...domain import RoomType
 from ...model import ModelContext, RoomVariables
-from ...preparation import normalize_room_type
-from ..base import ConstraintSettings
+from ..base import ConstraintSettings, require_room_types
 from ..geometry import priority_selection_literals
 
 
@@ -14,11 +14,12 @@ class FrontAnchorConstraint:
         context: ModelContext,
         settings: ConstraintSettings,
     ) -> None:
-        priority = tuple(
-            normalize_room_type(value)
-            for value in tuple(
-                settings.get("anchor_room_types", ("veranda", "living_room"))
-            )
+        priority = require_room_types(
+            settings.get(
+                "anchor_room_types",
+                (RoomType.VERANDA, RoomType.LIVING_ROOM),
+            ),
+            "front_anchor.anchor_room_types",
         )
         ordered_candidates: list[RoomVariables] = []
         all_rooms = tuple(context.room_variables.values())
@@ -26,7 +27,7 @@ class FrontAnchorConstraint:
             ordered_candidates.extend(
                 room
                 for room in all_rooms
-                if room.room.room_type_key == room_type
+                if room.room.room_type is room_type
             )
 
         for anchor, selected in priority_selection_literals(

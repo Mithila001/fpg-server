@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from app.algorithms.types_new import RoomType
+
 from ..context import ScoringContext
 from ..types import (
     EvaluationStatus,
@@ -38,7 +40,10 @@ class ExteriorClearanceEvaluator(CandidateEvaluator):
         findings: list[ScoreFinding] = []
         metrics: dict[str, float] = {}
 
-        for room_type, label in (("veranda", "veranda_front"), ("garage", "garage_front")):
+        for room_type, label in (
+            (RoomType.VERANDA, "veranda_front"),
+            (RoomType.GARAGE, "garage_front"),
+        ):
             rooms = [point for point in data.points if point.room_type == room_type]
             if not rooms:
                 continue
@@ -58,8 +63,12 @@ class ExteriorClearanceEvaluator(CandidateEvaluator):
             components.append((label, component_score))
             metrics[f"component.{label}"] = component_score
 
-        kitchens = [point for point in data.points if point.room_type == "kitchen"]
-        hallways = [point for point in data.points if point.room_type == "hallway"]
+        kitchens = [
+            point for point in data.points if point.room_type is RoomType.KITCHEN
+        ]
+        hallways = [
+            point for point in data.points if point.room_type is RoomType.HALLWAY
+        ]
         back_candidates: list[tuple[float, EvaluationPoint, tuple[EvaluationPoint, ...]]] = []
         for room in kitchens:
             blockers = _blockers(room, "back", data.points, corridor_half_width, corridor_depth)

@@ -20,11 +20,15 @@ class FloorLimits:
 
 @dataclass(frozen=True, slots=True)
 class RequestedRoom:
-    room_type: RoomType | str
+    room_type: RoomType
     id: str | None = None
     name: str | None = None
     requested_size: str | None = None
     required: bool = True
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.room_type, RoomType):
+            raise TypeError("room_type must be a RoomType enum member")
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,7 +40,7 @@ class PreprocessingRequest:
 
 @dataclass(frozen=True, slots=True)
 class RoomSizeReference:
-    room_type: RoomType | str
+    room_type: RoomType
     size: str
     min_width: float
     max_width: float
@@ -45,14 +49,24 @@ class RoomSizeReference:
     min_area: float
     max_area: float
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.room_type, RoomType):
+            raise TypeError("room_type must be a RoomType enum member")
+
 
 @dataclass(frozen=True, slots=True)
 class RoomRelationReference:
-    source_room_type: RoomType | str
-    target_room_types: tuple[RoomType | str, ...]
+    source_room_type: RoomType
+    target_room_types: tuple[RoomType, ...]
     match_policy: MatchPolicy | str
     strength: ConstraintStrength | str
     required: bool = True
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source_room_type, RoomType):
+            raise TypeError("source_room_type must be a RoomType enum member")
+        if any(not isinstance(value, RoomType) for value in self.target_room_types):
+            raise TypeError("target_room_types must contain only RoomType enum members")
 
 
 @dataclass(frozen=True, slots=True)

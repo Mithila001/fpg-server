@@ -3,6 +3,8 @@ from __future__ import annotations
 import math
 from typing import Any, Mapping
 
+from app.algorithms.types_new import RoomType
+
 from ..context import ScoringContext
 from ..types import (
     EvaluationStatus,
@@ -12,17 +14,23 @@ from ..types import (
     ScoreFinding,
 )
 from .base import CandidateEvaluator
-from .common import build_evaluation_data, clamp_score, setting_float, setting_mapping
+from .common import (
+    build_evaluation_data,
+    clamp_score,
+    require_room_type,
+    setting_float,
+    setting_mapping,
+)
 
 ZONE_SUITABILITY_KEY = EvaluatorKey("zone_suitability")
 
-DEFAULT_VALID_ZONES: Mapping[str, tuple[tuple[int, int], ...]] = {
-    "veranda": ((1, 1), (2, 1), (3, 1)),
-    "garage": ((1, 1), (3, 1)),
-    "kitchen": ((1, 1), (2, 1), (3, 1), (1, 2), (3, 2), (1, 3), (2, 3), (3, 3)),
-    "hallway": ((1, 2), (2, 2), (3, 2), (1, 3), (2, 3), (3, 3)),
-    "living_room": ((1, 1), (2, 1), (3, 1), (1, 2), (2, 2), (3, 2)),
-    "bathroom": ((1, 1), (2, 1), (3, 1), (1, 2), (3, 2), (1, 3), (2, 3), (3, 3)),
+DEFAULT_VALID_ZONES: Mapping[RoomType, tuple[tuple[int, int], ...]] = {
+    RoomType.VERANDA: ((1, 1), (2, 1), (3, 1)),
+    RoomType.GARAGE: ((1, 1), (3, 1)),
+    RoomType.KITCHEN: ((1, 1), (2, 1), (3, 1), (1, 2), (3, 2), (1, 3), (2, 3), (3, 3)),
+    RoomType.HALLWAY: ((1, 2), (2, 2), (3, 2), (1, 3), (2, 3), (3, 3)),
+    RoomType.LIVING_ROOM: ((1, 1), (2, 1), (3, 1), (1, 2), (2, 2), (3, 2)),
+    RoomType.BATHROOM: ((1, 1), (2, 1), (3, 1), (1, 2), (3, 2), (1, 3), (2, 3), (3, 3)),
 }
 
 
@@ -44,7 +52,7 @@ class ZoneSuitabilityEvaluator(CandidateEvaluator):
             raise ValueError("grid_size must be positive.")
         falloff_multiplier = setting_float(settings, "falloff_multiplier", 1.5)
         configured_zones = setting_mapping(settings, "valid_zones", DEFAULT_VALID_ZONES)
-        valid_zones: dict[str, set[tuple[int, int]]] = {}
+        valid_zones: dict[RoomType, set[tuple[int, int]]] = {}
 
         for room_type, cells in configured_zones.items():
             parsed_cells: set[tuple[int, int]] = set()
@@ -58,7 +66,9 @@ class ZoneSuitabilityEvaluator(CandidateEvaluator):
                 cell_x, cell_y = cell
                 parsed_cells.add((int(cell_x), int(cell_y)))
 
-            valid_zones[str(room_type)] = parsed_cells
+            valid_zones[
+                require_room_type(room_type, "valid_zones key")
+            ] = parsed_cells
 
         scores: list[float] = []
         findings: list[ScoreFinding] = []

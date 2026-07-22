@@ -2,16 +2,18 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from enum import Enum
 from typing import Any, Iterable, Mapping, Sequence
 
+from app.algorithms.types_new import RoomType
+
 from ..context import ScoringContext
+from ..exceptions import ScoringInputError
 
 
 @dataclass(frozen=True, slots=True)
 class EvaluationPoint:
     room_id: str
-    room_type: str
+    room_type: RoomType
     name: str
     x: float
     y: float
@@ -67,21 +69,10 @@ def setting_mapping(
     return value
 
 
-def normalize_room_type(value: Any) -> str:
-    if isinstance(value, Enum):
-        value = value.value
-    text = str(value).strip()
-    compact = text.replace("-", "_").replace(" ", "_")
-    aliases = {
-        "livingRoom": "living_room",
-        "livingroom": "living_room",
-        "diningRoom": "dining_room",
-        "diningroom": "dining_room",
-        "attachedBathroom": "attached_bathroom",
-        "attachedbathroom": "attached_bathroom",
-        "openArea": "open_area",
-    }
-    return aliases.get(compact, compact.lower())
+def require_room_type(value: Any, label: str) -> RoomType:
+    if not isinstance(value, RoomType):
+        raise ScoringInputError(f"{label} must be a RoomType enum member.")
+    return value
 
 
 def clamp_score(value: float) -> float:
@@ -121,7 +112,7 @@ def _extract_floor_size(specification: Any) -> tuple[float, float]:
     return floor_width, floor_length
 
 
-def _extract_room_metadata(specification: Any) -> dict[str, tuple[str, str]]:
+def _extract_room_metadata(specification: Any) -> dict[str, tuple[RoomType, str]]:
     rooms = _get(specification, "rooms") or ()
     metadata: dict[str, tuple[str, str]] = {}
     for index, room in enumerate(_iterable(rooms)):
@@ -130,14 +121,15 @@ def _extract_room_metadata(specification: Any) -> dict[str, tuple[str, str]]:
         raw_type = _first_not_none(_get(room, "room_type"), _get(room, "type"))
         if raw_type is None:
             continue
-        metadata[room_id] = (normalize_room_type(raw_type), name)
-        metadata.setdefault(name, (normalize_room_type(raw_type), name))
+        room_type = require_room_type(raw_type, f"Room '{room_id}' room_type")
+        metadata[room_id] = (room_type, name)
+        metadata.setdefault(name, (room_type, name))
     return metadata
 
 
 def _extract_candidate_points(
     candidate: Any,
-    room_metadata: Mapping[str, tuple[str, str]],
+    room_metadata: Mapping[str, tuple[RoomType, str]],
 ) -> list[EvaluationPoint]:
     raw_points = _first_not_none(
         _get(candidate, "candidate_points"),
@@ -181,7 +173,9 @@ def _extract_candidate_points(
         points.append(
             EvaluationPoint(
                 room_id=room_id,
-                room_type=normalize_room_type(raw_type),
+                room_type=require_room_type(
+                    raw_type, f"Candidate point '{room_id}' room_type"
+                ),
                 name=name,
                 x=x,
                 y=y,

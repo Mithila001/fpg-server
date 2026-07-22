@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ..context import ScoringContext
+from ..domain import RoomType
 from ..exceptions import ScoringConfigurationError
 from ..types import (
     EvaluationStatus,
@@ -57,7 +58,9 @@ class BedroomQualityEvaluator(FloorPlanEvaluator):
 
     def evaluate(self, context: ScoringContext, settings: object) -> EvaluatorResult:
         config = typed_settings(settings, BedroomQualitySettings, str(self.key))
-        bedrooms = [room for room in context.rooms if room.room_type == "bedroom"]
+        bedrooms = [
+            room for room in context.rooms if room.room_type is RoomType.BEDROOM
+        ]
         if not bedrooms:
             return EvaluatorResult(self.key, EvaluationStatus.NOT_APPLICABLE, None)
 

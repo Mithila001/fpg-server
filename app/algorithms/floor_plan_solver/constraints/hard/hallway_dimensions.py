@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from ...domain import RoomType
 from ...exceptions import InvalidProfileError
 from ...model import ModelContext
-from ...preparation import normalize_room_type
-from ..base import ConstraintSettings
+from ..base import ConstraintSettings, require_room_types
 
 
 class HallwayDimensionsConstraint:
@@ -16,12 +16,10 @@ class HallwayDimensionsConstraint:
         context: ModelContext,
         settings: ConstraintSettings,
     ) -> None:
-        hallway_types = {
-            normalize_room_type(value)
-            for value in tuple(
-                settings.get("hallway_room_types", ("hallway",))
-            )
-        }
+        hallway_types = require_room_types(
+            settings.get("hallway_room_types", (RoomType.HALLWAY,)),
+            "hallway_dimensions.hallway_room_types",
+        )
         minimum_width = int(settings.get("minimum_width", 8))
         maximum_width = int(settings.get("maximum_width", 10))
 
@@ -36,7 +34,7 @@ class HallwayDimensionsConstraint:
             )
 
         for variables in context.room_variables.values():
-            if variables.room.room_type_key not in hallway_types:
+            if variables.room.room_type not in hallway_types:
                 continue
 
             horizontal = context.model.NewBoolVar(
