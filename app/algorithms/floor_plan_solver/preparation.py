@@ -7,7 +7,7 @@ from typing import Any, Iterable
 
 from .config import SeedSource
 from .contracts import FloorPlanSolveRequest, RoomPlacementHint
-from .domain import RoomId, RoomType
+from .domain import RoomId, RoomType, RoomWidthAxis
 from .exceptions import InvalidSpecificationError, MissingSeedError
 
 
@@ -75,6 +75,7 @@ class PreparedRoom:
     min_length: int
     max_length: int
     max_short_side: int
+    width_axis: RoomWidthAxis
     min_area: int
     max_area: int
 
@@ -162,6 +163,16 @@ def _prepare_rooms(
         max_short_side_value = _positive_float(
             getattr(size, "max_width"), f"rooms[{id_key}].size.max_width"
         )
+        width_axis = getattr(
+            size,
+            "width_axis",
+            RoomWidthAxis.ANY,
+        )
+
+        if not isinstance(width_axis, RoomWidthAxis):
+            raise InvalidSpecificationError(
+                f"rooms[{id_key}].size.width_axis must be a RoomWidthAxis enum member"
+            )
         min_width = scale.minimum_length(min_width_value)
         min_length = min_width
         max_width = floor.width
@@ -185,10 +196,16 @@ def _prepare_rooms(
         )
 
         dimension_min_area = min_width * min_length
-        dimension_max_area = max(
-            min(max_width, max_short_side) * max_length,
-            max_width * min(max_length, max_short_side),
-        )
+
+        if width_axis is RoomWidthAxis.X:
+            dimension_max_area = min(max_width, max_short_side) * max_length
+        elif width_axis is RoomWidthAxis.Y:
+            dimension_max_area = max_width * min(max_length, max_short_side)
+        else:
+            dimension_max_area = max(
+                min(max_width, max_short_side) * max_length,
+                max_width * min(max_length, max_short_side),
+            )
         requested_min_area = (
             scale.minimum_area(min_area_value)
             if min_area_value > 0
@@ -225,6 +242,7 @@ def _prepare_rooms(
                 min_length=min_length,
                 max_length=max_length,
                 max_short_side=max_short_side,
+                width_axis=width_axis,
                 min_area=min_area,
                 max_area=max_area,
             )
@@ -330,9 +348,7 @@ def _prepare_candidate_seed(
             else None
         )
         length = (
-            _clamp(
-                scale.nearest_length(hint.length), room.min_length, room.max_length
-            )
+            _clamp(scale.nearest_length(hint.length), room.min_length, room.max_length)
             if hint.length is not None
             else None
         )
@@ -463,9 +479,7 @@ def prepare_problem(request: FloorPlanSolveRequest) -> PreparedProblem:
 
     rooms = _prepare_rooms(tuple(getattr(spec, "rooms")), floor, scale)
     rooms_by_id = {room.id_key: room for room in rooms}
-    relations = _prepare_relations(
-        tuple(getattr(spec, "room_relations")), rooms_by_id
-    )
+    relations = _prepare_relations(tuple(getattr(spec, "room_relations")), rooms_by_id)
     seed = _prepare_seed(request, rooms_by_id, floor, scale)
 
     return PreparedProblem(

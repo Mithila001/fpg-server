@@ -11,13 +11,13 @@ from app.algorithms.types_new.floor_plan import (
     Point,
     Polygon,
 )
-
 from app.algorithms.types_new.floor_plan_spec import (
     ConstraintStrength,
     FloorPlanGenerationSpec,
     MatchPolicy,
     RoomId,
     RoomType,
+    RoomWidthAxis,
 )
 
 __all__ = [
@@ -30,4 +30,5 @@ __all__ = [
     "Polygon",
     "RoomId",
     "RoomType",
+    "RoomWidthAxis",
 ]

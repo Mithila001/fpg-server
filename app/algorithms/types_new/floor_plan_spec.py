@@ -21,12 +21,21 @@ class RoomType(str, Enum):
     OPEN_AREA = "open_area"
 
 
+class RoomWidthAxis(str, Enum):
+    """Axis to which the room's width range applies."""
+
+    ANY = "any"
+    X = "x"
+    Y = "y"
+
+
 @dataclass(frozen=True)
 class RoomSizeSpec:
     min_width: float
     max_width: float
     min_area: float
     max_area: float
+    width_axis: RoomWidthAxis = RoomWidthAxis.ANY
 
 
 @dataclass(frozen=True)

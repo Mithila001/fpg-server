@@ -11,6 +11,7 @@ from app.algorithms.types_new import (
     RoomSizeSpec,
     RoomSpec,
     RoomType,
+    RoomWidthAxis,
 )
 
 from .config import OptionalRoomFailurePolicy, PreprocessingPolicy
@@ -27,6 +28,11 @@ from .exceptions import (
     RoomPreparationError,
 )
 
+_WIDTH_AXIS_BY_ROOM_TYPE: dict[RoomType, RoomWidthAxis] = {
+    RoomType.GARAGE: RoomWidthAxis.X,
+    RoomType.VERANDA: RoomWidthAxis.X,
+}
+
 
 def _room_size_spec(reference: PreparedRoomSizeReference) -> RoomSizeSpec:
     return RoomSizeSpec(
@@ -34,6 +40,10 @@ def _room_size_spec(reference: PreparedRoomSizeReference) -> RoomSizeSpec:
         max_width=reference.max_width,
         min_area=reference.min_area,
         max_area=reference.max_area,
+        width_axis=_WIDTH_AXIS_BY_ROOM_TYPE.get(
+            reference.room_type,
+            RoomWidthAxis.ANY,
+        ),
     )
 
 
@@ -168,6 +178,7 @@ def _add_hallways(
                     ),
                     min_area=hallway_min_area,
                     max_area=floor.width * floor.length,
+                    width_axis=RoomWidthAxis.ANY,
                 ),
                 required=room.required,
             )
@@ -202,7 +213,9 @@ def _prepare_relations(
                     and target_type is RoomType.BEDROOM
                     and matches
                 ):
-                    matches = [matches[source_index]] if source_index < len(matches) else []
+                    matches = (
+                        [matches[source_index]] if source_index < len(matches) else []
+                    )
                 if not matches:
                     missing_types.append(target_type)
                 targets.extend(matches)

@@ -21,6 +21,7 @@ from .floor_plan_spec import (
     RoomSizeSpec,
     RoomSpec,
     RoomType,
+    RoomWidthAxis,
 )
 
 __all__ = [
@@ -43,4 +44,5 @@ __all__ = [
     "RoomSizeSpec",
     "RoomSpec",
     "RoomType",
+    "RoomWidthAxis",
 ]
