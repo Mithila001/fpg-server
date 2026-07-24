@@ -97,12 +97,12 @@ class DefaultProfileSettings:
 
     coordinate_scale: int = 1
     minimum_coverage_ratio: float = 0.55
-    minimum_adjacency_overlap: float = 0.6
+    minimum_adjacency_overlap: float = 10
     attached_bathroom_minimum_shared_wall: float = 10.0
     initial_max_time_seconds: float = 5.0
     refinement_max_time_seconds: float = 2.0
-    refinement_position_tolerance: float = 1.0
-    refinement_size_tolerance: float = 0.5
+    refinement_position_tolerance: float = 10
+    refinement_size_tolerance: float = 10
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,12 +155,8 @@ def _default_hard_constraints(
         HardConstraintUse(
             "attached_bathroom_pairing",
             {
-                "minimum_shared_wall": (
-                    settings.attached_bathroom_minimum_shared_wall
-                ),
-                "attached_bathroom_room_types": (
-                    RoomType.ATTACHED_BATHROOM,
-                ),
+                "minimum_shared_wall": (settings.attached_bathroom_minimum_shared_wall),
+                "attached_bathroom_room_types": (RoomType.ATTACHED_BATHROOM,),
                 "bedroom_room_types": (RoomType.BEDROOM,),
             },
         ),

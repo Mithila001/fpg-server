@@ -35,7 +35,7 @@ class PreprocessingPolicy:
     )
     min_aspect_ratio: float = 0.5
     max_aspect_ratio: float = 2.0
-    floor_area_buffer: float = 200.0
+    floor_area_buffer: float = 50.0
     default_room_size: str = "regular"
     room_size_strategy: RoomSizeSelectionStrategy = RoomSizeSelectionStrategy.MAJORITY
     size_normalization_exclusions: tuple[RoomType, ...] = (RoomType.HALLWAY,)

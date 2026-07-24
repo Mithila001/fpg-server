@@ -94,67 +94,64 @@
   "room_relations": [
     {
       "source_room_type": "living_room",
-      "target_room_types": [
-        "kitchen"
-      ],
-      "match_policy": "and",
-      "strength": "hard",
-      "required": true
-    },
-    {
-      "source_room_type": "living_room",
-      "target_room_types": [
-        "veranda"
-      ],
+      "target_room_types": ["veranda"],
       "match_policy": "and",
       "strength": "hard",
       "required": true
     },
     {
       "source_room_type": "bedroom",
-      "target_room_types": [
-        "living_room",
-        "hallway"
-      ],
+      "target_room_types": ["hallway", "living_room"],
       "match_policy": "or",
-      "strength": "soft",
-      "required": false
+      "strength": "hard",
+      "required": true
     },
     {
       "source_room_type": "kitchen",
-      "target_room_types": [
-        "living_room",
-        "hallway"
-      ],
+      "target_room_types": ["hallway", "living_room"],
       "match_policy": "or",
-      "strength": "soft",
-      "required": false
-    },
-    {
-      "source_room_type": "bathroom",
-      "target_room_types": [
-        "living_room",
-        "bedroom"
-      ],
-      "match_policy": "or",
-      "strength": "soft",
-      "required": false
-    },
-    {
-      "source_room_type": "attached_bathroom",
-      "target_room_types": [
-        "bedroom"
-      ],
-      "match_policy": "and",
       "strength": "hard",
-      "required": false
+      "required": true
     },
     {
       "source_room_type": "dining_room",
-      "target_room_types": [
-        "kitchen"
-      ],
+      "target_room_types": ["hallway", "living_room"],
+      "match_policy": "or",
+      "strength": "hard",
+      "required": true
+    },
+    {
+      "source_room_type": "dining_room",
+      "target_room_types": ["kitchen", "hallway"],
+      "match_policy": "or",
+      "strength": "hard",
+      "required": true
+    },
+    {
+      "source_room_type": "bathroom",
+      "target_room_types": ["hallway"],
       "match_policy": "and",
+      "strength": "hard",
+      "required": true
+    },
+    {
+      "source_room_type": "attached_bathroom",
+      "target_room_types": ["bedroom"],
+      "match_policy": "and",
+      "strength": "hard",
+      "required": true
+    },
+    {
+      "source_room_type": "garage",
+      "target_room_types": ["living_room", "veranda"],
+      "match_policy": "or",
+      "strength": "hard",
+      "required": true
+    },
+    {
+      "source_room_type": "kitchen",
+      "target_room_types": ["dining_room"],
+      "match_policy": "or",
       "strength": "soft",
       "required": false
     }

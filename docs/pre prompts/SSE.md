@@ -13,3 +13,8 @@ This setup is still in discuses mode. need to evaluate the realistic and pragmat
 
 We need a Consist SSE structure type as well
 
+What to Call in SSE
+
+- Each Candidate Search Trial Results (Hint Point Only)
+- Each 
+
