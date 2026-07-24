@@ -1,17 +1,24 @@
 from __future__ import annotations
 
 import math
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Callable, TypeAlias, cast
 
-from app.algorithms.types_new import RoomId
+from app.algorithms.types_new import RoomId, RoomType
+
+from .config import (
+    DEFAULT_MAX_HALLWAY_HINT_COUNT,
+    DEFAULT_MIN_HALLWAY_HINT_COUNT,
+)
 
 
 @dataclass(frozen=True, slots=True)
 class CandidateSearchTarget:
-    """Identifies one room that needs a candidate coordinate."""
+    """Identifies one room that needs one or more candidate coordinates."""
 
     room_id: RoomId
+    room_type: RoomType | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.room_id, str):
@@ -21,7 +28,16 @@ class CandidateSearchTarget:
         if not cleaned_room_id:
             raise ValueError("Candidate target room_id cannot be empty.")
 
+        if self.room_type is not None and not isinstance(self.room_type, RoomType):
+            raise TypeError("Candidate target room_type must be a RoomType or None.")
+
         object.__setattr__(self, "room_id", RoomId(cleaned_room_id))
+
+    @property
+    def is_hallway(self) -> bool:
+        """Whether Optuna may vary this target's hint-point count."""
+
+        return self.room_type is RoomType.HALLWAY
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +47,8 @@ class CandidatePoint:
     room_id: RoomId
     x: float
     y: float
+    room_type: RoomType | None = None
+    hint_index: int = 1
 
     def __post_init__(self) -> None:
         if not isinstance(self.room_id, str):
@@ -39,6 +57,18 @@ class CandidatePoint:
         cleaned_room_id = self.room_id.strip()
         if not cleaned_room_id:
             raise ValueError("Candidate point room_id cannot be empty.")
+
+        if self.room_type is not None and not isinstance(self.room_type, RoomType):
+            raise TypeError("Candidate point room_type must be a RoomType or None.")
+
+        if isinstance(self.hint_index, bool) or not isinstance(self.hint_index, int):
+            raise TypeError("Candidate point hint_index must be an integer.")
+        if self.hint_index <= 0:
+            raise ValueError("Candidate point hint_index must be greater than zero.")
+        if self.room_type is not RoomType.HALLWAY and self.hint_index != 1:
+            raise ValueError(
+                "Only hallway candidate points may use a hint_index greater than one."
+            )
 
         object.__setattr__(self, "room_id", RoomId(cleaned_room_id))
         object.__setattr__(self, "x", _validated_finite_number("x", self.x))
@@ -56,6 +86,8 @@ class CandidateSearchSettings:
     grid_resolution: float
     trial_count: int
     random_seed: int | None = None
+    min_hallway_hint_count: int = DEFAULT_MIN_HALLWAY_HINT_COUNT
+    max_hallway_hint_count: int = DEFAULT_MAX_HALLWAY_HINT_COUNT
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "min_x", _validated_finite_number("min_x", self.min_x))
@@ -75,10 +107,21 @@ class CandidateSearchSettings:
         if self.grid_resolution <= 0:
             raise ValueError("grid_resolution must be greater than zero.")
 
-        if isinstance(self.trial_count, bool) or not isinstance(self.trial_count, int):
-            raise TypeError("trial_count must be an integer.")
-        if self.trial_count <= 0:
-            raise ValueError("trial_count must be greater than zero.")
+        _validate_positive_integer("trial_count", self.trial_count)
+        _validate_positive_integer(
+            "min_hallway_hint_count",
+            self.min_hallway_hint_count,
+        )
+        _validate_positive_integer(
+            "max_hallway_hint_count",
+            self.max_hallway_hint_count,
+        )
+
+        if self.min_hallway_hint_count > self.max_hallway_hint_count:
+            raise ValueError(
+                "min_hallway_hint_count cannot be greater than "
+                "max_hallway_hint_count."
+            )
 
         if self.random_seed is not None:
             if isinstance(self.random_seed, bool) or not isinstance(
@@ -132,11 +175,7 @@ class CandidateSuggestion:
     points: tuple[CandidatePoint, ...]
 
     def __post_init__(self) -> None:
-        if isinstance(self.trial_number, bool) or not isinstance(self.trial_number, int):
-            raise TypeError("trial_number must be an integer.")
-        if self.trial_number <= 0:
-            raise ValueError("trial_number must be greater than zero.")
-
+        _validate_positive_integer("trial_number", self.trial_number)
         object.__setattr__(self, "points", _validated_candidate_points(self.points))
 
 
@@ -150,21 +189,12 @@ class CandidateTrialResult:
     completed_trials: int
 
     def __post_init__(self) -> None:
-        if isinstance(self.trial_number, bool) or not isinstance(self.trial_number, int):
-            raise TypeError("trial_number must be an integer.")
-        if self.trial_number <= 0:
-            raise ValueError("trial_number must be greater than zero.")
+        _validate_positive_integer("trial_number", self.trial_number)
 
         normalized_points = _validated_candidate_points(self.points)
         numeric_score = _validated_finite_number("score", self.score)
 
-        if isinstance(self.completed_trials, bool) or not isinstance(
-            self.completed_trials,
-            int,
-        ):
-            raise TypeError("completed_trials must be an integer.")
-        if self.completed_trials <= 0:
-            raise ValueError("completed_trials must be greater than zero.")
+        _validate_positive_integer("completed_trials", self.completed_trials)
 
         object.__setattr__(self, "points", normalized_points)
         object.__setattr__(self, "score", numeric_score)
@@ -182,13 +212,7 @@ class CandidateSearchResult:
         normalized_points = _validated_candidate_points(self.points)
         numeric_score = _validated_finite_number("score", self.score)
 
-        if isinstance(self.completed_trials, bool) or not isinstance(
-            self.completed_trials,
-            int,
-        ):
-            raise TypeError("completed_trials must be an integer.")
-        if self.completed_trials <= 0:
-            raise ValueError("completed_trials must be greater than zero.")
+        _validate_positive_integer("completed_trials", self.completed_trials)
 
         object.__setattr__(self, "points", normalized_points)
         object.__setattr__(self, "score", numeric_score)
@@ -205,11 +229,25 @@ def _validated_candidate_points(
         if not isinstance(point, CandidatePoint):
             raise TypeError("Every result point must be a CandidatePoint instance.")
 
-    room_ids = [point.room_id for point in normalized_points]
-    duplicate_room_ids = _find_duplicate_room_ids(room_ids)
-    if duplicate_room_ids:
-        formatted_ids = ", ".join(sorted(duplicate_room_ids))
-        raise ValueError(f"Candidate result room IDs must be unique: {formatted_ids}")
+    points_by_room_id: dict[RoomId, list[CandidatePoint]] = defaultdict(list)
+    for point in normalized_points:
+        points_by_room_id[point.room_id].append(point)
+
+    for room_id, room_points in points_by_room_id.items():
+        if len(room_points) == 1:
+            continue
+
+        if any(point.room_type is not RoomType.HALLWAY for point in room_points):
+            raise ValueError(
+                "Only hallway rooms may contain multiple candidate points: "
+                f"{room_id}"
+            )
+
+        hint_indices = [point.hint_index for point in room_points]
+        if len(set(hint_indices)) != len(hint_indices):
+            raise ValueError(
+                f"Hallway candidate hint indexes must be unique for room '{room_id}'."
+            )
 
     return normalized_points
 
@@ -227,6 +265,13 @@ def _validated_finite_number(field_name: str, value: object) -> float:
         raise ValueError(f"{field_name} must be finite.")
 
     return numeric_value
+
+
+def _validate_positive_integer(field_name: str, value: object) -> None:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{field_name} must be an integer.")
+    if value <= 0:
+        raise ValueError(f"{field_name} must be greater than zero.")
 
 
 def _find_duplicate_room_ids(room_ids: list[RoomId]) -> set[RoomId]:

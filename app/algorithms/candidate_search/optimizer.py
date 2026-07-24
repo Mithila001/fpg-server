@@ -21,6 +21,11 @@ class CandidateSearchSession:
     """
     Incremental Optuna-backed candidate search.
 
+    Every required non-hallway target always receives exactly one candidate
+    point. For each target explicitly typed as RoomType.HALLWAY, Optuna first
+    selects a hint count inside the configured range, then samples exactly that
+    many hallway coordinates for the trial.
+
     The pipeline can ask for one unscored candidate, score it through the
     separate candidate-scoring module, record that score, temporarily run the
     floor-plan solver, and later resume this same Optuna study.
@@ -195,33 +200,69 @@ def _sample_candidate_points(
 
     points: list[CandidatePoint] = []
     for target_index, target in enumerate(targets):
-        x_index = trial.suggest_int(
-            name=_x_parameter_name(target_index),
-            low=0,
-            high=max_x_index,
-        )
-        y_index = trial.suggest_int(
-            name=_y_parameter_name(target_index),
-            low=0,
-            high=max_y_index,
-        )
-        points.append(
-            CandidatePoint(
-                room_id=target.room_id,
-                x=_grid_value(
-                    minimum=settings.min_x,
-                    index=x_index,
-                    resolution=settings.grid_resolution,
-                ),
-                y=_grid_value(
-                    minimum=settings.min_y,
-                    index=y_index,
-                    resolution=settings.grid_resolution,
-                ),
-            )
+        hint_count = _sample_target_hint_count(
+            trial=trial,
+            target_index=target_index,
+            target=target,
+            settings=settings,
         )
 
+        for zero_based_hint_index in range(hint_count):
+            hint_index = zero_based_hint_index + 1
+            x_index = trial.suggest_int(
+                name=_x_parameter_name(
+                    target_index=target_index,
+                    hint_index=hint_index,
+                    is_hallway=target.is_hallway,
+                ),
+                low=0,
+                high=max_x_index,
+            )
+            y_index = trial.suggest_int(
+                name=_y_parameter_name(
+                    target_index=target_index,
+                    hint_index=hint_index,
+                    is_hallway=target.is_hallway,
+                ),
+                low=0,
+                high=max_y_index,
+            )
+            points.append(
+                CandidatePoint(
+                    room_id=target.room_id,
+                    room_type=target.room_type,
+                    hint_index=hint_index,
+                    x=_grid_value(
+                        minimum=settings.min_x,
+                        index=x_index,
+                        resolution=settings.grid_resolution,
+                    ),
+                    y=_grid_value(
+                        minimum=settings.min_y,
+                        index=y_index,
+                        resolution=settings.grid_resolution,
+                    ),
+                )
+            )
+
     return tuple(points)
+
+
+def _sample_target_hint_count(
+    *,
+    trial: optuna.Trial,
+    target_index: int,
+    target: CandidateSearchTarget,
+    settings: CandidateSearchSettings,
+) -> int:
+    if not target.is_hallway:
+        return 1
+
+    return trial.suggest_int(
+        name=_hallway_count_parameter_name(target_index),
+        low=settings.min_hallway_hint_count,
+        high=settings.max_hallway_hint_count,
+    )
 
 
 def _points_from_trial_parameters(
@@ -232,44 +273,98 @@ def _points_from_trial_parameters(
     points: list[CandidatePoint] = []
 
     for target_index, target in enumerate(targets):
-        x_parameter_name = _x_parameter_name(target_index)
-        y_parameter_name = _y_parameter_name(target_index)
-
-        if x_parameter_name not in parameters:
-            raise RuntimeError(
-                f"Best trial is missing the X parameter for room '{target.room_id}'."
-            )
-        if y_parameter_name not in parameters:
-            raise RuntimeError(
-                f"Best trial is missing the Y parameter for room '{target.room_id}'."
-            )
-
-        x_index = _validated_parameter_index(
-            parameter_name=x_parameter_name,
-            value=parameters[x_parameter_name],
-        )
-        y_index = _validated_parameter_index(
-            parameter_name=y_parameter_name,
-            value=parameters[y_parameter_name],
+        hint_count = _hint_count_from_trial_parameters(
+            target_index=target_index,
+            target=target,
+            settings=settings,
+            parameters=parameters,
         )
 
-        points.append(
-            CandidatePoint(
-                room_id=target.room_id,
-                x=_grid_value(
-                    minimum=settings.min_x,
-                    index=x_index,
-                    resolution=settings.grid_resolution,
-                ),
-                y=_grid_value(
-                    minimum=settings.min_y,
-                    index=y_index,
-                    resolution=settings.grid_resolution,
-                ),
+        for zero_based_hint_index in range(hint_count):
+            hint_index = zero_based_hint_index + 1
+            x_parameter_name = _x_parameter_name(
+                target_index=target_index,
+                hint_index=hint_index,
+                is_hallway=target.is_hallway,
             )
-        )
+            y_parameter_name = _y_parameter_name(
+                target_index=target_index,
+                hint_index=hint_index,
+                is_hallway=target.is_hallway,
+            )
+
+            if x_parameter_name not in parameters:
+                raise RuntimeError(
+                    "Best trial is missing the X parameter for "
+                    f"room '{target.room_id}', hint {hint_index}."
+                )
+            if y_parameter_name not in parameters:
+                raise RuntimeError(
+                    "Best trial is missing the Y parameter for "
+                    f"room '{target.room_id}', hint {hint_index}."
+                )
+
+            x_index = _validated_parameter_index(
+                parameter_name=x_parameter_name,
+                value=parameters[x_parameter_name],
+            )
+            y_index = _validated_parameter_index(
+                parameter_name=y_parameter_name,
+                value=parameters[y_parameter_name],
+            )
+
+            points.append(
+                CandidatePoint(
+                    room_id=target.room_id,
+                    room_type=target.room_type,
+                    hint_index=hint_index,
+                    x=_grid_value(
+                        minimum=settings.min_x,
+                        index=x_index,
+                        resolution=settings.grid_resolution,
+                    ),
+                    y=_grid_value(
+                        minimum=settings.min_y,
+                        index=y_index,
+                        resolution=settings.grid_resolution,
+                    ),
+                )
+            )
 
     return tuple(points)
+
+
+def _hint_count_from_trial_parameters(
+    *,
+    target_index: int,
+    target: CandidateSearchTarget,
+    settings: CandidateSearchSettings,
+    parameters: Mapping[str, int | float],
+) -> int:
+    if not target.is_hallway:
+        return 1
+
+    parameter_name = _hallway_count_parameter_name(target_index)
+    if parameter_name not in parameters:
+        raise RuntimeError(
+            f"Best trial is missing the hallway hint count for room '{target.room_id}'."
+        )
+
+    hint_count = _validated_parameter_index(
+        parameter_name=parameter_name,
+        value=parameters[parameter_name],
+    )
+    if not (
+        settings.min_hallway_hint_count
+        <= hint_count
+        <= settings.max_hallway_hint_count
+    ):
+        raise RuntimeError(
+            f"Trial parameter '{parameter_name}' is outside the configured "
+            "hallway hint-count range."
+        )
+
+    return hint_count
 
 
 def _validate_evaluator_score(value: object) -> float:
@@ -321,9 +416,27 @@ def _grid_value(minimum: float, index: int, resolution: float) -> float:
     return float(minimum_decimal + Decimal(index) * resolution_decimal)
 
 
-def _x_parameter_name(target_index: int) -> str:
+def _hallway_count_parameter_name(target_index: int) -> str:
+    return f"candidate_{target_index}_hallway_hint_count"
+
+
+def _x_parameter_name(
+    *,
+    target_index: int,
+    hint_index: int,
+    is_hallway: bool,
+) -> str:
+    if is_hallway:
+        return f"candidate_{target_index}_hallway_{hint_index}_x_index"
     return f"candidate_{target_index}_x_index"
 
 
-def _y_parameter_name(target_index: int) -> str:
+def _y_parameter_name(
+    *,
+    target_index: int,
+    hint_index: int,
+    is_hallway: bool,
+) -> str:
+    if is_hallway:
+        return f"candidate_{target_index}_hallway_{hint_index}_y_index"
     return f"candidate_{target_index}_y_index"

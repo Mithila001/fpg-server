@@ -1,3 +1,7 @@
+from .config import (
+    DEFAULT_MAX_HALLWAY_HINT_COUNT,
+    DEFAULT_MIN_HALLWAY_HINT_COUNT,
+)
 from .models import (
     CandidateEvaluator,
     CandidatePoint,
@@ -20,5 +24,7 @@ __all__ = [
     "CandidateSearchTarget",
     "CandidateSuggestion",
     "CandidateTrialResult",
+    "DEFAULT_MAX_HALLWAY_HINT_COUNT",
+    "DEFAULT_MIN_HALLWAY_HINT_COUNT",
     "search_candidates",
 ]
