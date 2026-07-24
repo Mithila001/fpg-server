@@ -2,19 +2,14 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Callable, TypeAlias, Any, cast
+from typing import Any, Callable, TypeAlias, cast
 
 from app.algorithms.types_new import RoomId
 
 
 @dataclass(frozen=True, slots=True)
 class CandidateSearchTarget:
-    """
-    Identifies one room for which candidate coordinates must be generated.
-
-    Candidate Search only needs the stable room identity. It does not need the
-    room type, room dimensions, display name, relations, or solver objects.
-    """
+    """Identifies one room that needs a candidate coordinate."""
 
     room_id: RoomId
 
@@ -23,7 +18,6 @@ class CandidateSearchTarget:
             raise TypeError("Candidate target room_id must be a string-based RoomId.")
 
         cleaned_room_id = self.room_id.strip()
-
         if not cleaned_room_id:
             raise ValueError("Candidate target room_id cannot be empty.")
 
@@ -32,12 +26,7 @@ class CandidateSearchTarget:
 
 @dataclass(frozen=True, slots=True)
 class CandidatePoint:
-    """
-    A generated coordinate associated with one room.
-
-    This is a candidate-search result point, not a final floor-plan geometry
-    point. The coordinate may later be converted into a CP-SAT seed hint.
-    """
+    """A generated hint coordinate associated with one room."""
 
     room_id: RoomId
     x: float
@@ -48,7 +37,6 @@ class CandidatePoint:
             raise TypeError("Candidate point room_id must be a string-based RoomId.")
 
         cleaned_room_id = self.room_id.strip()
-
         if not cleaned_room_id:
             raise ValueError("Candidate point room_id cannot be empty.")
 
@@ -59,12 +47,7 @@ class CandidatePoint:
 
 @dataclass(frozen=True, slots=True)
 class CandidateSearchSettings:
-    """
-    Configuration controlling the coordinate search space.
-
-    These settings are supplied by the caller. Candidate Search does not import
-    application configuration or inspect the floor-plan specification.
-    """
+    """Configuration controlling the candidate coordinate search space."""
 
     min_x: float
     max_x: float
@@ -75,50 +58,25 @@ class CandidateSearchSettings:
     random_seed: int | None = None
 
     def __post_init__(self) -> None:
-        object.__setattr__(
-            self,
-            "min_x",
-            _validated_finite_number("min_x", self.min_x),
-        )
-        object.__setattr__(
-            self,
-            "max_x",
-            _validated_finite_number("max_x", self.max_x),
-        )
-        object.__setattr__(
-            self,
-            "min_y",
-            _validated_finite_number("min_y", self.min_y),
-        )
-        object.__setattr__(
-            self,
-            "max_y",
-            _validated_finite_number("max_y", self.max_y),
-        )
+        object.__setattr__(self, "min_x", _validated_finite_number("min_x", self.min_x))
+        object.__setattr__(self, "max_x", _validated_finite_number("max_x", self.max_x))
+        object.__setattr__(self, "min_y", _validated_finite_number("min_y", self.min_y))
+        object.__setattr__(self, "max_y", _validated_finite_number("max_y", self.max_y))
         object.__setattr__(
             self,
             "grid_resolution",
-            _validated_finite_number(
-                "grid_resolution",
-                self.grid_resolution,
-            ),
+            _validated_finite_number("grid_resolution", self.grid_resolution),
         )
 
         if self.min_x > self.max_x:
             raise ValueError("min_x cannot be greater than max_x.")
-
         if self.min_y > self.max_y:
             raise ValueError("min_y cannot be greater than max_y.")
-
         if self.grid_resolution <= 0:
             raise ValueError("grid_resolution must be greater than zero.")
 
-        if isinstance(self.trial_count, bool) or not isinstance(
-            self.trial_count,
-            int,
-        ):
+        if isinstance(self.trial_count, bool) or not isinstance(self.trial_count, int):
             raise TypeError("trial_count must be an integer.")
-
         if self.trial_count <= 0:
             raise ValueError("trial_count must be greater than zero.")
 
@@ -130,19 +88,12 @@ class CandidateSearchSettings:
                 raise TypeError("random_seed must be an integer or None.")
 
 
-CandidateEvaluator: TypeAlias = Callable[
-    [tuple[CandidatePoint, ...]],
-    float,
-]
+CandidateEvaluator: TypeAlias = Callable[[tuple[CandidatePoint, ...]], float]
 
 
 @dataclass(frozen=True, slots=True)
 class CandidateSearchInput:
-    """
-    Complete input contract for one candidate-search operation.
-
-    This is the only public input accepted by search_candidates().
-    """
+    """Complete input contract for one candidate-search operation or session."""
 
     targets: tuple[CandidateSearchTarget, ...]
     settings: CandidateSearchSettings
@@ -150,19 +101,15 @@ class CandidateSearchInput:
 
     def __post_init__(self) -> None:
         normalized_targets = tuple(self.targets)
-
         if not normalized_targets:
             raise ValueError("At least one candidate search target is required.")
 
         for target in normalized_targets:
             if not isinstance(target, CandidateSearchTarget):
-                raise TypeError(
-                    "Every target must be a CandidateSearchTarget instance."
-                )
+                raise TypeError("Every target must be a CandidateSearchTarget instance.")
 
         room_ids = [target.room_id for target in normalized_targets]
         duplicate_room_ids = _find_duplicate_room_ids(room_ids)
-
         if duplicate_room_ids:
             formatted_ids = ", ".join(sorted(duplicate_room_ids))
             raise ValueError(
@@ -171,7 +118,6 @@ class CandidateSearchInput:
 
         if not isinstance(self.settings, CandidateSearchSettings):
             raise TypeError("settings must be a CandidateSearchSettings instance.")
-
         if not callable(self.evaluator):
             raise TypeError("evaluator must be callable.")
 
@@ -179,36 +125,37 @@ class CandidateSearchInput:
 
 
 @dataclass(frozen=True, slots=True)
-class CandidateSearchResult:
-    """
-    Best candidate arrangement discovered by the search.
+class CandidateSuggestion:
+    """Unscored candidate points produced by one Optuna trial."""
 
-    This is the only public output returned by search_candidates().
-    """
+    trial_number: int
+    points: tuple[CandidatePoint, ...]
 
+    def __post_init__(self) -> None:
+        if isinstance(self.trial_number, bool) or not isinstance(self.trial_number, int):
+            raise TypeError("trial_number must be an integer.")
+        if self.trial_number <= 0:
+            raise ValueError("trial_number must be greater than zero.")
+
+        object.__setattr__(self, "points", _validated_candidate_points(self.points))
+
+
+@dataclass(frozen=True, slots=True)
+class CandidateTrialResult:
+    """The points and score produced by one completed candidate-search trial."""
+
+    trial_number: int
     points: tuple[CandidatePoint, ...]
     score: float
     completed_trials: int
 
     def __post_init__(self) -> None:
-        normalized_points = tuple(self.points)
+        if isinstance(self.trial_number, bool) or not isinstance(self.trial_number, int):
+            raise TypeError("trial_number must be an integer.")
+        if self.trial_number <= 0:
+            raise ValueError("trial_number must be greater than zero.")
 
-        if not normalized_points:
-            raise ValueError("Candidate search result must contain at least one point.")
-
-        for point in normalized_points:
-            if not isinstance(point, CandidatePoint):
-                raise TypeError("Every result point must be a CandidatePoint instance.")
-
-        room_ids = [point.room_id for point in normalized_points]
-        duplicate_room_ids = _find_duplicate_room_ids(room_ids)
-
-        if duplicate_room_ids:
-            formatted_ids = ", ".join(sorted(duplicate_room_ids))
-            raise ValueError(
-                f"Candidate result room IDs must be unique: {formatted_ids}"
-            )
-
+        normalized_points = _validated_candidate_points(self.points)
         numeric_score = _validated_finite_number("score", self.score)
 
         if isinstance(self.completed_trials, bool) or not isinstance(
@@ -216,7 +163,6 @@ class CandidateSearchResult:
             int,
         ):
             raise TypeError("completed_trials must be an integer.")
-
         if self.completed_trials <= 0:
             raise ValueError("completed_trials must be greater than zero.")
 
@@ -224,10 +170,51 @@ class CandidateSearchResult:
         object.__setattr__(self, "score", numeric_score)
 
 
-def _validated_finite_number(
-    field_name: str,
-    value: object,
-) -> float:
+@dataclass(frozen=True, slots=True)
+class CandidateSearchResult:
+    """Best candidate arrangement discovered by a completed search."""
+
+    points: tuple[CandidatePoint, ...]
+    score: float
+    completed_trials: int
+
+    def __post_init__(self) -> None:
+        normalized_points = _validated_candidate_points(self.points)
+        numeric_score = _validated_finite_number("score", self.score)
+
+        if isinstance(self.completed_trials, bool) or not isinstance(
+            self.completed_trials,
+            int,
+        ):
+            raise TypeError("completed_trials must be an integer.")
+        if self.completed_trials <= 0:
+            raise ValueError("completed_trials must be greater than zero.")
+
+        object.__setattr__(self, "points", normalized_points)
+        object.__setattr__(self, "score", numeric_score)
+
+
+def _validated_candidate_points(
+    points: tuple[CandidatePoint, ...],
+) -> tuple[CandidatePoint, ...]:
+    normalized_points = tuple(points)
+    if not normalized_points:
+        raise ValueError("Candidate result must contain at least one point.")
+
+    for point in normalized_points:
+        if not isinstance(point, CandidatePoint):
+            raise TypeError("Every result point must be a CandidatePoint instance.")
+
+    room_ids = [point.room_id for point in normalized_points]
+    duplicate_room_ids = _find_duplicate_room_ids(room_ids)
+    if duplicate_room_ids:
+        formatted_ids = ", ".join(sorted(duplicate_room_ids))
+        raise ValueError(f"Candidate result room IDs must be unique: {formatted_ids}")
+
+    return normalized_points
+
+
+def _validated_finite_number(field_name: str, value: object) -> float:
     if isinstance(value, bool):
         raise TypeError(f"{field_name} must be numeric, not boolean.")
 
@@ -242,9 +229,7 @@ def _validated_finite_number(
     return numeric_value
 
 
-def _find_duplicate_room_ids(
-    room_ids: list[RoomId],
-) -> set[RoomId]:
+def _find_duplicate_room_ids(room_ids: list[RoomId]) -> set[RoomId]:
     seen: set[RoomId] = set()
     duplicates: set[RoomId] = set()
 

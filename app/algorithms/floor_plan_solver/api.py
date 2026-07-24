@@ -1,3 +1,4 @@
+# app/algorithms/floor_plan_solver/api.py
 from __future__ import annotations
 
 from .builder import build_model

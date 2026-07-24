@@ -12,79 +12,169 @@ from .models import (
     CandidateSearchResult,
     CandidateSearchSettings,
     CandidateSearchTarget,
+    CandidateSuggestion,
+    CandidateTrialResult,
 )
 
 
-def search_candidates(
-    search_input: CandidateSearchInput,
-) -> CandidateSearchResult:
+class CandidateSearchSession:
     """
-    Search for the highest-scoring candidate coordinate arrangement.
+    Incremental Optuna-backed candidate search.
 
-    Public contract:
-
-        CandidateSearchInput
-            -> search_candidates()
-            -> CandidateSearchResult
-
-    Candidate Search does not know how candidate points are interpreted.
-    Architectural and floor-plan scoring remains the evaluator's responsibility.
+    The pipeline can ask for one unscored candidate, score it through the
+    separate candidate-scoring module, record that score, temporarily run the
+    floor-plan solver, and later resume this same Optuna study.
     """
 
-    if not isinstance(search_input, CandidateSearchInput):
-        raise TypeError("search_input must be a CandidateSearchInput instance.")
+    def __init__(self, search_input: CandidateSearchInput) -> None:
+        if not isinstance(search_input, CandidateSearchInput):
+            raise TypeError("search_input must be a CandidateSearchInput instance.")
 
-    sampler = optuna.samplers.TPESampler(
-        seed=search_input.settings.random_seed,
-    )
+        self._input = search_input
+        self._study = optuna.create_study(
+            direction="maximize",
+            sampler=optuna.samplers.TPESampler(
+                seed=search_input.settings.random_seed,
+            ),
+        )
+        self._completed_trials = 0
+        self._pending_trial: optuna.Trial | None = None
+        self._pending_suggestion: CandidateSuggestion | None = None
 
-    study = optuna.create_study(
-        direction="maximize",
-        sampler=sampler,
-    )
+    @property
+    def search_input(self) -> CandidateSearchInput:
+        return self._input
 
-    def objective(trial: optuna.Trial) -> float:
-        points = _sample_candidate_points(
-            trial=trial,
-            targets=search_input.targets,
-            settings=search_input.settings,
+    @property
+    def completed_trials(self) -> int:
+        return self._completed_trials
+
+    @property
+    def remaining_trials(self) -> int:
+        return self._input.settings.trial_count - self._completed_trials
+
+    @property
+    def has_remaining_trials(self) -> bool:
+        return self.remaining_trials > 0
+
+    @property
+    def has_pending_trial(self) -> bool:
+        return self._pending_trial is not None
+
+    def ask_next_trial(self) -> CandidateSuggestion:
+        """Generate exactly one unscored candidate from the current study."""
+
+        if self.has_pending_trial:
+            raise RuntimeError(
+                "The current candidate trial must be scored or failed before "
+                "requesting another trial."
+            )
+        if not self.has_remaining_trials:
+            raise RuntimeError("Candidate search session has no remaining trials.")
+
+        trial = self._study.ask()
+        try:
+            points = _sample_candidate_points(
+                trial=trial,
+                targets=self._input.targets,
+                settings=self._input.settings,
+            )
+        except Exception:
+            self._study.tell(trial, state=optuna.trial.TrialState.FAIL)
+            raise
+
+        suggestion = CandidateSuggestion(
+            trial_number=trial.number + 1,
+            points=points,
+        )
+        self._pending_trial = trial
+        self._pending_suggestion = suggestion
+        return suggestion
+
+    def record_score(
+        self,
+        suggestion: CandidateSuggestion,
+        score: float,
+    ) -> CandidateTrialResult:
+        """Record the score for the currently pending candidate trial."""
+
+        pending_trial = self._pending_trial
+        pending_suggestion = self._pending_suggestion
+        if pending_trial is None or pending_suggestion is None:
+            raise RuntimeError("Candidate search session has no pending trial.")
+        if suggestion != pending_suggestion:
+            raise ValueError("The supplied suggestion is not the pending trial.")
+
+        numeric_score = _validate_evaluator_score(score)
+        self._study.tell(pending_trial, numeric_score)
+        self._completed_trials += 1
+        self._pending_trial = None
+        self._pending_suggestion = None
+
+        return CandidateTrialResult(
+            trial_number=suggestion.trial_number,
+            points=suggestion.points,
+            score=numeric_score,
+            completed_trials=self._completed_trials,
         )
 
-        score = _validate_evaluator_score(search_input.evaluator(points))
+    def fail_pending_trial(self) -> None:
+        """Mark the current trial failed so the study is left in a valid state."""
 
-        return score
+        if self._pending_trial is None:
+            return
 
-    study.optimize(
-        objective,
-        n_trials=search_input.settings.trial_count,
-    )
+        self._study.tell(
+            self._pending_trial,
+            state=optuna.trial.TrialState.FAIL,
+        )
+        self._pending_trial = None
+        self._pending_suggestion = None
 
-    if not study.trials:
-        raise RuntimeError("Candidate search completed without any trials.")
+    def run_next_trial(self) -> CandidateTrialResult:
+        """Convenience method using the evaluator stored in CandidateSearchInput."""
 
-    best_trial = study.best_trial
+        suggestion = self.ask_next_trial()
+        try:
+            score = self._input.evaluator(suggestion.points)
+            return self.record_score(suggestion, score)
+        except Exception:
+            self.fail_pending_trial()
+            raise
 
-    if best_trial.value is None:
-        raise RuntimeError("The best Optuna trial does not contain a score.")
+    def best_result(self) -> CandidateSearchResult:
+        """Return the highest-scoring completed trial seen by this session."""
 
-    best_points = _points_from_trial_parameters(
-        targets=search_input.targets,
-        settings=search_input.settings,
-        parameters=best_trial.params,
-    )
+        if self._completed_trials <= 0:
+            raise RuntimeError("Candidate search session has no completed trials.")
 
-    completed_trials = sum(
-        trial.state == optuna.trial.TrialState.COMPLETE for trial in study.trials
-    )
+        best_trial = self._study.best_trial
+        if best_trial.value is None:
+            raise RuntimeError("The best Optuna trial does not contain a score.")
 
-    if completed_trials <= 0:
-        raise RuntimeError("Candidate search did not complete any successful trials.")
+        return CandidateSearchResult(
+            points=_points_from_trial_parameters(
+                targets=self._input.targets,
+                settings=self._input.settings,
+                parameters=best_trial.params,
+            ),
+            score=float(best_trial.value),
+            completed_trials=self._completed_trials,
+        )
 
-    return CandidateSearchResult(
-        points=best_points,
-        score=float(best_trial.value),
-        completed_trials=completed_trials,
-    )
+
+def search_candidates(search_input: CandidateSearchInput) -> CandidateSearchResult:
+    """
+    Run the full configured candidate search and return its best result.
+
+    This batch API remains backward compatible. New orchestration that needs to
+    pause and resume should use CandidateSearchSession directly.
+    """
+
+    session = CandidateSearchSession(search_input)
+    while session.has_remaining_trials:
+        session.run_next_trial()
+    return session.best_result()
 
 
 def _sample_candidate_points(
@@ -97,7 +187,6 @@ def _sample_candidate_points(
         maximum=settings.max_x,
         resolution=settings.grid_resolution,
     )
-
     max_y_index = _maximum_grid_index(
         minimum=settings.min_y,
         maximum=settings.max_y,
@@ -105,20 +194,17 @@ def _sample_candidate_points(
     )
 
     points: list[CandidatePoint] = []
-
     for target_index, target in enumerate(targets):
         x_index = trial.suggest_int(
             name=_x_parameter_name(target_index),
             low=0,
             high=max_x_index,
         )
-
         y_index = trial.suggest_int(
             name=_y_parameter_name(target_index),
             low=0,
             high=max_y_index,
         )
-
         points.append(
             CandidatePoint(
                 room_id=target.room_id,
@@ -153,7 +239,6 @@ def _points_from_trial_parameters(
             raise RuntimeError(
                 f"Best trial is missing the X parameter for room '{target.room_id}'."
             )
-
         if y_parameter_name not in parameters:
             raise RuntimeError(
                 f"Best trial is missing the Y parameter for room '{target.room_id}'."
@@ -163,7 +248,6 @@ def _points_from_trial_parameters(
             parameter_name=x_parameter_name,
             value=parameters[x_parameter_name],
         )
-
         y_index = _validated_parameter_index(
             parameter_name=y_parameter_name,
             value=parameters[y_parameter_name],
@@ -203,24 +287,19 @@ def _validate_evaluator_score(value: object) -> float:
     return numeric_score
 
 
-def _validated_parameter_index(
-    parameter_name: str,
-    value: int | float,
-) -> int:
+def _validated_parameter_index(parameter_name: str, value: int | float) -> int:
     if isinstance(value, bool):
         raise RuntimeError(
             f"Trial parameter '{parameter_name}' contains a boolean value."
         )
 
     numeric_value = float(value)
-
     if not numeric_value.is_integer():
         raise RuntimeError(
             f"Trial parameter '{parameter_name}' is not an integer index."
         )
 
     index = int(numeric_value)
-
     if index < 0:
         raise RuntimeError(
             f"Trial parameter '{parameter_name}' contains a negative index."
@@ -229,31 +308,17 @@ def _validated_parameter_index(
     return index
 
 
-def _maximum_grid_index(
-    minimum: float,
-    maximum: float,
-    resolution: float,
-) -> int:
+def _maximum_grid_index(minimum: float, maximum: float, resolution: float) -> int:
     minimum_decimal = Decimal(str(minimum))
     maximum_decimal = Decimal(str(maximum))
     resolution_decimal = Decimal(str(resolution))
-
-    available_distance = maximum_decimal - minimum_decimal
-
-    return int(available_distance // resolution_decimal)
+    return int((maximum_decimal - minimum_decimal) // resolution_decimal)
 
 
-def _grid_value(
-    minimum: float,
-    index: int,
-    resolution: float,
-) -> float:
+def _grid_value(minimum: float, index: int, resolution: float) -> float:
     minimum_decimal = Decimal(str(minimum))
     resolution_decimal = Decimal(str(resolution))
-
-    value = minimum_decimal + Decimal(index) * resolution_decimal
-
-    return float(value)
+    return float(minimum_decimal + Decimal(index) * resolution_decimal)
 
 
 def _x_parameter_name(target_index: int) -> str:

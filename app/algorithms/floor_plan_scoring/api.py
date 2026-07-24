@@ -1,3 +1,4 @@
+# app/algorithms/floor_plan_scoring/api.py
 from __future__ import annotations
 
 from .config import ScoringProfile
