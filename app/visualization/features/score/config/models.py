@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, fields
+from typing import Any
 
 
-def _validate_boolean_fields(instance: object) -> None:
+def _validate_boolean_fields(instance: Any) -> None:
     for item in fields(instance):
         value = getattr(instance, item.name)
         if not isinstance(value, bool):

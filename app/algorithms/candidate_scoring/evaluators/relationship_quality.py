@@ -340,7 +340,11 @@ def _graph_visualizations(
     seen: set[tuple[str, str]] = set()
     for source_id, neighbors in graph.items():
         for target_id, weighted_cost in neighbors.items():
-            pair = tuple(sorted((source_id, target_id)))
+            pair: tuple[str, str] = (
+                (source_id, target_id)
+                if source_id <= target_id
+                else (target_id, source_id)
+            )
             if pair in seen:
                 continue
             seen.add(pair)

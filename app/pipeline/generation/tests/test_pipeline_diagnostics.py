@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
+from dataclasses import dataclass
 
 import pytest
 
@@ -13,6 +13,16 @@ from app.pipeline.generation.context import (
     GenerationStage,
     RequestedGenerationRoom,
 )
+
+
+@dataclass
+class _SolverAttemptVisualizationStub:
+    candidate_trial_number: int
+    solver_run_number: int
+    initial_floor_plan: FloorPlan
+    refined_floor_plan: FloorPlan
+    post_processed_floor_plan: FloorPlan
+    final_floor_plan: FloorPlan
 
 
 def _request() -> GenerationPipelineRequest:
@@ -92,7 +102,7 @@ def test_solver_visualization_uses_initial_refined_and_final_stages(
         )
         for size in (10, 11, 12, 13)
     )
-    attempt = SimpleNamespace(
+    attempt = _SolverAttemptVisualizationStub(
         candidate_trial_number=7,
         solver_run_number=2,
         initial_floor_plan=plans[0],

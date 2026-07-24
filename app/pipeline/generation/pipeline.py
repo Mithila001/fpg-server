@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from inspect import signature
 from math import ceil, sqrt
 from time import perf_counter
-from typing import Any, TypeVar, cast
+from typing import Any, Protocol, TypeVar, cast
 
 import app.algorithms.floor_plan_solver as floor_plan_solver_module
 from app.algorithms.candidate_scoring import (
@@ -110,6 +110,14 @@ class _CompletedFloorPlanAttempt:
     post_processed_floor_plan: FloorPlan
     final_floor_plan: FloorPlan
     scoring: FloorPlanScoringResult
+
+
+class _SolverAttemptVisualization(Protocol):
+    candidate_trial_number: int
+    solver_run_number: int
+    initial_floor_plan: FloorPlan
+    refined_floor_plan: FloorPlan
+    final_floor_plan: FloorPlan
 
 
 def _log_generation(
@@ -447,7 +455,7 @@ def _render_floor_plan_scoring(
 def _render_solver_attempt(
     *,
     request_id: str,
-    attempt: _CompletedFloorPlanAttempt,
+    attempt: _SolverAttemptVisualization,
     last_refinement_profile_name: str,
     run_timestamp: str,
 ) -> None:
