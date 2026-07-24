@@ -3,6 +3,7 @@ from __future__ import annotations
 from .hard import (
     AspectRatioConstraint,
     AttachedBathroomPairingConstraint,
+    BackExposureConstraint,
     BoundaryPlacementConstraint,
     FrontAnchorConstraint,
     GaragePlacementConstraint,
@@ -17,6 +18,7 @@ from .soft import (
     BathroomDepthConstraint,
     CenterProximityConstraint,
     DeadSpaceConstraint,
+    KitchenBackExposureConstraint,
     OptionalRoomPresenceConstraint,
     SeedStabilityConstraint,
     SoftRoomRelationsConstraint,
@@ -28,6 +30,7 @@ def build_default_registry() -> ConstraintRegistry:
 
     registry.register_hard(AspectRatioConstraint())
     registry.register_hard(AttachedBathroomPairingConstraint())
+    registry.register_hard(BackExposureConstraint())
     registry.register_hard(HardRoomRelationsConstraint())
     registry.register_hard(MinimumCoverageConstraint())
     registry.register_hard(HallwayConnectivityConstraint())
@@ -40,6 +43,7 @@ def build_default_registry() -> ConstraintRegistry:
     registry.register_soft(SoftRoomRelationsConstraint())
     registry.register_soft(CenterProximityConstraint())
     registry.register_soft(DeadSpaceConstraint())
+    registry.register_soft(KitchenBackExposureConstraint())
     registry.register_soft(SeedStabilityConstraint())
     registry.register_soft(BathroomDepthConstraint())
     registry.register_soft(OptionalRoomPresenceConstraint())

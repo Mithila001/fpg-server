@@ -57,11 +57,11 @@ request = PreprocessingRequest(
 
 # Tests normally construct the complete tuple from fixture data.
 references = PreprocessingReferenceData(room_sizes=(
-    RoomSizeReference("bedroom", "regular", 10, 20, 10, 20, 100, 400),
-    RoomSizeReference("kitchen", "regular", 10, 20, 10, 20, 100, 400),
-    RoomSizeReference("bathroom", "regular", 10, 20, 10, 20, 100, 400),
-    RoomSizeReference("veranda", "regular", 10, 20, 10, 20, 100, 400),
-    RoomSizeReference("livingRoom", "regular", 10, 25, 10, 25, 100, 625),
+    RoomSizeReference("bedroom", "regular", 10, 20, 100, 400),
+    RoomSizeReference("kitchen", "regular", 10, 20, 100, 400),
+    RoomSizeReference("bathroom", "regular", 10, 20, 100, 400),
+    RoomSizeReference("veranda", "regular", 10, 20, 100, 400),
+    RoomSizeReference("livingRoom", "regular", 10, 25, 100, 625),
 ))
 
 prepared = prepare_generation_input(PreprocessingInput(request, references))

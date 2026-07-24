@@ -59,8 +59,6 @@ def _build_room_spec(data: dict[str, Any]) -> RoomSpec:
         size=RoomSizeSpec(
             min_width=size["min_width"],
             max_width=size["max_width"],
-            min_length=size["min_length"],
-            max_length=size["max_length"],
             min_area=size["min_area"],
             max_area=size["max_area"],
         ),
@@ -185,8 +183,6 @@ def build_infeasible_generation_spec() -> FloorPlanGenerationSpec:
     fixed_room_size = RoomSizeSpec(
         min_width=30,
         max_width=30,
-        min_length=30,
-        max_length=30,
         min_area=900,
         max_area=900,
     )

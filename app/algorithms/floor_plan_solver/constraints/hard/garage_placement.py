@@ -57,10 +57,10 @@ class GaragePlacementConstraint:
             # An absent optional garage selects neither.
             context.model.Add(touches_left + touches_right == variables.present)
 
-            # Left-front garage.
+            # Front-left garage.
             context.model.Add(variables.x == 0).OnlyEnforceIf(touches_left)
 
-            # Right-front garage.
+            # Front-right garage.
             context.model.Add(
                 variables.x_end == context.problem.floor.width
             ).OnlyEnforceIf(touches_right)

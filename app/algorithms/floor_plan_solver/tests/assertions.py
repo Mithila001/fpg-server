@@ -127,8 +127,12 @@ def assert_room_size_contract(
     for room in floor_plan.rooms:
         spec = specs_by_id[str(room.id)]
         bounds = rectangle_bounds(room.boundary)
-        assert spec.size.min_width - EPSILON <= bounds.width <= spec.size.max_width + EPSILON
-        assert spec.size.min_length - EPSILON <= bounds.length <= spec.size.max_length + EPSILON
+        shorter_side = min(bounds.width, bounds.length)
+        assert (
+            spec.size.min_width - EPSILON
+            <= shorter_side
+            <= spec.size.max_width + EPSILON
+        )
         assert spec.size.min_area - EPSILON <= bounds.area <= spec.size.max_area + EPSILON
 
 
@@ -242,23 +246,42 @@ def assert_hallway_connectivity(floor_plan: FloorPlan) -> None:
 
 def assert_front_rules(floor_plan: FloorPlan) -> None:
     rooms = tuple(floor_plan.rooms)
-    verandas = [room for room in rooms if room.room_type is RoomType.VERANDA]
-    if verandas:
-        anchor = verandas[0]
-    else:
-        living_rooms = [room for room in rooms if room.room_type is RoomType.LIVING_ROOM]
-        if not living_rooms:
-            return
-        anchor = living_rooms[0]
-
-    anchor_bounds = rectangle_bounds(anchor.boundary)
-    if anchor.room_type is RoomType.VERANDA:
-        assert _approximately_equal(anchor_bounds.min_y, 0.0)
+    allowed_types = {
+        RoomType.VERANDA,
+        RoomType.LIVING_ROOM,
+        RoomType.BEDROOM,
+        RoomType.GARAGE,
+    }
+    allowed_rooms = [room for room in rooms if room.room_type in allowed_types]
+    assert allowed_rooms
+    front_y = min(rectangle_bounds(room.boundary).min_y for room in allowed_rooms)
 
     for room in rooms:
-        if room.id == anchor.id:
+        bounds = rectangle_bounds(room.boundary)
+        if room.room_type is RoomType.VERANDA:
+            assert _approximately_equal(bounds.min_y, 0.0)
+        if room.room_type is RoomType.GARAGE:
+            assert _approximately_equal(bounds.min_y, 0.0)
+            assert bounds.length > bounds.width
+
+    for room in rooms:
+        if room.room_type in allowed_types:
             continue
-        assert anchor_bounds.center_y <= rectangle_bounds(room.boundary).center_y + EPSILON
+        assert rectangle_bounds(room.boundary).min_y >= front_y + 1 - EPSILON
+
+
+def assert_back_exposure(floor_plan: FloorPlan, *, minimum: float = 10.0) -> None:
+    floor = rectangle_bounds(floor_plan.boundary)
+    eligible_types = {RoomType.HALLWAY, RoomType.KITCHEN}
+    assert any(
+        room.room_type in eligible_types
+        and _approximately_equal(
+            rectangle_bounds(room.boundary).max_y,
+            floor.max_y,
+        )
+        and rectangle_bounds(room.boundary).width >= minimum - EPSILON
+        for room in floor_plan.rooms
+    )
 
 
 def assert_whole_project_unit_grid(floor_plan: FloorPlan) -> None:

@@ -74,6 +74,7 @@ class PreparedRoom:
     max_width: int
     min_length: int
     max_length: int
+    max_short_side: int
     min_area: int
     max_area: int
 
@@ -158,28 +159,22 @@ def _prepare_rooms(
         min_width_value = _positive_float(
             getattr(size, "min_width"), f"rooms[{id_key}].size.min_width"
         )
-        max_width_value = _positive_float(
+        max_short_side_value = _positive_float(
             getattr(size, "max_width"), f"rooms[{id_key}].size.max_width"
         )
-        min_length_value = _positive_float(
-            getattr(size, "min_length"), f"rooms[{id_key}].size.min_length"
-        )
-        max_length_value = _positive_float(
-            getattr(size, "max_length"), f"rooms[{id_key}].size.max_length"
-        )
-
         min_width = scale.minimum_length(min_width_value)
-        max_width = min(floor.width, scale.maximum_length(max_width_value))
-        min_length = scale.minimum_length(min_length_value)
-        max_length = min(floor.length, scale.maximum_length(max_length_value))
+        min_length = min_width
+        max_width = floor.width
+        max_length = floor.length
+        max_short_side = scale.maximum_length(max_short_side_value)
 
-        if min_width > max_width:
+        if min_width > max_short_side:
             raise InvalidSpecificationError(
-                f"Room '{id_key}' width range does not fit inside the floor"
+                f"Room '{id_key}' has an invalid width range"
             )
-        if min_length > max_length:
+        if min_width > floor.width or min_length > floor.length:
             raise InvalidSpecificationError(
-                f"Room '{id_key}' length range does not fit inside the floor"
+                f"Room '{id_key}' minimum width does not fit inside the floor"
             )
 
         min_area_value = _non_negative_float(
@@ -190,7 +185,10 @@ def _prepare_rooms(
         )
 
         dimension_min_area = min_width * min_length
-        dimension_max_area = max_width * max_length
+        dimension_max_area = max(
+            min(max_width, max_short_side) * max_length,
+            max_width * min(max_length, max_short_side),
+        )
         requested_min_area = (
             scale.minimum_area(min_area_value)
             if min_area_value > 0
@@ -226,6 +224,7 @@ def _prepare_rooms(
                 max_width=max_width,
                 min_length=min_length,
                 max_length=max_length,
+                max_short_side=max_short_side,
                 min_area=min_area,
                 max_area=max_area,
             )

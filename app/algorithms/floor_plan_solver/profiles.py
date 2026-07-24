@@ -139,7 +139,7 @@ def _default_hard_constraints(
                 "overrides": {
                     RoomType.GARAGE: {
                         "min_ratio": 0.4,
-                        "max_ratio": 2.5,
+                        "max_ratio": 0.7,
                     },
                     RoomType.VERANDA: {
                         "min_ratio": 0.25,
@@ -186,7 +186,19 @@ def _default_hard_constraints(
                 "anchor_room_types": (
                     RoomType.VERANDA,
                     RoomType.LIVING_ROOM,
+                    RoomType.BEDROOM,
+                    RoomType.GARAGE,
                 ),
+            },
+        ),
+        HardConstraintUse(
+            "back_exposure",
+            {
+                "room_types": (
+                    RoomType.HALLWAY,
+                    RoomType.KITCHEN,
+                ),
+                "minimum_exposure": 10.0,
             },
         ),
         HardConstraintUse(
@@ -229,6 +241,11 @@ def build_default_profiles(
             SoftConstraintUse("center_proximity", weight=1),
             SoftConstraintUse("dead_space", weight=3),
             SoftConstraintUse("bathroom_depth", weight=2),
+            SoftConstraintUse(
+                "kitchen_back_exposure",
+                weight=10,
+                settings={"minimum_exposure": 10.0},
+            ),
         ),
         solver=SolverConfig(max_time_seconds=cfg.initial_max_time_seconds),
         preparation=preparation,
@@ -256,6 +273,11 @@ def build_default_profiles(
             SoftConstraintUse("center_proximity", weight=1),
             SoftConstraintUse("dead_space", weight=4),
             SoftConstraintUse("bathroom_depth", weight=3),
+            SoftConstraintUse(
+                "kitchen_back_exposure",
+                weight=10,
+                settings={"minimum_exposure": 10.0},
+            ),
         ),
         solver=SolverConfig(max_time_seconds=cfg.refinement_max_time_seconds),
         preparation=preparation,
@@ -285,6 +307,11 @@ def build_default_profiles(
             ),
             SoftConstraintUse("dead_space", weight=6),
             SoftConstraintUse("bathroom_depth", weight=4),
+            SoftConstraintUse(
+                "kitchen_back_exposure",
+                weight=10,
+                settings={"minimum_exposure": 10.0},
+            ),
         ),
         solver=SolverConfig(max_time_seconds=cfg.refinement_max_time_seconds),
         preparation=preparation,

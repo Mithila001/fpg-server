@@ -79,6 +79,16 @@ def _create_room_variables(
     model.Add(area >= room.min_area).OnlyEnforceIf(present)
     model.Add(area <= room.max_area).OnlyEnforceIf(present)
 
+    width_is_short = model.NewBoolVar(f"{prefix}_width_is_short")
+    length_is_short = model.NewBoolVar(f"{prefix}_length_is_short")
+    model.Add(width <= room.max_short_side).OnlyEnforceIf(width_is_short)
+    model.Add(length <= room.max_short_side).OnlyEnforceIf(length_is_short)
+    model.AddImplication(width_is_short, present)
+    model.AddImplication(length_is_short, present)
+    model.AddBoolOr([width_is_short, length_is_short]).OnlyEnforceIf(present)
+    model.Add(width_is_short == 0).OnlyEnforceIf(present.Not())
+    model.Add(length_is_short == 0).OnlyEnforceIf(present.Not())
+
     model.Add(x == 0).OnlyEnforceIf(present.Not())
     model.Add(y == 0).OnlyEnforceIf(present.Not())
     model.Add(width == 0).OnlyEnforceIf(present.Not())

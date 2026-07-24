@@ -12,6 +12,7 @@ from app.algorithms.floor_plan_solver import (
 from app.algorithms.types_new.floor_plan_spec import FloorPlanGenerationSpec
 
 from .assertions import (
+    assert_back_exposure,
     assert_front_rules,
     assert_hallway_connectivity,
     assert_hard_room_relations,
@@ -35,6 +36,7 @@ def test_real_solver_enforces_core_profile_constraints(
     )
     assert_hallway_connectivity(floor_plan)
     assert_front_rules(floor_plan)
+    assert_back_exposure(floor_plan)
     assert_minimum_coverage(
         floor_plan,
         realistic_specification,

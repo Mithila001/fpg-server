@@ -58,3 +58,32 @@ def test_figure_is_cleared_when_png_export_fails(
         )
 
     assert figure.axes == []
+
+
+def test_same_pipeline_run_reuses_one_visualization_folder(
+    tmp_path: Path,
+) -> None:
+    visualization_root = tmp_path / "visualizations"
+    manager = VisualizationOutputManager(visualization_root)
+    config = RenderConfig(output_root=visualization_root)
+    run_timestamp = "20260722T061530123456Z"
+
+    first = manager.save_png(
+        Figure(),
+        feature="candidate_search",
+        run_id="request-42",
+        run_timestamp=run_timestamp,
+        name="eligible-candidate-1",
+        config=config,
+    )
+    second = manager.save_png(
+        Figure(),
+        feature="candidate_search",
+        run_id="request-42",
+        run_timestamp=run_timestamp,
+        name="eligible-candidate-2",
+        config=config,
+    )
+
+    assert first.parent == second.parent
+    assert len(tuple(first.parent.glob("*.png"))) == 2

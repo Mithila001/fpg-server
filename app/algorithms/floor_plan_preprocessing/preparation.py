@@ -32,8 +32,6 @@ def _room_size_spec(reference: PreparedRoomSizeReference) -> RoomSizeSpec:
     return RoomSizeSpec(
         min_width=reference.min_width,
         max_width=reference.max_width,
-        min_length=reference.min_length,
-        max_length=reference.max_length,
         min_area=reference.min_area,
         max_area=reference.max_area,
     )
@@ -125,7 +123,7 @@ def _select_floor(
     oversized = [
         str(room.id)
         for room in rooms
-        if room.size.min_width > width or room.size.min_length > length
+        if room.size.min_width > width or room.size.min_width > length
     ]
     if oversized:
         raise FloorPreparationError(
@@ -160,10 +158,14 @@ def _add_hallways(
                 room_type=RoomType.HALLWAY,
                 name=room.name,
                 size=RoomSizeSpec(
-                    min_width=policy.hallway_min_width,
-                    max_width=floor.width,
-                    min_length=policy.hallway_min_length,
-                    max_length=floor.length,
+                    min_width=min(
+                        policy.hallway_min_width,
+                        policy.hallway_min_length,
+                    ),
+                    max_width=max(
+                        policy.hallway_min_width,
+                        policy.hallway_min_length,
+                    ),
                     min_area=hallway_min_area,
                     max_area=floor.width * floor.length,
                 ),

@@ -45,8 +45,6 @@ class PreparedRoomSizeReference:
     size: str
     min_width: float
     max_width: float
-    min_length: float
-    max_length: float
     min_area: float
     max_area: float
 

@@ -19,8 +19,6 @@ from .exceptions import ScoringInputError
 class NormalizedRoomSize:
     min_width: float
     max_width: float
-    min_length: float
-    max_length: float
     min_area: float
     max_area: float
 
@@ -246,14 +244,6 @@ def _normalize_specs(raw_specs: Any) -> tuple[NormalizedRoomSpec, ...]:
                 _required_attr(raw_size, "max_width", f"{label}.size"),
                 f"{label}.size.max_width",
             ),
-            min_length=_positive_number(
-                _required_attr(raw_size, "min_length", f"{label}.size"),
-                f"{label}.size.min_length",
-            ),
-            max_length=_positive_number(
-                _required_attr(raw_size, "max_length", f"{label}.size"),
-                f"{label}.size.max_length",
-            ),
             min_area=_positive_number(
                 _required_attr(raw_size, "min_area", f"{label}.size"),
                 f"{label}.size.min_area",
@@ -265,7 +255,6 @@ def _normalize_specs(raw_specs: Any) -> tuple[NormalizedRoomSpec, ...]:
         )
         if (
             size.min_width > size.max_width
-            or size.min_length > size.max_length
             or size.min_area > size.max_area
         ):
             raise ScoringInputError(

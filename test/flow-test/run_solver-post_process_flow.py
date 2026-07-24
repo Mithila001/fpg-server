@@ -102,8 +102,6 @@ def room(
     *,
     min_width: int,
     max_width: int,
-    min_length: int,
-    max_length: int,
     min_area: int,
     max_area: int,
     required: bool = True,
@@ -117,8 +115,6 @@ def room(
         size=RoomSizeSpec(
             min_width=min_width,
             max_width=max_width,
-            min_length=min_length,
-            max_length=max_length,
             min_area=min_area,
             max_area=max_area,
         ),
@@ -154,10 +150,8 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "veranda",
             RoomType.VERANDA,
             "Front Veranda",
-            min_width=50,
-            max_width=75,
-            min_length=10,
-            max_length=15,
+            min_width=10,
+            max_width=15,
             min_area=500,
             max_area=1125,
         ),
@@ -165,10 +159,8 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "living",
             RoomType.LIVING_ROOM,
             "Living Room",
-            min_width=45,
-            max_width=60,
-            min_length=35,
-            max_length=45,
+            min_width=35,
+            max_width=45,
             min_area=1575,
             max_area=2700,
         ),
@@ -176,10 +168,8 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "dining",
             RoomType.DINING_ROOM,
             "Dining Room",
-            min_width=30,
-            max_width=40,
-            min_length=25,
-            max_length=35,
+            min_width=25,
+            max_width=35,
             min_area=750,
             max_area=1400,
         ),
@@ -187,10 +177,8 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "kitchen",
             RoomType.KITCHEN,
             "Kitchen",
-            min_width=30,
-            max_width=40,
-            min_length=25,
-            max_length=35,
+            min_width=25,
+            max_width=35,
             min_area=750,
             max_area=1400,
         ),
@@ -200,8 +188,6 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "Main Hallway",
             min_width=10,
             max_width=16,
-            min_length=40,
-            max_length=58,
             min_area=400,
             max_area=928,
         ),
@@ -209,10 +195,8 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "bedroom_1",
             RoomType.BEDROOM,
             "Bedroom 1",
-            min_width=35,
-            max_width=50,
-            min_length=30,
-            max_length=48,
+            min_width=30,
+            max_width=48,
             min_area=1050,
             max_area=2400,
         ),
@@ -220,10 +204,8 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "bedroom_2",
             RoomType.BEDROOM,
             "Bedroom 2",
-            min_width=35,
-            max_width=48,
-            min_length=30,
-            max_length=40,
+            min_width=30,
+            max_width=40,
             min_area=1050,
             max_area=1920,
         ),
@@ -233,8 +215,6 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "Common Bathroom",
             min_width=18,
             max_width=25,
-            min_length=18,
-            max_length=28,
             min_area=324,
             max_area=700,
         ),
@@ -244,8 +224,6 @@ def build_mock_specification() -> FloorPlanGenerationSpec:
             "Attached Bathroom",
             min_width=18,
             max_width=25,
-            min_length=18,
-            max_length=25,
             min_area=324,
             max_area=625,
         ),
@@ -324,21 +302,20 @@ def choose_random_room_dimensions(
     """
 
     min_width = max(1, math.ceil(room_spec.size.min_width))
-    max_width = min(floor_width, math.floor(room_spec.size.max_width))
-    min_length = max(1, math.ceil(room_spec.size.min_length))
-    max_length = min(floor_length, math.floor(room_spec.size.max_length))
+    max_short_side = math.floor(room_spec.size.max_width)
 
     valid_dimensions = [
         (width, length)
-        for width in range(min_width, max_width + 1)
-        for length in range(min_length, max_length + 1)
-        if room_spec.size.min_area <= width * length <= room_spec.size.max_area
+        for width in range(min_width, floor_width + 1)
+        for length in range(min_width, floor_length + 1)
+        if min(width, length) <= max_short_side
+        and room_spec.size.min_area <= width * length <= room_spec.size.max_area
     ]
 
     if not valid_dimensions:
         raise ValueError(
             f"Room '{room_spec.id}' has no whole-unit dimensions that satisfy "
-            "its width, length, area, and floor-boundary limits."
+            "its shorter-side width, area, and floor-boundary limits."
         )
 
     return rng.choice(valid_dimensions)

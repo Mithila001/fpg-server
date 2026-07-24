@@ -162,8 +162,6 @@ def prepare_reference_data(
             size=_normalize_size(item.size),
             min_width=_reference_float(item.min_width, "min_width"),
             max_width=_reference_float(item.max_width, "max_width"),
-            min_length=_reference_float(item.min_length, "min_length"),
-            max_length=_reference_float(item.max_length, "max_length"),
             min_area=_reference_float(item.min_area, "min_area"),
             max_area=_reference_float(item.max_area, "max_area"),
         )

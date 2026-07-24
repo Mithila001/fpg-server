@@ -18,8 +18,6 @@ def test_reference_loader_rejects_noncanonical_room_type(tmp_path) -> None:
                         "size": "regular",
                         "min_width": 10,
                         "max_width": 20,
-                        "min_length": 10,
-                        "max_length": 20,
                         "min_area": 100,
                         "max_area": 400,
                     }
@@ -46,3 +44,29 @@ def test_packaged_reference_loader_returns_room_type_enums() -> None:
         and all(isinstance(room_type, RoomType) for room_type in relation.target_room_types)
         for relation in reference_data.room_relations
     )
+
+
+def test_reference_loader_rejects_legacy_length_fields(tmp_path) -> None:
+    path = tmp_path / "reference.json"
+    path.write_text(
+        json.dumps(
+            {
+                "room_sizes": [
+                    {
+                        "room_type": "bedroom",
+                        "size": "regular",
+                        "min_width": 10,
+                        "max_width": 20,
+                        "min_length": 10,
+                        "max_length": 20,
+                        "min_area": 100,
+                        "max_area": 400,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ReferenceDataError, match="Could not load"):
+        load_generation_reference_data(path)

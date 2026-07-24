@@ -21,7 +21,7 @@ _LINEAR_KEYS = {
     "floor_width",
     "floor_length",
     "min_width",
-    "min_length",
+    "max_width",
 }
 
 _AREA_KEYS = {

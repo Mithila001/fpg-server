@@ -159,8 +159,6 @@ def validate_reference_data(reference_data: PreparedReferenceData) -> None:
         values = (
             item.min_width,
             item.max_width,
-            item.min_length,
-            item.max_length,
             item.min_area,
             item.max_area,
         )
@@ -168,21 +166,17 @@ def validate_reference_data(reference_data: PreparedReferenceData) -> None:
             raise ReferenceDataError(
                 f"Room-size reference {key[0].value}/{key[1]} must be positive and finite"
             )
-        if item.min_width > item.max_width or item.min_length > item.max_length:
+        if item.min_width > item.max_width:
             raise ReferenceDataError(
-                f"Invalid dimension range for {key[0].value}/{key[1]}"
+                f"Invalid width range for {key[0].value}/{key[1]}"
             )
         if item.min_area > item.max_area:
             raise ReferenceDataError(
                 f"Invalid area range for {key[0].value}/{key[1]}"
             )
-        if item.min_area > item.max_width * item.max_length:
+        if item.max_area < item.min_width * item.min_width:
             raise ReferenceDataError(
-                f"Minimum area cannot fit dimension bounds for {key[0].value}/{key[1]}"
-            )
-        if item.max_area < item.min_width * item.min_length:
-            raise ReferenceDataError(
-                f"Maximum area is below minimum dimensions for {key[0].value}/{key[1]}"
+                f"Maximum area is below minimum width for {key[0].value}/{key[1]}"
             )
     for index, relation in enumerate(reference_data.room_relations):
         if not relation.target_room_types:
@@ -237,9 +231,7 @@ def validate_output(
         size = room.size
         if (
             size.min_width <= 0
-            or size.min_length <= 0
             or size.min_width > size.max_width
-            or size.min_length > size.max_length
             or size.min_area <= 0
             or size.min_area > size.max_area
         ):

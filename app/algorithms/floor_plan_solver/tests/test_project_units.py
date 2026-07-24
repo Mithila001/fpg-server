@@ -29,8 +29,6 @@ def test_realistic_input_uses_ten_whole_units_per_meter(
             (
                 room.size.min_width,
                 room.size.max_width,
-                room.size.min_length,
-                room.size.max_length,
             )
         )
     assert all(float(value).is_integer() for value in length_values)

@@ -24,8 +24,6 @@ DEFAULT_FLOOR_LENGTH = 100.0
 DEFAULT_ROOM_SIZE = RoomSizeSpec(
     min_width=20.0,
     max_width=50.0,
-    min_length=20.0,
-    max_length=50.0,
     min_area=400.0,
     max_area=2500.0,
 )

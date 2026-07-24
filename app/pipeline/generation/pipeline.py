@@ -435,11 +435,11 @@ def _render_solver_attempt(
                 floor_plan=deepcopy(attempt.refined_floor_plan),
             ),
             FloorPlanVisualizationStage(
-                stage_id=f"{stage_prefix}-post-processed",
-                stage_name="Post Processed Floor Plan",
-                category="post_processing",
-                profile_name=_profile_name(POST_PROCESSING_PROFILE),
-                floor_plan=deepcopy(attempt.post_processed_floor_plan),
+                stage_id=f"{stage_prefix}-final",
+                stage_name="Final Floor Plan",
+                category="final",
+                profile_name="final",
+                floor_plan=deepcopy(attempt.final_floor_plan),
             ),
         )
     )
@@ -762,7 +762,8 @@ def run_generation_pipeline(
         return result.total_score
 
     best_usable_attempt: _CompletedFloorPlanAttempt | None = None
-    solver_failures: list[dict[str, Any]] = []
+    solver_failure_count = 0
+    last_solver_failure: dict[str, str] | None = None
     eligible_candidate_count = 0
     termination_reason = "candidate_trials_exhausted"
 
@@ -773,6 +774,8 @@ def run_generation_pipeline(
         candidate_hints: tuple[RoomPlacementHint, ...],
     ) -> GenerationPipelineResult | None:
         nonlocal best_usable_attempt
+        nonlocal last_solver_failure
+        nonlocal solver_failure_count
         nonlocal termination_reason
 
         max_runs = settings.effective_solver_runs_per_candidate
@@ -805,17 +808,12 @@ def run_generation_pipeline(
                     output_run_timestamp=output_run_timestamp,
                 )
             except GenerationPipelineError as exc:
-                solver_failures.append(
-                    {
-                        "candidate_trial_number": candidate_trial_number,
-                        "candidate_score": candidate_score,
-                        "solver_run_number": solver_run_number,
-                        "stage": exc.stage.value,
-                        "code": exc.code,
-                        "message": exc.message,
-                        "details": dict(exc.details),
-                    }
-                )
+                solver_failure_count += 1
+                last_solver_failure = {
+                    "stage": exc.stage.value,
+                    "code": exc.code,
+                    "message": exc.message,
+                }
                 _log_generation(
                     request.request_id,
                     "solver_run_failed",
@@ -1060,11 +1058,8 @@ def run_generation_pipeline(
             "termination_reason": termination_reason,
             "timeout_seconds": settings.timeout_seconds,
             "elapsed_seconds": _elapsed_seconds(pipeline_started),
-            "candidate_trial_count": settings.candidate_trial_count,
             "eligible_candidate_count": eligible_candidate_count,
-            "solver_runs_per_candidate": (
-                settings.effective_solver_runs_per_candidate
-            ),
-            "solver_failures": tuple(solver_failures),
+            "solver_failure_count": solver_failure_count,
+            "last_solver_failure": last_solver_failure,
         },
     )

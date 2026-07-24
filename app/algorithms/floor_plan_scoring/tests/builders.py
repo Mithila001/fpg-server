@@ -99,8 +99,6 @@ def build_generation_spec(
                 size=RoomSizeSpec(
                     min_width=float(raw_size["min_width"]),
                     max_width=float(raw_size["max_width"]),
-                    min_length=float(raw_size["min_length"]),
-                    max_length=float(raw_size["max_length"]),
                     min_area=float(raw_size["min_area"]),
                     max_area=float(raw_size["max_area"]),
                 ),
