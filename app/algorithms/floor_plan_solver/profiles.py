@@ -238,7 +238,14 @@ def build_default_profiles(
                 weight=40,
                 settings={"minimum_overlap": cfg.minimum_adjacency_overlap},
             ),
-            SoftConstraintUse("center_proximity", weight=1),
+            SoftConstraintUse(
+                "floor_cluster_position",
+                weight=1,
+                settings={
+                    "horizontal_multiplier": 1,
+                    "front_multiplier": 2,
+                },
+            ),
             SoftConstraintUse("dead_space", weight=3),
             SoftConstraintUse("bathroom_depth", weight=2),
             SoftConstraintUse(
@@ -270,7 +277,14 @@ def build_default_profiles(
                 weight=20,
                 settings={"position_multiplier": 2, "size_multiplier": 1},
             ),
-            SoftConstraintUse("center_proximity", weight=1),
+            SoftConstraintUse(
+                "floor_cluster_position",
+                weight=1,
+                settings={
+                    "horizontal_multiplier": 1,
+                    "front_multiplier": 2,
+                },
+            ),
             SoftConstraintUse("dead_space", weight=4),
             SoftConstraintUse("bathroom_depth", weight=3),
             SoftConstraintUse(

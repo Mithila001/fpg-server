@@ -15,6 +15,8 @@ We need a Consist SSE structure type as well
 
 What to Call in SSE
 
-- Each Candidate Search Trial Results (Hint Point Only)
-- Each 
+- Each Candidate Search Trial Results (Hint Point + trial number Only)
+- Each Floor Plan Generation (Floor Plan with openings only)
+- Usable Floor Plan Found message
+- Plus anything i missed here.
 

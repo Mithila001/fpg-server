@@ -23,7 +23,6 @@ from fnmatch import fnmatch
 from pathlib import Path
 from typing import Iterable
 
-
 OUTPUT_STRUCTURE_FILE = "project_structure.txt"
 
 
@@ -37,7 +36,6 @@ OUTPUT_STRUCTURE_FILE = "project_structure.txt"
 IGNORED_ITEMS = {
     # Version control
     ".git",
-
     # Python virtual environments
     ".venv",
     "venv",
@@ -45,14 +43,12 @@ IGNORED_ITEMS = {
     "virtualenv",
     ".envdir",
     "__pypackages__",
-
     # Python bytecode and interpreter caches
     "__pycache__",
     "*.pyc",
     "*.pyo",
     "*.pyd",
     ".python-version",
-
     # Type-checker, formatter, and linter caches
     ".mypy_cache",
     ".pyright",
@@ -60,7 +56,6 @@ IGNORED_ITEMS = {
     ".pylint.d",
     ".dmypy.json",
     "dmypy.json",
-
     # Test and coverage output
     ".pytest_cache",
     ".tox",
@@ -71,7 +66,6 @@ IGNORED_ITEMS = {
     "htmlcov",
     "test-results",
     "test_results",
-
     # Build and packaging output
     "build",
     "dist",
@@ -80,48 +74,39 @@ IGNORED_ITEMS = {
     "*.egg-info",
     ".eggs",
     "pip-wheel-metadata",
-
     # Documentation build output
     "site",
     "_build",
-
     # Notebook and tool caches
     ".ipynb_checkpoints",
     ".hypothesis",
     ".cache",
-
     # Runtime-generated folders
     "logs",
     "log",
     "tmp",
     "temp",
     "cache",
-
     # Runtime-generated files
     "*.log",
     "*.tmp",
     "*.temp",
-
     # Local databases
     "*.db",
     "*.sqlite",
     "*.sqlite3",
-
     # Environment files and local secrets
     ".env",
     ".env.*",
     "*.env",
-
     # IDE and editor metadata
     ".idea",
     ".vs",
     ".vscode-server",
-
     # Operating system metadata
     ".DS_Store",
     "Thumbs.db",
     "desktop.ini",
-
     # Generated output and this script
     OUTPUT_STRUCTURE_FILE,
     Path(__file__).name,
@@ -135,11 +120,7 @@ IGNORED_ITEMS = {
 #   .vscode/
 #   data/
 #   uploads/
-INCLUDE_FOLDER_ONLY = {
-    ".vscode",
-    "test",
-    "docs"
-}
+INCLUDE_FOLDER_ONLY = {".vscode", "test", "docs", "output"}
 
 
 def should_ignore(path: Path) -> bool:
@@ -154,8 +135,7 @@ def should_include_folder_only(path: Path) -> bool:
     Return True when a directory should be listed without scanning its contents.
     """
     return path.is_dir() and any(
-        fnmatch(path.name, pattern)
-        for pattern in INCLUDE_FOLDER_ONLY
+        fnmatch(path.name, pattern) for pattern in INCLUDE_FOLDER_ONLY
     )
 
 
@@ -177,11 +157,7 @@ def build_flat_structure(root: Path) -> list[str]:
 
     def walk(directory: Path) -> None:
         try:
-            items = [
-                item
-                for item in directory.iterdir()
-                if not should_ignore(item)
-            ]
+            items = [item for item in directory.iterdir() if not should_ignore(item)]
         except PermissionError:
             relative_path = to_posix_relative(directory, root)
             print(f"Skipped inaccessible directory: {relative_path}")
