@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from app.algorithms.floor_plan_scoring import score_floor_plan
 from app.util.output_paths import create_artifact_path, create_run_directory
+from app.visualization.api import render_floor_plan_scoring_features
 
 from .builders import build_realistic_case
 from .serialization import write_json
@@ -18,10 +19,17 @@ def main() -> None:
         ),
         result,
     )
+    visualization_paths = render_floor_plan_scoring_features(
+        floor_plan,
+        result,
+        run_id="floor-plan-scoring-debug",
+    )
 
     print(f"Scoring completed: {result.total_score:.4f}/100")
     print(f"Critical gate passed: {result.passed_critical}")
     print(f"JSON output: {output_path}")
+    for visualization_path in visualization_paths:
+        print(f"Visualization written to: {visualization_path}")
 
 
 if __name__ == "__main__":

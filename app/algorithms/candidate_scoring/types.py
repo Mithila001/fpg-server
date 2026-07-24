@@ -58,6 +58,7 @@ class EvaluatorResult:
     score: float | None
     findings: tuple[ScoreFinding, ...] = ()
     metrics: Mapping[str, float] = field(default_factory=dict)
+    visualization_payload: object | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "metrics", MappingProxyType(dict(self.metrics)))
@@ -78,6 +79,7 @@ class EvaluatorExecutionResult:
     passed_threshold: bool | None = None
     findings: tuple[ScoreFinding, ...] = ()
     metrics: Mapping[str, float] = field(default_factory=dict)
+    visualization_payload: object | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "metrics", MappingProxyType(dict(self.metrics)))

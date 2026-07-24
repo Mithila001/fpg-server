@@ -55,6 +55,35 @@ class _PathCandidate:
     turn_penalty: float
 
 
+@dataclass(frozen=True, slots=True)
+class RelationshipEdgeVisualization:
+    source_id: str
+    target_id: str
+    distance: float
+    relation_multiplier: float
+    weighted_cost: float
+
+
+@dataclass(frozen=True, slots=True)
+class RelationshipQueryVisualization:
+    start_type: str
+    end_type: str
+    route_type: str
+    path: tuple[str, ...]
+    cost: float | None
+    turn_penalty: float | None
+    score: float
+
+
+@dataclass(frozen=True, slots=True)
+class RelationshipQualityVisualizationData:
+    floor_width: float
+    floor_length: float
+    points: tuple[EvaluationPoint, ...]
+    edges: tuple[RelationshipEdgeVisualization, ...]
+    queries: tuple[RelationshipQueryVisualization, ...]
+
+
 class RelationshipQualityEvaluator(CandidateEvaluator):
     """Scores desired room proximity, route efficiency, and hallway separation."""
 
@@ -76,6 +105,7 @@ class RelationshipQualityEvaluator(CandidateEvaluator):
         relation_rules = _read_relation_rules(settings)
         path_queries = _read_path_queries(settings)
         graph = _build_graph(data.points, points_by_type, relation_rules)
+        edge_visualizations = _graph_visualizations(graph, points_by_id)
         active_queries = [
             query
             for query in path_queries
@@ -92,6 +122,13 @@ class RelationshipQualityEvaluator(CandidateEvaluator):
                         code="NO_ACTIVE_RELATION_QUERIES",
                         message="No configured room relationship query applies to this candidate.",
                     ),
+                ),
+                visualization_payload=RelationshipQualityVisualizationData(
+                    floor_width=data.floor_width,
+                    floor_length=data.floor_length,
+                    points=data.points,
+                    edges=edge_visualizations,
+                    queries=(),
                 ),
             )
 
@@ -113,6 +150,7 @@ class RelationshipQualityEvaluator(CandidateEvaluator):
         }
         findings: list[ScoreFinding] = []
         metrics: dict[str, float] = {}
+        query_visualizations: list[RelationshipQueryVisualization] = []
 
         for index, (start_type, end_type, route_type) in enumerate(active_queries):
             candidates: list[_PathCandidate] = []
@@ -126,6 +164,17 @@ class RelationshipQualityEvaluator(CandidateEvaluator):
 
             if not candidates:
                 query_scores.append(0.0)
+                query_visualizations.append(
+                    RelationshipQueryVisualization(
+                        start_type=start_type.value,
+                        end_type=end_type.value,
+                        route_type=route_type,
+                        path=(),
+                        cost=None,
+                        turn_penalty=None,
+                        score=0.0,
+                    )
+                )
                 findings.append(
                     ScoreFinding(
                         code="RELATION_PATH_MISSING",
@@ -142,6 +191,17 @@ class RelationshipQualityEvaluator(CandidateEvaluator):
             base_score = clamp_score(100.0 * (1.0 - best.cost / max_cost))
             query_score = clamp_score(base_score * (1.0 - best.turn_penalty))
             query_scores.append(query_score)
+            query_visualizations.append(
+                RelationshipQueryVisualization(
+                    start_type=start_type.value,
+                    end_type=end_type.value,
+                    route_type=route_type,
+                    path=best.path,
+                    cost=best.cost,
+                    turn_penalty=best.turn_penalty,
+                    score=query_score,
+                )
+            )
             metrics[f"query.{index}.score"] = query_score
             metrics[f"query.{index}.cost"] = best.cost
             metrics[f"query.{index}.turn_penalty"] = best.turn_penalty
@@ -178,6 +238,13 @@ class RelationshipQualityEvaluator(CandidateEvaluator):
             score=total_score,
             findings=tuple(findings),
             metrics=metrics,
+            visualization_payload=RelationshipQualityVisualizationData(
+                floor_width=data.floor_width,
+                floor_length=data.floor_length,
+                points=data.points,
+                edges=edge_visualizations,
+                queries=tuple(query_visualizations),
+            ),
         )
 
 
@@ -263,6 +330,36 @@ def _add_edge(
     if previous is None or weighted_cost < previous:
         graph[a.room_id][b.room_id] = weighted_cost
         graph[b.room_id][a.room_id] = weighted_cost
+
+
+def _graph_visualizations(
+    graph: Mapping[str, Mapping[str, float]],
+    points_by_id: Mapping[str, EvaluationPoint],
+) -> tuple[RelationshipEdgeVisualization, ...]:
+    edges: list[RelationshipEdgeVisualization] = []
+    seen: set[tuple[str, str]] = set()
+    for source_id, neighbors in graph.items():
+        for target_id, weighted_cost in neighbors.items():
+            pair = tuple(sorted((source_id, target_id)))
+            if pair in seen:
+                continue
+            seen.add(pair)
+            direct_distance = distance(points_by_id[source_id], points_by_id[target_id])
+            multiplier = (
+                weighted_cost / direct_distance - 1.0
+                if direct_distance > 1e-9
+                else 0.0
+            )
+            edges.append(
+                RelationshipEdgeVisualization(
+                    source_id=source_id,
+                    target_id=target_id,
+                    distance=direct_distance,
+                    relation_multiplier=multiplier,
+                    weighted_cost=weighted_cost,
+                )
+            )
+    return tuple(edges)
 
 
 def _shortest_path(

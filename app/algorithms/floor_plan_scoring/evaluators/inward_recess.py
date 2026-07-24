@@ -19,6 +19,21 @@ INWARD_RECESS_KEY = EvaluatorKey("inward_recess")
 
 
 @dataclass(frozen=True, slots=True)
+class InwardPocketVisualization:
+    pocket_index: int
+    points: tuple[tuple[float, float], ...]
+    measured_length: float
+    violates_maximum: bool
+
+
+@dataclass(frozen=True, slots=True)
+class InwardRecessVisualizationData:
+    maximum_length: float
+    tolerance: float
+    pockets: tuple[InwardPocketVisualization, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class InwardRecessSettings:
     maximum_length: float
     tolerance: float
@@ -52,12 +67,18 @@ class InwardRecessEvaluator(FloorPlanEvaluator):
                         severity=FindingSeverity.ERROR,
                     ),
                 ),
+                visualization_payload=InwardRecessVisualizationData(
+                    maximum_length=config.maximum_length,
+                    tolerance=config.tolerance,
+                    pockets=(),
+                ),
             )
 
         hull = union.convex_hull
         pockets = _pocket_polygons(hull.difference(union))
         violating: list[tuple[int, float]] = []
         maximum_observed = 0.0
+        visualized_pockets: list[InwardPocketVisualization] = []
         plan_boundary = union.boundary
         hull_boundary = hull.boundary
 
@@ -94,7 +115,18 @@ class InwardRecessEvaluator(FloorPlanEvaluator):
             ]
             pocket_maximum = max(lengths, default=0.0)
             maximum_observed = max(maximum_observed, pocket_maximum)
-            if pocket_maximum > config.maximum_length + config.tolerance:
+            violates = pocket_maximum > config.maximum_length + config.tolerance
+            visualized_pockets.append(
+                InwardPocketVisualization(
+                    pocket_index=pocket_index,
+                    points=tuple(
+                        (float(x), float(y)) for x, y in pocket.exterior.coords
+                    ),
+                    measured_length=pocket_maximum,
+                    violates_maximum=violates,
+                )
+            )
+            if violates:
                 violating.append((pocket_index, pocket_maximum))
 
         findings = tuple(
@@ -118,6 +150,11 @@ class InwardRecessEvaluator(FloorPlanEvaluator):
                 ScoreMetric("pocket_count", len(pockets)),
                 ScoreMetric("violating_recess_count", len(violating)),
                 ScoreMetric("maximum_recess_length", maximum_observed, "units"),
+            ),
+            visualization_payload=InwardRecessVisualizationData(
+                maximum_length=config.maximum_length,
+                tolerance=config.tolerance,
+                pockets=tuple(visualized_pockets),
             ),
         )
 

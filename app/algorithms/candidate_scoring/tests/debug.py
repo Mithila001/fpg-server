@@ -12,6 +12,7 @@ from app.algorithms.candidate_scoring import (
     evaluate_candidate,
 )
 from app.util.output_paths import create_artifact_path, create_run_directory
+from app.visualization.api import render_candidate_scoring_features
 
 from .builders import build_scoring_input
 
@@ -54,12 +55,19 @@ def main() -> None:
         json.dumps(report, indent=2, sort_keys=True),
         encoding="utf-8",
     )
+    visualization_paths = render_candidate_scoring_features(
+        scoring_input,
+        result,
+        run_id="candidate-scoring-debug",
+    )
 
     print(f"Total score: {result.total_score:.3f}")
     print(f"Passed critical checks: {result.passed_critical_checks}")
     print(f"Evaluator count: {len(result.evaluator_results)}")
     print(f"Elapsed: {elapsed_ms:.3f} ms")
     print(f"Report written to: {output_file}")
+    for visualization_path in visualization_paths:
+        print(f"Visualization written to: {visualization_path}")
 
 
 if __name__ == "__main__":

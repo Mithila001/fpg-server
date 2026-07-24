@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from typing import Any, Mapping
 
 from ..context import ScoringContext
@@ -17,6 +18,18 @@ from .common import EvaluationPoint, build_evaluation_data, clamp_score, setting
 SPATIAL_DISTRIBUTION_KEY = EvaluatorKey("spatial_distribution")
 
 
+@dataclass(frozen=True, slots=True)
+class SpatialDistributionVisualizationData:
+    floor_width: float
+    floor_length: float
+    points: tuple[EvaluationPoint, ...]
+    grid_size: int
+    nearest_distances: tuple[tuple[float, ...], ...]
+    ideal_point_distance: float
+    theoretical_coverage_gap: float
+    gap_zero_score_ratio: float
+
+
 class SpatialDistributionEvaluator(CandidateEvaluator):
     """Scores anti-clumping and whole-floor point coverage."""
 
@@ -31,6 +44,16 @@ class SpatialDistributionEvaluator(CandidateEvaluator):
     ) -> EvaluatorResult:
         data = build_evaluation_data(context)
         if not data.points:
+            visualization = SpatialDistributionVisualizationData(
+                floor_width=data.floor_width,
+                floor_length=data.floor_length,
+                points=(),
+                grid_size=2,
+                nearest_distances=(),
+                ideal_point_distance=0.0,
+                theoretical_coverage_gap=0.0,
+                gap_zero_score_ratio=1.5,
+            )
             return EvaluatorResult(
                 evaluator_key=self.key,
                 status=EvaluationStatus.COMPLETED,
@@ -42,6 +65,7 @@ class SpatialDistributionEvaluator(CandidateEvaluator):
                         severity=FindingSeverity.ERROR,
                     ),
                 ),
+                visualization_payload=visualization,
             )
 
         nnd_weight = setting_float(settings, "nnd_weight", 0.40)
@@ -66,7 +90,7 @@ class SpatialDistributionEvaluator(CandidateEvaluator):
             data.floor_length,
             sensitivity,
         )
-        coverage_score, coverage_metrics = _coverage_score(
+        coverage_score, coverage_metrics, nearest_distances = _coverage_score(
             data.points,
             data.floor_width,
             data.floor_length,
@@ -107,6 +131,18 @@ class SpatialDistributionEvaluator(CandidateEvaluator):
                 **nnd_metrics,
                 **coverage_metrics,
             },
+            visualization_payload=SpatialDistributionVisualizationData(
+                floor_width=data.floor_width,
+                floor_length=data.floor_length,
+                points=data.points,
+                grid_size=grid_size,
+                nearest_distances=nearest_distances,
+                ideal_point_distance=nnd_metrics["ideal_point_distance"],
+                theoretical_coverage_gap=coverage_metrics[
+                    "theoretical_coverage_gap"
+                ],
+                gap_zero_score_ratio=gap_zero_score_ratio,
+            ),
         )
 
 
@@ -161,15 +197,20 @@ def _coverage_score(
     floor_length: float,
     grid_size: int,
     gap_zero_score_ratio: float,
-) -> tuple[float, dict[str, float]]:
+) -> tuple[float, dict[str, float], tuple[tuple[float, ...], ...]]:
     distances: list[float] = []
+    rows: list[tuple[float, ...]] = []
     for x_index in range(grid_size):
         x = floor_width * x_index / (grid_size - 1)
+        column: list[float] = []
         for y_index in range(grid_size):
             y = floor_length * y_index / (grid_size - 1)
-            distances.append(
-                min(math.hypot(x - point.x, y - point.y) for point in points)
+            nearest = min(
+                math.hypot(x - point.x, y - point.y) for point in points
             )
+            distances.append(nearest)
+            column.append(nearest)
+        rows.append(tuple(column))
 
     ordered = sorted(distances)
     percentile_index = min(len(ordered) - 1, math.ceil(0.95 * len(ordered)) - 1)
@@ -181,10 +222,14 @@ def _coverage_score(
     score = clamp_score(
         100.0 * (1.0 - (gap_ratio - 1.0) / (gap_zero_score_ratio - 1.0))
     )
-    return score, {
-        "coverage_gap_95": gap_95,
-        "coverage_mean_gap": mean_gap,
-        "theoretical_coverage_gap": theoretical_gap,
-        "gap_ratio": gap_ratio,
-        "coverage_grid_size": float(grid_size),
-    }
+    return (
+        score,
+        {
+            "coverage_gap_95": gap_95,
+            "coverage_mean_gap": mean_gap,
+            "theoretical_coverage_gap": theoretical_gap,
+            "gap_ratio": gap_ratio,
+            "coverage_grid_size": float(grid_size),
+        },
+        tuple(rows),
+    )

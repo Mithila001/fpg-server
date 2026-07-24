@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from types import MappingProxyType
@@ -16,6 +16,7 @@ from app.algorithms.floor_plan_preprocessing import (
 )
 from app.algorithms.floor_plan_scoring import FloorPlanScoringResult
 from app.algorithms.types_new import FloorPlan, RoomType
+from app.visualization.features.score.config import ScoringVisualizationConfig
 
 
 class GenerationStage(str, Enum):
@@ -71,6 +72,9 @@ class GenerationPipelineSettings:
 
     render_candidate_search: bool = True
     render_solver_attempts: bool = True
+    scoring_visualization: ScoringVisualizationConfig = field(
+        default_factory=ScoringVisualizationConfig
+    )
     require_final_critical_pass: bool = True
 
     # Temporary migration aliases for existing callers. Remove after callers
@@ -79,6 +83,10 @@ class GenerationPipelineSettings:
     target_floor_plan_score: float | None = None
 
     def __post_init__(self) -> None:
+        if not isinstance(self.scoring_visualization, ScoringVisualizationConfig):
+            raise TypeError(
+                "scoring_visualization must be a ScoringVisualizationConfig"
+            )
         if isinstance(self.candidate_trial_count, bool) or not isinstance(
             self.candidate_trial_count,
             int,

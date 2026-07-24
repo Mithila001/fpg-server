@@ -6,7 +6,8 @@
 
 Visualization code is feature-owned. A feature owns its models, geometry, Matplotlib calls, labels, colors, layout, axes, and layer order. There is deliberately no shared primitive or reusable-component layer: modest duplication is safer than coupling unrelated visualizations before stable reuse exists.
 
-The initial package contains only Candidate Search:
+The package contains general algorithm views and evaluator-specific scoring
+diagnostics:
 
 ```text
 app/visualization/
@@ -15,6 +16,10 @@ app/visualization/
 ├── output_manager.py              safe PNG paths, saving, and cleanup
 ├── matplotlib_backend/            headless figure lifecycle only
 ├── features/candidate_search/     models and complete drawing behavior
+├── features/score/
+│   ├── config/                    master and evaluator render switches
+│   ├── candidate_search_score/    candidate evaluator renderers
+│   └── floor_plan_score/          floor-plan evaluator renderers
 ├── playground/candidate_search/   realistic manual runner and JSON data
 └── playground/                    development-only manual runners
 ```
@@ -37,6 +42,49 @@ from app.visualization.api import (
 The root package intentionally re-exports this function and its three input model types. Feature modules, the backend, and the output manager are private implementation details. Rendering is explicit: importing the package creates no figures, directories, or files.
 
 `config.py` holds only universal image size, DPI, background, transparency, export bounding-box, and output-root defaults. Candidate Search appearance and geometry remain in its feature folder.
+
+## Scoring visualizations
+
+Scoring evaluators return immutable, serializable visualization payloads beside
+their score, findings, and metrics. The score managers only propagate those
+payloads. Rendering remains an explicit application concern:
+
+```python
+from app.visualization.api import (
+    CandidateScoringVisualizationConfig,
+    FloorPlanScoringVisualizationConfig,
+    ScoringVisualizationConfig,
+    render_candidate_scoring_features,
+    render_floor_plan_scoring_features,
+)
+
+visualization_config = ScoringVisualizationConfig(
+    enabled=True,
+    candidate=CandidateScoringVisualizationConfig(
+        exterior_clearance=True,
+        relationship_quality=True,
+        spatial_distribution=False,
+        zone_suitability=True,
+    ),
+    floor_plan=FloorPlanScoringVisualizationConfig(
+        enclosed_voids=True,
+        inward_recess=True,
+    ),
+)
+```
+
+Setting `enabled=False` is the master off switch. When it is true, each
+evaluator boolean independently controls its image set. The
+`relationship_quality` switch controls both its relationship-weight and
+relationship-score PNGs.
+
+The generation pipeline renders candidate scoring diagnostics only after a
+candidate reaches the eligibility threshold. Floor-plan scoring diagnostics
+are rendered for solver attempts made from those eligible candidates.
+Visualization failures are logged and do not change scoring or stop generation.
+
+Managed artifacts are written beneath `candidate_search_score/` and
+`floor_plan_score/`. The scoring debug runners call the same public APIs.
 
 ## Candidate Search output
 

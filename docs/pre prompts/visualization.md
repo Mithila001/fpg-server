@@ -58,3 +58,6 @@ No need visualization
 No need visualization
 #### required_adjacency
 No need visualization
+
+
+Overall Goal is to Visualize and evaluate from my eyes that scoring working as I expected

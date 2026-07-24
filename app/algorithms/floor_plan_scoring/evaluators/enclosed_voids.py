@@ -20,6 +20,19 @@ ENCLOSED_VOIDS_KEY = EvaluatorKey("enclosed_voids")
 
 
 @dataclass(frozen=True, slots=True)
+class EnclosedVoidVisualization:
+    points: tuple[tuple[float, float], ...]
+    area: float
+    affects_score: bool
+
+
+@dataclass(frozen=True, slots=True)
+class EnclosedVoidsVisualizationData:
+    area_tolerance: float
+    voids: tuple[EnclosedVoidVisualization, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class EnclosedVoidsSettings:
     area_tolerance: float
 
@@ -50,6 +63,10 @@ class EnclosedVoidsEvaluator(FloorPlanEvaluator):
                         severity=FindingSeverity.ERROR,
                     ),
                 ),
+                visualization_payload=EnclosedVoidsVisualizationData(
+                    area_tolerance=config.area_tolerance,
+                    voids=(),
+                ),
             )
 
         polygons: tuple[Polygon, ...]
@@ -63,11 +80,12 @@ class EnclosedVoidsEvaluator(FloorPlanEvaluator):
                 for geometry in getattr(context.room_union, "geoms", ())
                 if isinstance(geometry, Polygon)
             )
-        void_areas = [
-            float(Polygon(interior).area)
+        void_polygons = [
+            Polygon(interior)
             for polygon in polygons
             for interior in polygon.interiors
         ]
+        void_areas = [float(void.area) for void in void_polygons]
         significant = [area for area in void_areas if area > config.area_tolerance]
         total_area = sum(significant)
         findings = ()
@@ -90,5 +108,19 @@ class EnclosedVoidsEvaluator(FloorPlanEvaluator):
             (
                 ScoreMetric("enclosed_void_count", len(significant)),
                 ScoreMetric("enclosed_void_area", total_area, "square_units"),
+            ),
+            visualization_payload=EnclosedVoidsVisualizationData(
+                area_tolerance=config.area_tolerance,
+                voids=tuple(
+                    EnclosedVoidVisualization(
+                        points=tuple(
+                            (float(x), float(y))
+                            for x, y in void.exterior.coords
+                        ),
+                        area=float(void.area),
+                        affects_score=float(void.area) > config.area_tolerance,
+                    )
+                    for void in void_polygons
+                ),
             ),
         )

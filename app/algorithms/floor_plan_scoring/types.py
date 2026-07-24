@@ -55,6 +55,7 @@ class EvaluatorResult:
     score: float | None
     findings: tuple[ScoreFinding, ...] = ()
     metrics: tuple[ScoreMetric, ...] = ()
+    visualization_payload: object | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,6 +71,7 @@ class EvaluatorExecutionResult:
     passed_threshold: bool | None = None
     findings: tuple[ScoreFinding, ...] = ()
     metrics: tuple[ScoreMetric, ...] = ()
+    visualization_payload: object | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -162,6 +162,7 @@ class CandidateScoreManager:
             passed_threshold=passed_threshold,
             findings=result.findings,
             metrics=result.metrics,
+            visualization_payload=result.visualization_payload,
         )
 
     def _apply_quality_weights(

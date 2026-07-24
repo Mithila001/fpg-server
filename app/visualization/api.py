@@ -2,6 +2,29 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from app.algorithms.candidate_scoring import CandidateScoringInput, ScoringResult
+from app.algorithms.candidate_scoring.evaluators.exterior_clearance import (
+    ExteriorClearanceVisualizationData,
+)
+from app.algorithms.candidate_scoring.evaluators.relationship_quality import (
+    RelationshipQualityVisualizationData,
+)
+from app.algorithms.candidate_scoring.evaluators.spatial_distribution import (
+    SpatialDistributionVisualizationData,
+)
+from app.algorithms.candidate_scoring.evaluators.zone_suitability import (
+    ZoneSuitabilityVisualizationData,
+)
+from app.algorithms.floor_plan_scoring import FloorPlanScoringResult
+from app.algorithms.floor_plan_scoring.evaluators.enclosed_voids import (
+    EnclosedVoidsVisualizationData,
+)
+from app.algorithms.floor_plan_scoring.evaluators.inward_recess import (
+    InwardRecessVisualizationData,
+)
+from app.algorithms.types_new import FloorPlan
+from matplotlib.figure import Figure
+
 from .config import DEFAULT_RENDER_CONFIG, RenderConfig
 from .features.candidate_search.candidate_search_render import (
     render_candidate_search_figure,
@@ -24,6 +47,31 @@ from .features.floor_plan_solver.floor_plan_solver_render import (
 from .features.floor_plan_solver.models import (
     FloorPlanSolverStatus,
     FloorPlanSolverVisualization,
+)
+from .features.score.candidate_search_score.exterior_clearance import (
+    render_exterior_clearance_figure,
+)
+from .features.score.candidate_search_score.relationship_quality import (
+    render_relationship_scores_figure,
+    render_relationship_weights_figure,
+)
+from .features.score.candidate_search_score.spatial_distribution import (
+    render_spatial_distribution_figure,
+)
+from .features.score.candidate_search_score.zone_suitability import (
+    render_zone_suitability_figure,
+)
+from .features.score.config import (
+    DEFAULT_SCORING_VISUALIZATION_CONFIG,
+    CandidateScoringVisualizationConfig,
+    FloorPlanScoringVisualizationConfig,
+    ScoringVisualizationConfig,
+)
+from .features.score.floor_plan_score.enclosed_voids import (
+    render_enclosed_voids_figure,
+)
+from .features.score.floor_plan_score.inward_recess import (
+    render_inward_recess_figure,
 )
 from .output_manager import VisualizationOutputManager
 
@@ -103,15 +151,231 @@ def render_floor_plan_general(
     )
 
 
+def render_candidate_scoring_features(
+    scoring_input: CandidateScoringInput,
+    scoring_result: ScoringResult,
+    *,
+    visualization_config: ScoringVisualizationConfig = (
+        DEFAULT_SCORING_VISUALIZATION_CONFIG
+    ),
+    run_id: str | None = None,
+    run_timestamp: str | None = None,
+    output_root: str | Path | None = None,
+    config: RenderConfig | None = None,
+) -> tuple[Path, ...]:
+    """Render enabled diagnostics for one completed candidate scoring run."""
+    if not visualization_config.enabled:
+        return ()
+    if not isinstance(scoring_input, CandidateScoringInput):
+        raise TypeError("scoring_input must be a CandidateScoringInput")
+
+    render_config = config or DEFAULT_RENDER_CONFIG
+    manager = VisualizationOutputManager(
+        Path(output_root) if output_root is not None else render_config.output_root
+    )
+    output_paths: list[Path] = []
+
+    for execution in scoring_result.evaluator_results:
+        key = str(execution.evaluator_key)
+        payload = execution.visualization_payload
+        if (
+            key == "exterior_clearance"
+            and visualization_config.candidate.exterior_clearance
+            and isinstance(payload, ExteriorClearanceVisualizationData)
+        ):
+            output_paths.append(
+                _save_score_figure(
+                    manager,
+                    render_exterior_clearance_figure(
+                        payload,
+                        config=render_config,
+                    ),
+                    feature="candidate_search_score",
+                    name="exterior-clearance",
+                    render_config=render_config,
+                    run_id=run_id,
+                    run_timestamp=run_timestamp,
+                )
+            )
+        elif (
+            key == "relationship_quality"
+            and visualization_config.candidate.relationship_quality
+            and isinstance(payload, RelationshipQualityVisualizationData)
+        ):
+            output_paths.extend(
+                (
+                    _save_score_figure(
+                        manager,
+                        render_relationship_weights_figure(
+                            payload,
+                            config=render_config,
+                        ),
+                        feature="candidate_search_score",
+                        name="relationship-quality-weights",
+                        render_config=render_config,
+                        run_id=run_id,
+                        run_timestamp=run_timestamp,
+                    ),
+                    _save_score_figure(
+                        manager,
+                        render_relationship_scores_figure(
+                            payload,
+                            config=render_config,
+                        ),
+                        feature="candidate_search_score",
+                        name="relationship-quality-scores",
+                        render_config=render_config,
+                        run_id=run_id,
+                        run_timestamp=run_timestamp,
+                    ),
+                )
+            )
+        elif (
+            key == "spatial_distribution"
+            and visualization_config.candidate.spatial_distribution
+            and isinstance(payload, SpatialDistributionVisualizationData)
+        ):
+            output_paths.append(
+                _save_score_figure(
+                    manager,
+                    render_spatial_distribution_figure(
+                        payload,
+                        config=render_config,
+                    ),
+                    feature="candidate_search_score",
+                    name="spatial-distribution",
+                    render_config=render_config,
+                    run_id=run_id,
+                    run_timestamp=run_timestamp,
+                )
+            )
+        elif (
+            key == "zone_suitability"
+            and visualization_config.candidate.zone_suitability
+            and isinstance(payload, ZoneSuitabilityVisualizationData)
+        ):
+            output_paths.append(
+                _save_score_figure(
+                    manager,
+                    render_zone_suitability_figure(
+                        payload,
+                        config=render_config,
+                    ),
+                    feature="candidate_search_score",
+                    name="zone-suitability",
+                    render_config=render_config,
+                    run_id=run_id,
+                    run_timestamp=run_timestamp,
+                )
+            )
+    return tuple(output_paths)
+
+
+def render_floor_plan_scoring_features(
+    floor_plan: FloorPlan,
+    scoring_result: FloorPlanScoringResult,
+    *,
+    visualization_config: ScoringVisualizationConfig = (
+        DEFAULT_SCORING_VISUALIZATION_CONFIG
+    ),
+    run_id: str | None = None,
+    run_timestamp: str | None = None,
+    output_root: str | Path | None = None,
+    config: RenderConfig | None = None,
+) -> tuple[Path, ...]:
+    """Render enabled diagnostics for one completed floor-plan scoring run."""
+    if not visualization_config.enabled:
+        return ()
+    if not isinstance(floor_plan, FloorPlan):
+        raise TypeError("floor_plan must be a FloorPlan")
+
+    render_config = config or DEFAULT_RENDER_CONFIG
+    manager = VisualizationOutputManager(
+        Path(output_root) if output_root is not None else render_config.output_root
+    )
+    output_paths: list[Path] = []
+
+    for execution in scoring_result.evaluator_results:
+        key = str(execution.evaluator_key)
+        payload = execution.visualization_payload
+        if (
+            key == "enclosed_voids"
+            and visualization_config.floor_plan.enclosed_voids
+            and isinstance(payload, EnclosedVoidsVisualizationData)
+        ):
+            output_paths.append(
+                _save_score_figure(
+                    manager,
+                    render_enclosed_voids_figure(
+                        floor_plan,
+                        payload,
+                        config=render_config,
+                    ),
+                    feature="floor_plan_score",
+                    name="enclosed-voids",
+                    render_config=render_config,
+                    run_id=run_id,
+                    run_timestamp=run_timestamp,
+                )
+            )
+        elif (
+            key == "inward_recess"
+            and visualization_config.floor_plan.inward_recess
+            and isinstance(payload, InwardRecessVisualizationData)
+        ):
+            output_paths.append(
+                _save_score_figure(
+                    manager,
+                    render_inward_recess_figure(
+                        floor_plan,
+                        payload,
+                        config=render_config,
+                    ),
+                    feature="floor_plan_score",
+                    name="inward-recess",
+                    render_config=render_config,
+                    run_id=run_id,
+                    run_timestamp=run_timestamp,
+                )
+            )
+    return tuple(output_paths)
+
+
+def _save_score_figure(
+    manager: VisualizationOutputManager,
+    figure: Figure,
+    *,
+    feature: str,
+    name: str,
+    render_config: RenderConfig,
+    run_id: str | None,
+    run_timestamp: str | None,
+) -> Path:
+    return manager.save_png(
+        figure,
+        feature=feature,
+        run_id=run_id,
+        run_timestamp=run_timestamp,
+        name=name,
+        config=render_config,
+    )
+
+
 __all__ = [
     "CandidatePoint",
     "CandidateSearchVisualization",
+    "CandidateScoringVisualizationConfig",
+    "DEFAULT_SCORING_VISUALIZATION_CONFIG",
     "FloorPlanFlowVisualization",
+    "FloorPlanScoringVisualizationConfig",
     "FloorPlanSolverStatus",
     "FloorPlanSolverVisualization",
     "FloorPlanVisualizationStage",
+    "ScoringVisualizationConfig",
     "SearchBounds",
     "render_candidate_search",
+    "render_candidate_scoring_features",
     "render_floor_plan_general",
+    "render_floor_plan_scoring_features",
     "render_floor_plan_solver",
 ]

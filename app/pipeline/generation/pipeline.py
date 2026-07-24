@@ -12,6 +12,7 @@ from typing import Any, TypeVar, cast
 import app.algorithms.floor_plan_solver as floor_plan_solver_module
 from app.algorithms.candidate_scoring import (
     CandidateScoringInput,
+    ScoringResult as CandidateScoringResult,
     evaluate_candidate,
 )
 from app.algorithms.candidate_scoring import (
@@ -70,7 +71,9 @@ from app.visualization.api import (
     FloorPlanVisualizationStage,
     SearchBounds,
     render_candidate_search,
+    render_candidate_scoring_features,
     render_floor_plan_general,
+    render_floor_plan_scoring_features,
 )
 
 from .context import (
@@ -407,6 +410,40 @@ def _render_candidate_trial(
     )
 
 
+def _render_candidate_scoring(
+    *,
+    request_id: str,
+    scoring_input: CandidateScoringInput,
+    scoring_result: CandidateScoringResult,
+    settings: GenerationPipelineSettings,
+    run_timestamp: str,
+) -> None:
+    render_candidate_scoring_features(
+        scoring_input,
+        scoring_result,
+        visualization_config=settings.scoring_visualization,
+        run_id=request_id,
+        run_timestamp=run_timestamp,
+    )
+
+
+def _render_floor_plan_scoring(
+    *,
+    request_id: str,
+    floor_plan: FloorPlan,
+    scoring_result: FloorPlanScoringResult,
+    settings: GenerationPipelineSettings,
+    run_timestamp: str,
+) -> None:
+    render_floor_plan_scoring_features(
+        floor_plan,
+        scoring_result,
+        visualization_config=settings.scoring_visualization,
+        run_id=request_id,
+        run_timestamp=run_timestamp,
+    )
+
+
 def _render_solver_attempt(
     *,
     request_id: str,
@@ -637,6 +674,34 @@ def _execute_solver_run(
         scoring=scoring,
     )
 
+    if settings.scoring_visualization.enabled:
+        try:
+            _run_stage(
+                request.request_id,
+                GenerationStage.VISUALIZATION,
+                lambda: _render_floor_plan_scoring(
+                    request_id=request.request_id,
+                    floor_plan=final_floor_plan,
+                    scoring_result=scoring,
+                    settings=settings,
+                    run_timestamp=output_run_timestamp,
+                ),
+                label=f"{attempt_label}.floor_plan_scoring_visualization",
+            )
+        except Exception as exc:
+            _log_generation(
+                request.request_id,
+                "visualization_skipped",
+                "WARNING",
+                {
+                    "candidate_trial_number": candidate_trial_number,
+                    "solver_run_number": solver_run_number,
+                    "visualization": "floor_plan_scoring",
+                    "error_type": type(exc).__name__,
+                    "message": str(exc),
+                },
+            )
+
     if settings.render_solver_attempts:
         try:
             _run_stage(
@@ -749,16 +814,23 @@ def run_generation_pipeline(
     candidate_registry = create_candidate_scoring_registry()
     candidate_config = create_candidate_scoring_config()
     refinement_profiles = _load_refinement_profiles()
+    latest_candidate_scoring: tuple[
+        CandidateScoringInput,
+        CandidateScoringResult,
+    ] | None = None
 
     def score_candidate(points: tuple[Any, ...]) -> float:
+        nonlocal latest_candidate_scoring
+        scoring_input = CandidateScoringInput(
+            specification=specification,
+            candidate=points,
+        )
         result = evaluate_candidate(
-            CandidateScoringInput(
-                specification=specification,
-                candidate=points,
-            ),
+            scoring_input,
             registry=candidate_registry,
             config=candidate_config,
         )
+        latest_candidate_scoring = (scoring_input, result)
         return result.total_score
 
     best_usable_attempt: _CompletedFloorPlanAttempt | None = None
@@ -964,6 +1036,7 @@ def run_generation_pipeline(
                 raise
 
             if trial_result.score < settings.candidate_score_threshold:
+                latest_candidate_scoring = None
                 _log_generation(
                     request.request_id,
                     "candidate_rejected",
@@ -976,6 +1049,12 @@ def run_generation_pipeline(
                 continue
 
             eligible_candidate_count += 1
+            if latest_candidate_scoring is None:
+                raise RuntimeError(
+                    "Candidate scoring completed without retaining its result."
+                )
+            scoring_input, candidate_scoring_result = latest_candidate_scoring
+            latest_candidate_scoring = None
             _log_generation(
                 request.request_id,
                 "candidate_eligible",
@@ -1010,6 +1089,36 @@ def run_generation_pipeline(
                         {
                             "trial_number": trial_result.trial_number,
                             "visualization": "candidate_search",
+                            "error_type": type(exc).__name__,
+                            "message": str(exc),
+                        },
+                    )
+
+            if settings.scoring_visualization.enabled:
+                try:
+                    _run_stage(
+                        request.request_id,
+                        GenerationStage.VISUALIZATION,
+                        lambda: _render_candidate_scoring(
+                            request_id=request.request_id,
+                            scoring_input=scoring_input,
+                            scoring_result=candidate_scoring_result,
+                            settings=settings,
+                            run_timestamp=output_run_timestamp,
+                        ),
+                        label=(
+                            f"candidate-trial-{trial_result.trial_number}"
+                            ".scoring_visualization"
+                        ),
+                    )
+                except Exception as exc:
+                    _log_generation(
+                        request.request_id,
+                        "visualization_skipped",
+                        "WARNING",
+                        {
+                            "trial_number": trial_result.trial_number,
+                            "visualization": "candidate_scoring",
                             "error_type": type(exc).__name__,
                             "message": str(exc),
                         },

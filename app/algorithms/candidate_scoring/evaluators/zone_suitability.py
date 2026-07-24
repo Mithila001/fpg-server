@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from typing import Any, Mapping
 
 from app.algorithms.types_new import RoomType
@@ -32,6 +33,26 @@ DEFAULT_VALID_ZONES: Mapping[RoomType, tuple[tuple[int, int], ...]] = {
     RoomType.LIVING_ROOM: ((1, 1), (2, 1), (3, 1), (1, 2), (2, 2), (3, 2)),
     RoomType.BATHROOM: ((1, 1), (2, 1), (3, 1), (1, 2), (3, 2), (1, 3), (2, 3), (3, 3)),
 }
+
+
+@dataclass(frozen=True, slots=True)
+class ZonePointVisualization:
+    room_id: str
+    room_name: str
+    room_type: str
+    x: float
+    y: float
+    preferred_cells: tuple[tuple[int, int], ...]
+    score: float
+    inside_preferred_zone: bool
+
+
+@dataclass(frozen=True, slots=True)
+class ZoneSuitabilityVisualizationData:
+    floor_width: float
+    floor_length: float
+    grid_size: int
+    points: tuple[ZonePointVisualization, ...]
 
 
 class ZoneSuitabilityEvaluator(CandidateEvaluator):
@@ -73,6 +94,7 @@ class ZoneSuitabilityEvaluator(CandidateEvaluator):
         scores: list[float] = []
         findings: list[ScoreFinding] = []
         metrics: dict[str, float] = {}
+        visualized_points: list[ZonePointVisualization] = []
 
         for point in data.points:
             cells = valid_zones.get(point.room_type)
@@ -83,6 +105,18 @@ class ZoneSuitabilityEvaluator(CandidateEvaluator):
             distance_to_zone = _minimum_distance_to_cells(nx, ny, cells, grid_size)
             score = clamp_score(100.0 * (1.0 - distance_to_zone * falloff_multiplier))
             scores.append(score)
+            visualized_points.append(
+                ZonePointVisualization(
+                    room_id=point.room_id,
+                    room_name=point.name,
+                    room_type=point.room_type.value,
+                    x=point.x,
+                    y=point.y,
+                    preferred_cells=tuple(sorted(cells)),
+                    score=score,
+                    inside_preferred_zone=distance_to_zone <= 1e-12,
+                )
+            )
             metrics[f"room.{point.room_id}.score"] = score
             metrics[f"room.{point.room_id}.distance_to_zone"] = distance_to_zone
             if score < 100.0:
@@ -109,6 +143,12 @@ class ZoneSuitabilityEvaluator(CandidateEvaluator):
                         message="No candidate rooms use configured zone rules.",
                     ),
                 ),
+                visualization_payload=ZoneSuitabilityVisualizationData(
+                    floor_width=data.floor_width,
+                    floor_length=data.floor_length,
+                    grid_size=grid_size,
+                    points=(),
+                ),
             )
 
         final_score = sum(scores) / len(scores)
@@ -119,6 +159,12 @@ class ZoneSuitabilityEvaluator(CandidateEvaluator):
             score=clamp_score(final_score),
             findings=tuple(findings),
             metrics=metrics,
+            visualization_payload=ZoneSuitabilityVisualizationData(
+                floor_width=data.floor_width,
+                floor_length=data.floor_length,
+                grid_size=grid_size,
+                points=tuple(visualized_points),
+            ),
         )
 
 
