@@ -62,7 +62,7 @@ class GenerationPipelineSettings:
     candidate_search_enabled: bool = True
     candidate_score_threshold: float = 80.0
     candidate_trial_count: int = 500
-    candidate_grid_resolution: float = 1.0
+    candidate_grid_resolution: float = 20
     candidate_random_seed: int | None = None
 
     timeout_seconds: float = 60.0

@@ -96,7 +96,7 @@ class DefaultProfileSettings:
     """
 
     coordinate_scale: int = 1
-    minimum_coverage_ratio: float = 0.55
+    minimum_coverage_ratio: float = 0.6
     minimum_adjacency_overlap: float = 10
     attached_bathroom_minimum_shared_wall: float = 10.0
     initial_max_time_seconds: float = 5.0
@@ -133,17 +133,17 @@ def _default_hard_constraints(
         HardConstraintUse(
             "aspect_ratio",
             {
-                "min_ratio": 0.35,
-                "max_ratio": 2.85,
+                "min_ratio": 0.60,
+                "max_ratio": 1.80,
                 "hallway_room_types": (RoomType.HALLWAY,),
                 "overrides": {
                     RoomType.GARAGE: {
-                        "min_ratio": 0.4,
-                        "max_ratio": 0.7,
+                        "min_ratio": 0.45,
+                        "max_ratio": 0.70,
                     },
                     RoomType.VERANDA: {
-                        "min_ratio": 0.25,
-                        "max_ratio": 4.0,
+                        "min_ratio": 1.20,
+                        "max_ratio": 3.50,
                     },
                 },
             },
