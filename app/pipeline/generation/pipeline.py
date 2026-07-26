@@ -12,8 +12,10 @@ from typing import Any, Protocol, TypeVar, cast
 import app.algorithms.floor_plan_solver as floor_plan_solver_module
 from app.algorithms.candidate_scoring import (
     CandidateScoringInput,
-    ScoringResult as CandidateScoringResult,
     evaluate_candidate,
+)
+from app.algorithms.candidate_scoring import (
+    ScoringResult as CandidateScoringResult,
 )
 from app.algorithms.candidate_scoring import (
     create_default_config as create_candidate_scoring_config,
@@ -54,6 +56,9 @@ from app.algorithms.floor_plan_scoring import (
     FloorPlanScoringResult,
     score_floor_plan,
 )
+from app.algorithms.floor_plan_scoring.logging import (
+    log_floor_plan_scoring_result,
+)
 from app.algorithms.floor_plan_solver import (
     INITIAL_GENERATION_PROFILE,
     FloorPlanSolveRequest,
@@ -66,12 +71,14 @@ from app.util.logger import SystemLogger
 from app.util.output_paths import utc_timestamp
 from app.visualization.api import (
     CandidatePoint as VisualizationCandidatePoint,
+)
+from app.visualization.api import (
     CandidateSearchVisualization,
     FloorPlanFlowVisualization,
     FloorPlanVisualizationStage,
     SearchBounds,
-    render_candidate_search,
     render_candidate_scoring_features,
+    render_candidate_search,
     render_floor_plan_general,
     render_floor_plan_scoring_features,
 )
@@ -319,8 +326,7 @@ def _candidate_hints(
     trial: CandidateTrialResult,
 ) -> tuple[RoomPlacementHint, ...]:
     return tuple(
-        RoomPlacementHint(point.room_id, point.x, point.y)
-        for point in trial.points
+        RoomPlacementHint(point.room_id, point.x, point.y) for point in trial.points
     )
 
 
@@ -460,8 +466,7 @@ def _render_solver_attempt(
     run_timestamp: str,
 ) -> None:
     stage_prefix = (
-        f"candidate-{attempt.candidate_trial_number}"
-        f"-run-{attempt.solver_run_number}"
+        f"candidate-{attempt.candidate_trial_number}-run-{attempt.solver_run_number}"
     )
     payload = FloorPlanFlowVisualization(
         stages=(
@@ -508,9 +513,7 @@ def _execute_solver_run(
     settings: GenerationPipelineSettings,
     output_run_timestamp: str,
 ) -> _CompletedFloorPlanAttempt:
-    attempt_label = (
-        f"candidate-{candidate_trial_number}.fpg-run-{solver_run_number}"
-    )
+    attempt_label = f"candidate-{candidate_trial_number}.fpg-run-{solver_run_number}"
 
     def solve_initial():
         result = generate_floor_plan(
@@ -586,10 +589,7 @@ def _execute_solver_run(
             refine,
             expected_errors=(FloorPlanSolverError,),
             summary=lambda value: f"status={value.status.value}",
-            label=(
-                f"{attempt_label}.refinement-{refinement_index}"
-                f"[{profile_name}]"
-            ),
+            label=(f"{attempt_label}.refinement-{refinement_index}[{profile_name}]"),
         )
         current_floor_plan = cast(FloorPlan, refinement_result.floor_plan)
 
@@ -665,10 +665,18 @@ def _execute_solver_run(
         lambda: score_floor_plan(final_floor_plan, specification),
         expected_errors=(FloorPlanScoringError,),
         summary=lambda value: (
-            f"score={value.total_score:.2f} "
-            f"passed_critical={value.passed_critical}"
+            f"score={value.total_score:.2f} passed_critical={value.passed_critical}"
         ),
         label=f"{attempt_label}.floor_plan_scoring",
+    )
+    log_floor_plan_scoring_result(
+        scoring,
+        request_id=request.request_id,
+        candidate_trial_number=candidate_trial_number,
+        candidate_score=candidate_score,
+        solver_run_number=solver_run_number,
+        usable_threshold=settings.usable_floor_plan_score,
+        presentable_threshold=(settings.effective_presentable_floor_plan_score),
     )
 
     attempt = _CompletedFloorPlanAttempt(
@@ -718,9 +726,7 @@ def _execute_solver_run(
                 lambda: _render_solver_attempt(
                     request_id=request.request_id,
                     attempt=attempt,
-                    last_refinement_profile_name=_profile_name(
-                        refinement_profiles[-1]
-                    ),
+                    last_refinement_profile_name=_profile_name(refinement_profiles[-1]),
                     run_timestamp=output_run_timestamp,
                 ),
                 label=f"{attempt_label}.visualization",
@@ -822,10 +828,13 @@ def run_generation_pipeline(
     candidate_registry = create_candidate_scoring_registry()
     candidate_config = create_candidate_scoring_config()
     refinement_profiles = _load_refinement_profiles()
-    latest_candidate_scoring: tuple[
-        CandidateScoringInput,
-        CandidateScoringResult,
-    ] | None = None
+    latest_candidate_scoring: (
+        tuple[
+            CandidateScoringInput,
+            CandidateScoringResult,
+        ]
+        | None
+    ) = None
 
     def score_candidate(points: tuple[Any, ...]) -> float:
         nonlocal latest_candidate_scoring
@@ -927,9 +936,7 @@ def run_generation_pipeline(
                         "candidate_trial_number": candidate_trial_number,
                         "solver_run_number": solver_run_number,
                         "score": attempt.scoring.total_score,
-                        "threshold": (
-                            settings.effective_presentable_floor_plan_score
-                        ),
+                        "threshold": (settings.effective_presentable_floor_plan_score),
                     },
                 )
                 return _build_result(
@@ -1020,8 +1027,7 @@ def run_generation_pipeline(
                 expected_errors=(TypeError, ValueError, RuntimeError),
                 summary=lambda value: f"trial={value.trial_number}",
                 label=(
-                    f"candidate-trial-{search_session.completed_trials + 1}"
-                    ".generate"
+                    f"candidate-trial-{search_session.completed_trials + 1}.generate"
                 ),
             )
 
@@ -1085,8 +1091,7 @@ def run_generation_pipeline(
                             run_timestamp=output_run_timestamp,
                         ),
                         label=(
-                            f"candidate-trial-{trial_result.trial_number}"
-                            ".visualization"
+                            f"candidate-trial-{trial_result.trial_number}.visualization"
                         ),
                     )
                 except Exception as exc:
@@ -1154,9 +1159,7 @@ def run_generation_pipeline(
             data={
                 "termination_reason": termination_reason,
                 "score": best_usable_attempt.scoring.total_score,
-                "candidate_trial_number": (
-                    best_usable_attempt.candidate_trial_number
-                ),
+                "candidate_trial_number": (best_usable_attempt.candidate_trial_number),
                 "solver_run_number": best_usable_attempt.solver_run_number,
                 "elapsed_seconds": _elapsed_seconds(pipeline_started),
             },
