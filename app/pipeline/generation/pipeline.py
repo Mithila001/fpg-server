@@ -67,8 +67,7 @@ from app.algorithms.floor_plan_solver import (
     generate_floor_plan,
 )
 from app.algorithms.types_new import FloorPlan
-from app.util.logger import SystemLogger
-from app.util.output_paths import utc_timestamp
+from app.core.execution import ExecutionContext, PipelineStage
 from app.visualization.api import (
     CandidatePoint as VisualizationCandidatePoint,
 )
@@ -91,6 +90,11 @@ from .context import (
     GenerationStage,
     load_generation_reference_data,
 )
+from .logging import (
+    create_pipeline_context,
+    log_pipeline_event,
+    save_final_floor_plan,
+)
 
 T = TypeVar("T")
 
@@ -109,9 +113,10 @@ _REFINEMENT_FLOOR_PLAN_ARGUMENTS = (
 
 @dataclass(slots=True)
 class _CompletedFloorPlanAttempt:
-    candidate_trial_number: int
+    search_trial_id: int | None
+    candidate_id: int
     candidate_score: float
-    solver_run_number: int
+    solver_run_id: int
     initial_floor_plan: FloorPlan
     refined_floor_plan: FloorPlan
     post_processed_floor_plan: FloorPlan
@@ -120,24 +125,23 @@ class _CompletedFloorPlanAttempt:
 
 
 class _SolverAttemptVisualization(Protocol):
-    candidate_trial_number: int
-    solver_run_number: int
+    solver_run_id: int
     initial_floor_plan: FloorPlan
     refined_floor_plan: FloorPlan
     final_floor_plan: FloorPlan
 
 
 def _log_generation(
-    request_id: str,
+    context: ExecutionContext,
     event: str,
     level: str = "INFO",
     data: dict[str, object] | None = None,
 ) -> None:
-    SystemLogger.log_event(
-        "generation_pipeline",
+    log_pipeline_event(
+        context,
         event,
-        level,
-        {"request_id": request_id, **(data or {})},
+        level=level,
+        payload=data,
     )
 
 
@@ -150,7 +154,7 @@ def _error_code(exc: Exception) -> str:
 
 
 def _run_stage(
-    request_id: str,
+    context: ExecutionContext,
     stage: GenerationStage,
     operation: Callable[[], T],
     *,
@@ -160,8 +164,9 @@ def _run_stage(
 ) -> T:
     started = perf_counter()
     stage_label = label or stage.value
+    stage_context = context.with_stage(_execution_stage(stage))
     _log_generation(
-        request_id,
+        stage_context,
         "stage_started",
         data={"stage": stage.value, "label": stage_label},
     )
@@ -171,7 +176,7 @@ def _run_stage(
     except GenerationPipelineError as exc:
         duration_ms = (perf_counter() - started) * 1000
         _log_generation(
-            request_id,
+            stage_context,
             "stage_failed",
             "ERROR",
             {
@@ -187,7 +192,7 @@ def _run_stage(
         duration_ms = (perf_counter() - started) * 1000
         error = GenerationPipelineError(stage, _error_code(exc), str(exc))
         _log_generation(
-            request_id,
+            stage_context,
             "stage_failed",
             "ERROR",
             {
@@ -202,7 +207,7 @@ def _run_stage(
     except Exception as exc:
         duration_ms = (perf_counter() - started) * 1000
         _log_generation(
-            request_id,
+            stage_context,
             "stage_failed",
             "ERROR",
             {
@@ -218,7 +223,7 @@ def _run_stage(
 
     duration_ms = (perf_counter() - started) * 1000
     _log_generation(
-        request_id,
+        stage_context,
         "stage_completed",
         data={
             "stage": stage.value,
@@ -228,6 +233,17 @@ def _run_stage(
         },
     )
     return result
+
+
+def _execution_stage(stage: GenerationStage) -> PipelineStage:
+    aliases = {
+        GenerationStage.ATTEMPT_SCORING: PipelineStage.FLOOR_PLAN_SCORING,
+        GenerationStage.SCORING: PipelineStage.FLOOR_PLAN_SCORING,
+        GenerationStage.FINAL_VALIDATION: PipelineStage.FINALIZATION,
+    }
+    if stage in aliases:
+        return aliases[stage]
+    return PipelineStage(stage.value)
 
 
 def _load_refinement_profiles() -> tuple[Any, ...]:
@@ -273,11 +289,13 @@ def _create_solver_request(
     profile: Any,
     candidate_hints: tuple[RoomPlacementHint, ...],
     floor_plan: FloorPlan | None = None,
+    context: ExecutionContext | None = None,
 ) -> FloorPlanSolveRequest:
     request_arguments: dict[str, Any] = {
         "specification": specification,
         "profile": profile,
         "candidate_hints": candidate_hints,
+        "execution_context": context,
     }
 
     if floor_plan is not None:
@@ -386,10 +404,9 @@ def _is_better_attempt(
 
 def _render_candidate_trial(
     *,
-    request_id: str,
+    context: ExecutionContext,
     trial: CandidateTrialResult,
     settings: CandidateSearchSettings,
-    run_timestamp: str,
 ) -> None:
     payload = CandidateSearchVisualization(
         trial_number=trial.trial_number,
@@ -418,55 +435,49 @@ def _render_candidate_trial(
     )
     render_candidate_search(
         payload,
-        run_id=request_id,
-        run_timestamp=run_timestamp,
         output_name=f"eligible-candidate-{trial.trial_number}",
+        context=context.with_stage(PipelineStage.VISUALIZATION),
     )
 
 
 def _render_candidate_scoring(
     *,
-    request_id: str,
+    context: ExecutionContext,
     scoring_input: CandidateScoringInput,
     scoring_result: CandidateScoringResult,
     settings: GenerationPipelineSettings,
-    run_timestamp: str,
 ) -> None:
     render_candidate_scoring_features(
         scoring_input,
         scoring_result,
         visualization_config=settings.scoring_visualization,
-        run_id=request_id,
-        run_timestamp=run_timestamp,
+        context=context.with_stage(PipelineStage.VISUALIZATION),
     )
 
 
 def _render_floor_plan_scoring(
     *,
-    request_id: str,
+    context: ExecutionContext,
     floor_plan: FloorPlan,
     scoring_result: FloorPlanScoringResult,
     settings: GenerationPipelineSettings,
-    run_timestamp: str,
 ) -> None:
     render_floor_plan_scoring_features(
         floor_plan,
         scoring_result,
         visualization_config=settings.scoring_visualization,
-        run_id=request_id,
-        run_timestamp=run_timestamp,
+        context=context.with_stage(PipelineStage.VISUALIZATION),
     )
 
 
 def _render_solver_attempt(
     *,
-    request_id: str,
+    context: ExecutionContext,
     attempt: _SolverAttemptVisualization,
     last_refinement_profile_name: str,
-    run_timestamp: str,
 ) -> None:
     stage_prefix = (
-        f"candidate-{attempt.candidate_trial_number}-run-{attempt.solver_run_number}"
+        f"candidate-{context.candidate_id}-run-{attempt.solver_run_id}"
     )
     payload = FloorPlanFlowVisualization(
         stages=(
@@ -495,9 +506,8 @@ def _render_solver_attempt(
     )
     render_floor_plan_general(
         payload,
-        run_id=request_id,
-        run_timestamp=run_timestamp,
         output_prefix=stage_prefix,
+        context=context.with_stage(PipelineStage.VISUALIZATION),
     )
 
 
@@ -505,15 +515,16 @@ def _execute_solver_run(
     *,
     request: GenerationPipelineRequest,
     specification: Any,
-    candidate_trial_number: int,
+    search_trial_id: int | None,
+    candidate_id: int,
     candidate_score: float,
     candidate_hints: tuple[RoomPlacementHint, ...],
-    solver_run_number: int,
+    solver_run_id: int,
     refinement_profiles: tuple[Any, ...],
     settings: GenerationPipelineSettings,
-    output_run_timestamp: str,
+    context: ExecutionContext,
 ) -> _CompletedFloorPlanAttempt:
-    attempt_label = f"candidate-{candidate_trial_number}.fpg-run-{solver_run_number}"
+    attempt_label = f"candidate-{candidate_id}.solver-run-{solver_run_id}"
 
     def solve_initial():
         result = generate_floor_plan(
@@ -521,6 +532,7 @@ def _execute_solver_run(
                 specification=specification,
                 profile=INITIAL_GENERATION_PROFILE,
                 candidate_hints=candidate_hints,
+                context=context.with_stage(PipelineStage.SOLVER),
             )
         )
         if not result.solved:
@@ -539,7 +551,7 @@ def _execute_solver_run(
         return result
 
     initial_result = _run_stage(
-        request.request_id,
+        context,
         GenerationStage.SOLVER,
         solve_initial,
         expected_errors=(FloorPlanSolverError,),
@@ -562,6 +574,7 @@ def _execute_solver_run(
                     profile=active_profile,
                     candidate_hints=candidate_hints,
                     floor_plan=source_floor_plan,
+                    context=context.with_stage(PipelineStage.REFINEMENT),
                 )
             )
             if not result.solved:
@@ -584,7 +597,7 @@ def _execute_solver_run(
             return result
 
         refinement_result = _run_stage(
-            request.request_id,
+            context,
             GenerationStage.REFINEMENT,
             refine,
             expected_errors=(FloorPlanSolverError,),
@@ -602,6 +615,7 @@ def _execute_solver_run(
                 profile=POST_PROCESSING_PROFILE,
                 specification=specification,
                 request_id=f"{request.request_id}-{attempt_label}",
+                execution_context=context.with_stage(PipelineStage.POST_PROCESSING),
             )
         )
         if result.status is PipelineStatus.FAILED:
@@ -615,7 +629,7 @@ def _execute_solver_run(
         return result
 
     post_result = _run_stage(
-        request.request_id,
+        context,
         GenerationStage.POST_PROCESSING,
         post_process,
         summary=lambda value: f"rooms={len(value.floor_plan.rooms)}",
@@ -628,6 +642,7 @@ def _execute_solver_run(
             OpeningGenerationRequest(
                 floor_plan=post_processed_floor_plan,
                 request_id=f"{request.request_id}-{attempt_label}",
+                execution_context=context.with_stage(PipelineStage.OPENINGS),
             )
         )
         if not result.solved:
@@ -646,7 +661,7 @@ def _execute_solver_run(
         return result
 
     opening_result = _run_stage(
-        request.request_id,
+        context,
         GenerationStage.OPENINGS,
         add_openings,
         expected_errors=(OpeningGenerationError,),
@@ -660,9 +675,13 @@ def _execute_solver_run(
     final_floor_plan = cast(FloorPlan, opening_result.floor_plan)
 
     scoring = _run_stage(
-        request.request_id,
+        context,
         GenerationStage.ATTEMPT_SCORING,
-        lambda: score_floor_plan(final_floor_plan, specification),
+        lambda: score_floor_plan(
+            final_floor_plan,
+            specification,
+            execution_context=context.with_stage(PipelineStage.FLOOR_PLAN_SCORING),
+        ),
         expected_errors=(FloorPlanScoringError,),
         summary=lambda value: (
             f"score={value.total_score:.2f} passed_critical={value.passed_critical}"
@@ -671,18 +690,21 @@ def _execute_solver_run(
     )
     log_floor_plan_scoring_result(
         scoring,
+        context=context.with_stage(PipelineStage.FLOOR_PLAN_SCORING),
         request_id=request.request_id,
-        candidate_trial_number=candidate_trial_number,
+        candidate_id=candidate_id,
+        search_trial_id=search_trial_id,
         candidate_score=candidate_score,
-        solver_run_number=solver_run_number,
+        solver_run_id=solver_run_id,
         usable_threshold=settings.usable_floor_plan_score,
         presentable_threshold=(settings.effective_presentable_floor_plan_score),
     )
 
     attempt = _CompletedFloorPlanAttempt(
-        candidate_trial_number=candidate_trial_number,
+        search_trial_id=search_trial_id,
+        candidate_id=candidate_id,
         candidate_score=candidate_score,
-        solver_run_number=solver_run_number,
+        solver_run_id=solver_run_id,
         initial_floor_plan=initial_floor_plan,
         refined_floor_plan=refined_floor_plan,
         post_processed_floor_plan=post_processed_floor_plan,
@@ -693,25 +715,24 @@ def _execute_solver_run(
     if settings.scoring_visualization.enabled:
         try:
             _run_stage(
-                request.request_id,
+                context,
                 GenerationStage.VISUALIZATION,
                 lambda: _render_floor_plan_scoring(
-                    request_id=request.request_id,
+                    context=context,
                     floor_plan=final_floor_plan,
                     scoring_result=scoring,
                     settings=settings,
-                    run_timestamp=output_run_timestamp,
                 ),
                 label=f"{attempt_label}.floor_plan_scoring_visualization",
             )
         except Exception as exc:
             _log_generation(
-                request.request_id,
+                context,
                 "visualization_skipped",
                 "WARNING",
                 {
-                    "candidate_trial_number": candidate_trial_number,
-                    "solver_run_number": solver_run_number,
+                    "search_trial_id": search_trial_id,
+                    "solver_run_id": solver_run_id,
                     "visualization": "floor_plan_scoring",
                     "error_type": type(exc).__name__,
                     "message": str(exc),
@@ -721,24 +742,23 @@ def _execute_solver_run(
     if settings.render_solver_attempts:
         try:
             _run_stage(
-                request.request_id,
+                context,
                 GenerationStage.VISUALIZATION,
                 lambda: _render_solver_attempt(
-                    request_id=request.request_id,
+                    context=context,
                     attempt=attempt,
                     last_refinement_profile_name=_profile_name(refinement_profiles[-1]),
-                    run_timestamp=output_run_timestamp,
                 ),
                 label=f"{attempt_label}.visualization",
             )
         except Exception as exc:
             _log_generation(
-                request.request_id,
+                context,
                 "visualization_skipped",
                 "WARNING",
                 {
-                    "candidate_trial_number": candidate_trial_number,
-                    "solver_run_number": solver_run_number,
+                    "search_trial_id": search_trial_id,
+                    "solver_run_id": solver_run_id,
                     "visualization": "floor_plan_general",
                     "error_type": type(exc).__name__,
                     "message": str(exc),
@@ -750,7 +770,7 @@ def _execute_solver_run(
 
 def _build_result(
     *,
-    request_id: str,
+    context: ExecutionContext,
     attempt: _CompletedFloorPlanAttempt,
     settings: GenerationPipelineSettings,
 ) -> GenerationPipelineResult:
@@ -762,22 +782,36 @@ def _build_result(
                 "The selected floor plan failed one or more critical scoring checks.",
                 {
                     "score": attempt.scoring.total_score,
-                    "candidate_trial_number": attempt.candidate_trial_number,
-                    "solver_run_number": attempt.solver_run_number,
+                    "search_trial_id": attempt.search_trial_id,
+                    "solver_run_id": attempt.solver_run_id,
                 },
             )
 
     _run_stage(
-        request_id,
+        context,
         GenerationStage.FINAL_VALIDATION,
         validate_final_result,
         summary=lambda _: "passed=true",
     )
 
-    return GenerationPipelineResult(
+    result = GenerationPipelineResult(
         floor_plan=deepcopy(attempt.final_floor_plan),
         scoring=attempt.scoring,
+        execution_context=context.with_stage(PipelineStage.FINALIZATION),
     )
+    try:
+        save_final_floor_plan(
+            context.with_stage(PipelineStage.FINALIZATION),
+            result.floor_plan,
+        )
+    except Exception as exc:
+        _log_generation(
+            context,
+            "final_artifact_failed",
+            "WARNING",
+            {"error_type": type(exc).__name__, "message": str(exc)},
+        )
+    return result
 
 
 def run_generation_pipeline(
@@ -794,7 +828,15 @@ def run_generation_pipeline(
     """
 
     pipeline_started = perf_counter()
-    output_run_timestamp = utc_timestamp()
+    execution_context = request.execution_context or create_pipeline_context(
+        job_id=request.request_id,
+        seed=settings.candidate_random_seed,
+    )
+    _log_generation(
+        execution_context,
+        "flow_started",
+        data={"job_id": request.request_id},
+    )
 
     def preprocess():
         preprocessing_input = PreprocessingInput(
@@ -813,11 +855,14 @@ def run_generation_pipeline(
                 ),
             ),
             reference_data=load_generation_reference_data(),
+            execution_context=execution_context.with_stage(
+                PipelineStage.PREPROCESSING
+            ),
         )
         return prepare_generation_input(preprocessing_input)
 
     prepared = _run_stage(
-        request.request_id,
+        execution_context,
         GenerationStage.PREPROCESSING,
         preprocess,
         expected_errors=(FloorPlanPreprocessingError,),
@@ -835,12 +880,14 @@ def run_generation_pipeline(
         ]
         | None
     ) = None
+    active_scoring_context: ExecutionContext | None = None
 
     def score_candidate(points: tuple[Any, ...]) -> float:
         nonlocal latest_candidate_scoring
         scoring_input = CandidateScoringInput(
             specification=specification,
             candidate=points,
+            execution_context=active_scoring_context,
         )
         result = evaluate_candidate(
             scoring_input,
@@ -858,9 +905,11 @@ def run_generation_pipeline(
 
     def run_solver_for_candidate(
         *,
-        candidate_trial_number: int,
+        search_trial_id: int | None,
+        candidate_id: int,
         candidate_score: float,
         candidate_hints: tuple[RoomPlacementHint, ...],
+        candidate_context: ExecutionContext,
     ) -> GenerationPipelineResult | None:
         nonlocal best_usable_attempt
         nonlocal last_solver_failure
@@ -873,13 +922,14 @@ def run_generation_pipeline(
                 termination_reason = "timeout"
                 return None
 
+            solver_context = candidate_context.for_solver_run(solver_run_number)
             _log_generation(
-                request.request_id,
+                solver_context,
                 "solver_run_started",
                 data={
-                    "candidate_trial_number": candidate_trial_number,
+                    "search_trial_id": search_trial_id,
                     "candidate_score": candidate_score,
-                    "solver_run_number": solver_run_number,
+                    "solver_run_id": solver_run_number,
                     "max_solver_runs": max_runs,
                 },
             )
@@ -888,13 +938,14 @@ def run_generation_pipeline(
                 attempt = _execute_solver_run(
                     request=request,
                     specification=specification,
-                    candidate_trial_number=candidate_trial_number,
+                    search_trial_id=search_trial_id,
+                    candidate_id=candidate_id,
                     candidate_score=candidate_score,
                     candidate_hints=candidate_hints,
-                    solver_run_number=solver_run_number,
+                    solver_run_id=solver_run_number,
                     refinement_profiles=refinement_profiles,
                     settings=settings,
-                    output_run_timestamp=output_run_timestamp,
+                    context=solver_context,
                 )
             except GenerationPipelineError as exc:
                 solver_failure_count += 1
@@ -904,12 +955,12 @@ def run_generation_pipeline(
                     "message": exc.message,
                 }
                 _log_generation(
-                    request.request_id,
+                    solver_context,
                     "solver_run_failed",
                     "WARNING",
                     {
-                        "candidate_trial_number": candidate_trial_number,
-                        "solver_run_number": solver_run_number,
+                        "search_trial_id": search_trial_id,
+                        "solver_run_id": solver_run_number,
                         "stage": exc.stage.value,
                         "code": exc.code,
                         "will_retry_same_candidate": solver_run_number < max_runs,
@@ -918,11 +969,11 @@ def run_generation_pipeline(
                 continue
 
             _log_generation(
-                request.request_id,
+                solver_context,
                 "solver_run_scored",
                 data={
-                    "candidate_trial_number": candidate_trial_number,
-                    "solver_run_number": solver_run_number,
+                    "search_trial_id": search_trial_id,
+                    "solver_run_id": solver_run_number,
                     "floor_plan_score": attempt.scoring.total_score,
                     "passed_critical": attempt.scoring.passed_critical,
                 },
@@ -930,17 +981,17 @@ def run_generation_pipeline(
 
             if _is_presentable(attempt, settings):
                 _log_generation(
-                    request.request_id,
+                    solver_context,
                     "presentable_floor_plan_found",
                     data={
-                        "candidate_trial_number": candidate_trial_number,
-                        "solver_run_number": solver_run_number,
+                        "search_trial_id": search_trial_id,
+                        "solver_run_id": solver_run_number,
                         "score": attempt.scoring.total_score,
                         "threshold": (settings.effective_presentable_floor_plan_score),
                     },
                 )
                 return _build_result(
-                    request_id=request.request_id,
+                    context=solver_context,
                     attempt=attempt,
                     settings=settings,
                 )
@@ -949,11 +1000,11 @@ def run_generation_pipeline(
                 if _is_better_attempt(attempt, best_usable_attempt):
                     best_usable_attempt = attempt
                     _log_generation(
-                        request.request_id,
+                        solver_context,
                         "usable_floor_plan_saved",
                         data={
-                            "candidate_trial_number": candidate_trial_number,
-                            "solver_run_number": solver_run_number,
+                            "search_trial_id": search_trial_id,
+                            "solver_run_id": solver_run_number,
                             "score": attempt.scoring.total_score,
                         },
                     )
@@ -968,11 +1019,11 @@ def run_generation_pipeline(
             # A completed floor plan below the usable threshold immediately
             # abandons this hint and resumes candidate search.
             _log_generation(
-                request.request_id,
+                solver_context,
                 "floor_plan_below_usable_threshold",
                 data={
-                    "candidate_trial_number": candidate_trial_number,
-                    "solver_run_number": solver_run_number,
+                    "search_trial_id": search_trial_id,
+                    "solver_run_id": solver_run_number,
                     "score": attempt.scoring.total_score,
                     "usable_threshold": settings.usable_floor_plan_score,
                     "passed_critical": attempt.scoring.passed_critical,
@@ -983,10 +1034,13 @@ def run_generation_pipeline(
         return None
 
     if not settings.candidate_search_enabled:
+        default_context = execution_context.for_candidate(1)
         result = run_solver_for_candidate(
-            candidate_trial_number=0,
+            search_trial_id=None,
+            candidate_id=1,
             candidate_score=0.0,
             candidate_hints=_default_candidate_hints(specification),
+            candidate_context=default_context,
         )
         if result is not None:
             return result
@@ -1012,6 +1066,9 @@ def run_generation_pipeline(
                 ),
                 settings=candidate_search_settings,
                 evaluator=score_candidate,
+                execution_context=execution_context.with_stage(
+                    PipelineStage.CANDIDATE_SEARCH
+                ),
             )
         )
 
@@ -1021,7 +1078,7 @@ def run_generation_pipeline(
                 break
 
             suggestion = _run_stage(
-                request.request_id,
+                execution_context,
                 GenerationStage.CANDIDATE_SEARCH,
                 search_session.ask_next_trial,
                 expected_errors=(TypeError, ValueError, RuntimeError),
@@ -1032,8 +1089,14 @@ def run_generation_pipeline(
             )
 
             try:
+                trial_context = execution_context.for_search_trial(
+                    suggestion.trial_number
+                )
+                active_scoring_context = trial_context.with_stage(
+                    PipelineStage.CANDIDATE_SCORING
+                )
                 trial_result = _run_stage(
-                    request.request_id,
+                    trial_context,
                     GenerationStage.CANDIDATE_SCORING,
                     lambda: search_session.record_score(
                         suggestion,
@@ -1052,7 +1115,7 @@ def run_generation_pipeline(
             if trial_result.score < settings.candidate_score_threshold:
                 latest_candidate_scoring = None
                 _log_generation(
-                    request.request_id,
+                    trial_context,
                     "candidate_rejected",
                     data={
                         "trial_number": trial_result.trial_number,
@@ -1063,6 +1126,9 @@ def run_generation_pipeline(
                 continue
 
             eligible_candidate_count += 1
+            candidate_context = trial_context.for_candidate(
+                eligible_candidate_count
+            )
             if latest_candidate_scoring is None:
                 raise RuntimeError(
                     "Candidate scoring completed without retaining its result."
@@ -1070,7 +1136,7 @@ def run_generation_pipeline(
             scoring_input, candidate_scoring_result = latest_candidate_scoring
             latest_candidate_scoring = None
             _log_generation(
-                request.request_id,
+                candidate_context,
                 "candidate_eligible",
                 data={
                     "trial_number": trial_result.trial_number,
@@ -1082,13 +1148,12 @@ def run_generation_pipeline(
             if settings.render_candidate_search:
                 try:
                     _run_stage(
-                        request.request_id,
+                        candidate_context,
                         GenerationStage.VISUALIZATION,
                         lambda: _render_candidate_trial(
-                            request_id=request.request_id,
+                            context=candidate_context,
                             trial=trial_result,
                             settings=candidate_search_settings,
-                            run_timestamp=output_run_timestamp,
                         ),
                         label=(
                             f"candidate-trial-{trial_result.trial_number}.visualization"
@@ -1096,7 +1161,7 @@ def run_generation_pipeline(
                     )
                 except Exception as exc:
                     _log_generation(
-                        request.request_id,
+                        candidate_context,
                         "visualization_skipped",
                         "WARNING",
                         {
@@ -1110,14 +1175,15 @@ def run_generation_pipeline(
             if settings.scoring_visualization.enabled:
                 try:
                     _run_stage(
-                        request.request_id,
+                        candidate_context,
                         GenerationStage.VISUALIZATION,
                         lambda: _render_candidate_scoring(
-                            request_id=request.request_id,
+                            context=trial_context.with_stage(
+                                PipelineStage.CANDIDATE_SCORING
+                            ),
                             scoring_input=scoring_input,
                             scoring_result=candidate_scoring_result,
                             settings=settings,
-                            run_timestamp=output_run_timestamp,
                         ),
                         label=(
                             f"candidate-trial-{trial_result.trial_number}"
@@ -1126,7 +1192,7 @@ def run_generation_pipeline(
                     )
                 except Exception as exc:
                     _log_generation(
-                        request.request_id,
+                        candidate_context,
                         "visualization_skipped",
                         "WARNING",
                         {
@@ -1138,9 +1204,11 @@ def run_generation_pipeline(
                     )
 
             result = run_solver_for_candidate(
-                candidate_trial_number=trial_result.trial_number,
+                search_trial_id=trial_result.trial_number,
+                candidate_id=eligible_candidate_count,
                 candidate_score=trial_result.score,
                 candidate_hints=_candidate_hints(trial_result),
+                candidate_context=candidate_context,
             )
             if result is not None:
                 return result
@@ -1154,18 +1222,26 @@ def run_generation_pipeline(
 
     if best_usable_attempt is not None:
         _log_generation(
-            request.request_id,
+            execution_context,
             "returning_best_usable_floor_plan",
             data={
                 "termination_reason": termination_reason,
                 "score": best_usable_attempt.scoring.total_score,
-                "candidate_trial_number": (best_usable_attempt.candidate_trial_number),
-                "solver_run_number": best_usable_attempt.solver_run_number,
+                "search_trial_id": best_usable_attempt.search_trial_id,
+                "solver_run_id": best_usable_attempt.solver_run_id,
                 "elapsed_seconds": _elapsed_seconds(pipeline_started),
             },
         )
         return _build_result(
-            request_id=request.request_id,
+            context=(
+                execution_context.for_search_trial(
+                    best_usable_attempt.search_trial_id
+                )
+                if best_usable_attempt.search_trial_id is not None
+                else execution_context
+            )
+            .for_candidate(best_usable_attempt.candidate_id)
+            .for_solver_run(best_usable_attempt.solver_run_id),
             attempt=best_usable_attempt,
             settings=settings,
         )

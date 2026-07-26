@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Any, ClassVar, Mapping, Protocol
 
 from app.algorithms.types_new import FloorPlan, FloorPlanGenerationSpec, Polygon, RoomId
+from app.core.execution import ExecutionContext
 
 
 class PipelineStatus(str, Enum):
@@ -81,6 +82,7 @@ class PostProcessingRequest:
     profile: PostProcessingProfile
     specification: FloorPlanGenerationSpec | None = None
     request_id: str | None = None
+    execution_context: ExecutionContext | None = None
 
 
 @dataclass(frozen=True)

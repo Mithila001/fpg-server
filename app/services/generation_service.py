@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from uuid import uuid4
 
 from app.algorithms.types_new import RoomType
+from app.artifacts import ArtifactStorage
 from app.pipeline.generation import (
     GenerationPipelineRequest,
     GenerationPipelineResult,
@@ -36,8 +37,10 @@ class GenerationServiceRequest:
 def execute_generation(
     request: GenerationServiceRequest,
 ) -> GenerationPipelineResult:
+    job_id = str(uuid4())
+    execution_context = ArtifactStorage().create_execution_context(job_id=job_id)
     pipeline_request = GenerationPipelineRequest(
-        request_id=str(uuid4()),
+        request_id=job_id,
         max_width=request.max_width,
         max_length=request.max_length,
         aspect_ratio=request.aspect_ratio,
@@ -51,5 +54,6 @@ def execute_generation(
             )
             for room in request.rooms
         ),
+        execution_context=execution_context,
     )
     return run_generation_pipeline(pipeline_request)

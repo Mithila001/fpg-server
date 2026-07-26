@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 import pytest
@@ -24,15 +23,10 @@ def test_png_is_saved_under_timestamped_feature_run(tmp_path: Path) -> None:
         config=RenderConfig(output_root=visualization_root),
     )
 
-    assert path.parent == (
-        visualization_root
-        / "candidate_search"
-        / "20260722T061530123456Z_request-42"
-    )
-    assert re.fullmatch(
-        r"\d{8}T\d{12}Z_attempt-1-best-candidate_[a-f0-9]{8}\.png",
-        path.name,
-    )
+    flow_root = next((visualization_root / "flows").iterdir())
+    assert {item.name for item in flow_root.iterdir()} == {"json", "png"}
+    assert path.parent == flow_root / "png" / "candidate_search"
+    assert path.name == "attempt-1-best-candidate.png"
     assert path.is_file()
 
 

@@ -5,6 +5,7 @@ from enum import Enum
 from typing import Mapping
 
 from app.algorithms.types_new import FloorPlan
+from app.core.execution import ExecutionContext
 
 from .profiles import DEFAULT_OPENING_PROFILE, OpeningGenerationProfile
 
@@ -56,6 +57,7 @@ class OpeningGenerationRequest:
     floor_plan: FloorPlan
     profile: OpeningGenerationProfile = DEFAULT_OPENING_PROFILE
     request_id: str | None = None
+    execution_context: ExecutionContext | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -25,6 +25,7 @@ from app.algorithms.floor_plan_scoring.evaluators.inward_recess import (
 from app.algorithms.types_new import FloorPlan
 from matplotlib.figure import Figure
 
+from app.core.execution import ExecutionContext
 from .config import DEFAULT_RENDER_CONFIG, RenderConfig
 from .features.candidate_search.candidate_search_render import (
     render_candidate_search_figure,
@@ -84,6 +85,7 @@ def render_candidate_search(
     output_name: str | None = None,
     output_root: str | Path | None = None,
     config: RenderConfig | None = None,
+    context: ExecutionContext | None = None,
 ) -> Path:
     """Render a Candidate Search trial and persist it as a managed PNG."""
     render_config = config or DEFAULT_RENDER_CONFIG
@@ -98,6 +100,7 @@ def render_candidate_search(
         run_timestamp=run_timestamp,
         name=output_name or f"trial-{payload.trial_number}",
         config=render_config,
+        context=context,
     )
 
 
@@ -109,6 +112,7 @@ def render_floor_plan_solver(
     output_name: str | None = None,
     output_root: str | Path | None = None,
     config: RenderConfig | None = None,
+    context: ExecutionContext | None = None,
 ) -> Path:
     """Render one Floor Plan Solver profile result as a managed PNG."""
     render_config = config or DEFAULT_RENDER_CONFIG
@@ -123,6 +127,7 @@ def render_floor_plan_solver(
         run_timestamp=run_timestamp,
         name=output_name or f"{payload.profile_name}-{payload.status.value}",
         config=render_config,
+        context=context,
     )
 
 
@@ -134,6 +139,7 @@ def render_floor_plan_general(
     output_prefix: str = "floor_plan_general",
     output_root: str | Path | None = None,
     config: RenderConfig | None = None,
+    context: ExecutionContext | None = None,
 ) -> Path:
     """Render all ordered floor-plan stages into one timestamped PNG."""
     render_config = config or DEFAULT_RENDER_CONFIG
@@ -148,6 +154,7 @@ def render_floor_plan_general(
         run_timestamp=run_timestamp,
         filename_prefix=output_prefix,
         config=render_config,
+        context=context,
     )
 
 
@@ -162,6 +169,7 @@ def render_candidate_scoring_features(
     run_timestamp: str | None = None,
     output_root: str | Path | None = None,
     config: RenderConfig | None = None,
+    context: ExecutionContext | None = None,
 ) -> tuple[Path, ...]:
     """Render enabled diagnostics for one completed candidate scoring run."""
     if not visualization_config.enabled:
@@ -195,6 +203,7 @@ def render_candidate_scoring_features(
                     render_config=render_config,
                     run_id=run_id,
                     run_timestamp=run_timestamp,
+                    context=context,
                 )
             )
         elif (
@@ -215,6 +224,7 @@ def render_candidate_scoring_features(
                         render_config=render_config,
                         run_id=run_id,
                         run_timestamp=run_timestamp,
+                        context=context,
                     ),
                     _save_score_figure(
                         manager,
@@ -227,6 +237,7 @@ def render_candidate_scoring_features(
                         render_config=render_config,
                         run_id=run_id,
                         run_timestamp=run_timestamp,
+                        context=context,
                     ),
                 )
             )
@@ -247,6 +258,7 @@ def render_candidate_scoring_features(
                     render_config=render_config,
                     run_id=run_id,
                     run_timestamp=run_timestamp,
+                    context=context,
                 )
             )
         elif (
@@ -266,6 +278,7 @@ def render_candidate_scoring_features(
                     render_config=render_config,
                     run_id=run_id,
                     run_timestamp=run_timestamp,
+                    context=context,
                 )
             )
     return tuple(output_paths)
@@ -282,6 +295,7 @@ def render_floor_plan_scoring_features(
     run_timestamp: str | None = None,
     output_root: str | Path | None = None,
     config: RenderConfig | None = None,
+    context: ExecutionContext | None = None,
 ) -> tuple[Path, ...]:
     """Render enabled diagnostics for one completed floor-plan scoring run."""
     if not visualization_config.enabled:
@@ -316,6 +330,7 @@ def render_floor_plan_scoring_features(
                     render_config=render_config,
                     run_id=run_id,
                     run_timestamp=run_timestamp,
+                    context=context,
                 )
             )
         elif (
@@ -336,6 +351,7 @@ def render_floor_plan_scoring_features(
                     render_config=render_config,
                     run_id=run_id,
                     run_timestamp=run_timestamp,
+                    context=context,
                 )
             )
     return tuple(output_paths)
@@ -350,6 +366,7 @@ def _save_score_figure(
     render_config: RenderConfig,
     run_id: str | None,
     run_timestamp: str | None,
+    context: ExecutionContext | None,
 ) -> Path:
     return manager.save_png(
         figure,
@@ -358,6 +375,7 @@ def _save_score_figure(
         run_timestamp=run_timestamp,
         name=name,
         config=render_config,
+        context=context,
     )
 
 

@@ -8,6 +8,7 @@ from app.algorithms.types_new import (
     MatchPolicy,
     RoomType,
 )
+from app.core.execution import ExecutionContext
 
 from .config import PreprocessingPolicy
 
@@ -78,6 +79,7 @@ class PreprocessingInput:
     request: PreprocessingRequest
     reference_data: PreprocessingReferenceData
     policy: PreprocessingPolicy = PreprocessingPolicy()
+    execution_context: ExecutionContext | None = None
 
 
 @dataclass(frozen=True, slots=True)

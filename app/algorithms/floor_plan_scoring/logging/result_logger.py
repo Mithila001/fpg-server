@@ -2,7 +2,19 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.util.logger import SystemLogger
+from app.artifacts import (
+    ArtifactFormat,
+    ArtifactKind,
+    ArtifactScope,
+    ArtifactStorage,
+    ArtifactWriteRequest,
+    FeatureKey,
+    WriteMode,
+)
+from app.core.execution import ExecutionContext
+from app.util.logger import BaseLogger, LogLevel
+
+from .events import FloorPlanScoringEvent
 
 from ..types import (
     CRITICAL_GROUP,
@@ -20,14 +32,16 @@ _LOG_TAG = "floor_plan_scoring"
 def log_floor_plan_scoring_result(
     result: FloorPlanScoringResult,
     *,
+    context: ExecutionContext,
     request_id: str,
-    candidate_trial_number: int,
+    candidate_id: int,
+    search_trial_id: int | None,
     candidate_score: float,
-    solver_run_number: int,
+    solver_run_id: int,
     usable_threshold: float,
     presentable_threshold: float,
 ) -> None:
-    """Write one complete scoring diagnosis to the application JSONL log."""
+    """Store the detailed diagnosis once and log a concise flow event."""
 
     classification = _classify_score(
         result,
@@ -49,19 +63,12 @@ def log_floor_plan_scoring_result(
         and execution.passed_threshold is False
     )
 
-    SystemLogger.log_event(
-        _LOG_TAG,
-        "floor_plan_scoring_breakdown",
-        (
-            "WARNING"
-            if classification in {"critical_failed", "below_usable"}
-            else "INFO"
-        ),
-        {
+    detail = {
             "request_id": request_id,
-            "candidate_trial_number": candidate_trial_number,
+            "candidate_id": candidate_id,
+            "search_trial_id": search_trial_id,
             "candidate_score": candidate_score,
-            "solver_run_number": solver_run_number,
+            "solver_run_id": solver_run_id,
             "total_score": result.total_score,
             "classification": classification,
             "passed_critical": result.passed_critical,
@@ -79,6 +86,52 @@ def log_floor_plan_scoring_result(
                 _evaluator_payload(execution) for execution in result.evaluator_results
             ],
             "findings": [_finding_payload(finding) for finding in result.findings],
+        }
+    logger = BaseLogger()
+    try:
+        reference = ArtifactStorage().save_json(
+            ArtifactWriteRequest(
+                feature=FeatureKey.FLOOR_PLAN_SCORING,
+                artifact_kind=ArtifactKind.SCORE_BREAKDOWN,
+                artifact_format=ArtifactFormat.JSON,
+                artifact_scope=ArtifactScope.SOLVER_RUN,
+                semantic_name="scoring",
+                execution_context=context,
+                write_mode=WriteMode.REPLACE,
+            ),
+            detail,
+        )
+    except Exception as exc:
+        logger.log(
+            feature=FeatureKey.FLOOR_PLAN_SCORING,
+            event=FloorPlanScoringEvent.ARTIFACT_FAILED.value,
+            level=LogLevel.ERROR,
+            context=context,
+            payload={
+                "candidate_id": candidate_id,
+                "solver_run_id": solver_run_id,
+            },
+            exception=exc,
+        )
+        return
+
+    logger.log(
+        feature=FeatureKey.FLOOR_PLAN_SCORING,
+        event=FloorPlanScoringEvent.RESULT_RECORDED.value,
+        level=(
+            LogLevel.WARNING
+            if classification in {"critical_failed", "below_usable"}
+            else LogLevel.INFO
+        ),
+        context=context,
+        payload={
+            "candidate_id": candidate_id,
+            "search_trial_id": search_trial_id,
+            "solver_run_id": solver_run_id,
+            "total_score": result.total_score,
+            "classification": classification,
+            "passed_critical": result.passed_critical,
+            "artifact": reference.relative_path,
         },
     )
 

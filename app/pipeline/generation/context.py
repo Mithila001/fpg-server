@@ -16,6 +16,7 @@ from app.algorithms.floor_plan_preprocessing import (
 )
 from app.algorithms.floor_plan_scoring import FloorPlanScoringResult
 from app.algorithms.types_new import FloorPlan, RoomType
+from app.core.execution import ExecutionContext
 from app.visualization.features.score.config import ScoringVisualizationConfig
 
 
@@ -53,6 +54,7 @@ class GenerationPipelineRequest:
     max_length: float
     aspect_ratio: float | str
     rooms: tuple[RequestedGenerationRoom, ...]
+    execution_context: ExecutionContext | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,6 +158,7 @@ class GenerationPipelineSettings:
 class GenerationPipelineResult:
     floor_plan: FloorPlan
     scoring: FloorPlanScoringResult
+    execution_context: ExecutionContext | None = None
 
 
 class GenerationPipelineError(Exception):

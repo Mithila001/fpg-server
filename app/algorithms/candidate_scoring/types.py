@@ -6,6 +6,7 @@ from types import MappingProxyType
 from typing import Mapping, NewType
 
 from app.algorithms.types_new import FloorPlanGenerationSpec
+from app.core.execution import ExecutionContext
 
 EvaluatorKey = NewType("EvaluatorKey", str)
 
@@ -108,3 +109,4 @@ class CandidateScoringInput:
 
     specification: FloorPlanGenerationSpec
     candidate: object
+    execution_context: ExecutionContext | None = None

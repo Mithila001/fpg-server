@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, TypeAlias, cast
 
 from app.algorithms.types_new import RoomId, RoomType
+from app.core.execution import ExecutionContext
 
 from .config import (
     DEFAULT_MAX_HALLWAY_HINT_COUNT,
@@ -141,6 +142,7 @@ class CandidateSearchInput:
     targets: tuple[CandidateSearchTarget, ...]
     settings: CandidateSearchSettings
     evaluator: CandidateEvaluator
+    execution_context: ExecutionContext | None = None
 
     def __post_init__(self) -> None:
         normalized_targets = tuple(self.targets)
@@ -175,7 +177,7 @@ class CandidateSuggestion:
     points: tuple[CandidatePoint, ...]
 
     def __post_init__(self) -> None:
-        _validate_positive_integer("trial_number", self.trial_number)
+        _validate_non_negative_integer("trial_number", self.trial_number)
         object.__setattr__(self, "points", _validated_candidate_points(self.points))
 
 
@@ -189,7 +191,7 @@ class CandidateTrialResult:
     completed_trials: int
 
     def __post_init__(self) -> None:
-        _validate_positive_integer("trial_number", self.trial_number)
+        _validate_non_negative_integer("trial_number", self.trial_number)
 
         normalized_points = _validated_candidate_points(self.points)
         numeric_score = _validated_finite_number("score", self.score)
@@ -272,6 +274,13 @@ def _validate_positive_integer(field_name: str, value: object) -> None:
         raise TypeError(f"{field_name} must be an integer.")
     if value <= 0:
         raise ValueError(f"{field_name} must be greater than zero.")
+
+
+def _validate_non_negative_integer(field_name: str, value: object) -> None:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{field_name} must be an integer.")
+    if value < 0:
+        raise ValueError(f"{field_name} must be non-negative.")
 
 
 def _find_duplicate_room_ids(room_ids: list[RoomId]) -> set[RoomId]:

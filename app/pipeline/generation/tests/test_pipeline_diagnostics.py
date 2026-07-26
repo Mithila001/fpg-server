@@ -6,6 +6,7 @@ import pytest
 
 import app.pipeline.generation.pipeline as pipeline_module
 from app.algorithms.types_new import FloorPlan, Point, Polygon, RoomType
+from app.core.execution import ExecutionContext
 from app.pipeline.generation.context import (
     GenerationPipelineError,
     GenerationPipelineRequest,
@@ -18,7 +19,7 @@ from app.pipeline.generation.context import (
 @dataclass
 class _SolverAttemptVisualizationStub:
     candidate_trial_number: int
-    solver_run_number: int
+    solver_run_id: int
     initial_floor_plan: FloorPlan
     refined_floor_plan: FloorPlan
     post_processed_floor_plan: FloorPlan
@@ -104,7 +105,7 @@ def test_solver_visualization_uses_initial_refined_and_final_stages(
     )
     attempt = _SolverAttemptVisualizationStub(
         candidate_trial_number=7,
-        solver_run_number=2,
+        solver_run_id=2,
         initial_floor_plan=plans[0],
         refined_floor_plan=plans[1],
         post_processed_floor_plan=plans[2],
@@ -112,10 +113,14 @@ def test_solver_visualization_uses_initial_refined_and_final_stages(
     )
 
     pipeline_module._render_solver_attempt(
-        request_id="request-42",
+        context=(
+            ExecutionContext.create_root(job_id="request-42")
+            .for_search_trial(7)
+            .for_candidate(1)
+            .for_solver_run(2)
+        ),
         attempt=attempt,
         last_refinement_profile_name="refinement_b",
-        run_timestamp="20260722T061530123456Z",
     )
 
     stages = captured["payload"].stages
