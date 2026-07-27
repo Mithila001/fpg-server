@@ -15,6 +15,7 @@ def resolve_artifact_path(
 ) -> Path:
     name = normalize_slug(request.semantic_name)
     extension = request.artifact_format.value
+
     if request.artifact_scope is ArtifactScope.GLOBAL:
         date = normalize_slug(request.metadata.get("event_date", "undated"))
         return (
@@ -31,13 +32,13 @@ def resolve_artifact_path(
         started_at=context.flow_started_at,
         flow_id=str(context.flow_id),
     )
+
     if request.artifact_kind is ArtifactKind.EVENT_LOG:
         return (
             flow_root
             / "json"
             / "logs"
-            / normalize_slug(request.feature.value)
-            / f"{name}.json"
+            / f"{normalize_slug(request.feature.value)}.json"
         )
 
     directory = flow_root / request.artifact_format.value / normalize_slug(

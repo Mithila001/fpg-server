@@ -28,7 +28,7 @@ _event_counter_lock = Lock()
 
 
 class BaseLogger:
-    """Validate common records and persist each event as one atomic JSON file."""
+    """Validate records and aggregate flow events by feature."""
 
     def __init__(
         self,
@@ -58,10 +58,12 @@ class BaseLogger:
     ) -> ArtifactReference | None:
         if level.priority < self.minimum_level.priority:
             return None
+
         try:
             safe_payload = to_json_value(payload or {})
             if not isinstance(safe_payload, dict):
                 raise TypeError("log payload must serialize to an object")
+
             record = LogRecord(
                 level=level,
                 feature=feature,
@@ -76,6 +78,7 @@ class BaseLogger:
                 ),
             )
             serialized = record.to_dict()
+
             if self.console:
                 print(
                     json.dumps(
@@ -87,26 +90,31 @@ class BaseLogger:
                     file=sys.stdout,
                     flush=True,
                 )
+
             timestamp = record.timestamp_utc
-            with _event_counter_lock:
-                sequence = next(_event_counter)
-            semantic_name = (
-                f"{timestamp:%Y%m%dT%H%M%S.%fZ}_"
-                f"p{os.getpid()}_c{sequence:06d}_{record.event}"
-            )
+            if context is None:
+                with _event_counter_lock:
+                    sequence = next(_event_counter)
+                semantic_name = (
+                    f"{timestamp:%Y%m%dT%H%M%S.%fZ}_"
+                    f"p{os.getpid()}_c{sequence:06d}_{record.event}"
+                )
+                write_mode = WriteMode.CREATE
+                artifact_scope = ArtifactScope.GLOBAL
+            else:
+                semantic_name = feature.value
+                write_mode = WriteMode.REPLACE
+                artifact_scope = ArtifactScope.FLOW
+
             return self.storage.save_json(
                 ArtifactWriteRequest(
                     feature=feature,
                     artifact_kind=ArtifactKind.EVENT_LOG,
                     artifact_format=ArtifactFormat.JSON,
-                    artifact_scope=(
-                        ArtifactScope.FLOW
-                        if context is not None
-                        else ArtifactScope.GLOBAL
-                    ),
+                    artifact_scope=artifact_scope,
                     semantic_name=semantic_name,
                     execution_context=context,
-                    write_mode=WriteMode.CREATE,
+                    write_mode=write_mode,
                     metadata={"event_date": f"{timestamp:%Y-%m-%d}"},
                 ),
                 serialized,

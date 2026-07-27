@@ -7,7 +7,6 @@ from typing import Any
 
 from .types.land_types import (
     CoordinatePayload,
-    LandBoundaryPayload,
     SegmentCategory,
     SegmentCategoryItem,
     SegmentOffsetItem,

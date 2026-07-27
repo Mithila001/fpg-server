@@ -11,6 +11,10 @@ from app.pipeline.generation import (
     RequestedGenerationRoom,
     run_generation_pipeline,
 )
+from app.streaming.contracts import (
+    GenerationEventPublisher,
+    NullGenerationEventPublisher,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,11 +40,16 @@ class GenerationServiceRequest:
 
 def execute_generation(
     request: GenerationServiceRequest,
+    *,
+    job_id: str | None = None,
+    events: GenerationEventPublisher | None = None,
 ) -> GenerationPipelineResult:
-    job_id = str(uuid4())
-    execution_context = ArtifactStorage().create_execution_context(job_id=job_id)
+    resolved_job_id = job_id or str(uuid4())
+    execution_context = ArtifactStorage().create_execution_context(
+        job_id=resolved_job_id
+    )
     pipeline_request = GenerationPipelineRequest(
-        request_id=job_id,
+        request_id=resolved_job_id,
         max_width=request.max_width,
         max_length=request.max_length,
         aspect_ratio=request.aspect_ratio,
@@ -56,4 +65,7 @@ def execute_generation(
         ),
         execution_context=execution_context,
     )
-    return run_generation_pipeline(pipeline_request)
+    return run_generation_pipeline(
+        pipeline_request,
+        events=events or NullGenerationEventPublisher(),
+    )

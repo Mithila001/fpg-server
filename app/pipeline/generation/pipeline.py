@@ -33,6 +33,7 @@ from app.algorithms.candidate_search import (
 from app.algorithms.floor_plan_openings import (
     OpeningGenerationError,
     OpeningGenerationRequest,
+    OpeningGenerationResult,
     generate_openings,
 )
 from app.algorithms.floor_plan_post_processing import (
@@ -41,11 +42,13 @@ from app.algorithms.floor_plan_post_processing import (
 from app.algorithms.floor_plan_post_processing import (
     PipelineStatus,
     PostProcessingRequest,
+    PostProcessingResult,
     post_process_floor_plan,
 )
 from app.algorithms.floor_plan_preprocessing import (
     FloorLimits,
     FloorPlanPreprocessingError,
+    PreparedGenerationInput,
     PreprocessingInput,
     PreprocessingRequest,
     RequestedRoom,
@@ -62,12 +65,20 @@ from app.algorithms.floor_plan_scoring.logging import (
 from app.algorithms.floor_plan_solver import (
     INITIAL_GENERATION_PROFILE,
     FloorPlanSolveRequest,
+    FloorPlanSolveResult,
     FloorPlanSolverError,
     RoomPlacementHint,
     generate_floor_plan,
 )
 from app.algorithms.types_new import FloorPlan
 from app.core.execution import ExecutionContext, PipelineStage
+from app.streaming.contracts import (
+    CompletionOutcome,
+    FloorPlanClassification,
+    GenerationEventPublisher,
+    GenerationStatus,
+    NullGenerationEventPublisher,
+)
 from app.visualization.api import (
     CandidatePoint as VisualizationCandidatePoint,
 )
@@ -526,7 +537,7 @@ def _execute_solver_run(
 ) -> _CompletedFloorPlanAttempt:
     attempt_label = f"candidate-{candidate_id}.solver-run-{solver_run_id}"
 
-    def solve_initial():
+    def solve_initial() -> FloorPlanSolveResult:
         result = generate_floor_plan(
             _create_solver_request(
                 specification=specification,
@@ -567,7 +578,7 @@ def _execute_solver_run(
         def refine(
             active_profile: Any = profile,
             source_floor_plan: FloorPlan = current_floor_plan,
-        ):
+        ) -> FloorPlanSolveResult:
             result = generate_floor_plan(
                 _create_solver_request(
                     specification=specification,
@@ -608,7 +619,7 @@ def _execute_solver_run(
 
     refined_floor_plan = deepcopy(current_floor_plan)
 
-    def post_process():
+    def post_process() -> PostProcessingResult:
         result = post_process_floor_plan(
             PostProcessingRequest(
                 floor_plan=refined_floor_plan,
@@ -637,7 +648,7 @@ def _execute_solver_run(
     )
     post_processed_floor_plan = deepcopy(post_result.floor_plan)
 
-    def add_openings():
+    def add_openings() -> OpeningGenerationResult:
         result = generate_openings(
             OpeningGenerationRequest(
                 floor_plan=post_processed_floor_plan,
@@ -818,6 +829,7 @@ def run_generation_pipeline(
     request: GenerationPipelineRequest,
     *,
     settings: GenerationPipelineSettings = GenerationPipelineSettings(),
+    events: GenerationEventPublisher | None = None,
 ) -> GenerationPipelineResult:
     """
     Run the incremental candidate-search and floor-plan generation loop.
@@ -828,6 +840,7 @@ def run_generation_pipeline(
     """
 
     pipeline_started = perf_counter()
+    event_publisher = events or NullGenerationEventPublisher()
     execution_context = request.execution_context or create_pipeline_context(
         job_id=request.request_id,
         seed=settings.candidate_random_seed,
@@ -837,8 +850,9 @@ def run_generation_pipeline(
         "flow_started",
         data={"job_id": request.request_id},
     )
+    event_publisher.status(GenerationStatus.JOB_STARTED)
 
-    def preprocess():
+    def preprocess() -> PreparedGenerationInput:
         preprocessing_input = PreprocessingInput(
             request=PreprocessingRequest(
                 floor_limits=FloorLimits(request.max_width, request.max_length),
@@ -869,6 +883,8 @@ def run_generation_pipeline(
         summary=lambda value: f"rooms={len(value.generation_spec.rooms)}",
     )
     specification = prepared.generation_spec
+    if settings.candidate_search_enabled:
+        event_publisher.status(GenerationStatus.CANDIDATE_SEARCH_STARTED)
 
     candidate_registry = create_candidate_scoring_registry()
     candidate_config = create_candidate_scoring_config()
@@ -898,6 +914,7 @@ def run_generation_pipeline(
         return result.total_score
 
     best_usable_attempt: _CompletedFloorPlanAttempt | None = None
+    best_usable_event_sequence: int | None = None
     solver_failure_count = 0
     last_solver_failure: dict[str, str] | None = None
     eligible_candidate_count = 0
@@ -912,10 +929,12 @@ def run_generation_pipeline(
         candidate_context: ExecutionContext,
     ) -> GenerationPipelineResult | None:
         nonlocal best_usable_attempt
+        nonlocal best_usable_event_sequence
         nonlocal last_solver_failure
         nonlocal solver_failure_count
         nonlocal termination_reason
 
+        event_publisher.status(GenerationStatus.FLOOR_PLAN_GENERATION_STARTED)
         max_runs = settings.effective_solver_runs_per_candidate
         for solver_run_number in range(1, max_runs + 1):
             if _timed_out(pipeline_started, settings):
@@ -990,11 +1009,33 @@ def run_generation_pipeline(
                         "threshold": (settings.effective_presentable_floor_plan_score),
                     },
                 )
-                return _build_result(
+                result = _build_result(
                     context=solver_context,
                     attempt=attempt,
                     settings=settings,
                 )
+                event_publisher.status(
+                    GenerationStatus.PRESENTABLE_FLOOR_PLAN_FOUND
+                )
+                final_sequence = event_publisher.floor_plan(
+                    classification=FloorPlanClassification.PRESENTABLE,
+                    trial_number=(
+                        attempt.search_trial_id + 1
+                        if attempt.search_trial_id is not None
+                        else None
+                    ),
+                    candidate_id=attempt.candidate_id,
+                    solver_run_id=attempt.solver_run_id,
+                    score=attempt.scoring.total_score,
+                    passed_critical=attempt.scoring.passed_critical,
+                    floor_plan=result.floor_plan,
+                )
+                event_publisher.completed(
+                    outcome=CompletionOutcome.PRESENTABLE_PLAN_FOUND,
+                    final_floor_plan_sequence=final_sequence,
+                    elapsed_ms=round(_elapsed_seconds(pipeline_started) * 1000),
+                )
+                return result
 
             if _is_usable(attempt, settings):
                 if _is_better_attempt(attempt, best_usable_attempt):
@@ -1007,6 +1048,22 @@ def run_generation_pipeline(
                             "solver_run_id": solver_run_number,
                             "score": attempt.scoring.total_score,
                         },
+                    )
+                    event_publisher.status(
+                        GenerationStatus.USABLE_FLOOR_PLAN_FOUND
+                    )
+                    best_usable_event_sequence = event_publisher.floor_plan(
+                        classification=FloorPlanClassification.USABLE,
+                        trial_number=(
+                            attempt.search_trial_id + 1
+                            if attempt.search_trial_id is not None
+                            else None
+                        ),
+                        candidate_id=attempt.candidate_id,
+                        solver_run_id=attempt.solver_run_id,
+                        score=attempt.scoring.total_score,
+                        passed_critical=attempt.scoring.passed_critical,
+                        floor_plan=attempt.final_floor_plan,
                     )
 
                 # A usable but not presentable plan causes another FPG run with
@@ -1111,6 +1168,19 @@ def run_generation_pipeline(
             except Exception:
                 search_session.fail_pending_trial()
                 raise
+
+            event_publisher.candidate_trial(
+                trial_number=trial_result.completed_trials,
+                trial_limit=settings.candidate_trial_count,
+                candidate_hints=trial_result.points,
+            )
+            event_publisher.progress(
+                stage=GenerationStage.CANDIDATE_SEARCH.value,
+                trial_number=trial_result.completed_trials,
+                trial_limit=settings.candidate_trial_count,
+                elapsed_ms=round(_elapsed_seconds(pipeline_started) * 1000),
+                timeout_ms=round(settings.timeout_seconds * 1000),
+            )
 
             if trial_result.score < settings.candidate_score_threshold:
                 latest_candidate_scoring = None
@@ -1221,6 +1291,8 @@ def run_generation_pipeline(
             termination_reason = "candidate_trials_exhausted"
 
     if best_usable_attempt is not None:
+        if termination_reason == "timeout":
+            event_publisher.status(GenerationStatus.TIMEOUT_REACHED)
         _log_generation(
             execution_context,
             "returning_best_usable_floor_plan",
@@ -1232,7 +1304,7 @@ def run_generation_pipeline(
                 "elapsed_seconds": _elapsed_seconds(pipeline_started),
             },
         )
-        return _build_result(
+        result = _build_result(
             context=(
                 execution_context.for_search_trial(
                     best_usable_attempt.search_trial_id
@@ -1245,6 +1317,12 @@ def run_generation_pipeline(
             attempt=best_usable_attempt,
             settings=settings,
         )
+        event_publisher.completed(
+            outcome=CompletionOutcome.BEST_USABLE_PLAN_RETURNED,
+            final_floor_plan_sequence=best_usable_event_sequence,
+            elapsed_ms=round(_elapsed_seconds(pipeline_started) * 1000),
+        )
+        return result
 
     raise GenerationPipelineError(
         GenerationStage.FINAL_VALIDATION,
