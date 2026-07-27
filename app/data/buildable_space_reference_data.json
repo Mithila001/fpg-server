@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "units": {
+    "project_units_per_meter": 10
+  },
+  "active_profile": "mock_residential_v1",
+  "setback_profiles": {
+    "mock_residential_v1": {
+      "status": "mock_non_regulatory",
+      "description": "Migration seed values copied from the removed legacy implementation. These values are not verified Sri Lankan legal requirements.",
+      "calculation_mode": "base_plus_road_adjustment",
+      "base_setbacks": {
+        "front": 10,
+        "back": 30,
+        "left": 10,
+        "right": 10
+      },
+      "road_adjustments": {
+        "main_road": {
+          "front": 5,
+          "back": 0,
+          "left": 5,
+          "right": 5
+        },
+        "private_road": {
+          "front": 5,
+          "back": 0,
+          "left": 0,
+          "right": 0
+        }
+      }
+    }
+  },
+  "usable_land_constraints": {
+    "minimum_width": 80,
+    "minimum_length": 80,
+    "search_resolution": 5,
+    "maximum_sweep_lines": 1000
+  },
+  "validation_limits": {
+    "minimum_vertex_count": 4,
+    "maximum_vertex_count": 50,
+    "maximum_absolute_coordinate": 100000
+  }
+}

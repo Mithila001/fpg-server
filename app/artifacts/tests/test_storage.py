@@ -95,8 +95,11 @@ def test_event_json_files_are_valid_under_concurrent_writers(
         paths = list(executor.map(write, range(40)))
 
     assert all(path is not None for path in paths)
-    records = [json.loads(path.read_text()) for path in paths if path is not None]
-    assert sorted(record["i"] for record in records) == list(range(40))
+    unique_paths = {path for path in paths if path is not None}
+    assert len(unique_paths) == 1
+    document = json.loads(unique_paths.pop().read_text())
+    assert document["event_count"] == 40
+    assert sorted(record["i"] for record in document["events"]) == list(range(40))
     flow_root = next((tmp_path / "flows").iterdir())
     assert {item.name for item in flow_root.iterdir()} == {"json", "png"}
     assert not tuple(tmp_path.rglob("*.lock"))

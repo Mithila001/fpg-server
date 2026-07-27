@@ -1,6 +1,8 @@
 import multiprocessing as mp
 import os
+from collections.abc import Awaitable, Callable
 from time import perf_counter
+from typing import Any, cast
 
 # Set start method to spawn to prevent thread inheritance issues on Linux (Ubuntu)
 try:
@@ -8,7 +10,8 @@ try:
 except RuntimeError:
     pass
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response, StreamingResponse
 
@@ -41,7 +44,10 @@ app.add_middleware(
 
 
 @app.middleware("http")
-async def log_api_requests(request, call_next):
+async def log_api_requests(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
     start = perf_counter()
     # If this is an SSE client, avoid consuming or re-injecting the body
     accept_header = request.headers.get("accept", "")
@@ -77,7 +83,7 @@ async def log_api_requests(request, call_next):
             return response
 
         response_body = b""
-        async for chunk in response.body_iterator:
+        async for chunk in cast(Any, response).body_iterator:
             response_body += chunk
 
         response_headers = dict(response.headers)
@@ -119,6 +125,17 @@ async def log_api_requests(request, call_next):
         raise
 
 
+from app.routes.buildable_space import (  # noqa: E402
+    buildable_space_context_middleware,
+    buildable_space_validation_exception_handler,
+    router as buildable_space_router,
+)
 from app.routes.generation import router as generation_router  # noqa: E402
 
+app.middleware("http")(buildable_space_context_middleware)
+app.add_exception_handler(
+    RequestValidationError,
+    cast(Any, buildable_space_validation_exception_handler),
+)
+app.include_router(buildable_space_router)
 app.include_router(generation_router)

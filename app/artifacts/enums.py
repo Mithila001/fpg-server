@@ -4,6 +4,9 @@ from enum import StrEnum
 class FeatureKey(StrEnum):
     APPLICATION = "application"
     PIPELINE = "pipeline"
+    BUILDABLE_SPACE = "buildable_space"
+    BUILDABLE_LAND = "buildable_land"
+    USABLE_LAND = "usable_land"
     PREPROCESSING = "preprocessing"
     CANDIDATE_SEARCH = "candidate_search"
     CANDIDATE_SCORING = "candidate_scoring"

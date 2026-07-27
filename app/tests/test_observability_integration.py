@@ -106,8 +106,9 @@ def test_one_flow_groups_feature_events_and_matching_artifacts(
     event_files = tuple((flow_root / "json" / "logs").rglob("*.json"))
     assert len(event_files) == 8
     flow_ids = {
-        json.loads(path.read_text())["execution_context"]["flow_id"]
+        event["execution_context"]["flow_id"]
         for path in event_files
+        for event in json.loads(path.read_text())["events"]
     }
     assert flow_ids == {str(root.flow_id)}
     assert not tuple(flow_root.rglob("*.lock"))

@@ -5,6 +5,7 @@ from pathlib import Path
 
 APP_ROOT = Path(__file__).resolve().parents[2]
 ACTIVE_FEATURES = {
+    "buildable_land",
     "candidate_search",
     "candidate_scoring",
     "floor_plan_preprocessing",
@@ -12,6 +13,7 @@ ACTIVE_FEATURES = {
     "floor_plan_post_processing",
     "floor_plan_openings",
     "floor_plan_scoring",
+    "usable_land",
 }
 
 

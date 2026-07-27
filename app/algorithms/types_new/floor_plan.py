@@ -2,21 +2,12 @@
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import NewType
+
 from .floor_plan_spec import RoomId, RoomType
+from .geometry import Point, Polygon
 
 
 OpeningId = NewType("OpeningId", str)
-
-
-@dataclass(frozen=True)
-class Point:
-    x: float
-    y: float
-
-
-@dataclass(frozen=True)
-class Polygon:
-    points: tuple[Point, ...]
 
 
 class OpeningType(str, Enum):
