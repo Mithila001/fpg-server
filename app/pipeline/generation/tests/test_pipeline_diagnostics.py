@@ -36,6 +36,8 @@ def _request() -> GenerationPipelineRequest:
             RequestedGenerationRoom(RoomType.BEDROOM, id="bedroom"),
             RequestedGenerationRoom(RoomType.KITCHEN, id="kitchen"),
             RequestedGenerationRoom(RoomType.BATHROOM, id="bathroom"),
+            RequestedGenerationRoom(RoomType.LIVING_ROOM, id="living_room"),
+            RequestedGenerationRoom(RoomType.DINING_ROOM, id="dining_room"),
             RequestedGenerationRoom(RoomType.VERANDA, id="veranda"),
         ),
     )

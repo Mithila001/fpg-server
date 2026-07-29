@@ -14,14 +14,14 @@ from app.algorithms.types_new import (
     RoomWidthAxis,
 )
 
-from .config import OptionalRoomFailurePolicy, PreprocessingPolicy
+from .config import PreprocessingPolicy
 from .context import (
     PreparedReferenceData,
     PreparedRoomSizeReference,
     PreprocessingContext,
     RuledRequest,
 )
-from .contracts import RelationDecision, RoomDecision
+from .contracts import RelationDecision
 from .exceptions import (
     FloorPreparationError,
     RelationPreparationError,
@@ -65,21 +65,6 @@ def _prepare_non_hallway_rooms(
         size_label = room.requested_size or request.selected_room_size
         reference = by_type_size.get((room.room_type, size_label))
         if reference is None:
-            removable = (
-                not room.required
-                and room.room_type in policy.optional_room_types
-                and policy.optional_room_failures is OptionalRoomFailurePolicy.REMOVE
-            )
-            if removable:
-                decisions.append(
-                    RoomDecision(
-                        room.id,
-                        room.room_type,
-                        "removed",
-                        f"no '{size_label}' size reference",
-                    )
-                )
-                continue
             raise RoomPreparationError(
                 f"Room '{room.id}' ({room.room_type.value}) has no size "
                 f"reference for '{size_label}'"
@@ -91,7 +76,6 @@ def _prepare_non_hallway_rooms(
                 room_type=room.room_type,
                 name=room.name,
                 size=_room_size_spec(reference),
-                required=room.required,
             )
         )
     retained_rooms = tuple(room for room in request.rooms if room.id in retained_ids)
@@ -106,7 +90,7 @@ def _select_floor(
     policy: PreprocessingPolicy,
 ) -> tuple[FloorSpec, float, float]:
     hallway_count = sum(r.room_type is RoomType.HALLWAY for r in request.rooms)
-    hallway_area = policy.hallway_min_width * policy.hallway_min_length
+    hallway_area = policy.hallway_area_buffer
     minimum = (
         sum(room.size.min_area for room in rooms)
         + hallway_count * hallway_area
@@ -141,7 +125,8 @@ def _select_floor(
             + ", ".join(oversized)
         )
     if hallway_count and (
-        width < policy.hallway_min_width or length < policy.hallway_min_length
+        width < policy.hallway_min_width
+        or length < policy.hallway_min_width
     ):
         raise FloorPreparationError(
             "Selected floor cannot contain the configured hallway dimensions"
@@ -156,7 +141,7 @@ def _add_hallways(
     policy: PreprocessingPolicy,
 ) -> tuple[RoomSpec, ...]:
     by_id = {str(room.id): room for room in non_hallways}
-    hallway_min_area = policy.hallway_min_width * policy.hallway_min_length
+    hallway_min_area = policy.hallway_area_buffer
     result: list[RoomSpec] = []
     for room in request.rooms:
         if room.room_type is not RoomType.HALLWAY:
@@ -170,17 +155,16 @@ def _add_hallways(
                 size=RoomSizeSpec(
                     min_width=min(
                         policy.hallway_min_width,
-                        policy.hallway_min_length,
+                        hallway_min_area / policy.hallway_min_width,
                     ),
                     max_width=max(
                         policy.hallway_min_width,
-                        policy.hallway_min_length,
+                        hallway_min_area / policy.hallway_min_width,
                     ),
                     min_area=hallway_min_area,
                     max_area=floor.width * floor.length,
                     width_axis=RoomWidthAxis.ANY,
                 ),
-                required=room.required,
             )
         )
     return tuple(result)

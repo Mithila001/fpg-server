@@ -1,12 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from typing import Any
 
 from fastapi import APIRouter, Request
-from fastapi.encoders import jsonable_encoder
-from fastapi.exception_handlers import request_validation_exception_handler
-from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, StrictInt
 from starlette.responses import Response
@@ -25,11 +21,8 @@ from app.algorithms.types_new import (
 from app.artifacts import ArtifactStorage
 from app.core.execution import ExecutionContext
 from app.pipeline.buildable_space import BuildableSpacePipelineError
-from app.pipeline.buildable_space.logging import (
-    BuildableSpaceEvent,
-    log_buildable_space_event,
-)
 from app.services.buildable_space_service import execute_buildable_space
+from app.routes.errors import ApiErrorResponse, api_error_response
 
 router = APIRouter(tags=["buildable-space"])
 BUILDABLE_SPACE_PATH = "/buildable-space"
@@ -109,14 +102,6 @@ class BuildableSpaceResponse(_ContractModel):
     reference_profile: str
 
 
-class BuildableSpaceErrorResponse(_ContractModel):
-    flow_id: str
-    stage: str
-    code: str
-    message: str
-    details: dict[str, Any] = Field(default_factory=dict)
-
-
 def _ensure_execution_context(request: Request) -> ExecutionContext:
     existing = getattr(request.state, "buildable_space_execution_context", None)
     if isinstance(existing, ExecutionContext):
@@ -141,61 +126,14 @@ async def buildable_space_context_middleware(
     try:
         response = await call_next(request)
     except Exception:
-        response = JSONResponse(
+        response = api_error_response(
             status_code=500,
-            content=jsonable_encoder(
-                BuildableSpaceErrorResponse(
-                    flow_id=flow_id,
-                    stage=BuildableSpaceStage.RESPONSE.value,
-                    code=(
-                        BuildableSpaceErrorCode.UNEXPECTED_BUILDABLE_SPACE_ERROR.value
-                    ),
-                    message="Buildable-space calculation failed unexpectedly.",
-                )
-            ),
+            stage=BuildableSpaceStage.RESPONSE.value,
+            code=BuildableSpaceErrorCode.UNEXPECTED_BUILDABLE_SPACE_ERROR.value,
+            message="Buildable-space calculation failed unexpectedly.",
         )
     response.headers["X-Flow-ID"] = flow_id
     return response
-
-
-async def buildable_space_validation_exception_handler(
-    request: Request,
-    exc: RequestValidationError,
-) -> Response:
-    if request.url.path != BUILDABLE_SPACE_PATH:
-        return await request_validation_exception_handler(request, exc)
-    context = _ensure_execution_context(request)
-    log_buildable_space_event(
-        context,
-        BuildableSpaceEvent.FAILED,
-        level="ERROR",
-        payload={
-            "stage": BuildableSpaceStage.REQUEST_VALIDATION.value,
-            "error_code": BuildableSpaceErrorCode.INVALID_REQUEST.value,
-        },
-        exception=exc,
-    )
-    errors = [
-        {
-            "location": [str(part) for part in error.get("loc", ())],
-            "message": str(error.get("msg", "Invalid value.")),
-            "type": str(error.get("type", "validation_error")),
-        }
-        for error in exc.errors()
-    ]
-    return JSONResponse(
-        status_code=422,
-        content=jsonable_encoder(
-            BuildableSpaceErrorResponse(
-                flow_id=str(context.flow_id),
-                stage=BuildableSpaceStage.REQUEST_VALIDATION.value,
-                code=BuildableSpaceErrorCode.INVALID_REQUEST.value,
-                message="The buildable-space request is invalid.",
-                details={"errors": errors},
-            )
-        ),
-        headers={"X-Flow-ID": str(context.flow_id)},
-    )
 
 
 def _to_service_request(body: BuildableSpaceRequest) -> BuildableSpaceRequestData:
@@ -226,8 +164,8 @@ def _polygon_response(polygon: Polygon) -> PolygonResponse:
     BUILDABLE_SPACE_PATH,
     response_model=BuildableSpaceResponse,
     responses={
-        422: {"model": BuildableSpaceErrorResponse},
-        500: {"model": BuildableSpaceErrorResponse},
+        422: {"model": ApiErrorResponse},
+        500: {"model": ApiErrorResponse},
     },
 )
 def buildable_space(
@@ -251,31 +189,19 @@ def buildable_space(
             }
             else 422
         )
-        return JSONResponse(
+        return api_error_response(
             status_code=status_code,
-            content=jsonable_encoder(
-                BuildableSpaceErrorResponse(
-                    flow_id=flow_id,
-                    stage=exc.stage.value,
-                    code=exc.code.value,
-                    message=exc.message,
-                    details=dict(exc.details),
-                )
-            ),
+            stage=exc.stage.value,
+            code=exc.code.value,
+            message=exc.message,
+            details=dict(exc.details),
         )
     except Exception:
-        return JSONResponse(
+        return api_error_response(
             status_code=500,
-            content=jsonable_encoder(
-                BuildableSpaceErrorResponse(
-                    flow_id=flow_id,
-                    stage=BuildableSpaceStage.RESPONSE.value,
-                    code=(
-                        BuildableSpaceErrorCode.UNEXPECTED_BUILDABLE_SPACE_ERROR.value
-                    ),
-                    message="Buildable-space calculation failed unexpectedly.",
-                )
-            ),
+            stage=BuildableSpaceStage.RESPONSE.value,
+            code=BuildableSpaceErrorCode.UNEXPECTED_BUILDABLE_SPACE_ERROR.value,
+            message="Buildable-space calculation failed unexpectedly.",
         )
 
     buildable = result.buildable_land

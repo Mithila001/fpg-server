@@ -62,7 +62,6 @@ def _build_room_spec(data: dict[str, Any]) -> RoomSpec:
             min_area=size["min_area"],
             max_area=size["max_area"],
         ),
-        required=data.get("required", True),
     )
 
 

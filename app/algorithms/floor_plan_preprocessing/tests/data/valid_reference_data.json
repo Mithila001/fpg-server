@@ -33,6 +33,14 @@
       "max_area": 144.0
     },
     {
+      "room_type": "dining_room",
+      "size": "regular",
+      "min_width": 8.0,
+      "max_width": 12.0,
+      "min_area": 64.0,
+      "max_area": 144.0
+    },
+    {
       "room_type": "veranda",
       "size": "regular",
       "min_width": 8.0,

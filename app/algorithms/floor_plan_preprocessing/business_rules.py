@@ -66,22 +66,7 @@ def apply_business_rules(
             "Each attached bathroom requires a unique bedroom."
         )
 
-    attached_seen = 0
-    sanitized: list[NormalizedRoom] = []
-    for room in request.rooms:
-        if room.room_type is RoomType.ATTACHED_BATHROOM:
-            attached_seen += 1
-            if attached_seen > len(bedrooms):
-                decisions.append(
-                    RoomDecision(
-                        room.id,
-                        room.room_type,
-                        "removed",
-                        "attached bathroom count exceeded bedroom count",
-                    )
-                )
-                continue
-        sanitized.append(room)
+    sanitized = list(request.rooms)
 
     present_types = {room.room_type for room in sanitized}
     missing = [t for t in policy.mandatory_room_types if t not in present_types]
@@ -91,58 +76,15 @@ def apply_business_rules(
             + ", ".join(room_type.value for room_type in missing)
         )
 
-    mandatory = set(policy.mandatory_room_types)
-    required_rooms: list[NormalizedRoom] = []
-    for room in sanitized:
-        must_be_required = room.room_type in mandatory or room.room_type in {
-            RoomType.LIVING_ROOM,
-            RoomType.HALLWAY,
-        }
-        if must_be_required and not room.required:
-            decisions.append(
-                RoomDecision(
-                    room.id,
-                    room.room_type,
-                    "marked_required",
-                    "room type is required by preprocessing policy",
-                )
-            )
-            room = replace(room, required=True)
-        required_rooms.append(room)
-    sanitized = required_rooms
-
     used_ids = {room.id for room in sanitized}
     next_index = max((room.request_index for room in sanitized), default=-1) + 1
-    living_rooms = [r for r in sanitized if r.room_type is RoomType.LIVING_ROOM]
-    if len(living_rooms) > 1:
-        raise BusinessRuleError("Only one living room is supported")
-    if policy.derive_living_room and not living_rooms:
-        room_id = _next_available_id("living_room", used_ids)
-        living = NormalizedRoom(
-            room_id,
-            RoomType.LIVING_ROOM,
-            "Living Room",
-            None,
-            True,
-            next_index,
-        )
-        next_index += 1
-        used_ids.add(room_id)
-        sanitized.append(living)
-        decisions.append(
-            RoomDecision(room_id, RoomType.LIVING_ROOM, "derived", "policy default")
-        )
-        defaults.append("derived one living room")
-
-    existing_hallways = [r for r in sanitized if r.room_type is RoomType.HALLWAY]
-    for _ in range(max(0, policy.hallway_count - len(existing_hallways))):
+    for _ in range(policy.hallway_count):
         room_id = _next_available_id("hallway", used_ids)
         hallway = NormalizedRoom(
             room_id,
             RoomType.HALLWAY,
             room_id.replace("_", " ").title(),
             None,
-            True,
             next_index,
         )
         next_index += 1
@@ -152,13 +94,6 @@ def apply_business_rules(
             RoomDecision(room_id, RoomType.HALLWAY, "derived", "hallway policy")
         )
         defaults.append(f"derived hallway '{room_id}'")
-
-    sanitized = [
-        replace(room, required=True)
-        if room.room_type is RoomType.HALLWAY and not room.required
-        else room
-        for room in sanitized
-    ]
 
     selected_size = _select_majority_size(tuple(sanitized), policy)
     normalized_rooms = tuple(

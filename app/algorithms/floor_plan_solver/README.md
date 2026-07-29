@@ -26,8 +26,7 @@ change.
 The following rules are always applied and cannot be disabled by profiles:
 
 - room variables remain inside the floor bounds,
-- required rooms are present,
-- optional rooms use optional intervals,
+- every supplied room is present,
 - width, length, and area stay within each `RoomSpec`,
 - rooms do not overlap.
 
@@ -190,7 +189,7 @@ Soft:
 - internal dead space,
 - seed stability,
 - bathroom depth,
-- optional-room presence.
+- mandatory room presence.
 
 Legacy extender rules, auxiliary veranda geometry, envelope staircase logic,
 shared-wall-count rules, and specialized facade penalties are deliberately not

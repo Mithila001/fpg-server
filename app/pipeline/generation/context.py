@@ -41,7 +41,6 @@ class RequestedGenerationRoom:
     id: str | None = None
     name: str | None = None
     requested_size: str | None = "regular"
-    required: bool = True
 
     def __post_init__(self) -> None:
         if not isinstance(self.room_type, RoomType):

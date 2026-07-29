@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import math
+from collections import Counter
 
 from app.algorithms.types_new import FloorPlanGenerationSpec, RoomType
+from app.generation_metadata import CLIENT_ROOM_REQUIREMENTS, CLIENT_ROOM_TYPES
 
 from .config import ExcessAttachedBathroomPolicy, PreprocessingPolicy
 from .context import NormalizedRequest, PreparedReferenceData, PreprocessingContext
@@ -19,6 +21,7 @@ from .exceptions import (
     ContextValidationError,
     InputValidationError,
     OutputValidationError,
+    PreprocessingErrorCode,
     ReferenceDataError,
 )
 
@@ -60,7 +63,14 @@ def _validate_attached_bathroom_count(
         raise InputValidationError(
             f"Requested {attached_bathroom_count} attached bathroom(s), "
             f"but only {bedroom_count} bedroom(s) were provided. "
-            "Each attached bathroom requires a unique bedroom."
+            "Each attached bathroom requires a unique bedroom.",
+            code=(
+                PreprocessingErrorCode.ATTACHED_BATHROOM_COUNT_EXCEEDS_BEDROOMS
+            ),
+            details={
+                "bedroom_count": bedroom_count,
+                "attached_bathroom_count": attached_bathroom_count,
+            },
         )
 
 
@@ -81,25 +91,51 @@ def validate_input(value: PreprocessingInput) -> None:
             raise InputValidationError(
                 f"rooms[{index}] must be a RequestedRoom"
             )
-        if not isinstance(room.required, bool):
-            raise InputValidationError(f"rooms[{index}].required must be a boolean")
         if room.id is not None and not isinstance(room.id, str):
             raise InputValidationError(f"rooms[{index}].id must be a string or None")
+        if room.room_type not in CLIENT_ROOM_TYPES:
+            raise InputValidationError(
+                f"rooms[{index}].room_type cannot be supplied by the client",
+                code=PreprocessingErrorCode.FORBIDDEN_ROOM_TYPE,
+                details={
+                    "field": f"rooms[{index}].room_type",
+                    "room_type": room.room_type.value,
+                },
+            )
+    counts = Counter(room.room_type for room in request.rooms)
+    invalid_counts = [
+        {
+            "room_type": requirement.room_type.value,
+            "minimum": requirement.minimum,
+            "maximum": requirement.maximum,
+            "actual": counts[requirement.room_type],
+        }
+        for requirement in CLIENT_ROOM_REQUIREMENTS
+        if not requirement.minimum
+        <= counts[requirement.room_type]
+        <= requirement.maximum
+    ]
+    if invalid_counts:
+        raise InputValidationError(
+            "One or more room counts are outside the supported range.",
+            code=PreprocessingErrorCode.INVALID_ROOM_COUNT,
+            details={"room_counts": invalid_counts},
+        )
     if not isinstance(value.reference_data, PreprocessingReferenceData):
         raise InputValidationError(
             "reference_data must be PreprocessingReferenceData"
         )
-    for index, item in enumerate(value.reference_data.room_sizes):
-        if not isinstance(item, RoomSizeReference):
+    for index, size_item in enumerate(value.reference_data.room_sizes):
+        if not isinstance(size_item, RoomSizeReference):
             raise InputValidationError(
                 f"room_sizes[{index}] must be a RoomSizeReference"
             )
-    for index, item in enumerate(value.reference_data.room_relations):
-        if not isinstance(item, RoomRelationReference):
+    for index, relation_item in enumerate(value.reference_data.room_relations):
+        if not isinstance(relation_item, RoomRelationReference):
             raise InputValidationError(
                 f"room_relations[{index}] must be a RoomRelationReference"
             )
-        if not isinstance(item.required, bool):
+        if not isinstance(relation_item.required, bool):
             raise InputValidationError(
                 f"room_relations[{index}].required must be a boolean"
             )
@@ -117,6 +153,7 @@ def validate_policy(policy: PreprocessingPolicy) -> None:
     _finite_number(policy.floor_area_buffer, "floor_area_buffer")
     if policy.floor_area_buffer < 0:
         raise InputValidationError("floor_area_buffer cannot be negative")
+    _finite_number(policy.hallway_area_buffer, "hallway_area_buffer", positive=True)
     if (
         isinstance(policy.hallway_count, bool)
         or not isinstance(policy.hallway_count, int)
@@ -124,7 +161,6 @@ def validate_policy(policy: PreprocessingPolicy) -> None:
     ):
         raise InputValidationError("hallway_count must be a non-negative integer")
     _finite_number(policy.hallway_min_width, "hallway_min_width", positive=True)
-    _finite_number(policy.hallway_min_length, "hallway_min_length", positive=True)
     if not isinstance(policy.default_room_size, str) or not policy.default_room_size.strip():
         raise InputValidationError("default_room_size cannot be empty")
 
@@ -140,7 +176,11 @@ def validate_normalized_request(
     ids = [room.id for room in request.rooms]
     duplicates = sorted({room_id for room_id in ids if ids.count(room_id) > 1})
     if duplicates:
-        raise InputValidationError("Duplicate room ID(s): " + ", ".join(duplicates))
+        raise InputValidationError(
+            "Duplicate room ID(s): " + ", ".join(duplicates),
+            code=PreprocessingErrorCode.DUPLICATE_ROOM_ID,
+            details={"room_ids": duplicates},
+        )
     if any(not room.id.strip() for room in request.rooms):
         raise InputValidationError("Room IDs cannot be empty")
 
@@ -208,22 +248,12 @@ def validate_output(
         raise OutputValidationError("Final room IDs must be unique")
     room_types = [room.room_type for room in specification.rooms]
     required_types = set(policy.mandatory_room_types)
-    if policy.derive_living_room:
-        required_types.add(RoomType.LIVING_ROOM)
     missing = required_types.difference(room_types)
     if missing:
         raise OutputValidationError(
             "Final specification is missing required room types: "
             + ", ".join(sorted(item.value for item in missing))
         )
-    for room_type in required_types:
-        if not any(
-            room.room_type is room_type and room.required
-            for room in specification.rooms
-        ):
-            raise OutputValidationError(
-                f"Required room type '{room_type.value}' is not marked required"
-            )
     if room_types.count(RoomType.HALLWAY) < policy.hallway_count:
         raise OutputValidationError("Final specification has too few hallways")
     known_ids = set(ids)

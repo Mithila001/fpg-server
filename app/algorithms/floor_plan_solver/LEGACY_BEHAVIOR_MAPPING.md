@@ -8,7 +8,7 @@ package. It is not a compatibility promise; it is a migration checklist.
 | Room coordinate, size, end, interval, and area variables | `model.py` | Implemented |
 | Room containment | `model.py` core invariants | Implemented |
 | Global non-overlap | `model.py` core invariants | Implemented |
-| Required and optional room activation | `model.py` | Implemented |
+| Mandatory room activation | `model.py` | Implemented; optional rooms removed |
 | Aspect-ratio bounds | `constraints/hard/aspect_ratio.py` | Implemented and profile-configurable |
 | Hard AND/OR adjacency | `constraints/hard/room_relations.py` | Implemented using room IDs |
 | Soft adjacency | `constraints/soft/room_relations.py` | Implemented and connected to objective |

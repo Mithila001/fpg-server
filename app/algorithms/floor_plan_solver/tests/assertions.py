@@ -98,12 +98,10 @@ def assert_floor_plan_contract(
     assert _approximately_equal(floor_bounds.width, specification.floor.width)
     assert _approximately_equal(floor_bounds.length, specification.floor.length)
 
-    expected_required_ids = {
-        str(room.id) for room in specification.rooms if room.required
-    }
+    expected_room_ids = {str(room.id) for room in specification.rooms}
     actual_ids = [str(room.id) for room in floor_plan.rooms]
     assert len(actual_ids) == len(set(actual_ids)), "Room ids must be unique"
-    assert expected_required_ids.issubset(set(actual_ids))
+    assert expected_room_ids == set(actual_ids)
 
     for room in floor_plan.rooms:
         assert room.name.strip()

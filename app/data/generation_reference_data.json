@@ -63,14 +63,6 @@
       "max_width": 38.0,
       "min_area": 1650.0,
       "max_area": 2470.0
-    },
-    {
-      "room_type": "open_area",
-      "size": "regular",
-      "min_width": 30.0,
-      "max_width": 60.0,
-      "min_area": 900.0,
-      "max_area": 3600.0
     }
   ],
   "room_relations": [

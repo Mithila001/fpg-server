@@ -301,7 +301,6 @@ def build_default_profiles(
             apply_hints=True,
             position_tolerance=cfg.refinement_position_tolerance,
             size_tolerance=cfg.refinement_size_tolerance,
-            force_seeded_rooms_present=True,
         ),
     )
 
@@ -335,7 +334,6 @@ def build_default_profiles(
             apply_hints=True,
             position_tolerance=cfg.refinement_position_tolerance / 2,
             size_tolerance=cfg.refinement_size_tolerance / 2,
-            force_seeded_rooms_present=True,
         ),
     )
 

@@ -18,7 +18,6 @@ class RoomType(str, Enum):
     HALLWAY = "hallway"
     VERANDA = "veranda"
     GARAGE = "garage"
-    OPEN_AREA = "open_area"
 
 
 class RoomWidthAxis(str, Enum):
@@ -44,7 +43,6 @@ class RoomSpec:
     room_type: RoomType
     name: str
     size: RoomSizeSpec
-    required: bool = True
 
     def __post_init__(self) -> None:
         if not isinstance(self.room_type, RoomType):

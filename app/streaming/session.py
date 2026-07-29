@@ -6,7 +6,7 @@ from collections import deque
 from concurrent.futures import Future
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import AsyncIterator
+from typing import Any, AsyncIterator
 
 from fastapi import Request
 
@@ -176,6 +176,7 @@ class GenerationSseSession:
         stage: str,
         code: str,
         message: str,
+        details: dict[str, Any] | None = None,
         recoverable: bool = False,
     ) -> int | None:
         return self._submit(
@@ -183,6 +184,7 @@ class GenerationSseSession:
                 stage=stage,
                 code=code,
                 message=message,
+                details=details or {},
                 recoverable=recoverable,
             )
         )

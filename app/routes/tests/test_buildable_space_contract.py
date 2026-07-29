@@ -69,9 +69,9 @@ def test_structural_and_business_errors_have_flow_identity(
 
     for response in (structural, business):
         assert response.status_code == 422
-        assert response.headers["X-Flow-ID"] == response.json()["flow_id"]
-    assert structural.json()["code"] == "invalid_request"
-    assert business.json()["code"] == "invalid_land_boundary"
+        assert response.headers["X-Flow-ID"]
+    assert structural.json()["error"]["code"] == "invalid_request"
+    assert business.json()["error"]["code"] == "invalid_land_boundary"
 
 
 def test_float_boolean_and_extra_coordinates_are_rejected(
@@ -92,4 +92,4 @@ def test_float_boolean_and_extra_coordinates_are_rejected(
         response = client.post("/buildable-space", json=payload)
 
     assert response.status_code == 422
-    assert response.json()["code"] == "invalid_request"
+    assert response.json()["error"]["code"] == "invalid_request"

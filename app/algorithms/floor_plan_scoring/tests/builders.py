@@ -102,7 +102,6 @@ def build_generation_spec(
                     min_area=float(raw_size["min_area"]),
                     max_area=float(raw_size["max_area"]),
                 ),
-                required=bool(raw_room.get("required", True)),
             )
         )
 

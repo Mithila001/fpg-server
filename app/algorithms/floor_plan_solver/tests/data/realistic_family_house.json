@@ -13,7 +13,6 @@
       "id": "veranda",
       "room_type": "veranda",
       "name": "Front Veranda",
-      "required": true,
       "size": {
         "min_width": 30,
         "max_width": 70,
@@ -25,7 +24,6 @@
       "id": "living",
       "room_type": "living_room",
       "name": "Living Room",
-      "required": true,
       "size": {
         "min_width": 35,
         "max_width": 45,
@@ -37,7 +35,6 @@
       "id": "dining",
       "room_type": "dining_room",
       "name": "Dining Room",
-      "required": true,
       "size": {
         "min_width": 25,
         "max_width": 35,
@@ -49,7 +46,6 @@
       "id": "kitchen",
       "room_type": "kitchen",
       "name": "Kitchen",
-      "required": true,
       "size": {
         "min_width": 25,
         "max_width": 35,
@@ -61,7 +57,6 @@
       "id": "hallway",
       "room_type": "hallway",
       "name": "Main Hallway",
-      "required": true,
       "size": {
         "min_width": 10,
         "max_width": 16,
@@ -73,7 +68,6 @@
       "id": "bedroom_1",
       "room_type": "bedroom",
       "name": "Bedroom 1",
-      "required": true,
       "size": {
         "min_width": 30,
         "max_width": 48,
@@ -85,7 +79,6 @@
       "id": "bedroom_2",
       "room_type": "bedroom",
       "name": "Bedroom 2",
-      "required": true,
       "size": {
         "min_width": 30,
         "max_width": 40,
@@ -97,7 +90,6 @@
       "id": "bathroom",
       "room_type": "bathroom",
       "name": "Common Bathroom",
-      "required": true,
       "size": {
         "min_width": 18,
         "max_width": 25,
@@ -109,7 +101,6 @@
       "id": "attached_bathroom",
       "room_type": "attached_bathroom",
       "name": "Attached Bathroom",
-      "required": true,
       "size": {
         "min_width": 18,
         "max_width": 25,

@@ -30,9 +30,6 @@ def extract_floor_plan(solver: Any, built: BuiltModel) -> FloorPlan:
 
     for prepared_room in context.problem.rooms:
         variables = context.variables_for(prepared_room.id_key)
-        if not solver.BooleanValue(variables.present):
-            continue
-
         x = scale.to_domain(int(solver.Value(variables.x)))
         y = scale.to_domain(int(solver.Value(variables.y)))
         width = scale.to_domain(int(solver.Value(variables.width)))

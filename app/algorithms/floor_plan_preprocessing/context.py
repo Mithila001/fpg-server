@@ -24,7 +24,6 @@ class NormalizedRoom:
     room_type: RoomType
     name: str
     requested_size: str | None
-    required: bool
     request_index: int
 
 

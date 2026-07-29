@@ -62,7 +62,10 @@ def _create_room_variables(
     prefix = room.variable_name
     floor = problem.floor
 
+    # Presence is retained as an internal literal for constraint composition,
+    # but it is an invariant: every supplied room must exist in the solution.
     present = model.NewBoolVar(f"{prefix}_present")
+    model.Add(present == 1)
     x = model.NewIntVar(0, floor.width, f"{prefix}_x")
     y = model.NewIntVar(0, floor.length, f"{prefix}_y")
     width = model.NewIntVar(0, room.max_width, f"{prefix}_width")
@@ -75,18 +78,18 @@ def _create_room_variables(
     model.Add(y_end == y + length)
     model.AddMultiplicationEquality(area, [width, length])
 
-    model.Add(width >= room.min_width).OnlyEnforceIf(present)
-    model.Add(length >= room.min_length).OnlyEnforceIf(present)
-    model.Add(area >= room.min_area).OnlyEnforceIf(present)
-    model.Add(area <= room.max_area).OnlyEnforceIf(present)
+    model.Add(width >= room.min_width)
+    model.Add(length >= room.min_length)
+    model.Add(area >= room.min_area)
+    model.Add(area <= room.max_area)
 
     if room.width_axis is RoomWidthAxis.X:
         # The reference min_width/max_width range applies to the X span.
-        model.Add(width <= room.max_short_side).OnlyEnforceIf(present)
+        model.Add(width <= room.max_short_side)
 
     elif room.width_axis is RoomWidthAxis.Y:
         # The reference min_width/max_width range applies to the Y span.
-        model.Add(length <= room.max_short_side).OnlyEnforceIf(present)
+        model.Add(length <= room.max_short_side)
 
     else:
         # Existing behavior: either axis may be the constrained width side.
@@ -97,32 +100,10 @@ def _create_room_variables(
 
         model.Add(length <= room.max_short_side).OnlyEnforceIf(length_is_short)
 
-        model.AddImplication(width_is_short, present)
-        model.AddImplication(length_is_short, present)
+        model.AddBoolOr([width_is_short, length_is_short])
 
-        model.AddBoolOr([width_is_short, length_is_short]).OnlyEnforceIf(present)
-
-        model.Add(width_is_short == 0).OnlyEnforceIf(present.Not())
-
-        model.Add(length_is_short == 0).OnlyEnforceIf(present.Not())
-
-    model.Add(x == 0).OnlyEnforceIf(present.Not())
-    model.Add(y == 0).OnlyEnforceIf(present.Not())
-    model.Add(width == 0).OnlyEnforceIf(present.Not())
-    model.Add(length == 0).OnlyEnforceIf(present.Not())
-    model.Add(x_end == 0).OnlyEnforceIf(present.Not())
-    model.Add(y_end == 0).OnlyEnforceIf(present.Not())
-    model.Add(area == 0).OnlyEnforceIf(present.Not())
-
-    if room.required:
-        model.Add(present == 1)
-
-    x_interval = model.NewOptionalIntervalVar(
-        x, width, x_end, present, f"{prefix}_x_interval"
-    )
-    y_interval = model.NewOptionalIntervalVar(
-        y, length, y_end, present, f"{prefix}_y_interval"
-    )
+    x_interval = model.NewIntervalVar(x, width, x_end, f"{prefix}_x_interval")
+    y_interval = model.NewIntervalVar(y, length, y_end, f"{prefix}_y_interval")
 
     return RoomVariables(
         room=room,
@@ -173,10 +154,9 @@ def _bounded_constraint(
     variable: Any,
     lower: int,
     upper: int,
-    presence: Any,
 ) -> None:
-    model.Add(variable >= min(lower, upper)).OnlyEnforceIf(presence)
-    model.Add(variable <= max(lower, upper)).OnlyEnforceIf(presence)
+    model.Add(variable >= min(lower, upper))
+    model.Add(variable <= max(lower, upper))
 
 
 def apply_seed_policy(context: ModelContext) -> None:
@@ -204,11 +184,7 @@ def apply_seed_policy(context: ModelContext) -> None:
             continue
         room = variables.room
 
-        if policy.force_seeded_rooms_present:
-            context.model.Add(variables.present == 1)
-
         if policy.apply_hints:
-            context.model.AddHint(variables.present, 1)
             context.model.AddHint(variables.x, room_seed.x)
             context.model.AddHint(variables.y, room_seed.y)
             if room_seed.width is not None:
@@ -222,14 +198,12 @@ def apply_seed_policy(context: ModelContext) -> None:
                 variables.x,
                 max(0, room_seed.x - position_delta),
                 min(floor.width - room.min_width, room_seed.x + position_delta),
-                variables.present,
             )
             _bounded_constraint(
                 context.model,
                 variables.y,
                 max(0, room_seed.y - position_delta),
                 min(floor.length - room.min_length, room_seed.y + position_delta),
-                variables.present,
             )
 
         if size_delta is not None and room_seed.width is not None:
@@ -238,7 +212,6 @@ def apply_seed_policy(context: ModelContext) -> None:
                 variables.width,
                 max(room.min_width, room_seed.width - size_delta),
                 min(room.max_width, room_seed.width + size_delta),
-                variables.present,
             )
         if size_delta is not None and room_seed.length is not None:
             _bounded_constraint(
@@ -246,5 +219,4 @@ def apply_seed_policy(context: ModelContext) -> None:
                 variables.length,
                 max(room.min_length, room_seed.length - size_delta),
                 min(room.max_length, room_seed.length + size_delta),
-                variables.present,
             )

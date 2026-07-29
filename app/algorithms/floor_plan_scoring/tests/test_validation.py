@@ -11,5 +11,5 @@ def test_missing_required_room_is_rejected_before_evaluation() -> None:
     floor_plan = build_floor_plan(excluded_room_ids={"bedroom_3"})
     specification = build_generation_spec()
 
-    with pytest.raises(ScoringInputError, match="Required rooms are missing"):
+    with pytest.raises(ScoringInputError, match="Rooms are missing"):
         score_floor_plan(floor_plan, specification)

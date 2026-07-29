@@ -32,7 +32,6 @@ _ROOM_COLORS: dict[RoomType, str] = {
     RoomType.HALLWAY: "#e5e7eb",
     RoomType.VERANDA: "#dcfce7",
     RoomType.GARAGE: "#d1d5db",
-    RoomType.OPEN_AREA: "#f3f4f6",
 }
 
 

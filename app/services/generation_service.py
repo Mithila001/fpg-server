@@ -26,7 +26,6 @@ class GenerationServiceRoom:
     id: str | None = None
     name: str | None = None
     requested_size: str | None = "regular"
-    required: bool = True
 
     def __post_init__(self) -> None:
         if not isinstance(self.room_type, RoomType):
@@ -101,7 +100,6 @@ def execute_generation(
                 id=room.id,
                 name=room.name,
                 requested_size=room.requested_size,
-                required=room.required,
             )
             for room in request.rooms
         ),

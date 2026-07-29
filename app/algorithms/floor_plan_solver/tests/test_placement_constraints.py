@@ -76,7 +76,6 @@ def _profile(
             apply_hints=True,
             position_tolerance=0 if fixed_seed else None,
             size_tolerance=0 if fixed_seed else None,
-            force_seeded_rooms_present=fixed_seed,
         ),
     )
 

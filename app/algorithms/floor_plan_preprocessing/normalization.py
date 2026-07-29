@@ -5,6 +5,7 @@ import re
 from collections import Counter
 
 from app.algorithms.types_new import ConstraintStrength, MatchPolicy, RoomType
+from app.generation_metadata import canonical_aspect_ratio
 
 from .config import PreprocessingPolicy
 from .context import (
@@ -18,8 +19,13 @@ from .contracts import (
     NormalizationRecord,
     PreprocessingReferenceData,
     PreprocessingRequest,
+    RoomDecision,
 )
-from .exceptions import NormalizationError, ReferenceDataError
+from .exceptions import (
+    NormalizationError,
+    PreprocessingErrorCode,
+    ReferenceDataError,
+)
 
 
 def _enum_text(value: object) -> str:
@@ -42,26 +48,46 @@ def _reference_float(value: object, field: str) -> float:
 
 
 def _parse_aspect_ratio(value: float | str) -> float:
+    def invalid(message: str) -> NormalizationError:
+        return NormalizationError(
+            message,
+            code=PreprocessingErrorCode.INVALID_ASPECT_RATIO,
+            details={
+                "field": "aspect_ratio",
+                "supported": ["1:2", "3:4", "1:1", "4:3", "2:1"],
+            },
+        )
+
     if isinstance(value, bool):
-        raise NormalizationError("aspect_ratio must be numeric or an H:W string")
+        raise invalid("aspect_ratio must be numeric or an H:W string")
     if isinstance(value, (int, float)):
         ratio = float(value)
     elif isinstance(value, str):
         parts = value.strip().split(":")
         if len(parts) != 2:
-            raise NormalizationError("aspect_ratio must use the H:W form")
+            raise invalid("aspect_ratio must use the H:W form")
         try:
             length, width = (float(part.strip()) for part in parts)
         except ValueError as exc:
-            raise NormalizationError("aspect_ratio H:W parts must be numeric") from exc
+            raise invalid("aspect_ratio H:W parts must be numeric") from exc
         if width == 0:
-            raise NormalizationError("aspect_ratio width part cannot be zero")
+            raise invalid("aspect_ratio width part cannot be zero")
         ratio = length / width
     else:
-        raise NormalizationError("aspect_ratio must be numeric or an H:W string")
+        raise invalid("aspect_ratio must be numeric or an H:W string")
     if not math.isfinite(ratio) or ratio <= 0:
-        raise NormalizationError("aspect_ratio must be finite and greater than zero")
-    return ratio
+        raise invalid("aspect_ratio must be finite and greater than zero")
+    canonical = canonical_aspect_ratio(ratio)
+    if canonical is None:
+        raise NormalizationError(
+            "aspect_ratio is not supported",
+            code=PreprocessingErrorCode.INVALID_ASPECT_RATIO,
+            details={
+                "field": "aspect_ratio",
+                "supported": ["1:2", "3:4", "1:1", "4:3", "2:1"],
+            },
+        )
+    return canonical
 
 
 def normalize_request(
@@ -69,7 +95,7 @@ def normalize_request(
 ) -> NormalizedRequest:
     ratio = _parse_aspect_ratio(request.aspect_ratio)
     records: list[NormalizationRecord] = []
-    decisions = []
+    decisions: list[RoomDecision] = []
     defaults: list[str] = []
 
     supplied_ids = {
@@ -120,7 +146,6 @@ def normalize_request(
                 room_type=room_type,
                 name=name,
                 requested_size=requested_size,
-                required=room.required,
                 request_index=index,
             )
         )

@@ -1,7 +1,6 @@
 from .api import prepare_generation_input
 from .config import (
     ExcessAttachedBathroomPolicy,
-    OptionalRoomFailurePolicy,
     PreprocessingPolicy,
     RoomSizeSelectionStrategy,
 )
@@ -28,6 +27,8 @@ from .exceptions import (
     InputValidationError,
     NormalizationError,
     OutputValidationError,
+    PreprocessingErrorCode,
+    PreprocessingStage,
     ReferenceDataError,
     RelationPreparationError,
     RoomPreparationError,
@@ -44,8 +45,9 @@ __all__ = [
     "InputValidationError",
     "NormalizationError",
     "NormalizationRecord",
-    "OptionalRoomFailurePolicy",
     "OutputValidationError",
+    "PreprocessingErrorCode",
+    "PreprocessingStage",
     "PreparedGenerationInput",
     "PreprocessingInput",
     "PreprocessingPolicy",

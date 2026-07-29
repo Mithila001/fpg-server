@@ -1,5 +1,9 @@
 # Floor Plan Generation API
 
+> Superseded: use the current
+> [client integration guide](api/client-integration-guide.md). This historical
+> document describes an earlier request contract.
+
 Client integration contract for the floor-plan generation endpoints.
 
 ## 1. Scope

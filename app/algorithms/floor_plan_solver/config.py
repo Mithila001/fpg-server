@@ -59,7 +59,6 @@ class SeedPolicy:
     apply_hints: bool = True
     position_tolerance: float | None = None
     size_tolerance: float | None = None
-    force_seeded_rooms_present: bool = False
 
     def __post_init__(self) -> None:
         for name, value in (

@@ -69,7 +69,6 @@ class PreparedRoom:
     variable_name: str
     room_type: RoomType
     name: str
-    required: bool
     min_width: int
     max_width: int
     min_length: int
@@ -236,7 +235,6 @@ def _prepare_rooms(
                 variable_name=f"r{index}_{_safe_name(id_key)}",
                 room_type=room_type,
                 name=str(getattr(room, "name")),
-                required=bool(getattr(room, "required", True)),
                 min_width=min_width,
                 max_width=max_width,
                 min_length=min_length,
@@ -250,8 +248,6 @@ def _prepare_rooms(
 
     if not prepared:
         raise InvalidSpecificationError("At least one room must be specified")
-    if not any(room.required for room in prepared):
-        raise InvalidSpecificationError("At least one room must be required")
     return tuple(prepared)
 
 

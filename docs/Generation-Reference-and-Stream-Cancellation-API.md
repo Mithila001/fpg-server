@@ -1,5 +1,9 @@
 # Generation Reference and Stream Cancellation API
 
+> Superseded: use the current
+> [client integration guide](api/client-integration-guide.md). This historical
+> document describes the removed room-size-constraints endpoint.
+
 This document describes the two generation API additions available to client applications:
 
 1. Reading the room-size constraints accepted by floor-plan generation.

@@ -14,6 +14,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response, StreamingResponse
+from starlette.exceptions import HTTPException
 
 from app.util.logger import SystemLogger, configure_application_logging
 
@@ -40,6 +41,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Flow-ID", "X-Generation-Job-ID"],
 )
 
 
@@ -127,15 +129,21 @@ async def log_api_requests(
 
 from app.routes.buildable_space import (  # noqa: E402
     buildable_space_context_middleware,
-    buildable_space_validation_exception_handler,
     router as buildable_space_router,
+)
+from app.routes.errors import (  # noqa: E402
+    api_http_exception_handler,
+    api_unexpected_exception_handler,
+    api_validation_exception_handler,
 )
 from app.routes.generation import router as generation_router  # noqa: E402
 
 app.middleware("http")(buildable_space_context_middleware)
 app.add_exception_handler(
     RequestValidationError,
-    cast(Any, buildable_space_validation_exception_handler),
+    cast(Any, api_validation_exception_handler),
 )
+app.add_exception_handler(HTTPException, cast(Any, api_http_exception_handler))
+app.add_exception_handler(Exception, cast(Any, api_unexpected_exception_handler))
 app.include_router(buildable_space_router)
 app.include_router(generation_router)

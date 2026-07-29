@@ -29,7 +29,6 @@ class NormalizedRoomSpec:
     room_type: RoomType
     name: str
     size: NormalizedRoomSize
-    required: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,15 +122,15 @@ class ScoringContextFactory:
             }
         )
 
-        missing_required = [
+        missing_rooms = [
             spec.room_id
             for spec in room_specs
-            if spec.required and spec.room_id not in rooms_by_id
+            if spec.room_id not in rooms_by_id
         ]
-        if missing_required:
+        if missing_rooms:
             raise ScoringInputError(
-                "Required rooms are missing from the floor plan: "
-                + ", ".join(sorted(missing_required))
+                "Rooms are missing from the floor plan: "
+                + ", ".join(sorted(missing_rooms))
             )
 
         geometry_error: str | None = None
@@ -260,10 +259,7 @@ def _normalize_specs(raw_specs: Any) -> tuple[NormalizedRoomSpec, ...]:
             raise ScoringInputError(
                 f"{label}.size has a minimum greater than its maximum."
             )
-        required = _required_attr(raw, "required", label)
-        if not isinstance(required, bool):
-            raise ScoringInputError(f"{label}.required must be boolean.")
-        specs.append(NormalizedRoomSpec(room_id, room_type, name, size, required))
+        specs.append(NormalizedRoomSpec(room_id, room_type, name, size))
     if not specs:
         raise ScoringInputError("specification.rooms must contain at least one room.")
     _unique_by_id(tuple(specs), "specification room")

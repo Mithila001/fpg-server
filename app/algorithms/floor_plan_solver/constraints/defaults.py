@@ -19,7 +19,6 @@ from .soft import (
     DeadSpaceConstraint,
     FloorClusterPositionConstraint,
     KitchenBackExposureConstraint,
-    OptionalRoomPresenceConstraint,
     SeedStabilityConstraint,
     SoftRoomRelationsConstraint,
 )
@@ -46,6 +45,5 @@ def build_default_registry() -> ConstraintRegistry:
     registry.register_soft(KitchenBackExposureConstraint())
     registry.register_soft(SeedStabilityConstraint())
     registry.register_soft(BathroomDepthConstraint())
-    registry.register_soft(OptionalRoomPresenceConstraint())
 
     return registry

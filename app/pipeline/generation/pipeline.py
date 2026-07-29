@@ -202,7 +202,18 @@ def _run_stage(
         raise
     except expected_errors as exc:
         duration_ms = (perf_counter() - started) * 1000
-        error = GenerationPipelineError(stage, _error_code(exc), str(exc))
+        if isinstance(exc, FloorPlanPreprocessingError):
+            error = GenerationPipelineError(
+                stage,
+                exc.code.value,
+                exc.message,
+                {
+                    "preprocessing_stage": exc.stage.value,
+                    **dict(exc.details),
+                },
+            )
+        else:
+            error = GenerationPipelineError(stage, _error_code(exc), str(exc))
         _log_generation(
             stage_context,
             "stage_failed",
@@ -913,7 +924,6 @@ def run_generation_pipeline(
                         id=room.id,
                         name=room.name,
                         requested_size=room.requested_size,
-                        required=room.required,
                     )
                     for room in request.rooms
                 ),

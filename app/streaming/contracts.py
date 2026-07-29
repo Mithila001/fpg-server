@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Protocol
+from typing import Any, Protocol
 
 from app.algorithms.candidate_search import CandidatePoint
 from app.algorithms.types_new import FloorPlan
@@ -76,6 +76,7 @@ class ErrorPayload:
     stage: str
     code: str
     message: str
+    details: dict[str, Any]
     recoverable: bool
 
 
@@ -143,6 +144,7 @@ class GenerationEventPublisher(Protocol):
         stage: str,
         code: str,
         message: str,
+        details: dict[str, Any] | None = None,
         recoverable: bool = False,
     ) -> int | None: ...
 
@@ -206,6 +208,7 @@ class NullGenerationEventPublisher:
         stage: str,
         code: str,
         message: str,
+        details: dict[str, Any] | None = None,
         recoverable: bool = False,
     ) -> int | None:
         return None

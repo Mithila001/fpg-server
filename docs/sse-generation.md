@@ -1,5 +1,9 @@
 # Floor-plan generation SSE
 
+> Superseded: use the current
+> [client integration guide](api/client-integration-guide.md). This historical
+> document describes an earlier request contract.
+
 The streaming API is an opt-in alternative to the existing synchronous
 `POST /generation` endpoint:
 

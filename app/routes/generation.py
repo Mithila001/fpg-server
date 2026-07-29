@@ -10,14 +10,30 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.algorithms.types_new import RoomType
+from app.algorithms.floor_plan_preprocessing import ReferenceDataError
+from app.algorithms.types_new import RoadType, RoomType
+from app.generation_metadata import (
+    COMPATIBLE_ASPECT_RATIOS,
+    FLOOR_AREA_BUFFER,
+    HALLWAY_AREA_BUFFER,
+    METADATA_SCHEMA_VERSION,
+    ROOM_REQUIREMENTS,
+)
+from app.pipeline.buildable_space import (
+    ReferenceDataError as BuildableSpaceReferenceDataError,
+)
+from app.pipeline.buildable_space import load_buildable_space_reference_data
 from app.pipeline.generation import GenerationPipelineError
+from app.pipeline.generation import load_generation_reference_data
+from app.routes.errors import (
+    ApiErrorCode,
+    ApiErrorResponse,
+    api_error_response,
+)
 from app.services.generation_service import (
-    GenerationReferenceDataUnavailableError,
     GenerationServiceRequest,
     GenerationServiceRoom,
     execute_generation,
-    get_generation_room_size_constraints,
 )
 from app.streaming import (
     CancellationRequestStatus,
@@ -38,14 +54,17 @@ class FloorLimitsRequest(BaseModel):
 
 
 class GenerationRoomRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     room_type: RoomType
     id: str | None = None
     name: str | None = None
     requested_size: str | None = Field(default="regular", min_length=1)
-    required: bool = True
 
 
 class GenerationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     floor_limits: FloorLimitsRequest
     aspect_ratio: float | str
     rooms: list[GenerationRoomRequest] = Field(min_length=1)
@@ -56,18 +75,7 @@ class GenerationResponse(BaseModel):
     scoring: dict[str, Any]
 
 
-class GenerationErrorResponse(BaseModel):
-    stage: str
-    code: str
-    message: str
-    details: dict[str, Any] | None = None
-
-
-class MessageResponse(BaseModel):
-    message: str
-
-
-class GenerationRoomSizeConstraintResponse(BaseModel):
+class RoomSizeMetadata(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     room_type: RoomType
@@ -78,10 +86,65 @@ class GenerationRoomSizeConstraintResponse(BaseModel):
     max_area: float
 
 
-class GenerationRoomSizeConstraintsResponse(BaseModel):
+class RoomRelationMetadata(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    room_size_constraints: list[GenerationRoomSizeConstraintResponse]
+    source_room_type: RoomType
+    target_room_types: list[RoomType]
+    match_policy: str
+    strength: str
+    required: bool
+
+
+class GenerationReferenceMetadata(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    room_sizes: list[RoomSizeMetadata]
+    room_relations: list[RoomRelationMetadata]
+
+
+class RoadTypeMetadata(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    value: RoadType
+    name: str
+    display_name: str
+
+
+class RoomRequirementMetadata(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    room_type: RoomType
+    name: str
+    min_count: int
+    max_count: int
+    client_selectable: bool
+
+
+class AspectRatioMetadata(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    label: str
+    value: float
+
+
+class BufferMetadata(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    hallway_area: float
+    floor_area: float
+    unit: str
+
+
+class MetadataResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: int
+    generation_reference_data: GenerationReferenceMetadata
+    road_types: list[RoadTypeMetadata]
+    room_requirements: list[RoomRequirementMetadata]
+    compatible_aspect_ratios: list[AspectRatioMetadata]
+    buffers: BufferMetadata
 
 
 class GenerationCancellationStatus(str, Enum):
@@ -107,71 +170,106 @@ def _to_service_request(body: GenerationRequest) -> GenerationServiceRequest:
                 id=room.id,
                 name=room.name,
                 requested_size=room.requested_size,
-                required=room.required,
             )
             for room in body.rooms
         ),
     )
 
 
-@router.get(
-    "/generation/room-size-constraints",
-    response_model=GenerationRoomSizeConstraintsResponse,
-    responses={500: {"model": MessageResponse}},
-)
-def get_room_size_constraints(
-) -> GenerationRoomSizeConstraintsResponse | JSONResponse:
+@router.get("/metadata", response_model=MetadataResponse, responses={500: {"model": ApiErrorResponse}})
+def get_metadata() -> MetadataResponse | JSONResponse:
     try:
-        constraints = get_generation_room_size_constraints()
-    except GenerationReferenceDataUnavailableError:
-        return JSONResponse(
+        generation = load_generation_reference_data()
+        buildable = load_buildable_space_reference_data()
+    except (ReferenceDataError, BuildableSpaceReferenceDataError):
+        return api_error_response(
             status_code=500,
-            content={
-                "message": (
-                    "Generation room-size constraints are currently unavailable."
-                )
-            },
+            code=ApiErrorCode.REFERENCE_DATA_UNAVAILABLE.value,
+            message="Server metadata is currently unavailable.",
+            stage="metadata",
         )
 
-    return GenerationRoomSizeConstraintsResponse(
-        room_size_constraints=[
-            GenerationRoomSizeConstraintResponse(
-                room_type=constraint.room_type,
-                size=constraint.size,
-                min_width=constraint.min_width,
-                max_width=constraint.max_width,
-                min_area=constraint.min_area,
-                max_area=constraint.max_area,
+    return MetadataResponse(
+        schema_version=METADATA_SCHEMA_VERSION,
+        generation_reference_data=GenerationReferenceMetadata(
+            room_sizes=[
+                RoomSizeMetadata(
+                    room_type=item.room_type,
+                    size=item.size,
+                    min_width=float(item.min_width),
+                    max_width=float(item.max_width),
+                    min_area=float(item.min_area),
+                    max_area=float(item.max_area),
+                )
+                for item in generation.room_sizes
+            ],
+            room_relations=[
+                RoomRelationMetadata(
+                    source_room_type=item.source_room_type,
+                    target_room_types=list(item.target_room_types),
+                    match_policy=str(getattr(item.match_policy, "value", item.match_policy)),
+                    strength=str(getattr(item.strength, "value", item.strength)),
+                    required=item.required,
+                )
+                for item in generation.room_relations
+            ],
+        ),
+        road_types=[
+            RoadTypeMetadata(
+                value=road_type,
+                name=road_type.name,
+                display_name=road_type.value.replace("_", " ").title(),
             )
-            for constraint in constraints
-        ]
+            for road_type in buildable.active_profile.road_adjustments
+        ],
+        room_requirements=[
+            RoomRequirementMetadata(
+                room_type=item.room_type,
+                name=item.room_type.name,
+                min_count=item.minimum,
+                max_count=item.maximum,
+                client_selectable=item.client_selectable,
+            )
+            for item in ROOM_REQUIREMENTS
+        ],
+        compatible_aspect_ratios=[
+            AspectRatioMetadata(label=item.label, value=item.value)
+            for item in COMPATIBLE_ASPECT_RATIOS
+        ],
+        buffers=BufferMetadata(
+            hallway_area=HALLWAY_AREA_BUFFER,
+            floor_area=FLOOR_AREA_BUFFER,
+            unit="square_project_units",
+        ),
     )
 
 
 @router.post(
     "/generation",
     response_model=GenerationResponse,
-    responses={422: {"model": GenerationErrorResponse}},
+    responses={
+        422: {"model": ApiErrorResponse},
+        500: {"model": ApiErrorResponse},
+    },
 )
 def generate(body: GenerationRequest) -> GenerationResponse | JSONResponse:
     try:
         result = execute_generation(_to_service_request(body))
     except GenerationPipelineError as exc:
-        return JSONResponse(
-            status_code=422,
-            content=jsonable_encoder(
-                GenerationErrorResponse(
-                    stage=exc.stage.value,
-                    code=exc.code,
-                    message=exc.message,
-                    details=dict(exc.details) or None,
-                )
-            ),
+        status_code = 500 if exc.code == "invalid_reference_data" else 422
+        return api_error_response(
+            status_code=status_code,
+            stage=exc.stage.value,
+            code=exc.code,
+            message=exc.message,
+            details=dict(exc.details),
         )
     except Exception:
-        return JSONResponse(
+        return api_error_response(
             status_code=500,
-            content={"message": "Generation failed unexpectedly."},
+            code=ApiErrorCode.UNEXPECTED_ERROR.value,
+            message="Generation failed unexpectedly.",
+            stage="generation",
         )
 
     return GenerationResponse(
@@ -228,7 +326,7 @@ async def stream_generation(
     response_model=GenerationCancellationResponse,
     responses={
         202: {"model": GenerationCancellationResponse},
-        404: {"model": MessageResponse},
+        404: {"model": ApiErrorResponse},
     },
 )
 def cancel_stream_generation(
@@ -240,11 +338,12 @@ def cancel_stream_generation(
     )
 
     if result.status is CancellationRequestStatus.NOT_FOUND:
-        return JSONResponse(
+        return api_error_response(
             status_code=404,
-            content={
-                "message": "No active streamed generation job was found.",
-            },
+            code=ApiErrorCode.NOT_FOUND.value,
+            message="No active streamed generation job was found.",
+            stage="cancellation",
+            details={"job_id": job_id},
         )
 
     response_status = (
@@ -291,12 +390,14 @@ def _produce_stream(
             stage=exc.stage.value,
             code=exc.code,
             message=exc.message,
+            details=dict(exc.details),
         )
     except Exception:
         events.error(
             stage="generation",
             code="unexpected_generation_error",
             message="Generation failed unexpectedly.",
+            details={},
         )
     finally:
         generation_stream_registry.unregister(job_id, token=cancellation)
