@@ -67,6 +67,11 @@ class CompletedPayload:
 
 
 @dataclass(frozen=True, slots=True)
+class CancelledPayload:
+    reason: str
+
+
+@dataclass(frozen=True, slots=True)
 class ErrorPayload:
     stage: str
     code: str
@@ -80,6 +85,7 @@ GenerationEventPayload = (
     | ProgressPayload
     | FloorPlanPayload
     | CompletedPayload
+    | CancelledPayload
     | ErrorPayload
 )
 
@@ -123,6 +129,12 @@ class GenerationEventPublisher(Protocol):
         outcome: CompletionOutcome,
         final_floor_plan_sequence: int | None,
         elapsed_ms: int,
+    ) -> int | None: ...
+
+    def cancelled(
+        self,
+        *,
+        reason: str,
     ) -> int | None: ...
 
     def error(
@@ -181,6 +193,13 @@ class NullGenerationEventPublisher:
     ) -> int | None:
         return None
 
+    def cancelled(
+        self,
+        *,
+        reason: str,
+    ) -> int | None:
+        return None
+
     def error(
         self,
         *,
@@ -203,4 +222,6 @@ def event_name(payload: GenerationEventPayload) -> str:
         return "floor_plan"
     if isinstance(payload, CompletedPayload):
         return "completed"
+    if isinstance(payload, CancelledPayload):
+        return "cancelled"
     return "error"

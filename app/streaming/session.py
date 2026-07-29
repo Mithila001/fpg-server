@@ -16,6 +16,7 @@ from app.artifacts.serializers import to_json_value
 
 from .contracts import (
     CandidateTrialPayload,
+    CancelledPayload,
     CompletedPayload,
     CompletionOutcome,
     ErrorPayload,
@@ -162,6 +163,13 @@ class GenerationSseSession:
             )
         )
 
+    def cancelled(
+        self,
+        *,
+        reason: str,
+    ) -> int | None:
+        return self._submit(CancelledPayload(reason=reason))
+
     def error(
         self,
         *,
@@ -238,7 +246,7 @@ class GenerationSseSession:
             return
 
         name = event_name(payload)
-        if name in {"completed", "error"}:
+        if name in {"completed", "cancelled", "error"}:
             self._flush_pending()
             self._terminal_queued = True
             result.set_result(self._enqueue(payload, terminal=True))

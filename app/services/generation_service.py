@@ -3,14 +3,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import uuid4
 
+from app.algorithms.floor_plan_preprocessing import ReferenceDataError
 from app.algorithms.types_new import RoomType
 from app.artifacts import ArtifactStorage
 from app.pipeline.generation import (
     GenerationPipelineRequest,
     GenerationPipelineResult,
     RequestedGenerationRoom,
+    load_generation_reference_data,
     run_generation_pipeline,
 )
+from app.streaming.cancellation import GenerationCancellationSignal
 from app.streaming.contracts import (
     GenerationEventPublisher,
     NullGenerationEventPublisher,
@@ -38,11 +41,50 @@ class GenerationServiceRequest:
     rooms: tuple[GenerationServiceRoom, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class GenerationRoomSizeConstraint:
+    room_type: RoomType
+    size: str
+    min_width: float
+    max_width: float
+    min_area: float
+    max_area: float
+
+
+class GenerationReferenceDataUnavailableError(RuntimeError):
+    pass
+
+
+def get_generation_room_size_constraints(
+) -> tuple[GenerationRoomSizeConstraint, ...]:
+    """Return the validated room-size constraints used by preprocessing."""
+
+    try:
+        reference_data = load_generation_reference_data()
+    except ReferenceDataError as exc:
+        raise GenerationReferenceDataUnavailableError(
+            "Generation room-size constraints are currently unavailable."
+        ) from exc
+
+    return tuple(
+        GenerationRoomSizeConstraint(
+            room_type=reference.room_type,
+            size=reference.size,
+            min_width=float(reference.min_width),
+            max_width=float(reference.max_width),
+            min_area=float(reference.min_area),
+            max_area=float(reference.max_area),
+        )
+        for reference in reference_data.room_sizes
+    )
+
+
 def execute_generation(
     request: GenerationServiceRequest,
     *,
     job_id: str | None = None,
     events: GenerationEventPublisher | None = None,
+    cancellation: GenerationCancellationSignal | None = None,
 ) -> GenerationPipelineResult:
     resolved_job_id = job_id or str(uuid4())
     execution_context = ArtifactStorage().create_execution_context(
@@ -68,4 +110,5 @@ def execute_generation(
     return run_generation_pipeline(
         pipeline_request,
         events=events or NullGenerationEventPublisher(),
+        cancellation=cancellation,
     )

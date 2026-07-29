@@ -72,6 +72,7 @@ from app.algorithms.floor_plan_solver import (
 )
 from app.algorithms.types_new import FloorPlan
 from app.core.execution import ExecutionContext, PipelineStage
+from app.streaming.cancellation import GenerationCancellationSignal
 from app.streaming.contracts import (
     CompletionOutcome,
     FloorPlanClassification,
@@ -367,6 +368,37 @@ def _timed_out(started: float, settings: GenerationPipelineSettings) -> bool:
     return _elapsed_seconds(started) >= settings.timeout_seconds
 
 
+def _raise_if_cancelled(
+    *,
+    cancellation: GenerationCancellationSignal | None,
+    context: ExecutionContext,
+    started: float,
+) -> None:
+    if cancellation is None or not cancellation.is_cancelled:
+        return
+
+    reason = cancellation.reason or "cancellation_requested"
+    elapsed_seconds = _elapsed_seconds(started)
+    _log_generation(
+        context,
+        "flow_cancelled",
+        data={
+            "reason": reason,
+            "elapsed_seconds": elapsed_seconds,
+        },
+    )
+    raise GenerationPipelineError(
+        GenerationStage.CANCELLATION,
+        "generation_cancelled",
+        "Generation was cancelled before completion.",
+        {
+            "termination_reason": "cancelled",
+            "reason": reason,
+            "elapsed_seconds": elapsed_seconds,
+        },
+    )
+
+
 def _passes_critical_requirement(
     scoring: FloorPlanScoringResult,
     settings: GenerationPipelineSettings,
@@ -534,7 +566,9 @@ def _execute_solver_run(
     refinement_profiles: tuple[Any, ...],
     settings: GenerationPipelineSettings,
     context: ExecutionContext,
+    check_cancellation: Callable[[], None],
 ) -> _CompletedFloorPlanAttempt:
+    check_cancellation()
     attempt_label = f"candidate-{candidate_id}.solver-run-{solver_run_id}"
 
     def solve_initial() -> FloorPlanSolveResult:
@@ -569,6 +603,7 @@ def _execute_solver_run(
         summary=lambda value: f"status={value.status.value}",
         label=f"{attempt_label}.initial_generation",
     )
+    check_cancellation()
     current_floor_plan = cast(FloorPlan, initial_result.floor_plan)
     initial_floor_plan = deepcopy(current_floor_plan)
 
@@ -615,6 +650,7 @@ def _execute_solver_run(
             summary=lambda value: f"status={value.status.value}",
             label=(f"{attempt_label}.refinement-{refinement_index}[{profile_name}]"),
         )
+        check_cancellation()
         current_floor_plan = cast(FloorPlan, refinement_result.floor_plan)
 
     refined_floor_plan = deepcopy(current_floor_plan)
@@ -646,6 +682,7 @@ def _execute_solver_run(
         summary=lambda value: f"rooms={len(value.floor_plan.rooms)}",
         label=f"{attempt_label}.post_processing",
     )
+    check_cancellation()
     post_processed_floor_plan = deepcopy(post_result.floor_plan)
 
     def add_openings() -> OpeningGenerationResult:
@@ -683,6 +720,7 @@ def _execute_solver_run(
         ),
         label=f"{attempt_label}.openings",
     )
+    check_cancellation()
     final_floor_plan = cast(FloorPlan, opening_result.floor_plan)
 
     scoring = _run_stage(
@@ -699,6 +737,7 @@ def _execute_solver_run(
         ),
         label=f"{attempt_label}.floor_plan_scoring",
     )
+    check_cancellation()
     log_floor_plan_scoring_result(
         scoring,
         context=context.with_stage(PipelineStage.FLOOR_PLAN_SCORING),
@@ -776,6 +815,7 @@ def _execute_solver_run(
                 },
             )
 
+    check_cancellation()
     return attempt
 
 
@@ -830,6 +870,7 @@ def run_generation_pipeline(
     *,
     settings: GenerationPipelineSettings = GenerationPipelineSettings(),
     events: GenerationEventPublisher | None = None,
+    cancellation: GenerationCancellationSignal | None = None,
 ) -> GenerationPipelineResult:
     """
     Run the incremental candidate-search and floor-plan generation loop.
@@ -845,12 +886,21 @@ def run_generation_pipeline(
         job_id=request.request_id,
         seed=settings.candidate_random_seed,
     )
+
+    def check_cancellation() -> None:
+        _raise_if_cancelled(
+            cancellation=cancellation,
+            context=execution_context,
+            started=pipeline_started,
+        )
+
     _log_generation(
         execution_context,
         "flow_started",
         data={"job_id": request.request_id},
     )
     event_publisher.status(GenerationStatus.JOB_STARTED)
+    check_cancellation()
 
     def preprocess() -> PreparedGenerationInput:
         preprocessing_input = PreprocessingInput(
@@ -882,6 +932,7 @@ def run_generation_pipeline(
         expected_errors=(FloorPlanPreprocessingError,),
         summary=lambda value: f"rooms={len(value.generation_spec.rooms)}",
     )
+    check_cancellation()
     specification = prepared.generation_spec
     if settings.candidate_search_enabled:
         event_publisher.status(GenerationStatus.CANDIDATE_SEARCH_STARTED)
@@ -900,6 +951,7 @@ def run_generation_pipeline(
 
     def score_candidate(points: tuple[Any, ...]) -> float:
         nonlocal latest_candidate_scoring
+        check_cancellation()
         scoring_input = CandidateScoringInput(
             specification=specification,
             candidate=points,
@@ -910,6 +962,7 @@ def run_generation_pipeline(
             registry=candidate_registry,
             config=candidate_config,
         )
+        check_cancellation()
         latest_candidate_scoring = (scoring_input, result)
         return result.total_score
 
@@ -937,6 +990,7 @@ def run_generation_pipeline(
         event_publisher.status(GenerationStatus.FLOOR_PLAN_GENERATION_STARTED)
         max_runs = settings.effective_solver_runs_per_candidate
         for solver_run_number in range(1, max_runs + 1):
+            check_cancellation()
             if _timed_out(pipeline_started, settings):
                 termination_reason = "timeout"
                 return None
@@ -965,8 +1019,11 @@ def run_generation_pipeline(
                     refinement_profiles=refinement_profiles,
                     settings=settings,
                     context=solver_context,
+                    check_cancellation=check_cancellation,
                 )
             except GenerationPipelineError as exc:
+                if exc.details.get("termination_reason") == "cancelled":
+                    raise
                 solver_failure_count += 1
                 last_solver_failure = {
                     "stage": exc.stage.value,
@@ -987,6 +1044,7 @@ def run_generation_pipeline(
                 )
                 continue
 
+            check_cancellation()
             _log_generation(
                 solver_context,
                 "solver_run_scored",
@@ -1091,6 +1149,7 @@ def run_generation_pipeline(
         return None
 
     if not settings.candidate_search_enabled:
+        check_cancellation()
         default_context = execution_context.for_candidate(1)
         result = run_solver_for_candidate(
             search_trial_id=None,
@@ -1130,6 +1189,7 @@ def run_generation_pipeline(
         )
 
         while search_session.has_remaining_trials:
+            check_cancellation()
             if _timed_out(pipeline_started, settings):
                 termination_reason = "timeout"
                 break
@@ -1144,6 +1204,7 @@ def run_generation_pipeline(
                     f"candidate-trial-{search_session.completed_trials + 1}.generate"
                 ),
             )
+            check_cancellation()
 
             try:
                 trial_context = execution_context.for_search_trial(
@@ -1169,6 +1230,7 @@ def run_generation_pipeline(
                 search_session.fail_pending_trial()
                 raise
 
+            check_cancellation()
             event_publisher.candidate_trial(
                 trial_number=trial_result.completed_trials,
                 trial_limit=settings.candidate_trial_count,
@@ -1273,6 +1335,7 @@ def run_generation_pipeline(
                         },
                     )
 
+            check_cancellation()
             result = run_solver_for_candidate(
                 search_trial_id=trial_result.trial_number,
                 candidate_id=eligible_candidate_count,
@@ -1280,6 +1343,7 @@ def run_generation_pipeline(
                 candidate_hints=_candidate_hints(trial_result),
                 candidate_context=candidate_context,
             )
+            check_cancellation()
             if result is not None:
                 return result
 
@@ -1290,6 +1354,7 @@ def run_generation_pipeline(
         if not search_session.has_remaining_trials and termination_reason != "timeout":
             termination_reason = "candidate_trials_exhausted"
 
+    check_cancellation()
     if best_usable_attempt is not None:
         if termination_reason == "timeout":
             event_publisher.status(GenerationStatus.TIMEOUT_REACHED)

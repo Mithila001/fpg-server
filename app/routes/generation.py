@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from enum import Enum
 from typing import Any
 from uuid import uuid4
 
@@ -12,11 +13,18 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.algorithms.types_new import RoomType
 from app.pipeline.generation import GenerationPipelineError
 from app.services.generation_service import (
+    GenerationReferenceDataUnavailableError,
     GenerationServiceRequest,
     GenerationServiceRoom,
     execute_generation,
+    get_generation_room_size_constraints,
 )
-from app.streaming import GenerationStatus
+from app.streaming import (
+    CancellationRequestStatus,
+    GenerationCancellationToken,
+    GenerationStatus,
+    generation_stream_registry,
+)
 from app.streaming.session import GenerationSseSession
 
 router = APIRouter(tags=["generation"])
@@ -55,6 +63,39 @@ class GenerationErrorResponse(BaseModel):
     details: dict[str, Any] | None = None
 
 
+class MessageResponse(BaseModel):
+    message: str
+
+
+class GenerationRoomSizeConstraintResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    room_type: RoomType
+    size: str
+    min_width: float
+    max_width: float
+    min_area: float
+    max_area: float
+
+
+class GenerationRoomSizeConstraintsResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    room_size_constraints: list[GenerationRoomSizeConstraintResponse]
+
+
+class GenerationCancellationStatus(str, Enum):
+    CANCELLATION_REQUESTED = "cancellation_requested"
+    ALREADY_REQUESTED = "already_requested"
+
+
+class GenerationCancellationResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    job_id: str
+    status: GenerationCancellationStatus
+
+
 def _to_service_request(body: GenerationRequest) -> GenerationServiceRequest:
     return GenerationServiceRequest(
         max_width=body.floor_limits.max_width,
@@ -70,6 +111,40 @@ def _to_service_request(body: GenerationRequest) -> GenerationServiceRequest:
             )
             for room in body.rooms
         ),
+    )
+
+
+@router.get(
+    "/generation/room-size-constraints",
+    response_model=GenerationRoomSizeConstraintsResponse,
+    responses={500: {"model": MessageResponse}},
+)
+def get_room_size_constraints(
+) -> GenerationRoomSizeConstraintsResponse | JSONResponse:
+    try:
+        constraints = get_generation_room_size_constraints()
+    except GenerationReferenceDataUnavailableError:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "message": (
+                    "Generation room-size constraints are currently unavailable."
+                )
+            },
+        )
+
+    return GenerationRoomSizeConstraintsResponse(
+        room_size_constraints=[
+            GenerationRoomSizeConstraintResponse(
+                room_type=constraint.room_type,
+                size=constraint.size,
+                min_width=constraint.min_width,
+                max_width=constraint.max_width,
+                min_area=constraint.min_area,
+                max_area=constraint.max_area,
+            )
+            for constraint in constraints
+        ]
     )
 
 
@@ -115,14 +190,25 @@ async def stream_generation(
         job_id=job_id,
         loop=asyncio.get_running_loop(),
     )
-    producer = asyncio.create_task(
-        asyncio.to_thread(
-            _produce_stream,
-            _to_service_request(body),
-            job_id,
-            session,
-        )
+    cancellation = generation_stream_registry.register(
+        job_id,
+        close_stream=lambda reason: session.cancelled(reason=reason),
     )
+
+    try:
+        producer = asyncio.create_task(
+            asyncio.to_thread(
+                _produce_stream,
+                _to_service_request(body),
+                job_id,
+                session,
+                cancellation,
+            )
+        )
+    except Exception:
+        generation_stream_registry.unregister(job_id, token=cancellation)
+        raise
+
     session.retain_producer(producer)
 
     return StreamingResponse(
@@ -137,19 +223,69 @@ async def stream_generation(
     )
 
 
+@router.delete(
+    "/generation/stream/{job_id}",
+    response_model=GenerationCancellationResponse,
+    responses={
+        202: {"model": GenerationCancellationResponse},
+        404: {"model": MessageResponse},
+    },
+)
+def cancel_stream_generation(
+    job_id: str,
+) -> GenerationCancellationResponse | JSONResponse:
+    result = generation_stream_registry.request_cancellation(
+        job_id,
+        reason="client_request",
+    )
+
+    if result.status is CancellationRequestStatus.NOT_FOUND:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "message": "No active streamed generation job was found.",
+            },
+        )
+
+    response_status = (
+        GenerationCancellationStatus.CANCELLATION_REQUESTED
+        if result.status is CancellationRequestStatus.REQUESTED
+        else GenerationCancellationStatus.ALREADY_REQUESTED
+    )
+    response = GenerationCancellationResponse(
+        job_id=result.job_id,
+        status=response_status,
+    )
+
+    if result.status is CancellationRequestStatus.REQUESTED:
+        return JSONResponse(
+            status_code=202,
+            content=jsonable_encoder(response),
+        )
+    return response
+
+
 def _produce_stream(
     service_request: GenerationServiceRequest,
     job_id: str,
     events: GenerationSseSession,
+    cancellation: GenerationCancellationToken,
 ) -> None:
     try:
         execute_generation(
             service_request,
             job_id=job_id,
             events=events,
+            cancellation=cancellation,
         )
     except GenerationPipelineError as exc:
-        if exc.details.get("termination_reason") == "timeout":
+        termination_reason = exc.details.get("termination_reason")
+        if termination_reason == "cancelled":
+            events.cancelled(
+                reason=str(exc.details.get("reason") or "client_request")
+            )
+            return
+        if termination_reason == "timeout":
             events.status(GenerationStatus.TIMEOUT_REACHED)
         events.error(
             stage=exc.stage.value,
@@ -162,3 +298,5 @@ def _produce_stream(
             code="unexpected_generation_error",
             message="Generation failed unexpectedly.",
         )
+    finally:
+        generation_stream_registry.unregister(job_id, token=cancellation)

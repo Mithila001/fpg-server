@@ -21,6 +21,7 @@ from app.visualization.features.score.config import ScoringVisualizationConfig
 
 
 class GenerationStage(str, Enum):
+    CANCELLATION = "cancellation"
     PREPROCESSING = "preprocessing"
     CANDIDATE_SEARCH = "candidate_search"
     CANDIDATE_SCORING = "candidate_scoring"
