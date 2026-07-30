@@ -151,3 +151,103 @@ def test_adapter_rejects_non_finite_coordinates() -> None:
 
     with pytest.raises(ValueError, match="non-finite"):
         build_evaluation_data(ScoringContext(scoring_input))
+
+
+def test_adapter_accepts_multiple_hallway_hint_points() -> None:
+    scoring_input = CandidateScoringInput(
+        specification=_legacy_specification(
+            {
+                "floor": {"width": 80, "length": 60},
+                "rooms": [
+                    {
+                        "id": "hallway",
+                        "room_type": RoomType.HALLWAY,
+                        "name": "Hallway",
+                    }
+                ],
+            }
+        ),
+        candidate=[
+            {
+                "room_id": "hallway",
+                "room_type": RoomType.HALLWAY,
+                "hint_index": 1,
+                "x": 10,
+                "y": 20,
+            },
+            {
+                "room_id": "hallway",
+                "room_type": RoomType.HALLWAY,
+                "hint_index": 2,
+                "x": 30,
+                "y": 40,
+            },
+        ],
+    )
+
+    data = build_evaluation_data(ScoringContext(scoring_input))
+
+    assert [point.room_id for point in data.points] == [
+        "hallway::hint:1",
+        "hallway::hint:2",
+    ]
+    assert [point.room_type for point in data.points] == [
+        RoomType.HALLWAY,
+        RoomType.HALLWAY,
+    ]
+
+
+def test_adapter_generates_missing_hallway_hint_indexes() -> None:
+    scoring_input = CandidateScoringInput(
+        specification=_legacy_specification(
+            {"floor": {"width": 80, "length": 60}}
+        ),
+        candidate=[
+            {
+                "room_id": "hallway",
+                "room_type": RoomType.HALLWAY,
+                "x": 10,
+                "y": 20,
+            },
+            {
+                "room_id": "hallway",
+                "room_type": RoomType.HALLWAY,
+                "x": 30,
+                "y": 40,
+            },
+        ],
+    )
+
+    data = build_evaluation_data(ScoringContext(scoring_input))
+
+    assert [point.room_id for point in data.points] == [
+        "hallway::hint:1",
+        "hallway::hint:2",
+    ]
+
+
+def test_adapter_rejects_duplicate_hallway_hint_indexes() -> None:
+    scoring_input = CandidateScoringInput(
+        specification=_legacy_specification(
+            {"floor": {"width": 80, "length": 60}}
+        ),
+        candidate=[
+            {
+                "room_id": "hallway",
+                "room_type": RoomType.HALLWAY,
+                "hint_index": 1,
+                "x": 10,
+                "y": 20,
+            },
+            {
+                "room_id": "hallway",
+                "room_type": RoomType.HALLWAY,
+                "hint_index": 1,
+                "x": 30,
+                "y": 40,
+            },
+        ],
+    )
+
+    with pytest.raises(ValueError, match="duplicated hint_index"):
+        build_evaluation_data(ScoringContext(scoring_input))

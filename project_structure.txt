@@ -125,6 +125,7 @@ app/algorithms/floor_plan_preprocessing/tests/conftest.py
 app/algorithms/floor_plan_preprocessing/tests/debug.py
 app/algorithms/floor_plan_preprocessing/tests/note.txt
 app/algorithms/floor_plan_preprocessing/tests/test_input_output.py
+app/algorithms/floor_plan_preprocessing/tests/test_room_contract.py
 app/algorithms/floor_plan_preprocessing/__init__.py
 app/algorithms/floor_plan_preprocessing/api.py
 app/algorithms/floor_plan_preprocessing/business_rules.py
@@ -191,7 +192,6 @@ app/algorithms/floor_plan_solver/constraints/soft/bathroom_depth.py
 app/algorithms/floor_plan_solver/constraints/soft/dead_space.py
 app/algorithms/floor_plan_solver/constraints/soft/floor_cluster_position.py
 app/algorithms/floor_plan_solver/constraints/soft/kitchen_back_exposure.py
-app/algorithms/floor_plan_solver/constraints/soft/optional_room_presence.py
 app/algorithms/floor_plan_solver/constraints/soft/room_relations.py
 app/algorithms/floor_plan_solver/constraints/soft/seed_stability.py
 app/algorithms/floor_plan_solver/constraints/__init__.py
@@ -291,15 +291,21 @@ app/pipeline/generation/pipeline.py
 app/pipeline/__init__.py
 app/routes/tests/test_buildable_space_contract.py
 app/routes/tests/test_generation_contract.py
+app/routes/tests/test_metadata_and_error_contract.py
 app/routes/__init__.py
 app/routes/buildable_space.py
+app/routes/errors.py
 app/routes/generation.py
 app/schemas/db/__init__.py
 app/schemas/db/room_setup_template.py
 app/services/buildable_space_service.py
 app/services/generation_service.py
+app/streaming/tests/__init__.py
+app/streaming/tests/test_error_contract.py
 app/streaming/__init__.py
+app/streaming/cancellation.py
 app/streaming/contracts.py
+app/streaming/registry.py
 app/streaming/session.py
 app/tests/architecture/__init__.py
 app/tests/architecture/test_observability_boundaries.py
@@ -356,6 +362,7 @@ app/visualization/config.py
 app/visualization/output_manager.py
 app/visualization/README.md
 app/__init__.py
+app/generation_metadata.py
 app/main.py
 app/OBSERVABILITY.md
 docs/

@@ -62,7 +62,7 @@ class GenerationPipelineSettings:
     """Tuning values for the search -> solve -> score orchestration loop."""
 
     candidate_search_enabled: bool = True
-    candidate_score_threshold: float = 80.0
+    candidate_score_threshold: float = 75.0
     candidate_trial_count: int = 500
     candidate_grid_resolution: float = 20
     candidate_random_seed: int | None = None

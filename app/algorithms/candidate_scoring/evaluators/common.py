@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Iterable, Mapping, Sequence, TypeVar, cast
 
@@ -14,6 +15,14 @@ MappingKey = TypeVar("MappingKey")
 
 @dataclass(frozen=True, slots=True)
 class EvaluationPoint:
+    """One evaluator-facing point with a unique scoring identity.
+
+    Candidate Search may emit several hallway hints for one source room ID. In
+    that case ``room_id`` is expanded to an evaluator-only ID such as
+    ``hallway_1::hint:2``. This keeps graph nodes, metrics, and visualization
+    records distinct without modifying the Candidate Search or pipeline data.
+    """
+
     room_id: str
     room_type: RoomType
     name: str
@@ -28,12 +37,27 @@ class EvaluationData:
     points: tuple[EvaluationPoint, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class _ParsedCandidatePoint:
+    """Candidate point before evaluator-only IDs are assigned."""
+
+    source_room_id: str
+    room_type: RoomType
+    name: str
+    x: float
+    y: float
+    explicit_hint_index: int | None
+
+
 def build_evaluation_data(context: ScoringContext) -> EvaluationData:
     """Convert supported project/domain shapes into evaluator-friendly data.
 
     The adapter supports the planned typed structures as well as mapping-based
     fixtures. It intentionally lives outside individual evaluators so each
     evaluator sees one stable internal representation.
+
+    Multiple points for one room ID are accepted only for hallway points. They
+    receive unique evaluator-only IDs; the original candidate remains untouched.
     """
 
     specification = context.scoring_input.specification
@@ -145,45 +169,176 @@ def _extract_candidate_points(
     else:
         items = enumerate(_iterable(raw_points))
 
-    points: list[EvaluationPoint] = []
-    seen_ids: set[str] = set()
+    parsed_points: list[_ParsedCandidatePoint] = []
     for fallback_key, value in items:
-        room_id = str(
+        source_room_id = str(
             _first_not_none(
                 _get(value, "room_id"),
                 _get(value, "id"),
                 fallback_key,
             )
         )
-        metadata = room_metadata.get(room_id)
-        name = str(_first_not_none(_get(value, "name"), metadata[1] if metadata else None, room_id))
+        metadata = room_metadata.get(source_room_id)
+        name = str(
+            _first_not_none(
+                _get(value, "name"),
+                metadata[1] if metadata else None,
+                source_room_id,
+            )
+        )
         raw_type = _first_not_none(
             _get(value, "room_type"),
             _get(value, "type"),
             metadata[0] if metadata else None,
         )
         if raw_type is None:
-            raise ValueError(f"Candidate point '{room_id}' has no room type.")
+            raise ValueError(
+                f"Candidate point '{source_room_id}' has no room type."
+            )
 
+        room_type = require_room_type(
+            raw_type,
+            f"Candidate point '{source_room_id}' room_type",
+        )
         x, y = _extract_xy(value)
         if not math.isfinite(x) or not math.isfinite(y):
-            raise ValueError(f"Candidate point '{room_id}' has non-finite coordinates.")
-        if room_id in seen_ids:
-            raise ValueError(f"Candidate point '{room_id}' is duplicated.")
-        seen_ids.add(room_id)
+            raise ValueError(
+                f"Candidate point '{source_room_id}' has non-finite coordinates."
+            )
 
-        points.append(
-            EvaluationPoint(
-                room_id=room_id,
-                room_type=require_room_type(
-                    raw_type, f"Candidate point '{room_id}' room_type"
-                ),
+        parsed_points.append(
+            _ParsedCandidatePoint(
+                source_room_id=source_room_id,
+                room_type=room_type,
                 name=name,
                 x=x,
                 y=y,
+                explicit_hint_index=_extract_hint_index(value, source_room_id),
             )
         )
-    return points
+
+    grouped_indices: dict[str, list[int]] = defaultdict(list)
+    for index, point in enumerate(parsed_points):
+        grouped_indices[point.source_room_id].append(index)
+
+    evaluator_ids: list[str | None] = [None] * len(parsed_points)
+    evaluator_names: list[str | None] = [None] * len(parsed_points)
+
+    # Preserve existing IDs for every non-duplicated point. These IDs are also
+    # reserved so generated hallway IDs cannot collide with an actual room ID.
+    used_ids: set[str] = {
+        room_id
+        for room_id, indices in grouped_indices.items()
+        if len(indices) == 1
+    }
+
+    for source_room_id, indices in grouped_indices.items():
+        if len(indices) == 1:
+            index = indices[0]
+            evaluator_ids[index] = source_room_id
+            evaluator_names[index] = parsed_points[index].name
+            continue
+
+        duplicate_points = [parsed_points[index] for index in indices]
+        if any(point.room_type is not RoomType.HALLWAY for point in duplicate_points):
+            raise ValueError(f"Candidate point '{source_room_id}' is duplicated.")
+
+        hint_indices = _resolve_hallway_hint_indices(
+            source_room_id,
+            duplicate_points,
+        )
+        for point_index, hint_index in zip(indices, hint_indices, strict=True):
+            point = parsed_points[point_index]
+            evaluator_id = _unique_hallway_evaluator_id(
+                source_room_id=source_room_id,
+                hint_index=hint_index,
+                used_ids=used_ids,
+            )
+            used_ids.add(evaluator_id)
+            evaluator_ids[point_index] = evaluator_id
+            evaluator_names[point_index] = f"{point.name} (hint {hint_index})"
+
+    return [
+        EvaluationPoint(
+            room_id=_required_value(evaluator_ids[index]),
+            room_type=point.room_type,
+            name=_required_value(evaluator_names[index]),
+            x=point.x,
+            y=point.y,
+        )
+        for index, point in enumerate(parsed_points)
+    ]
+
+
+def _extract_hint_index(value: Any, room_id: str) -> int | None:
+    raw_hint_index = _get(value, "hint_index")
+    if raw_hint_index is None:
+        return None
+    if isinstance(raw_hint_index, bool) or not isinstance(raw_hint_index, int):
+        raise ValueError(
+            f"Candidate point '{room_id}' hint_index must be a positive integer."
+        )
+    if raw_hint_index <= 0:
+        raise ValueError(
+            f"Candidate point '{room_id}' hint_index must be a positive integer."
+        )
+    return raw_hint_index
+
+
+def _resolve_hallway_hint_indices(
+    room_id: str,
+    points: Sequence[_ParsedCandidatePoint],
+) -> tuple[int, ...]:
+    explicit_indices = [
+        point.explicit_hint_index
+        for point in points
+        if point.explicit_hint_index is not None
+    ]
+    if len(set(explicit_indices)) != len(explicit_indices):
+        raise ValueError(
+            f"Hallway candidate point '{room_id}' has duplicated hint_index values."
+        )
+
+    used_indices = set(explicit_indices)
+    next_generated_index = 1
+    resolved: list[int] = []
+
+    for point in points:
+        if point.explicit_hint_index is not None:
+            resolved.append(point.explicit_hint_index)
+            continue
+
+        while next_generated_index in used_indices:
+            next_generated_index += 1
+        resolved.append(next_generated_index)
+        used_indices.add(next_generated_index)
+        next_generated_index += 1
+
+    return tuple(resolved)
+
+
+def _unique_hallway_evaluator_id(
+    *,
+    source_room_id: str,
+    hint_index: int,
+    used_ids: set[str],
+) -> str:
+    base_id = f"{source_room_id}::hint:{hint_index}"
+    if base_id not in used_ids:
+        return base_id
+
+    collision_index = 2
+    while True:
+        candidate_id = f"{base_id}:{collision_index}"
+        if candidate_id not in used_ids:
+            return candidate_id
+        collision_index += 1
+
+
+def _required_value(value: str | None) -> str:
+    if value is None:
+        raise RuntimeError("Candidate scoring point identity was not assigned.")
+    return value
 
 
 def _extract_xy(value: Any) -> tuple[float, float]:
@@ -200,7 +355,9 @@ def _extract_xy(value: Any) -> tuple[float, float]:
         if len(value) >= 2:
             return float(value[0]), float(value[1])
 
-    raise ValueError(f"Could not extract x/y coordinates from candidate value: {value!r}")
+    raise ValueError(
+        f"Could not extract x/y coordinates from candidate value: {value!r}"
+    )
 
 
 def _get(value: Any, key: str) -> Any:
