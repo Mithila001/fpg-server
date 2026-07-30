@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from fpg_core.types_new import FloorPlan
+from fpg_core.types import FloorPlan
 
 
 class FloorPlanSolverStatus(str, Enum):
@@ -23,7 +23,7 @@ class FloorPlanSolverVisualization:
 
     def __post_init__(self) -> None:
         if not isinstance(self.floor_plan, FloorPlan):
-            raise TypeError("floor_plan must be a types_new.FloorPlan instance")
+            raise TypeError("floor_plan must be a types.FloorPlan instance")
         if not isinstance(self.status, FloorPlanSolverStatus):
             raise TypeError("status must be a FloorPlanSolverStatus value")
         if not self.profile_name.strip():

@@ -9,7 +9,7 @@ from fastapi import APIRouter, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from fpg_core import FpgCoreConfig
-from fpg_core.types_new import RoadType, RoomType
+from fpg_core.types import RoadType, RoomType
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core_config import CoreConfigLoadError, get_fpg_core_config

@@ -74,7 +74,7 @@ from fpg_core.floor_plan_solver.profiles import (
     ProfileCatalog,
     SoftConstraintUse,
 )
-from fpg_core.types_new import ConstraintStrength, MatchPolicy, RoomType
+from fpg_core.types import ConstraintStrength, MatchPolicy, RoomType
 from pydantic import BaseModel, ConfigDict, StrictInt, ValidationError
 
 from app.pipeline.buildable_space.reference_data import (

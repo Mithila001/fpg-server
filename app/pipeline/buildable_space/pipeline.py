@@ -9,7 +9,7 @@ from fpg_core.buildable_land import (
 )
 from fpg_core.buildable_land.geometry import polygon_area
 from fpg_core.config import FpgCoreConfig
-from fpg_core.types_new import (
+from fpg_core.types import (
     BuildableSpaceErrorCode,
     BuildableSpaceRequestData,
     BuildableSpaceResult,

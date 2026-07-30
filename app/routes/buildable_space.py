@@ -4,7 +4,7 @@ from collections.abc import Awaitable, Callable
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
-from fpg_core.types_new import (
+from fpg_core.types import (
     BuildableSpaceErrorCode,
     BuildableSpaceRequestData,
     BuildableSpaceStage,

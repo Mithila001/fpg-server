@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pytest
-from fpg_core.types_new import FloorPlan, Point, Polygon, RoomType
+from fpg_core.types import FloorPlan, Point, Polygon, RoomType
 
 import app.pipeline.generation.pipeline as pipeline_module
 from app.core.execution import ExecutionContext

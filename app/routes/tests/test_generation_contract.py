@@ -1,5 +1,5 @@
 import pytest
-from fpg_core.types_new import RoomType
+from fpg_core.types import RoomType
 from pydantic import ValidationError
 
 from app.routes.generation import FloorLimitsRequest, GenerationRoomRequest

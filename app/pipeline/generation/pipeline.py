@@ -60,7 +60,7 @@ from fpg_core.floor_plan_solver import (
     RoomPlacementHint,
     generate_floor_plan,
 )
-from fpg_core.types_new import FloorPlan
+from fpg_core.types import FloorPlan
 
 from app.core.execution import ExecutionContext, PipelineStage
 from app.streaming.cancellation import GenerationCancellationSignal

@@ -4,7 +4,7 @@ import math
 from collections.abc import Sequence
 from textwrap import wrap
 
-from fpg_core.types_new import (
+from fpg_core.types import (
     FloorPlanOpening,
     FloorPlanRoom,
     OpeningType,

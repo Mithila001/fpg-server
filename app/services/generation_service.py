@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from uuid import uuid4
 
 from fpg_core import FpgCoreConfig
-from fpg_core.types_new import RoomType
+from fpg_core.types import RoomType
 
 from app.artifacts import ArtifactStorage
 from app.pipeline.generation import (

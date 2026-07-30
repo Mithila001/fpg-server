@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from fpg_core.types_new import (
+from fpg_core.types import (
     FloorPlan,
     FloorPlanOpening,
     FloorPlanRoom,

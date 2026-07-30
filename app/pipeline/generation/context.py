@@ -12,7 +12,7 @@ from fpg_core.floor_plan_preprocessing import (
     ReferenceDataError,
 )
 from fpg_core.floor_plan_scoring import FloorPlanScoringResult
-from fpg_core.types_new import FloorPlan, RoomType
+from fpg_core.types import FloorPlan, RoomType
 
 from app.core.execution import ExecutionContext
 from app.visualization.features.score.config import ScoringVisualizationConfig

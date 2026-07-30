@@ -121,7 +121,7 @@ No module should redefine or reinterpret the coordinate orientation.
 
 # Room Type Convention
 
-`fpg_core.types_new.RoomType` is the single canonical room-type
+`fpg_core.types.RoomType` is the single canonical room-type
 definition for the entire Python project.
 
 - Serialized API and JSON inputs represent room types with exact enum values,

@@ -21,7 +21,7 @@ from fpg_core.candidate_scoring import (
     evaluate_candidate,
 )
 from fpg_core.candidate_search import CandidatePoint
-from fpg_core.types_new import (
+from fpg_core.types import (
     ConstraintStrength,
     FloorPlanGenerationSpec,
     FloorSpec,

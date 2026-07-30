@@ -5,7 +5,7 @@ from functools import lru_cache
 from pathlib import Path
 from types import MappingProxyType
 
-from fpg_core.types_new import (
+from fpg_core.types import (
     BuildableSpaceReferenceData,
     LandSide,
     RoadType,

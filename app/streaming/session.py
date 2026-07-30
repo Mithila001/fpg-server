@@ -10,7 +10,7 @@ from typing import Any, AsyncIterator
 
 from fastapi import Request
 from fpg_core.candidate_search import CandidatePoint
-from fpg_core.types_new import FloorPlan
+from fpg_core.types import FloorPlan
 
 from app.artifacts.serializers import to_json_value
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from fpg_core.types_new import FloorPlan
+from fpg_core.types import FloorPlan
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,7 +25,7 @@ class FloorPlanVisualizationStage:
         if self.profile_name is not None and not self.profile_name.strip():
             raise ValueError("profile_name cannot be blank when provided")
         if not isinstance(self.floor_plan, FloorPlan):
-            raise TypeError("floor_plan must be a types_new.FloorPlan instance")
+            raise TypeError("floor_plan must be a types.FloorPlan instance")
         if len(self.floor_plan.boundary.points) < 3:
             raise ValueError("floor_plan boundary must contain at least three points")
 

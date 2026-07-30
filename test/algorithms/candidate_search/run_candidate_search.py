@@ -30,7 +30,7 @@ from fpg_core.candidate_search import (
     CandidateSearchTarget,
     search_candidates,
 )
-from fpg_core.types_new import (
+from fpg_core.types import (
     ConstraintStrength,
     FloorPlanGenerationSpec,
     FloorSpec,

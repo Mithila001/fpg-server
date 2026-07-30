@@ -372,7 +372,7 @@ The coding agent should choose the approach that best matches the active API and
 The project already has a centralized shared type package under:
 
 ```text
-app/algorithms/types_new
+app/algorithms/types
 ```
 
 However, streaming transport types may not necessarily belong inside the algorithm type package.

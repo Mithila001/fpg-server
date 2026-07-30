@@ -2,7 +2,7 @@ import json
 
 import pytest
 from fpg_core.floor_plan_preprocessing import ReferenceDataError
-from fpg_core.types_new import RoomType
+from fpg_core.types import RoomType
 
 from app.pipeline.generation.context import load_generation_reference_data
 

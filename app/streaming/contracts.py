@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any, Protocol
 
 from fpg_core.candidate_search import CandidatePoint
-from fpg_core.types_new import FloorPlan
+from fpg_core.types import FloorPlan
 
 
 class GenerationStatus(str, Enum):

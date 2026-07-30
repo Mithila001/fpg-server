@@ -22,7 +22,7 @@ from fpg_core.floor_plan_scoring.evaluators.enclosed_voids import (
 from fpg_core.floor_plan_scoring.evaluators.inward_recess import (
     InwardRecessVisualizationData,
 )
-from fpg_core.types_new import FloorPlan
+from fpg_core.types import FloorPlan
 from matplotlib.figure import Figure
 
 from app.core.execution import ExecutionContext

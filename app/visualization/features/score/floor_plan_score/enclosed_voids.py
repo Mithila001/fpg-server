@@ -3,7 +3,7 @@ from __future__ import annotations
 from fpg_core.floor_plan_scoring.evaluators.enclosed_voids import (
     EnclosedVoidsVisualizationData,
 )
-from fpg_core.types_new import FloorPlan
+from fpg_core.types import FloorPlan
 from matplotlib.figure import Figure
 from matplotlib.patches import Polygon as PolygonPatch
 

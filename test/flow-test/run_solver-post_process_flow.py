@@ -55,7 +55,7 @@ from fpg_core.floor_plan_solver import (
     RoomPlacementHint,
     generate_floor_plan,
 )
-from fpg_core.types_new import (
+from fpg_core.types import (
     ConstraintStrength,
     FloorPlan,
     FloorPlanGenerationSpec,

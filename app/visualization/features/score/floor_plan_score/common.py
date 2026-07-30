@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fpg_core.types_new import FloorPlan
+from fpg_core.types import FloorPlan
 from matplotlib.axes import Axes
 from matplotlib.patches import Polygon as PolygonPatch
 
