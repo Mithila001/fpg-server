@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Protocol
 
-from app.algorithms.candidate_search import CandidatePoint
-from app.algorithms.types_new import FloorPlan
+from fpg_core.candidate_search import CandidatePoint
+from fpg_core.types_new import FloorPlan
 
 
 class GenerationStatus(str, Enum):

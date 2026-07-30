@@ -2,30 +2,31 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.algorithms.candidate_scoring import CandidateScoringInput, ScoringResult
-from app.algorithms.candidate_scoring.evaluators.exterior_clearance import (
+from fpg_core.candidate_scoring import CandidateScoringInput, ScoringResult
+from fpg_core.candidate_scoring.evaluators.exterior_clearance import (
     ExteriorClearanceVisualizationData,
 )
-from app.algorithms.candidate_scoring.evaluators.relationship_quality import (
+from fpg_core.candidate_scoring.evaluators.relationship_quality import (
     RelationshipQualityVisualizationData,
 )
-from app.algorithms.candidate_scoring.evaluators.spatial_distribution import (
+from fpg_core.candidate_scoring.evaluators.spatial_distribution import (
     SpatialDistributionVisualizationData,
 )
-from app.algorithms.candidate_scoring.evaluators.zone_suitability import (
+from fpg_core.candidate_scoring.evaluators.zone_suitability import (
     ZoneSuitabilityVisualizationData,
 )
-from app.algorithms.floor_plan_scoring import FloorPlanScoringResult
-from app.algorithms.floor_plan_scoring.evaluators.enclosed_voids import (
+from fpg_core.floor_plan_scoring import FloorPlanScoringResult
+from fpg_core.floor_plan_scoring.evaluators.enclosed_voids import (
     EnclosedVoidsVisualizationData,
 )
-from app.algorithms.floor_plan_scoring.evaluators.inward_recess import (
+from fpg_core.floor_plan_scoring.evaluators.inward_recess import (
     InwardRecessVisualizationData,
 )
-from app.algorithms.types_new import FloorPlan
+from fpg_core.types_new import FloorPlan
 from matplotlib.figure import Figure
 
 from app.core.execution import ExecutionContext
+
 from .config import DEFAULT_RENDER_CONFIG, RenderConfig
 from .features.candidate_search.candidate_search_render import (
     render_candidate_search_figure,

@@ -3,8 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import uuid4
 
-from app.algorithms import FpgCoreConfig
-from app.algorithms.types_new import RoomType
+from fpg_core import FpgCoreConfig
+from fpg_core.types_new import RoomType
+
 from app.artifacts import ArtifactStorage
 from app.pipeline.generation import (
     GenerationPipelineRequest,

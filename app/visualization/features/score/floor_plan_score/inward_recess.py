@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from matplotlib.figure import Figure
-from matplotlib.patches import Polygon as PolygonPatch
-
-from app.algorithms.floor_plan_scoring.evaluators.inward_recess import (
+from fpg_core.floor_plan_scoring.evaluators.inward_recess import (
     InwardRecessVisualizationData,
 )
-from app.algorithms.types_new import FloorPlan
+from fpg_core.types_new import FloorPlan
+from matplotlib.figure import Figure
+from matplotlib.patches import Polygon as PolygonPatch
 
 from ....config import RenderConfig
 from ....matplotlib_backend.renderer import create_figure

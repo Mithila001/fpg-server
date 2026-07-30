@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from matplotlib.figure import Figure
-
-from app.algorithms.candidate_scoring.evaluators.spatial_distribution import (
+from fpg_core.candidate_scoring.evaluators.spatial_distribution import (
     SpatialDistributionVisualizationData,
 )
+from matplotlib.figure import Figure
 
 from ....config import RenderConfig
 from ....matplotlib_backend.renderer import create_figure
@@ -29,8 +28,7 @@ def render_spatial_distribution_figure(
             cmap="RdYlGn_r",
             vmin=0.0,
             vmax=max(
-                payload.theoretical_coverage_gap
-                * payload.gap_zero_score_ratio,
+                payload.theoretical_coverage_gap * payload.gap_zero_score_ratio,
                 1e-9,
             ),
             interpolation="bilinear",

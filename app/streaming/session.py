@@ -9,14 +9,14 @@ from datetime import UTC, datetime
 from typing import Any, AsyncIterator
 
 from fastapi import Request
+from fpg_core.candidate_search import CandidatePoint
+from fpg_core.types_new import FloorPlan
 
-from app.algorithms.candidate_search import CandidatePoint
-from app.algorithms.types_new import FloorPlan
 from app.artifacts.serializers import to_json_value
 
 from .contracts import (
-    CandidateTrialPayload,
     CancelledPayload,
+    CandidateTrialPayload,
     CompletedPayload,
     CompletionOutcome,
     ErrorPayload,
@@ -354,9 +354,13 @@ class GenerationSseSession:
         name: str,
         payload: GenerationEventPayload,
     ) -> bytes:
-        timestamp = datetime.now(UTC).isoformat(timespec="milliseconds").replace(
-            "+00:00",
-            "Z",
+        timestamp = (
+            datetime.now(UTC)
+            .isoformat(timespec="milliseconds")
+            .replace(
+                "+00:00",
+                "Z",
+            )
         )
         envelope = {
             "schema_version": 1,

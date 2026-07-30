@@ -4,6 +4,8 @@ import ast
 from pathlib import Path
 
 APP_ROOT = Path(__file__).resolve().parents[2]
+
+
 def _imports(path: Path) -> tuple[str, ...]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     names: list[str] = []
@@ -45,9 +47,9 @@ def test_algorithm_implementations_do_not_import_artifact_storage() -> None:
 
 def test_shared_infrastructure_has_no_feature_dependencies() -> None:
     forbidden = {
-        "logger": ("app.algorithms", "app.pipeline", "app.visualization"),
+        "logger": ("fpg_core", "app.pipeline", "app.visualization"),
         "artifacts": (
-            "app.algorithms",
+            "fpg_core",
             "app.pipeline",
             "app.visualization",
             "app.util.logger",
@@ -72,7 +74,7 @@ def test_features_do_not_import_other_feature_loggers() -> None:
         owner = relative.parts[0]
         for imported in _imports(path):
             marker = ".logging"
-            if imported.startswith("app.algorithms.") and marker in imported:
+            if imported.startswith("fpg_core.") and marker in imported:
                 imported_owner = imported.split(".")[2]
                 if imported_owner != owner:
                     violations.append(
@@ -128,8 +130,7 @@ def test_jsonl_is_not_supported_anywhere_in_application_code() -> None:
 def test_flow_identity_does_not_use_uuid_or_job_id_for_naming() -> None:
     execution_root = APP_ROOT / "core" / "execution"
     naming_sources = "\n".join(
-        path.read_text(encoding="utf-8")
-        for path in execution_root.glob("*.py")
+        path.read_text(encoding="utf-8") for path in execution_root.glob("*.py")
     ).lower()
     assert "uuid" not in naming_sources
     assert "flow_job" not in naming_sources

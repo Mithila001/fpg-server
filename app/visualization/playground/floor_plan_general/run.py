@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from app.algorithms.types_new import (
+from fpg_core.types_new import (
     FloorPlan,
     FloorPlanOpening,
     FloorPlanRoom,
@@ -14,6 +14,7 @@ from app.algorithms.types_new import (
     RoomId,
     RoomType,
 )
+
 from app.visualization.api import (
     FloorPlanFlowVisualization,
     FloorPlanVisualizationStage,

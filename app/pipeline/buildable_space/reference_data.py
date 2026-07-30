@@ -5,9 +5,7 @@ from functools import lru_cache
 from pathlib import Path
 from types import MappingProxyType
 
-from pydantic import BaseModel, ConfigDict, StrictInt, ValidationError
-
-from app.algorithms.types_new import (
+from fpg_core.types_new import (
     BuildableSpaceReferenceData,
     LandSide,
     RoadType,
@@ -16,6 +14,7 @@ from app.algorithms.types_new import (
     UsableLandConstraints,
     ValidationLimits,
 )
+from pydantic import BaseModel, ConfigDict, StrictInt, ValidationError
 
 from .exceptions import ReferenceDataError
 
@@ -68,7 +67,9 @@ def _require_exact_keys(
     expected: set[object],
 ) -> None:
     if actual != expected:
-        raise ReferenceDataError(f"{label} must define exactly {sorted(map(str, expected))}.")
+        raise ReferenceDataError(
+            f"{label} must define exactly {sorted(map(str, expected))}."
+        )
 
 
 @lru_cache(maxsize=None)

@@ -7,12 +7,13 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Mapping
 
-from app.algorithms.floor_plan_preprocessing import (
+from fpg_core.floor_plan_preprocessing import (
     PreprocessingReferenceData,
     ReferenceDataError,
 )
-from app.algorithms.floor_plan_scoring import FloorPlanScoringResult
-from app.algorithms.types_new import FloorPlan, RoomType
+from fpg_core.floor_plan_scoring import FloorPlanScoringResult
+from fpg_core.types_new import FloorPlan, RoomType
+
 from app.core.execution import ExecutionContext
 from app.visualization.features.score.config import ScoringVisualizationConfig
 

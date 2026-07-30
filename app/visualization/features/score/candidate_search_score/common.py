@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+from fpg_core.candidate_scoring.evaluators.common import EvaluationPoint
 from matplotlib.axes import Axes
-
-from app.algorithms.candidate_scoring.evaluators.common import EvaluationPoint
 
 
 def draw_candidate_points(

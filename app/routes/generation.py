@@ -8,12 +8,12 @@ from uuid import uuid4
 from fastapi import APIRouter, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
+from fpg_core import FpgCoreConfig
+from fpg_core.types_new import RoadType, RoomType
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.algorithms import FpgCoreConfig
-from app.algorithms.types_new import RoadType, RoomType
-from app.pipeline.generation import GenerationPipelineError
 from app.core_config import CoreConfigLoadError, get_fpg_core_config
+from app.pipeline.generation import GenerationPipelineError
 from app.routes.errors import (
     ApiErrorCode,
     ApiErrorResponse,
@@ -165,7 +165,11 @@ def _to_service_request(body: GenerationRequest) -> GenerationServiceRequest:
     )
 
 
-@router.get("/metadata", response_model=MetadataResponse, responses={500: {"model": ApiErrorResponse}})
+@router.get(
+    "/metadata",
+    response_model=MetadataResponse,
+    responses={500: {"model": ApiErrorResponse}},
+)
 def get_metadata(request: Request) -> MetadataResponse | JSONResponse:
     try:
         core_config = get_fpg_core_config(request.app)
@@ -197,7 +201,9 @@ def get_metadata(request: Request) -> MetadataResponse | JSONResponse:
                 RoomRelationMetadata(
                     source_room_type=item.source_room_type,
                     target_room_types=list(item.target_room_types),
-                    match_policy=str(getattr(item.match_policy, "value", item.match_policy)),
+                    match_policy=str(
+                        getattr(item.match_policy, "value", item.match_policy)
+                    ),
                     strength=str(getattr(item.strength, "value", item.strength)),
                     required=item.required,
                 )
@@ -242,7 +248,9 @@ def get_metadata(request: Request) -> MetadataResponse | JSONResponse:
         500: {"model": ApiErrorResponse},
     },
 )
-def generate(body: GenerationRequest, request: Request) -> GenerationResponse | JSONResponse:
+def generate(
+    body: GenerationRequest, request: Request
+) -> GenerationResponse | JSONResponse:
     try:
         result = execute_generation(
             _to_service_request(body),
@@ -376,9 +384,7 @@ def _produce_stream(
     except GenerationPipelineError as exc:
         termination_reason = exc.details.get("termination_reason")
         if termination_reason == "cancelled":
-            events.cancelled(
-                reason=str(exc.details.get("reason") or "client_request")
-            )
+            events.cancelled(reason=str(exc.details.get("reason") or "client_request"))
             return
         if termination_reason == "timeout":
             events.status(GenerationStatus.TIMEOUT_REACHED)

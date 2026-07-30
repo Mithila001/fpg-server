@@ -3,7 +3,7 @@ from __future__ import annotations
 from types import MappingProxyType
 from typing import Mapping
 
-from app.algorithms.types_new import (
+from fpg_core.types_new import (
     BuildableSpaceErrorCode,
     BuildableSpaceStage,
 )

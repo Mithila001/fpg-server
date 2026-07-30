@@ -4,10 +4,7 @@ from collections.abc import Awaitable, Callable
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field, StrictInt
-from starlette.responses import Response
-
-from app.algorithms.types_new import (
+from fpg_core.types_new import (
     BuildableSpaceErrorCode,
     BuildableSpaceRequestData,
     BuildableSpaceStage,
@@ -18,12 +15,15 @@ from app.algorithms.types_new import (
     RoadRole,
     RoadType,
 )
+from pydantic import BaseModel, ConfigDict, Field, StrictInt
+from starlette.responses import Response
+
 from app.artifacts import ArtifactStorage
 from app.core.execution import ExecutionContext
 from app.core_config import get_fpg_core_config
 from app.pipeline.buildable_space import BuildableSpacePipelineError
-from app.services.buildable_space_service import execute_buildable_space
 from app.routes.errors import ApiErrorResponse, api_error_response
+from app.services.buildable_space_service import execute_buildable_space
 
 router = APIRouter(tags=["buildable-space"])
 BUILDABLE_SPACE_PATH = "/buildable-space"
@@ -155,9 +155,7 @@ def _to_service_request(body: BuildableSpaceRequest) -> BuildableSpaceRequestDat
 
 def _polygon_response(polygon: Polygon) -> PolygonResponse:
     return PolygonResponse(
-        points=[
-            PointResponse(x=point.x, y=point.y) for point in polygon.points
-        ]
+        points=[PointResponse(x=point.x, y=point.y) for point in polygon.points]
     )
 
 
@@ -210,9 +208,7 @@ def buildable_space(
     usable = result.usable_land
     return BuildableSpaceResponse(
         flow_id=flow_id,
-        units=UnitsResponse(
-            project_units_per_meter=result.project_units_per_meter
-        ),
+        units=UnitsResponse(project_units_per_meter=result.project_units_per_meter),
         original_land=OriginalLandResponse(area=result.original_land_area),
         buildable_land=BuildableLandResponse(
             boundary=_polygon_response(buildable.boundary),

@@ -35,17 +35,17 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Mapping, TypedDict
 
-from app.algorithms.floor_plan_post_processing import (
+from fpg_core.floor_plan_post_processing import (
     INITIAL_GENERATION_PROFILE as POST_PROCESSING_INITIAL_GENERATION_PROFILE,
 )
-from app.algorithms.floor_plan_post_processing import (
+from fpg_core.floor_plan_post_processing import (
     PipelineStatus,
     PostProcessingRequest,
     PostProcessingResult,
     ProcessorStatus,
     post_process_floor_plan,
 )
-from app.algorithms.floor_plan_solver import (
+from fpg_core.floor_plan_solver import (
     INITIAL_GENERATION_PROFILE,
     REFINEMENT_A_PROFILE,
     REFINEMENT_B_PROFILE,
@@ -55,7 +55,7 @@ from app.algorithms.floor_plan_solver import (
     RoomPlacementHint,
     generate_floor_plan,
 )
-from app.algorithms.types_new import (
+from fpg_core.types_new import (
     ConstraintStrength,
     FloorPlan,
     FloorPlanGenerationSpec,
@@ -69,12 +69,13 @@ from app.algorithms.types_new import (
     RoomSpec,
     RoomType,
 )
+
+from app.util.output_paths import create_artifact_path, create_run_directory
 from app.visualization.api import (
     FloorPlanFlowVisualization,
     FloorPlanVisualizationStage,
     render_floor_plan_general,
 )
-from app.util.output_paths import create_artifact_path, create_run_directory
 
 UNITS_PER_METER = 10
 UNIT_SIZE_CENTIMETERS = 10
@@ -848,9 +849,7 @@ def save_flow_output(
 ) -> Path:
     """Save the complete flow and both named visualization-stage arrays."""
 
-    output_directory = create_run_directory(
-        "json", "solver_post_process", REQUEST_ID
-    )
+    output_directory = create_run_directory("json", "solver_post_process", REQUEST_ID)
     output_path = create_artifact_path(
         output_directory, "solver-post-process-flow", "json"
     )

@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from matplotlib.figure import Figure
-from matplotlib.patches import Rectangle
-
-from app.algorithms.candidate_scoring.evaluators.exterior_clearance import (
+from fpg_core.candidate_scoring.evaluators.exterior_clearance import (
     ExteriorClearanceVisualizationData,
 )
+from matplotlib.figure import Figure
+from matplotlib.patches import Rectangle
 
 from ....config import RenderConfig
 from ....matplotlib_backend.renderer import create_figure

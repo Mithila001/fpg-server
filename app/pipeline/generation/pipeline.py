@@ -9,37 +9,37 @@ from math import ceil, sqrt
 from time import perf_counter
 from typing import Any, Protocol, TypeVar, cast
 
-from app.algorithms import FpgCoreConfig
-from app.algorithms.candidate_scoring import (
+from fpg_core import FpgCoreConfig
+from fpg_core.candidate_scoring import (
     CandidateScoringInput,
     evaluate_candidate,
 )
-from app.algorithms.candidate_scoring import (
+from fpg_core.candidate_scoring import (
     ScoringResult as CandidateScoringResult,
 )
-from app.algorithms.candidate_scoring import (
+from fpg_core.candidate_scoring import (
     create_default_registry as create_candidate_scoring_registry,
 )
-from app.algorithms.candidate_search import (
+from fpg_core.candidate_search import (
     CandidateSearchInput,
     CandidateSearchSession,
     CandidateSearchSettings,
     CandidateSearchTarget,
     CandidateTrialResult,
 )
-from app.algorithms.floor_plan_openings import (
+from fpg_core.floor_plan_openings import (
     OpeningGenerationError,
     OpeningGenerationRequest,
     OpeningGenerationResult,
     generate_openings,
 )
-from app.algorithms.floor_plan_post_processing import (
+from fpg_core.floor_plan_post_processing import (
     PipelineStatus,
     PostProcessingRequest,
     PostProcessingResult,
     post_process_floor_plan,
 )
-from app.algorithms.floor_plan_preprocessing import (
+from fpg_core.floor_plan_preprocessing import (
     FloorLimits,
     FloorPlanPreprocessingError,
     PreparedGenerationInput,
@@ -48,19 +48,20 @@ from app.algorithms.floor_plan_preprocessing import (
     RequestedRoom,
     prepare_generation_input,
 )
-from app.algorithms.floor_plan_scoring import (
+from fpg_core.floor_plan_scoring import (
     FloorPlanScoringError,
     FloorPlanScoringResult,
     score_floor_plan,
 )
-from app.algorithms.floor_plan_solver import (
+from fpg_core.floor_plan_solver import (
     FloorPlanSolveRequest,
-    FloorPlanSolveResult,
     FloorPlanSolverError,
+    FloorPlanSolveResult,
     RoomPlacementHint,
     generate_floor_plan,
 )
-from app.algorithms.types_new import FloorPlan
+from fpg_core.types_new import FloorPlan
+
 from app.core.execution import ExecutionContext, PipelineStage
 from app.streaming.cancellation import GenerationCancellationSignal
 from app.streaming.contracts import (
@@ -485,9 +486,7 @@ def _render_solver_attempt(
     initial_profile_name: str,
     last_refinement_profile_name: str,
 ) -> None:
-    stage_prefix = (
-        f"candidate-{context.candidate_id}-run-{attempt.solver_run_id}"
-    )
+    stage_prefix = f"candidate-{context.candidate_id}-run-{attempt.solver_run_id}"
     payload = FloorPlanFlowVisualization(
         stages=(
             FloorPlanVisualizationStage(
@@ -898,6 +897,7 @@ def run_generation_pipeline(
         ]
         | None
     ) = None
+
     def score_candidate(points: tuple[Any, ...]) -> float:
         nonlocal latest_candidate_scoring
         check_cancellation()
@@ -1021,9 +1021,7 @@ def run_generation_pipeline(
                     attempt=attempt,
                     settings=settings,
                 )
-                event_publisher.status(
-                    GenerationStatus.PRESENTABLE_FLOOR_PLAN_FOUND
-                )
+                event_publisher.status(GenerationStatus.PRESENTABLE_FLOOR_PLAN_FOUND)
                 final_sequence = event_publisher.floor_plan(
                     classification=FloorPlanClassification.PRESENTABLE,
                     trial_number=(
@@ -1056,9 +1054,7 @@ def run_generation_pipeline(
                             "score": attempt.scoring.total_score,
                         },
                     )
-                    event_publisher.status(
-                        GenerationStatus.USABLE_FLOOR_PLAN_FOUND
-                    )
+                    event_publisher.status(GenerationStatus.USABLE_FLOOR_PLAN_FOUND)
                     best_usable_event_sequence = event_publisher.floor_plan(
                         classification=FloorPlanClassification.USABLE,
                         trial_number=(
@@ -1207,9 +1203,7 @@ def run_generation_pipeline(
                 continue
 
             eligible_candidate_count += 1
-            candidate_context = trial_context.for_candidate(
-                eligible_candidate_count
-            )
+            candidate_context = trial_context.for_candidate(eligible_candidate_count)
             if latest_candidate_scoring is None:
                 raise RuntimeError(
                     "Candidate scoring completed without retaining its result."
@@ -1320,9 +1314,7 @@ def run_generation_pipeline(
         )
         result = _build_result(
             context=(
-                execution_context.for_search_trial(
-                    best_usable_attempt.search_trial_id
-                )
+                execution_context.for_search_trial(best_usable_attempt.search_trial_id)
                 if best_usable_attempt.search_trial_id is not None
                 else execution_context
             )

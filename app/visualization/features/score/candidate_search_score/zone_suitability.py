@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from matplotlib.figure import Figure
-
-from app.algorithms.candidate_scoring.evaluators.zone_suitability import (
+from fpg_core.candidate_scoring.evaluators.zone_suitability import (
     ZoneSuitabilityVisualizationData,
 )
+from matplotlib.figure import Figure
 
 from ....config import RenderConfig
 from ....matplotlib_backend.renderer import create_figure

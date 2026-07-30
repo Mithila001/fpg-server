@@ -1,12 +1,11 @@
 from __future__ import annotations
 
+from fpg_core.candidate_scoring.evaluators.relationship_quality import (
+    RelationshipQualityVisualizationData,
+)
 from matplotlib import colormaps
 from matplotlib.colors import Normalize
 from matplotlib.figure import Figure
-
-from app.algorithms.candidate_scoring.evaluators.relationship_quality import (
-    RelationshipQualityVisualizationData,
-)
 
 from ....config import RenderConfig
 from ....matplotlib_backend.renderer import create_figure
@@ -82,9 +81,7 @@ def render_relationship_scores_figure(
                 alpha=0.78,
                 zorder=8,
             )
-        lines.append(
-            f"{query.start_type} → {query.end_type}: {query.score:.1f}"
-        )
+        lines.append(f"{query.start_type} → {query.end_type}: {query.score:.1f}")
 
     draw_candidate_points(axes, payload.points)
     configure_candidate_axes(

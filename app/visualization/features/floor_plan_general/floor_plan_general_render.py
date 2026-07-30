@@ -4,17 +4,16 @@ import math
 from collections.abc import Sequence
 from textwrap import wrap
 
-from matplotlib.axes import Axes
-from matplotlib.figure import Figure
-from matplotlib.patches import Polygon as PolygonPatch
-
-from app.algorithms.types_new import (
+from fpg_core.types_new import (
     FloorPlanOpening,
     FloorPlanRoom,
     OpeningType,
     Point,
     RoomType,
 )
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+from matplotlib.patches import Polygon as PolygonPatch
 
 from ...config import RenderConfig
 from ...matplotlib_backend.renderer import create_figure_grid

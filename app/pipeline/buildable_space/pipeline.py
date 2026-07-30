@@ -2,20 +2,21 @@ from __future__ import annotations
 
 from time import perf_counter
 
-from app.algorithms.buildable_land import (
+from fpg_core.buildable_land import (
     BuildableLandError,
     calculate_buildable_land,
     normalize_land_request,
 )
-from app.algorithms.buildable_land.geometry import polygon_area
-from app.algorithms.config import FpgCoreConfig
-from app.algorithms.types_new import (
+from fpg_core.buildable_land.geometry import polygon_area
+from fpg_core.config import FpgCoreConfig
+from fpg_core.types_new import (
     BuildableSpaceErrorCode,
     BuildableSpaceRequestData,
     BuildableSpaceResult,
     BuildableSpaceStage,
 )
-from app.algorithms.usable_land import UsableLandError, find_usable_land
+from fpg_core.usable_land import UsableLandError, find_usable_land
+
 from app.core.execution import PipelineStage
 
 from .context import BuildableSpaceContext

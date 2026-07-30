@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.algorithms.types_new import FloorPlan
+from fpg_core.types_new import FloorPlan
 
 
 @dataclass(frozen=True, slots=True)

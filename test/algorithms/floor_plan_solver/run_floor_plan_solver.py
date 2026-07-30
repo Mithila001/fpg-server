@@ -27,7 +27,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Mapping
 
-from app.algorithms.floor_plan_solver import (
+from fpg_core.floor_plan_solver import (
     INITIAL_GENERATION_PROFILE,
     REFINEMENT_A_PROFILE,
     REFINEMENT_B_PROFILE,
@@ -37,7 +37,7 @@ from app.algorithms.floor_plan_solver import (
     RoomPlacementHint,
     generate_floor_plan,
 )
-from app.algorithms.types_new import (
+from fpg_core.types_new import (
     ConstraintStrength,
     FloorPlan,
     FloorPlanGenerationSpec,
@@ -50,12 +50,13 @@ from app.algorithms.types_new import (
     RoomSpec,
     RoomType,
 )
+
+from app.util.output_paths import create_artifact_path, create_run_directory
 from app.visualization.api import render_floor_plan_solver
 from app.visualization.features.floor_plan_solver.models import (
     FloorPlanSolverStatus,
     FloorPlanSolverVisualization,
 )
-from app.util.output_paths import create_artifact_path, create_run_directory
 
 UNITS_PER_METER = 10
 UNIT_SIZE_CENTIMETERS = 10
@@ -63,6 +64,8 @@ RANDOM_SEED = 42
 INITIAL_MAX_TIME_SECONDS = 8.0
 REFINEMENT_MAX_TIME_SECONDS = 5.0
 EPSILON = 1e-7
+
+
 def room(
     room_id: str,
     room_type: RoomType,
@@ -489,9 +492,7 @@ def save_stage_output(
 ) -> Path:
     """Save one complete request/result pair for debugging."""
 
-    output_path = create_artifact_path(
-        output_directory, descriptive_name, "json"
-    )
+    output_path = create_artifact_path(output_directory, descriptive_name, "json")
     payload = {
         "measurement": {
             "units_per_meter": UNITS_PER_METER,

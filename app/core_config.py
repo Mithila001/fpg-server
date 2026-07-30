@@ -6,22 +6,22 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from fastapi import FastAPI
-from pydantic import BaseModel, ConfigDict, StrictInt, ValidationError
-
-from app.algorithms import BuildableSpaceConfig, FpgCoreConfig, validate_fpg_core_config
-from app.algorithms.candidate_scoring.config import EvaluatorRule as CandidateRule
-from app.algorithms.candidate_scoring.config import ScoringConfig as CandidateConfig
-from app.algorithms.candidate_scoring.types import EvaluatorCategory, EvaluatorKey
-from app.algorithms.candidate_search.config import CandidateSearchConfig
-from app.algorithms.floor_plan_openings.config import (
+from fpg_core import BuildableSpaceConfig, FpgCoreConfig, validate_fpg_core_config
+from fpg_core.candidate_scoring.config import EvaluatorRule as CandidateRule
+from fpg_core.candidate_scoring.config import ScoringConfig as CandidateConfig
+from fpg_core.candidate_scoring.types import EvaluatorCategory, EvaluatorKey
+from fpg_core.candidate_search.config import CandidateSearchConfig
+from fpg_core.floor_plan_openings.config import (
     DimensionConfig,
     FeaturePolicy,
     GeometryConfig,
     ObjectiveConfig,
+)
+from fpg_core.floor_plan_openings.config import (
     SolverConfig as OpeningSolverConfig,
 )
-from app.algorithms.floor_plan_openings.profiles import OpeningGenerationProfile
-from app.algorithms.floor_plan_post_processing.config import (
+from fpg_core.floor_plan_openings.profiles import OpeningGenerationProfile
+from fpg_core.floor_plan_post_processing.config import (
     GridSnapConfig,
     HallwayMergeConfig,
     PlaceholderRemovalConfig,
@@ -30,12 +30,12 @@ from app.algorithms.floor_plan_post_processing.config import (
     WallExtensionConfig,
     WallExtensionRule,
 )
-from app.algorithms.floor_plan_post_processing.contracts import (
+from fpg_core.floor_plan_post_processing.contracts import (
     NumericPolicy,
     PostProcessingProfile,
     ProcessorUse,
 )
-from app.algorithms.floor_plan_preprocessing import (
+from fpg_core.floor_plan_preprocessing import (
     AspectRatioRule,
     ExcessAttachedBathroomPolicy,
     PreprocessingConfig,
@@ -44,12 +44,14 @@ from app.algorithms.floor_plan_preprocessing import (
     RoomSizeReference,
     RoomSizeSelectionStrategy,
 )
-from app.algorithms.floor_plan_scoring.config import (
+from fpg_core.floor_plan_scoring.config import (
     EvaluatorRule as FloorScoringRule,
+)
+from fpg_core.floor_plan_scoring.config import (
     ScoringGroupRule,
     ScoringProfile,
 )
-from app.algorithms.floor_plan_scoring.evaluators import (
+from fpg_core.floor_plan_scoring.evaluators import (
     BedroomQualitySettings,
     EnclosedVoidsSettings,
     GeometryIntegritySettings,
@@ -58,21 +60,23 @@ from app.algorithms.floor_plan_scoring.evaluators import (
     LivingRoomBalanceSettings,
     RequiredAdjacencySettings,
 )
-from app.algorithms.floor_plan_scoring.types import EvaluatorKey as FloorEvaluatorKey
-from app.algorithms.floor_plan_scoring.types import GroupKey
-from app.algorithms.floor_plan_solver.config import (
+from fpg_core.floor_plan_scoring.types import EvaluatorKey as FloorEvaluatorKey
+from fpg_core.floor_plan_scoring.types import GroupKey
+from fpg_core.floor_plan_solver.config import (
     PreparationConfig,
     SeedPolicy,
     SeedSource,
     SolverConfig,
 )
-from app.algorithms.floor_plan_solver.profiles import (
+from fpg_core.floor_plan_solver.profiles import (
     GenerationProfile,
     HardConstraintUse,
     ProfileCatalog,
     SoftConstraintUse,
 )
-from app.algorithms.types_new import ConstraintStrength, MatchPolicy, RoomType
+from fpg_core.types_new import ConstraintStrength, MatchPolicy, RoomType
+from pydantic import BaseModel, ConfigDict, StrictInt, ValidationError
+
 from app.pipeline.buildable_space.reference_data import (
     REFERENCE_DATA_PATH as BUILDABLE_CONFIG_PATH,
 )
@@ -80,7 +84,9 @@ from app.pipeline.buildable_space.reference_data import (
     load_buildable_space_reference_data,
 )
 
-GENERATION_CONFIG_PATH = Path(__file__).with_name("data") / "generation_reference_data.json"
+GENERATION_CONFIG_PATH = (
+    Path(__file__).with_name("data") / "generation_reference_data.json"
+)
 
 
 class CoreConfigLoadError(RuntimeError):
@@ -100,7 +106,9 @@ class _GenerationDocument(BaseModel):
     floor_plan_scoring: dict[str, Any]
 
 
-def _exact(raw: Mapping[str, Any], required: set[str], optional: set[str] = set()) -> None:
+def _exact(
+    raw: Mapping[str, Any], required: set[str], optional: set[str] = set()
+) -> None:
     missing = required.difference(raw)
     extra = set(raw).difference(required | optional)
     if missing or extra:
@@ -132,11 +140,20 @@ def _preprocessing(raw: dict[str, Any]) -> PreprocessingConfig:
     _exact(
         raw,
         {
-            "room_count_rules", "supported_aspect_ratios", "room_sizes",
-            "room_relations", "mandatory_room_types", "floor_area_buffer",
-            "hallway_area_buffer", "hallway_count", "hallway_min_width",
-            "default_room_size", "min_aspect_ratio", "max_aspect_ratio",
-            "room_size_strategy", "size_normalization_exclusions",
+            "room_count_rules",
+            "supported_aspect_ratios",
+            "room_sizes",
+            "room_relations",
+            "mandatory_room_types",
+            "floor_area_buffer",
+            "hallway_area_buffer",
+            "hallway_count",
+            "hallway_min_width",
+            "default_room_size",
+            "min_aspect_ratio",
+            "max_aspect_ratio",
+            "room_size_strategy",
+            "size_normalization_exclusions",
             "excess_attached_bathrooms",
         },
     )
@@ -160,14 +177,18 @@ def _preprocessing(raw: dict[str, Any]) -> PreprocessingConfig:
         room_relations=tuple(
             RoomRelationReference(
                 source_room_type=_room(item["source_room_type"]),
-                target_room_types=tuple(_room(value) for value in item["target_room_types"]),
+                target_room_types=tuple(
+                    _room(value) for value in item["target_room_types"]
+                ),
                 match_policy=MatchPolicy(item["match_policy"]),
                 strength=ConstraintStrength(item["strength"]),
                 required=item["required"],
             )
             for item in raw["room_relations"]
         ),
-        mandatory_room_types=tuple(_room(value) for value in raw["mandatory_room_types"]),
+        mandatory_room_types=tuple(
+            _room(value) for value in raw["mandatory_room_types"]
+        ),
         floor_area_buffer=raw["floor_area_buffer"],
         hallway_area_buffer=raw["hallway_area_buffer"],
         hallway_count=raw["hallway_count"],
@@ -199,8 +220,13 @@ def _candidate_scoring(raw: dict[str, Any]) -> CandidateConfig:
         _exact(
             item,
             {
-                "key", "category", "enabled", "order", "weight",
-                "minimum_score", "settings",
+                "key",
+                "category",
+                "enabled",
+                "order",
+                "weight",
+                "minimum_score",
+                "settings",
             },
         )
     return CandidateConfig(
@@ -217,9 +243,7 @@ def _candidate_scoring(raw: dict[str, Any]) -> CandidateConfig:
             for item in raw["evaluator_rules"]
         ),
         fail_fast_on_critical_failure=raw["fail_fast_on_critical_failure"],
-        not_applicable_quality_contributes=raw[
-            "not_applicable_quality_contributes"
-        ],
+        not_applicable_quality_contributes=raw["not_applicable_quality_contributes"],
         raise_on_evaluator_error=raw["raise_on_evaluator_error"],
     )
 
@@ -237,7 +261,12 @@ def _solver_profiles(raw: dict[str, Any]) -> ProfileCatalog:
         _exact(
             item,
             {
-                "slot", "name", "soft_constraints", "solver", "preparation", "seed",
+                "slot",
+                "name",
+                "soft_constraints",
+                "solver",
+                "preparation",
+                "seed",
             },
         )
         for value in item["soft_constraints"]:
@@ -268,9 +297,7 @@ def _post_processing(raw: dict[str, Any]) -> PostProcessingProfile:
         "veranda_adjustment": lambda value: VerandaAdjustmentConfig(**value),
         "wall_extension": lambda value: WallExtensionConfig(
             rules=tuple(
-                WallExtensionRule(
-                    **{**rule, "room_type": _room(rule["room_type"])}
-                )
+                WallExtensionRule(**{**rule, "room_type": _room(rule["room_type"])})
                 for rule in value["rules"]
             ),
             transformation_version=value["transformation_version"],
@@ -306,8 +333,14 @@ def _openings(raw: dict[str, Any]) -> OpeningGenerationProfile:
     _exact(
         raw,
         {
-            "name", "enabled_features", "enabled_constraints", "geometry",
-            "dimensions", "policy", "objective", "solver",
+            "name",
+            "enabled_features",
+            "enabled_constraints",
+            "geometry",
+            "dimensions",
+            "policy",
+            "objective",
+            "solver",
         },
     )
     policy = raw["policy"]
@@ -323,8 +356,7 @@ def _openings(raw: dict[str, Any]) -> OpeningGenerationProfile:
                 for left, right in policy["allowed_room_pairs"]
             ),
             room_door_caps=tuple(
-                (_room(room_type), cap)
-                for room_type, cap in policy["room_door_caps"]
+                (_room(room_type), cap) for room_type, cap in policy["room_door_caps"]
             ),
             secondary_room_priority=tuple(
                 _room(value) for value in policy["secondary_room_priority"]
@@ -349,7 +381,12 @@ def _floor_scoring(raw: dict[str, Any]) -> ScoringProfile:
         _exact(
             item,
             {
-                "key", "group_key", "settings", "enabled", "order", "weight",
+                "key",
+                "group_key",
+                "settings",
+                "enabled",
+                "order",
+                "weight",
                 "minimum_score",
             },
         )
@@ -417,11 +454,18 @@ def load_fpg_core_config(
         validate_fpg_core_config(config)
         return config
     except (
-        OSError, json.JSONDecodeError, ValidationError, KeyError, TypeError, ValueError
+        OSError,
+        json.JSONDecodeError,
+        ValidationError,
+        KeyError,
+        TypeError,
+        ValueError,
     ) as exc:
         if isinstance(exc, CoreConfigLoadError):
             raise
-        raise CoreConfigLoadError(f"could not load FPG core configuration: {exc}") from exc
+        raise CoreConfigLoadError(
+            f"could not load FPG core configuration: {exc}"
+        ) from exc
 
 
 def get_fpg_core_config(app: FastAPI) -> FpgCoreConfig:

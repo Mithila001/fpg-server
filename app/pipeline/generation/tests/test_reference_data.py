@@ -1,9 +1,9 @@
 import json
 
 import pytest
+from fpg_core.floor_plan_preprocessing import ReferenceDataError
+from fpg_core.types_new import RoomType
 
-from app.algorithms.floor_plan_preprocessing import ReferenceDataError
-from app.algorithms.types_new import RoomType
 from app.pipeline.generation.context import load_generation_reference_data
 
 
@@ -41,7 +41,9 @@ def test_packaged_reference_loader_returns_room_type_enums() -> None:
     )
     assert all(
         isinstance(relation.source_room_type, RoomType)
-        and all(isinstance(room_type, RoomType) for room_type in relation.target_room_types)
+        and all(
+            isinstance(room_type, RoomType) for room_type in relation.target_room_types
+        )
         for relation in reference_data.room_relations
     )
 

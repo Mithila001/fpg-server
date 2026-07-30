@@ -16,21 +16,21 @@ Run from the repository root:
 
 from __future__ import annotations
 
-from app.algorithms.candidate_scoring import (
+from fpg_core.candidate_scoring import (
     CandidateScoringInput,
     ScoringResult,
     create_default_config,
     create_default_registry,
     evaluate_candidate,
 )
-from app.algorithms.candidate_search import (
+from fpg_core.candidate_search import (
     CandidatePoint,
     CandidateSearchInput,
     CandidateSearchSettings,
     CandidateSearchTarget,
     search_candidates,
 )
-from app.algorithms.types_new import (
+from fpg_core.types_new import (
     ConstraintStrength,
     FloorPlanGenerationSpec,
     FloorSpec,

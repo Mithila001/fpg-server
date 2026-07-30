@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from app.algorithms.types_new import FloorPlan
+from fpg_core.types_new import FloorPlan
 
 
 class FloorPlanSolverStatus(str, Enum):
