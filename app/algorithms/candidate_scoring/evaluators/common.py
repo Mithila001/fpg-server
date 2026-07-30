@@ -5,7 +5,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Iterable, Mapping, Sequence, TypeVar, cast
 
-from app.algorithms.types_new import RoomType
+from ...types_new import RoomType
 
 from ..context import ScoringContext
 from ..exceptions import ScoringInputError

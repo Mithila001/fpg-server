@@ -5,7 +5,7 @@ from dataclasses import replace
 from shapely.geometry import Polygon as ShapelyPolygon
 from shapely.ops import unary_union
 
-from app.algorithms.types_new import RoomType
+from ...types_new import RoomType
 from ..config import HallwayMergeConfig
 from ..contracts import FloorPlanProcessor, ProcessorOutcome, ProcessorStatus
 from ..exceptions import ProcessorError

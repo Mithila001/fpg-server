@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from shapely.geometry import Polygon as ShapelyPolygon
 
-from app.algorithms.types_new import FloorPlan, RoomId, RoomRole
+from ..types_new import FloorPlan, RoomId, RoomRole
 from .contracts import PostProcessingProfile
 from .exceptions import ConfigurationError, ValidationError
 from .geometry import normalize_polygon, to_shapely

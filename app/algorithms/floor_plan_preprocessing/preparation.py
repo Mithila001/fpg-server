@@ -4,7 +4,7 @@ import math
 from collections import defaultdict
 from dataclasses import replace
 
-from app.algorithms.types_new import (
+from ..types_new import (
     FloorSpec,
     RoomId,
     RoomRelationSpec,

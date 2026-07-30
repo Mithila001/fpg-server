@@ -3,8 +3,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from app.algorithms.buildable_land.geometry import geometry_tolerance
-from app.algorithms.types_new import (
+from ..buildable_land.geometry import geometry_tolerance
+from ..types_new import (
     FloorWidthAlignment,
     Point,
     Polygon,
@@ -12,7 +12,7 @@ from app.algorithms.types_new import (
 )
 
 from .exceptions import UsableLandError
-from app.algorithms.types_new import BuildableSpaceErrorCode
+from ..types_new import BuildableSpaceErrorCode
 
 
 @dataclass(frozen=True, slots=True)

@@ -7,6 +7,7 @@ import pytest
 import app.pipeline.generation.pipeline as pipeline_module
 from app.algorithms.types_new import FloorPlan, Point, Polygon, RoomType
 from app.core.execution import ExecutionContext
+from app.core_config import load_fpg_core_config
 from app.pipeline.generation.context import (
     GenerationPipelineError,
     GenerationPipelineRequest,
@@ -63,6 +64,7 @@ def test_no_floor_plan_error_summarizes_solver_failures(
     with pytest.raises(GenerationPipelineError) as captured:
         pipeline_module.run_generation_pipeline(
             _request(),
+            core_config=load_fpg_core_config(),
             settings=GenerationPipelineSettings(
                 candidate_search_enabled=False,
                 solver_runs_per_candidate=2,
@@ -122,6 +124,7 @@ def test_solver_visualization_uses_initial_refined_and_final_stages(
             .for_solver_run(2)
         ),
         attempt=attempt,
+        initial_profile_name="initial_generation",
         last_refinement_profile_name="refinement_b",
     )
 

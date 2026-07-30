@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.algorithms.types_new import Polygon
+from ...types_new import Polygon
 from ..config import RectilinearSimplificationConfig
 from ..contracts import FloorPlanProcessor, ProcessorOutcome, ProcessorStatus
 from ..geometry import normalize_polygon, to_shapely

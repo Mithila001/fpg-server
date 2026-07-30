@@ -4,15 +4,15 @@ import math
 
 from shapely.geometry import Polygon as ShapelyPolygon
 
-from app.algorithms.types_new import (
+from ..types_new import (
     BuildableSpaceErrorCode,
-    BuildableSpaceReferenceData,
     BuildableSpaceRequestData,
     LandEdge,
     NormalizedLand,
     Polygon,
     Segment,
 )
+from ..config import BuildableSpaceConfig
 
 from .exceptions import BuildableLandError
 from .geometry import geometry_tolerance, signed_area
@@ -20,7 +20,7 @@ from .geometry import geometry_tolerance, signed_area
 
 def normalize_land_request(
     request: BuildableSpaceRequestData,
-    reference_data: BuildableSpaceReferenceData,
+    reference_data: BuildableSpaceConfig,
 ) -> NormalizedLand:
     points = list(request.land_boundary.points)
     if len(points) > 1 and points[0] == points[-1]:

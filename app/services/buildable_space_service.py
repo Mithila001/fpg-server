@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.algorithms import FpgCoreConfig
 from app.algorithms.types_new import BuildableSpaceRequestData, BuildableSpaceResult
 from app.artifacts import ArtifactStorage
 from app.core.execution import ExecutionContext
@@ -12,6 +13,7 @@ from app.pipeline.buildable_space import (
 def execute_buildable_space(
     request: BuildableSpaceRequestData,
     *,
+    core_config: FpgCoreConfig,
     execution_context: ExecutionContext | None = None,
 ) -> BuildableSpaceResult:
     resolved_context = (
@@ -22,4 +24,5 @@ def execute_buildable_space(
     return run_buildable_space_pipeline(
         request,
         BuildableSpaceContext(execution_context=resolved_context),
+        core_config,
     )

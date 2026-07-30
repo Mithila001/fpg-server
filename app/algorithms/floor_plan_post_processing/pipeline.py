@@ -3,7 +3,7 @@ from __future__ import annotations
 import copy
 import time
 
-from app.algorithms.types_new import FloorPlan
+from ..types_new import FloorPlan
 
 from .config import GridSnapConfig, HallwayMergeConfig, WallExtensionConfig
 from .contracts import (
@@ -17,11 +17,6 @@ from .contracts import (
     ProcessorStatus,
 )
 from .exceptions import ConfigurationError, PostProcessingError, RollbackError
-from .logging import (
-    PostProcessingEvent,
-    PostProcessingLogger,
-    log_post_processing_event,
-)
 from .registry import ProcessorRegistry
 from .validation import validate_floor_plan, validate_profile
 
@@ -83,29 +78,11 @@ def _validate_processor_config(config: object) -> None:
                 raise ConfigurationError("wall-extension rules contain invalid values")
 
 
-def _log(
-    request: PostProcessingRequest,
-    event: str,
-    level: str,
-    data: dict[str, object],
-) -> None:
-    log_post_processing_event(request.execution_context, event, level, data)
-
-
 def run_pipeline(
     request: PostProcessingRequest, registry: ProcessorRegistry
 ) -> PostProcessingResult:
     plan = request.floor_plan
     executions: list[ProcessorExecution] = []
-    _log(
-        request,
-        PostProcessingEvent.STARTED.value,
-        "INFO",
-        {
-            "profile": request.profile.name,
-            "processor_count": len(request.profile.processors),
-        },
-    )
     try:
         _preflight(request, registry)
         validate_floor_plan(
@@ -115,12 +92,6 @@ def run_pipeline(
         )
     except Exception as exc:  # noqa: BLE001
         code = exc.code if isinstance(exc, PostProcessingError) else "invalid_request"
-        _log(
-            request,
-            PostProcessingEvent.FAILED.value,
-            "ERROR",
-            {"error_code": code, "message": str(exc)},
-        )
         return PostProcessingResult(
             PipelineStatus.FAILED,
             plan,
@@ -133,8 +104,6 @@ def run_pipeline(
         floor_boundary=plan.boundary,
         numeric=request.profile.numeric,
         profile_name=request.profile.name,
-        request_id=request.request_id,
-        logger=PostProcessingLogger(request.execution_context),
     )
     unsuccessful: set[str] = set()
 
@@ -172,16 +141,6 @@ def run_pipeline(
 
         snapshot = copy.deepcopy(plan)
         started = time.perf_counter()
-        _log(
-            request,
-            PostProcessingEvent.PROCESSOR_STARTED.value,
-            "INFO",
-            {
-                "processor_id": use.processor_id,
-                "profile": request.profile.name,
-                "request_id": request.request_id,
-            },
-        )
         try:
             outcome = processor.process(plan, context, use.config)
             if outcome.status not in {
@@ -205,19 +164,6 @@ def run_pipeline(
                     use.processor_id, outcome.status, duration, outcome=outcome
                 )
             )
-            _log(
-                request,
-                PostProcessingEvent.PROCESSOR_COMPLETED.value,
-                "INFO",
-                {
-                    "processor_id": use.processor_id,
-                    "profile": request.profile.name,
-                    "status": outcome.status.value,
-                    "duration_ms": duration,
-                    "affected_rooms": len(outcome.affected_room_ids),
-                    "request_id": request.request_id,
-                },
-            )
         except Exception as exc:  # noqa: BLE001
             duration = (time.perf_counter() - started) * 1000
             try:
@@ -233,15 +179,6 @@ def run_pipeline(
                         duration,
                         failure=failure,
                     )
-                )
-                _log(
-                    request,
-                    PostProcessingEvent.FAILED.value,
-                    "ERROR",
-                    {
-                        "error_code": rollback_exc.code,
-                        "processor_id": use.processor_id,
-                    },
                 )
                 return PostProcessingResult(
                     PipelineStatus.FAILED, plan, tuple(executions), failure
@@ -262,29 +199,7 @@ def run_pipeline(
                 )
             )
             unsuccessful.add(use.processor_id)
-            _log(
-                request,
-                PostProcessingEvent.PROCESSOR_FAILED.value,
-                "ERROR",
-                {
-                    "processor_id": use.processor_id,
-                    "profile": request.profile.name,
-                    "duration_ms": duration,
-                    "rolled_back": True,
-                    "error_code": code,
-                    "request_id": request.request_id,
-                },
-            )
             if use.required:
-                _log(
-                    request,
-                    PostProcessingEvent.FAILED.value,
-                    "ERROR",
-                    {
-                        "error_code": code,
-                        "processor_id": use.processor_id,
-                    },
-                )
                 return PostProcessingResult(
                     PipelineStatus.FAILED, plan, tuple(executions), failure
                 )
@@ -297,25 +212,7 @@ def run_pipeline(
         )
     except PostProcessingError as exc:
         failure = ProcessingFailure(exc.code, str(exc))
-        _log(
-            request,
-            PostProcessingEvent.FAILED.value,
-            "ERROR",
-            {"error_code": exc.code, "message": str(exc)},
-        )
         return PostProcessingResult(
             PipelineStatus.FAILED, plan, tuple(executions), failure
         )
-    result = PostProcessingResult(PipelineStatus.SUCCESS, plan, tuple(executions))
-    _log(
-        request,
-        PostProcessingEvent.COMPLETED.value,
-        "INFO",
-        {
-            "processor_count": len(executions),
-            "changed_count": sum(
-                item.status is ProcessorStatus.CHANGED for item in executions
-            ),
-        },
-    )
-    return result
+    return PostProcessingResult(PipelineStatus.SUCCESS, plan, tuple(executions))

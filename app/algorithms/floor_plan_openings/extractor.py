@@ -4,7 +4,7 @@ import copy
 import hashlib
 from typing import Any
 
-from app.algorithms.types_new import (
+from ..types_new import (
     FloorPlan,
     FloorPlanOpening,
     OpeningId,

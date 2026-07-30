@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 
-from app.algorithms.types_new import Point, Polygon, Segment
+from ..types_new import Point, Polygon, Segment
 
 ABS_TOLERANCE = 1e-7
 REL_TOLERANCE = 1e-9

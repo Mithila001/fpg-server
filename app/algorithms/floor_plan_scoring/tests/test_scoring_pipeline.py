@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from app.algorithms.floor_plan_scoring import (
     BEDROOM_QUALITY_KEY,
+    DEFAULT_SCORING_PROFILE,
     CRITICAL_GROUP,
     FUNCTIONAL_GROUP,
     REQUIRED_ADJACENCY_KEY,
@@ -22,7 +23,7 @@ def test_realistic_plan_completes_critical_and_functional_scoring(
 ) -> None:
     floor_plan, specification = realistic_case
 
-    result = score_floor_plan(floor_plan, specification)
+    result = score_floor_plan(floor_plan, specification, DEFAULT_SCORING_PROFILE)
     groups = {str(item.group_key): item for item in result.group_results}
     critical_results = [
         item
@@ -42,10 +43,13 @@ def test_valid_but_under_sized_bedroom_reduces_functional_score(
     realistic_floor_plan: FloorPlan,
     realistic_specification: FloorPlanGenerationSpec,
 ) -> None:
-    baseline = score_floor_plan(realistic_floor_plan, realistic_specification)
+    baseline = score_floor_plan(
+        realistic_floor_plan, realistic_specification, DEFAULT_SCORING_PROFILE
+    )
     degraded = score_floor_plan(
         realistic_floor_plan,
         build_under_minimum_bedroom_spec(),
+        DEFAULT_SCORING_PROFILE,
     )
     bedroom_result = next(
         item
@@ -71,6 +75,7 @@ def test_failed_hard_adjacency_stops_functional_scoring(
     result = score_floor_plan(
         realistic_floor_plan,
         build_broken_adjacency_spec(),
+        DEFAULT_SCORING_PROFILE,
     )
     groups = {str(item.group_key): item for item in result.group_results}
     adjacency_result = next(

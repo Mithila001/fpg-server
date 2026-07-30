@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Mapping
 
-from app.algorithms.types_new import (
+from ..types_new import (
     FloorPlanRoom,
     OpeningPurpose,
     OpeningType,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.algorithms.types_new import (
+from ..types_new import (
     ConstraintStrength,
     FloorSpec,
     MatchPolicy,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from app.algorithms.floor_plan_preprocessing import ReferenceDataError
+from app.core_config import CoreConfigLoadError
 from app.main import app
 
 
@@ -84,11 +84,11 @@ def test_generation_request_rejects_removed_required_field() -> None:
 def test_metadata_reference_failure_uses_common_error_envelope(
     monkeypatch,
 ) -> None:
-    def fail_reference_load():
-        raise ReferenceDataError("invalid test reference")
+    def fail_reference_load(_app):
+        raise CoreConfigLoadError("invalid test reference")
 
     monkeypatch.setattr(
-        "app.routes.generation.load_generation_reference_data",
+        "app.routes.generation.get_fpg_core_config",
         fail_reference_load,
     )
     with TestClient(app) as client:

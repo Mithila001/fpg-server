@@ -4,10 +4,9 @@ import math
 import re
 from collections import Counter
 
-from app.algorithms.types_new import ConstraintStrength, MatchPolicy, RoomType
-from app.generation_metadata import canonical_aspect_ratio
+from ..types_new import ConstraintStrength, MatchPolicy, RoomType
 
-from .config import PreprocessingPolicy
+from .config import PreprocessingConfig, canonical_aspect_ratio
 from .context import (
     NormalizedRequest,
     NormalizedRoom,
@@ -47,14 +46,14 @@ def _reference_float(value: object, field: str) -> float:
         raise ReferenceDataError(f"{field} must be numeric") from exc
 
 
-def _parse_aspect_ratio(value: float | str) -> float:
+def _parse_aspect_ratio(value: float | str, config: PreprocessingConfig) -> float:
     def invalid(message: str) -> NormalizationError:
         return NormalizationError(
             message,
             code=PreprocessingErrorCode.INVALID_ASPECT_RATIO,
             details={
                 "field": "aspect_ratio",
-                "supported": ["1:2", "3:4", "1:1", "4:3", "2:1"],
+                "supported": [rule.label for rule in config.supported_aspect_ratios],
             },
         )
 
@@ -77,23 +76,23 @@ def _parse_aspect_ratio(value: float | str) -> float:
         raise invalid("aspect_ratio must be numeric or an H:W string")
     if not math.isfinite(ratio) or ratio <= 0:
         raise invalid("aspect_ratio must be finite and greater than zero")
-    canonical = canonical_aspect_ratio(ratio)
+    canonical = canonical_aspect_ratio(ratio, config.supported_aspect_ratios)
     if canonical is None:
         raise NormalizationError(
             "aspect_ratio is not supported",
             code=PreprocessingErrorCode.INVALID_ASPECT_RATIO,
             details={
                 "field": "aspect_ratio",
-                "supported": ["1:2", "3:4", "1:1", "4:3", "2:1"],
+                "supported": [rule.label for rule in config.supported_aspect_ratios],
             },
         )
     return canonical
 
 
 def normalize_request(
-    request: PreprocessingRequest, policy: PreprocessingPolicy
+    request: PreprocessingRequest, policy: PreprocessingConfig
 ) -> NormalizedRequest:
-    ratio = _parse_aspect_ratio(request.aspect_ratio)
+    ratio = _parse_aspect_ratio(request.aspect_ratio, policy)
     records: list[NormalizationRecord] = []
     decisions: list[RoomDecision] = []
     defaults: list[str] = []

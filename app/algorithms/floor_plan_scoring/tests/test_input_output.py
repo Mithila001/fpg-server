@@ -20,7 +20,7 @@ def test_public_api_accepts_types_new_and_returns_complete_contract(
 ) -> None:
     floor_plan, specification = realistic_case
 
-    result = score_floor_plan(floor_plan, specification)
+    result = score_floor_plan(floor_plan, specification, DEFAULT_SCORING_PROFILE)
 
     assert isinstance(floor_plan, FloorPlan)
     assert isinstance(specification, FloorPlanGenerationSpec)
@@ -60,7 +60,7 @@ def test_scoring_is_deterministic_for_identical_realistic_input(
 ) -> None:
     floor_plan, specification = realistic_case
 
-    first = score_floor_plan(floor_plan, specification)
-    second = score_floor_plan(floor_plan, specification)
+    first = score_floor_plan(floor_plan, specification, DEFAULT_SCORING_PROFILE)
+    second = score_floor_plan(floor_plan, specification, DEFAULT_SCORING_PROFILE)
 
     assert to_json_compatible(first) == to_json_compatible(second)

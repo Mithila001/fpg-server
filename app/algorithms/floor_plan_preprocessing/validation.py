@@ -3,19 +3,20 @@ from __future__ import annotations
 import math
 from collections import Counter
 
-from app.algorithms.types_new import FloorPlanGenerationSpec, RoomType
-from app.generation_metadata import CLIENT_ROOM_REQUIREMENTS, CLIENT_ROOM_TYPES
+from ..types_new import FloorPlanGenerationSpec, RoomType
 
-from .config import ExcessAttachedBathroomPolicy, PreprocessingPolicy
+from .config import (
+    ExcessAttachedBathroomPolicy,
+    PreprocessingPolicy,
+    RoomRelationReference,
+    RoomSizeReference,
+)
 from .context import NormalizedRequest, PreparedReferenceData, PreprocessingContext
 from .contracts import (
     FloorLimits,
     PreprocessingInput,
-    PreprocessingReferenceData,
     PreprocessingRequest,
     RequestedRoom,
-    RoomRelationReference,
-    RoomSizeReference,
 )
 from .exceptions import (
     ContextValidationError,
@@ -93,7 +94,7 @@ def validate_input(value: PreprocessingInput) -> None:
             )
         if room.id is not None and not isinstance(room.id, str):
             raise InputValidationError(f"rooms[{index}].id must be a string or None")
-        if room.room_type not in CLIENT_ROOM_TYPES:
+        if room.room_type not in value.config.allowed_client_room_types:
             raise InputValidationError(
                 f"rooms[{index}].room_type cannot be supplied by the client",
                 code=PreprocessingErrorCode.FORBIDDEN_ROOM_TYPE,
@@ -110,7 +111,7 @@ def validate_input(value: PreprocessingInput) -> None:
             "maximum": requirement.maximum,
             "actual": counts[requirement.room_type],
         }
-        for requirement in CLIENT_ROOM_REQUIREMENTS
+        for requirement in value.config.client_room_count_rules
         if not requirement.minimum
         <= counts[requirement.room_type]
         <= requirement.maximum
@@ -121,9 +122,9 @@ def validate_input(value: PreprocessingInput) -> None:
             code=PreprocessingErrorCode.INVALID_ROOM_COUNT,
             details={"room_counts": invalid_counts},
         )
-    if not isinstance(value.reference_data, PreprocessingReferenceData):
+    if not isinstance(value.config, PreprocessingPolicy):
         raise InputValidationError(
-            "reference_data must be PreprocessingReferenceData"
+            "config must be a PreprocessingConfig"
         )
     for index, size_item in enumerate(value.reference_data.room_sizes):
         if not isinstance(size_item, RoomSizeReference):

@@ -1,11 +1,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+from types import MappingProxyType
 from typing import Any, Mapping
 
 from .config import PreparationConfig, SeedPolicy, SeedSource, SolverConfig
 from .domain import RoomType
 from .exceptions import InvalidProfileError
+
+
+def _freeze(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return MappingProxyType({key: _freeze(item) for key, item in value.items()})
+    if isinstance(value, (tuple, list)):
+        return tuple(_freeze(item) for item in value)
+    return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -16,6 +25,7 @@ class HardConstraintUse:
     def __post_init__(self) -> None:
         if not self.key.strip():
             raise InvalidProfileError("Hard constraint key cannot be empty")
+        object.__setattr__(self, "settings", _freeze(self.settings))
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +41,7 @@ class SoftConstraintUse:
             raise InvalidProfileError(
                 f"Soft constraint '{self.key}' must have a positive weight"
             )
+        object.__setattr__(self, "settings", _freeze(self.settings))
 
 
 @dataclass(frozen=True, slots=True)

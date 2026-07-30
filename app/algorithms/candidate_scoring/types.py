@@ -5,9 +5,7 @@ from enum import Enum
 from types import MappingProxyType
 from typing import Mapping, NewType
 
-from app.algorithms.types_new import FloorPlanGenerationSpec
-from app.core.execution import ExecutionContext
-
+from ..types_new import FloorPlanGenerationSpec
 EvaluatorKey = NewType("EvaluatorKey", str)
 
 MIN_EVALUATOR_SCORE = 0.0
@@ -109,4 +107,3 @@ class CandidateScoringInput:
 
     specification: FloorPlanGenerationSpec
     candidate: object
-    execution_context: ExecutionContext | None = None

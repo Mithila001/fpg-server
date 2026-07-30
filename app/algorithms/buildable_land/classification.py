@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.algorithms.types_new import (
+from ..types_new import (
     EdgeClassification,
     LandSide,
     NormalizedLand,

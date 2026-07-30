@@ -10,21 +10,10 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.algorithms.floor_plan_preprocessing import ReferenceDataError
+from app.algorithms import FpgCoreConfig
 from app.algorithms.types_new import RoadType, RoomType
-from app.generation_metadata import (
-    COMPATIBLE_ASPECT_RATIOS,
-    FLOOR_AREA_BUFFER,
-    HALLWAY_AREA_BUFFER,
-    METADATA_SCHEMA_VERSION,
-    ROOM_REQUIREMENTS,
-)
-from app.pipeline.buildable_space import (
-    ReferenceDataError as BuildableSpaceReferenceDataError,
-)
-from app.pipeline.buildable_space import load_buildable_space_reference_data
 from app.pipeline.generation import GenerationPipelineError
-from app.pipeline.generation import load_generation_reference_data
+from app.core_config import CoreConfigLoadError, get_fpg_core_config
 from app.routes.errors import (
     ApiErrorCode,
     ApiErrorResponse,
@@ -177,20 +166,21 @@ def _to_service_request(body: GenerationRequest) -> GenerationServiceRequest:
 
 
 @router.get("/metadata", response_model=MetadataResponse, responses={500: {"model": ApiErrorResponse}})
-def get_metadata() -> MetadataResponse | JSONResponse:
+def get_metadata(request: Request) -> MetadataResponse | JSONResponse:
     try:
-        generation = load_generation_reference_data()
-        buildable = load_buildable_space_reference_data()
-    except (ReferenceDataError, BuildableSpaceReferenceDataError):
+        core_config = get_fpg_core_config(request.app)
+    except CoreConfigLoadError:
         return api_error_response(
             status_code=500,
             code=ApiErrorCode.REFERENCE_DATA_UNAVAILABLE.value,
             message="Server metadata is currently unavailable.",
             stage="metadata",
         )
+    generation = core_config.preprocessing
+    buildable = core_config.buildable_space
 
     return MetadataResponse(
-        schema_version=METADATA_SCHEMA_VERSION,
+        schema_version=core_config.schema_version,
         generation_reference_data=GenerationReferenceMetadata(
             room_sizes=[
                 RoomSizeMetadata(
@@ -230,15 +220,15 @@ def get_metadata() -> MetadataResponse | JSONResponse:
                 max_count=item.maximum,
                 client_selectable=item.client_selectable,
             )
-            for item in ROOM_REQUIREMENTS
+            for item in generation.room_count_rules
         ],
         compatible_aspect_ratios=[
-            AspectRatioMetadata(label=item.label, value=item.value)
-            for item in COMPATIBLE_ASPECT_RATIOS
+            AspectRatioMetadata(label=item.label, value=item.canonical_value)
+            for item in generation.supported_aspect_ratios
         ],
         buffers=BufferMetadata(
-            hallway_area=HALLWAY_AREA_BUFFER,
-            floor_area=FLOOR_AREA_BUFFER,
+            hallway_area=generation.hallway_area_buffer,
+            floor_area=generation.floor_area_buffer,
             unit="square_project_units",
         ),
     )
@@ -252,9 +242,12 @@ def get_metadata() -> MetadataResponse | JSONResponse:
         500: {"model": ApiErrorResponse},
     },
 )
-def generate(body: GenerationRequest) -> GenerationResponse | JSONResponse:
+def generate(body: GenerationRequest, request: Request) -> GenerationResponse | JSONResponse:
     try:
-        result = execute_generation(_to_service_request(body))
+        result = execute_generation(
+            _to_service_request(body),
+            core_config=get_fpg_core_config(request.app),
+        )
     except GenerationPipelineError as exc:
         status_code = 500 if exc.code == "invalid_reference_data" else 422
         return api_error_response(
@@ -301,6 +294,7 @@ async def stream_generation(
                 job_id,
                 session,
                 cancellation,
+                get_fpg_core_config(request.app),
             )
         )
     except Exception:
@@ -369,10 +363,12 @@ def _produce_stream(
     job_id: str,
     events: GenerationSseSession,
     cancellation: GenerationCancellationToken,
+    core_config: FpgCoreConfig,
 ) -> None:
     try:
         execute_generation(
             service_request,
+            core_config=core_config,
             job_id=job_id,
             events=events,
             cancellation=cancellation,

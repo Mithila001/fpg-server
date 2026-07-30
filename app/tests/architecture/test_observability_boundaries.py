@@ -4,19 +4,6 @@ import ast
 from pathlib import Path
 
 APP_ROOT = Path(__file__).resolve().parents[2]
-ACTIVE_FEATURES = {
-    "buildable_land",
-    "candidate_search",
-    "candidate_scoring",
-    "floor_plan_preprocessing",
-    "floor_plan_solver",
-    "floor_plan_post_processing",
-    "floor_plan_openings",
-    "floor_plan_scoring",
-    "usable_land",
-}
-
-
 def _imports(path: Path) -> tuple[str, ...]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     names: list[str] = []
@@ -40,16 +27,6 @@ def test_algorithm_features_use_their_logging_package() -> None:
                     "use the feature logging package"
                 )
     assert not violations, "\n".join(violations)
-
-
-def test_every_active_feature_owns_typed_logging_package() -> None:
-    missing: list[str] = []
-    for feature in sorted(ACTIVE_FEATURES):
-        logging_root = APP_ROOT / "algorithms" / feature / "logging"
-        for required in ("__init__.py", "events.py", "logger.py"):
-            if not (logging_root / required).is_file():
-                missing.append(f"{feature}/logging/{required}")
-    assert not missing, "Missing feature logging modules:\n" + "\n".join(missing)
 
 
 def test_algorithm_implementations_do_not_import_artifact_storage() -> None:

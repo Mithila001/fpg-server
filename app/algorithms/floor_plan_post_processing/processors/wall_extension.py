@@ -4,7 +4,7 @@ from shapely.affinity import translate
 from shapely.geometry import LineString, MultiPolygon, Polygon as ShapelyPolygon
 from shapely.ops import substring, unary_union
 
-from app.algorithms.types_new import RoomRole
+from ...types_new import RoomRole
 from ..config import WallExtensionConfig
 from ..contracts import FloorPlanProcessor, ProcessorOutcome, ProcessorStatus
 from ..exceptions import ProcessorError

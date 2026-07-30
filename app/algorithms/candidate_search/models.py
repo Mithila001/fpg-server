@@ -5,9 +5,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Callable, TypeAlias, cast
 
-from app.algorithms.types_new import RoomId, RoomType
-from app.core.execution import ExecutionContext
-
+from ..types_new import RoomId, RoomType
 from .config import (
     DEFAULT_MAX_HALLWAY_HINT_COUNT,
     DEFAULT_MIN_HALLWAY_HINT_COUNT,
@@ -142,7 +140,6 @@ class CandidateSearchInput:
     targets: tuple[CandidateSearchTarget, ...]
     settings: CandidateSearchSettings
     evaluator: CandidateEvaluator
-    execution_context: ExecutionContext | None = None
 
     def __post_init__(self) -> None:
         normalized_targets = tuple(self.targets)

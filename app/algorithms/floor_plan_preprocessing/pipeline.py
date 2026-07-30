@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.algorithms.types_new import FloorPlanGenerationSpec
+from ..types_new import FloorPlanGenerationSpec
 
 from .business_rules import apply_business_rules
 from .contracts import (

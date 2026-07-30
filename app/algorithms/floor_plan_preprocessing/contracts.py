@@ -2,15 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.algorithms.types_new import (
-    ConstraintStrength,
+from ..types_new import (
     FloorPlanGenerationSpec,
-    MatchPolicy,
     RoomType,
 )
-from app.core.execution import ExecutionContext
-
-from .config import PreprocessingPolicy
+from .config import PreprocessingConfig
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,46 +35,20 @@ class PreprocessingRequest:
 
 
 @dataclass(frozen=True, slots=True)
-class RoomSizeReference:
-    room_type: RoomType
-    size: str
-    min_width: float
-    max_width: float
-    min_area: float
-    max_area: float
-
-    def __post_init__(self) -> None:
-        if not isinstance(self.room_type, RoomType):
-            raise TypeError("room_type must be a RoomType enum member")
-
-
-@dataclass(frozen=True, slots=True)
-class RoomRelationReference:
-    source_room_type: RoomType
-    target_room_types: tuple[RoomType, ...]
-    match_policy: MatchPolicy | str
-    strength: ConstraintStrength | str
-    required: bool = True
-
-    def __post_init__(self) -> None:
-        if not isinstance(self.source_room_type, RoomType):
-            raise TypeError("source_room_type must be a RoomType enum member")
-        if any(not isinstance(value, RoomType) for value in self.target_room_types):
-            raise TypeError("target_room_types must contain only RoomType enum members")
-
-
-@dataclass(frozen=True, slots=True)
-class PreprocessingReferenceData:
-    room_sizes: tuple[RoomSizeReference, ...]
-    room_relations: tuple[RoomRelationReference, ...] = ()
-
-
-@dataclass(frozen=True, slots=True)
 class PreprocessingInput:
     request: PreprocessingRequest
-    reference_data: PreprocessingReferenceData
-    policy: PreprocessingPolicy = PreprocessingPolicy()
-    execution_context: ExecutionContext | None = None
+    config: PreprocessingConfig
+
+    @property
+    def reference_data(self) -> PreprocessingConfig:
+        return self.config
+
+    @property
+    def policy(self) -> PreprocessingConfig:
+        return self.config
+
+
+PreprocessingReferenceData = PreprocessingConfig
 
 
 @dataclass(frozen=True, slots=True)

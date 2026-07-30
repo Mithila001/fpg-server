@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from app.algorithms.types_new import RoomType
+from ...types_new import RoomType
 
 from ..context import ScoringContext
 from ..types import (

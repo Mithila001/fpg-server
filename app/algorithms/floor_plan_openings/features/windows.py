@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.algorithms.types_new import OpeningPurpose, OpeningType, RoomId
+from ...types_new import OpeningPurpose, OpeningType, RoomId
 
 from ..domain import (
     AnalyzedWall,

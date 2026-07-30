@@ -3,14 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import uuid4
 
-from app.algorithms.floor_plan_preprocessing import ReferenceDataError
+from app.algorithms import FpgCoreConfig
 from app.algorithms.types_new import RoomType
 from app.artifacts import ArtifactStorage
 from app.pipeline.generation import (
     GenerationPipelineRequest,
     GenerationPipelineResult,
     RequestedGenerationRoom,
-    load_generation_reference_data,
     run_generation_pipeline,
 )
 from app.streaming.cancellation import GenerationCancellationSignal
@@ -55,15 +54,9 @@ class GenerationReferenceDataUnavailableError(RuntimeError):
 
 
 def get_generation_room_size_constraints(
+    core_config: FpgCoreConfig,
 ) -> tuple[GenerationRoomSizeConstraint, ...]:
     """Return the validated room-size constraints used by preprocessing."""
-
-    try:
-        reference_data = load_generation_reference_data()
-    except ReferenceDataError as exc:
-        raise GenerationReferenceDataUnavailableError(
-            "Generation room-size constraints are currently unavailable."
-        ) from exc
 
     return tuple(
         GenerationRoomSizeConstraint(
@@ -74,13 +67,14 @@ def get_generation_room_size_constraints(
             min_area=float(reference.min_area),
             max_area=float(reference.max_area),
         )
-        for reference in reference_data.room_sizes
+        for reference in core_config.preprocessing.room_sizes
     )
 
 
 def execute_generation(
     request: GenerationServiceRequest,
     *,
+    core_config: FpgCoreConfig,
     job_id: str | None = None,
     events: GenerationEventPublisher | None = None,
     cancellation: GenerationCancellationSignal | None = None,
@@ -107,6 +101,7 @@ def execute_generation(
     )
     return run_generation_pipeline(
         pipeline_request,
+        core_config=core_config,
         events=events or NullGenerationEventPublisher(),
         cancellation=cancellation,
     )

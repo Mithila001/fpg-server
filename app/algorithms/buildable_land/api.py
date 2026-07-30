@@ -4,15 +4,13 @@ import math
 
 from shapely.geometry import Polygon as ShapelyPolygon
 
-from app.algorithms.types_new import (
+from ..types_new import (
     BuildableLand,
     BuildableSpaceErrorCode,
     NormalizedLand,
     Polygon,
     SetbackProfile,
 )
-from app.core.execution import ExecutionContext
-
 from .classification import classify_edges
 from .exceptions import BuildableLandError
 from .geometry import (
@@ -22,30 +20,16 @@ from .geometry import (
     polygon_area,
     unit_inward_normal,
 )
-from .logging import BuildableLandEvent, log_buildable_land_event
 from .setbacks import resolve_setbacks
 
 
 def calculate_buildable_land(
     land: NormalizedLand,
     profile: SetbackProfile,
-    *,
-    context: ExecutionContext | None = None,
 ) -> BuildableLand:
-    log_buildable_land_event(context, BuildableLandEvent.CALCULATION_STARTED)
     try:
         classifications = classify_edges(land)
-        log_buildable_land_event(
-            context,
-            BuildableLandEvent.EDGE_CLASSIFICATION_COMPLETED,
-            payload={"edge_count": len(classifications)},
-        )
         setbacks = resolve_setbacks(land, classifications, profile)
-        log_buildable_land_event(
-            context,
-            BuildableLandEvent.EDGE_SETBACKS_RESOLVED,
-            payload={"edge_count": len(setbacks)},
-        )
         setbacks_by_index = {item.edge_index: item for item in setbacks}
         tolerance = geometry_tolerance(land.boundary.points)
         clipped = land.boundary.points
@@ -95,36 +79,16 @@ def calculate_buildable_land(
                 "The calculated buildable land failed geometry validation.",
             )
 
-        result = BuildableLand(
+        return BuildableLand(
             boundary=boundary,
             area=area,
             edge_setbacks=setbacks,
         )
-        log_buildable_land_event(
-            context,
-            BuildableLandEvent.CALCULATION_COMPLETED,
-            payload={"buildable_land_area": area},
-        )
-        return result
-    except BuildableLandError as exc:
-        log_buildable_land_event(
-            context,
-            BuildableLandEvent.CALCULATION_FAILED,
-            level="ERROR",
-            payload={"error_code": exc.code.value},
-            exception=exc,
-        )
+    except BuildableLandError:
         raise
     except (ArithmeticError, KeyError, ValueError) as exc:
         wrapped = BuildableLandError(
             BuildableSpaceErrorCode.BUILDABLE_LAND_CALCULATION_FAILED,
             "Buildable-land geometry calculation failed.",
-        )
-        log_buildable_land_event(
-            context,
-            BuildableLandEvent.CALCULATION_FAILED,
-            level="ERROR",
-            payload={"error_code": wrapped.code.value},
-            exception=exc,
         )
         raise wrapped from exc

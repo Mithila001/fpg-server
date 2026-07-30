@@ -6,7 +6,6 @@ from typing import Any, Mapping, cast
 
 import optuna
 
-from .logging import CandidateSearchEvent, log_candidate_search_event
 from .models import (
     CandidatePoint,
     CandidateSearchInput,
@@ -46,14 +45,6 @@ class CandidateSearchSession:
         self._completed_trials = 0
         self._pending_trial: optuna.Trial | None = None
         self._pending_suggestion: CandidateSuggestion | None = None
-        log_candidate_search_event(
-            search_input.execution_context,
-            CandidateSearchEvent.SESSION_STARTED,
-            payload={
-                "trial_count": search_input.settings.trial_count,
-                "target_count": len(search_input.targets),
-            },
-        )
 
     @property
     def search_input(self) -> CandidateSearchInput:
@@ -93,19 +84,8 @@ class CandidateSearchSession:
                 targets=self._input.targets,
                 settings=self._input.settings,
             )
-        except Exception as exc:
+        except Exception:
             self._study.tell(trial, state=optuna.trial.TrialState.FAIL)
-            context = self._input.execution_context
-            log_candidate_search_event(
-                (
-                    context.for_search_trial(trial.number)
-                    if context is not None
-                    else None
-                ),
-                CandidateSearchEvent.TRIAL_FAILED,
-                level="ERROR",
-                exception=exc,
-            )
             raise
 
         suggestion = CandidateSuggestion(
@@ -114,12 +94,6 @@ class CandidateSearchSession:
         )
         self._pending_trial = trial
         self._pending_suggestion = suggestion
-        context = self._input.execution_context
-        log_candidate_search_event(
-            context.for_search_trial(trial.number) if context is not None else None,
-            CandidateSearchEvent.TRIAL_SUGGESTED,
-            payload={"point_count": len(points)},
-        )
         return suggestion
 
     def record_score(
@@ -148,19 +122,6 @@ class CandidateSearchSession:
             score=numeric_score,
             completed_trials=self._completed_trials,
         )
-        context = self._input.execution_context
-        log_candidate_search_event(
-            (
-                context.for_search_trial(suggestion.trial_number)
-                if context is not None
-                else None
-            ),
-            CandidateSearchEvent.TRIAL_COMPLETED,
-            payload={
-                "score": numeric_score,
-                "completed_trials": self._completed_trials,
-            },
-        )
         return result
 
     def fail_pending_trial(self) -> None:
@@ -169,19 +130,12 @@ class CandidateSearchSession:
         if self._pending_trial is None:
             return
 
-        pending = self._pending_trial
         self._study.tell(
-            pending,
+            self._pending_trial,
             state=optuna.trial.TrialState.FAIL,
         )
         self._pending_trial = None
         self._pending_suggestion = None
-        context = self._input.execution_context
-        log_candidate_search_event(
-            context.for_search_trial(pending.number) if context is not None else None,
-            CandidateSearchEvent.TRIAL_FAILED,
-            level="WARNING",
-        )
 
     def run_next_trial(self) -> CandidateTrialResult:
         """Convenience method using the evaluator stored in CandidateSearchInput."""

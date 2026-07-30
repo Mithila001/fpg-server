@@ -9,16 +9,13 @@ from math import ceil, sqrt
 from time import perf_counter
 from typing import Any, Protocol, TypeVar, cast
 
-import app.algorithms.floor_plan_solver as floor_plan_solver_module
+from app.algorithms import FpgCoreConfig
 from app.algorithms.candidate_scoring import (
     CandidateScoringInput,
     evaluate_candidate,
 )
 from app.algorithms.candidate_scoring import (
     ScoringResult as CandidateScoringResult,
-)
-from app.algorithms.candidate_scoring import (
-    create_default_config as create_candidate_scoring_config,
 )
 from app.algorithms.candidate_scoring import (
     create_default_registry as create_candidate_scoring_registry,
@@ -35,9 +32,6 @@ from app.algorithms.floor_plan_openings import (
     OpeningGenerationRequest,
     OpeningGenerationResult,
     generate_openings,
-)
-from app.algorithms.floor_plan_post_processing import (
-    INITIAL_GENERATION_PROFILE as POST_PROCESSING_PROFILE,
 )
 from app.algorithms.floor_plan_post_processing import (
     PipelineStatus,
@@ -59,11 +53,7 @@ from app.algorithms.floor_plan_scoring import (
     FloorPlanScoringResult,
     score_floor_plan,
 )
-from app.algorithms.floor_plan_scoring.logging import (
-    log_floor_plan_scoring_result,
-)
 from app.algorithms.floor_plan_solver import (
-    INITIAL_GENERATION_PROFILE,
     FloorPlanSolveRequest,
     FloorPlanSolveResult,
     FloorPlanSolverError,
@@ -100,7 +90,6 @@ from .context import (
     GenerationPipelineResult,
     GenerationPipelineSettings,
     GenerationStage,
-    load_generation_reference_data,
 )
 from .logging import (
     create_pipeline_context,
@@ -110,10 +99,6 @@ from .logging import (
 
 T = TypeVar("T")
 
-_REFINEMENT_PROFILE_EXPORTS: tuple[tuple[str, ...], ...] = (
-    ("REFINEMENT_A_PROFILE", "REFINEMENT_PROFILE_A"),
-    ("REFINEMENT_B_PROFILE", "REFINEMENT_PROFILE_B"),
-)
 _REFINEMENT_FLOOR_PLAN_ARGUMENTS = (
     "existing_floor_plan",
     "floor_plan",
@@ -269,35 +254,6 @@ def _execution_stage(stage: GenerationStage) -> PipelineStage:
     return PipelineStage(stage.value)
 
 
-def _load_refinement_profiles() -> tuple[Any, ...]:
-    profiles: list[Any] = []
-    missing_exports: list[str] = []
-
-    for aliases in _REFINEMENT_PROFILE_EXPORTS:
-        profile = next(
-            (
-                getattr(floor_plan_solver_module, export_name)
-                for export_name in aliases
-                if hasattr(floor_plan_solver_module, export_name)
-            ),
-            None,
-        )
-        if profile is None:
-            missing_exports.append("/".join(aliases))
-        else:
-            profiles.append(profile)
-
-    if missing_exports:
-        raise GenerationPipelineError(
-            GenerationStage.REFINEMENT,
-            "missing_refinement_profiles",
-            "The floor-plan solver does not export all required refinement profiles.",
-            {"missing_exports": tuple(missing_exports)},
-        )
-
-    return tuple(profiles)
-
-
 def _profile_name(profile: Any) -> str:
     for attribute_name in ("name", "profile_name", "id"):
         value = getattr(profile, attribute_name, None)
@@ -312,13 +268,11 @@ def _create_solver_request(
     profile: Any,
     candidate_hints: tuple[RoomPlacementHint, ...],
     floor_plan: FloorPlan | None = None,
-    context: ExecutionContext | None = None,
 ) -> FloorPlanSolveRequest:
     request_arguments: dict[str, Any] = {
         "specification": specification,
         "profile": profile,
         "candidate_hints": candidate_hints,
-        "execution_context": context,
     }
 
     if floor_plan is not None:
@@ -528,6 +482,7 @@ def _render_solver_attempt(
     *,
     context: ExecutionContext,
     attempt: _SolverAttemptVisualization,
+    initial_profile_name: str,
     last_refinement_profile_name: str,
 ) -> None:
     stage_prefix = (
@@ -539,7 +494,7 @@ def _render_solver_attempt(
                 stage_id=f"{stage_prefix}-initial",
                 stage_name="Initial Generation",
                 category="solver",
-                profile_name=_profile_name(INITIAL_GENERATION_PROFILE),
+                profile_name=initial_profile_name,
                 floor_plan=deepcopy(attempt.initial_floor_plan),
             ),
             FloorPlanVisualizationStage(
@@ -576,6 +531,7 @@ def _execute_solver_run(
     solver_run_id: int,
     refinement_profiles: tuple[Any, ...],
     settings: GenerationPipelineSettings,
+    core_config: FpgCoreConfig,
     context: ExecutionContext,
     check_cancellation: Callable[[], None],
 ) -> _CompletedFloorPlanAttempt:
@@ -586,9 +542,8 @@ def _execute_solver_run(
         result = generate_floor_plan(
             _create_solver_request(
                 specification=specification,
-                profile=INITIAL_GENERATION_PROFILE,
+                profile=core_config.floor_plan_solver.initial,
                 candidate_hints=candidate_hints,
-                context=context.with_stage(PipelineStage.SOLVER),
             )
         )
         if not result.solved:
@@ -631,7 +586,6 @@ def _execute_solver_run(
                     profile=active_profile,
                     candidate_hints=candidate_hints,
                     floor_plan=source_floor_plan,
-                    context=context.with_stage(PipelineStage.REFINEMENT),
                 )
             )
             if not result.solved:
@@ -670,10 +624,8 @@ def _execute_solver_run(
         result = post_process_floor_plan(
             PostProcessingRequest(
                 floor_plan=refined_floor_plan,
-                profile=POST_PROCESSING_PROFILE,
+                profile=core_config.post_processing,
                 specification=specification,
-                request_id=f"{request.request_id}-{attempt_label}",
-                execution_context=context.with_stage(PipelineStage.POST_PROCESSING),
             )
         )
         if result.status is PipelineStatus.FAILED:
@@ -700,8 +652,7 @@ def _execute_solver_run(
         result = generate_openings(
             OpeningGenerationRequest(
                 floor_plan=post_processed_floor_plan,
-                request_id=f"{request.request_id}-{attempt_label}",
-                execution_context=context.with_stage(PipelineStage.OPENINGS),
+                profile=core_config.openings,
             )
         )
         if not result.solved:
@@ -740,7 +691,7 @@ def _execute_solver_run(
         lambda: score_floor_plan(
             final_floor_plan,
             specification,
-            execution_context=context.with_stage(PipelineStage.FLOOR_PLAN_SCORING),
+            profile=core_config.floor_plan_scoring,
         ),
         expected_errors=(FloorPlanScoringError,),
         summary=lambda value: (
@@ -749,18 +700,6 @@ def _execute_solver_run(
         label=f"{attempt_label}.floor_plan_scoring",
     )
     check_cancellation()
-    log_floor_plan_scoring_result(
-        scoring,
-        context=context.with_stage(PipelineStage.FLOOR_PLAN_SCORING),
-        request_id=request.request_id,
-        candidate_id=candidate_id,
-        search_trial_id=search_trial_id,
-        candidate_score=candidate_score,
-        solver_run_id=solver_run_id,
-        usable_threshold=settings.usable_floor_plan_score,
-        presentable_threshold=(settings.effective_presentable_floor_plan_score),
-    )
-
     attempt = _CompletedFloorPlanAttempt(
         search_trial_id=search_trial_id,
         candidate_id=candidate_id,
@@ -808,6 +747,7 @@ def _execute_solver_run(
                 lambda: _render_solver_attempt(
                     context=context,
                     attempt=attempt,
+                    initial_profile_name=core_config.floor_plan_solver.initial.name,
                     last_refinement_profile_name=_profile_name(refinement_profiles[-1]),
                 ),
                 label=f"{attempt_label}.visualization",
@@ -879,6 +819,7 @@ def _build_result(
 def run_generation_pipeline(
     request: GenerationPipelineRequest,
     *,
+    core_config: FpgCoreConfig,
     settings: GenerationPipelineSettings = GenerationPipelineSettings(),
     events: GenerationEventPublisher | None = None,
     cancellation: GenerationCancellationSignal | None = None,
@@ -928,10 +869,7 @@ def run_generation_pipeline(
                     for room in request.rooms
                 ),
             ),
-            reference_data=load_generation_reference_data(),
-            execution_context=execution_context.with_stage(
-                PipelineStage.PREPROCESSING
-            ),
+            config=core_config.preprocessing,
         )
         return prepare_generation_input(preprocessing_input)
 
@@ -948,8 +886,11 @@ def run_generation_pipeline(
         event_publisher.status(GenerationStatus.CANDIDATE_SEARCH_STARTED)
 
     candidate_registry = create_candidate_scoring_registry()
-    candidate_config = create_candidate_scoring_config()
-    refinement_profiles = _load_refinement_profiles()
+    candidate_config = core_config.candidate_scoring
+    refinement_profiles = (
+        core_config.floor_plan_solver.refinement_a,
+        core_config.floor_plan_solver.refinement_b,
+    )
     latest_candidate_scoring: (
         tuple[
             CandidateScoringInput,
@@ -957,15 +898,12 @@ def run_generation_pipeline(
         ]
         | None
     ) = None
-    active_scoring_context: ExecutionContext | None = None
-
     def score_candidate(points: tuple[Any, ...]) -> float:
         nonlocal latest_candidate_scoring
         check_cancellation()
         scoring_input = CandidateScoringInput(
             specification=specification,
             candidate=points,
-            execution_context=active_scoring_context,
         )
         result = evaluate_candidate(
             scoring_input,
@@ -1028,6 +966,7 @@ def run_generation_pipeline(
                     solver_run_id=solver_run_number,
                     refinement_profiles=refinement_profiles,
                     settings=settings,
+                    core_config=core_config,
                     context=solver_context,
                     check_cancellation=check_cancellation,
                 )
@@ -1184,6 +1123,12 @@ def run_generation_pipeline(
             grid_resolution=settings.candidate_grid_resolution,
             trial_count=settings.candidate_trial_count,
             random_seed=settings.candidate_random_seed,
+            min_hallway_hint_count=(
+                core_config.candidate_search.min_hallway_hint_count
+            ),
+            max_hallway_hint_count=(
+                core_config.candidate_search.max_hallway_hint_count
+            ),
         )
         search_session = CandidateSearchSession(
             CandidateSearchInput(
@@ -1192,9 +1137,6 @@ def run_generation_pipeline(
                 ),
                 settings=candidate_search_settings,
                 evaluator=score_candidate,
-                execution_context=execution_context.with_stage(
-                    PipelineStage.CANDIDATE_SEARCH
-                ),
             )
         )
 
@@ -1219,9 +1161,6 @@ def run_generation_pipeline(
             try:
                 trial_context = execution_context.for_search_trial(
                     suggestion.trial_number
-                )
-                active_scoring_context = trial_context.with_stage(
-                    PipelineStage.CANDIDATE_SCORING
                 )
                 trial_result = _run_stage(
                     trial_context,

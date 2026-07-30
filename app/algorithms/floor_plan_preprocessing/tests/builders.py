@@ -1,16 +1,17 @@
 import json
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 from app.algorithms.floor_plan_preprocessing import (
     FloorLimits,
     PreprocessingInput,
-    PreprocessingReferenceData,
     PreprocessingRequest,
     RequestedRoom,
     RoomRelationReference,
     RoomSizeReference,
 )
+from app.core_config import load_fpg_core_config
 from app.algorithms.types_new import RoomType
 
 DATA_DIR = Path(__file__).parent / "data"
@@ -36,7 +37,9 @@ def build_preprocessing_input() -> PreprocessingInput:
         ),
     )
 
-    references = PreprocessingReferenceData(
+    base_config = load_fpg_core_config().preprocessing
+    config = replace(
+        base_config,
         room_sizes=tuple(
             RoomSizeReference(
                 **{**room, "room_type": RoomType(room["room_type"])}
@@ -57,7 +60,4 @@ def build_preprocessing_input() -> PreprocessingInput:
         ),
     )
 
-    return PreprocessingInput(
-        request=request,
-        reference_data=references,
-    )
+    return PreprocessingInput(request=request, config=config)

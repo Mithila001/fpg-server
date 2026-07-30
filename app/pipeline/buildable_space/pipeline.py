@@ -8,6 +8,7 @@ from app.algorithms.buildable_land import (
     normalize_land_request,
 )
 from app.algorithms.buildable_land.geometry import polygon_area
+from app.algorithms.config import FpgCoreConfig
 from app.algorithms.types_new import (
     BuildableSpaceErrorCode,
     BuildableSpaceRequestData,
@@ -18,27 +19,20 @@ from app.algorithms.usable_land import UsableLandError, find_usable_land
 from app.core.execution import PipelineStage
 
 from .context import BuildableSpaceContext
-from .exceptions import BuildableSpacePipelineError, ReferenceDataError
+from .exceptions import BuildableSpacePipelineError
 from .logging import BuildableSpaceEvent, log_buildable_space_event
-from .reference_data import load_buildable_space_reference_data
 
 
 def run_buildable_space_pipeline(
     request: BuildableSpaceRequestData,
     context: BuildableSpaceContext,
+    core_config: FpgCoreConfig,
 ) -> BuildableSpaceResult:
     started = perf_counter()
     execution = context.execution_context
     log_buildable_space_event(execution, BuildableSpaceEvent.STARTED)
     try:
-        try:
-            reference_data = load_buildable_space_reference_data()
-        except ReferenceDataError as exc:
-            raise BuildableSpacePipelineError(
-                BuildableSpaceStage.REFERENCE_DATA,
-                BuildableSpaceErrorCode.REFERENCE_DATA_ERROR,
-                "Buildable-space reference data is unavailable.",
-            ) from exc
+        reference_data = core_config.buildable_space
         context = context.with_reference_profile(reference_data.active_profile.name)
         reference_execution = execution.with_stage(PipelineStage.REFERENCE_DATA)
         log_buildable_space_event(
@@ -46,7 +40,7 @@ def run_buildable_space_pipeline(
             BuildableSpaceEvent.REFERENCE_DATA_LOADED,
             payload={
                 "reference_profile": context.reference_profile,
-                "schema_version": reference_data.schema_version,
+                "schema_version": core_config.schema_version,
             },
         )
 
@@ -80,7 +74,6 @@ def run_buildable_space_pipeline(
             buildable_land = calculate_buildable_land(
                 land,
                 reference_data.active_profile,
-                context=execution.with_stage(PipelineStage.BUILDABLE_LAND),
             )
         except BuildableLandError as exc:
             raise BuildableSpacePipelineError(
@@ -94,7 +87,6 @@ def run_buildable_space_pipeline(
                 buildable_land,
                 land,
                 reference_data.usable_land_constraints,
-                context=execution.with_stage(PipelineStage.USABLE_LAND),
             )
         except UsableLandError as exc:
             raise BuildableSpacePipelineError(
@@ -109,7 +101,7 @@ def run_buildable_space_pipeline(
             buildable_land=buildable_land,
             usable_land=usable_land,
             reference_profile=reference_data.active_profile.name,
-            project_units_per_meter=reference_data.project_units_per_meter,
+            project_units_per_meter=core_config.project_units_per_meter,
         )
         log_buildable_space_event(
             execution.with_stage(PipelineStage.RESPONSE),

@@ -3,8 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from app.core.execution import ExecutionContext
-
 from .domain import FloorPlan, FloorPlanGenerationSpec, RoomId
 from .profiles import GenerationProfile
 
@@ -32,7 +30,6 @@ class FloorPlanSolveRequest:
     profile: GenerationProfile
     candidate_hints: tuple[RoomPlacementHint, ...] = ()
     existing_floor_plan: FloorPlan | None = None
-    execution_context: ExecutionContext | None = None
 
 
 class SolverStatus(str, Enum):

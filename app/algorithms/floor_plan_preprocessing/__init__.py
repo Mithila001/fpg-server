@@ -1,8 +1,14 @@
 from .api import prepare_generation_input
 from .config import (
+    AspectRatioRule,
     ExcessAttachedBathroomPolicy,
+    PreprocessingConfig,
     PreprocessingPolicy,
+    RoomCountRule,
+    RoomRelationReference,
+    RoomSizeReference,
     RoomSizeSelectionStrategy,
+    canonical_aspect_ratio,
 )
 from .contracts import (
     FloorLimits,
@@ -16,8 +22,6 @@ from .contracts import (
     RelationDecision,
     RequestedRoom,
     RoomDecision,
-    RoomRelationReference,
-    RoomSizeReference,
 )
 from .exceptions import (
     BusinessRuleError,
@@ -35,6 +39,7 @@ from .exceptions import (
 )
 
 __all__ = [
+    "AspectRatioRule",
     "BusinessRuleError",
     "ContextValidationError",
     "ExcessAttachedBathroomPolicy",
@@ -50,6 +55,7 @@ __all__ = [
     "PreprocessingStage",
     "PreparedGenerationInput",
     "PreprocessingInput",
+    "PreprocessingConfig",
     "PreprocessingPolicy",
     "PreprocessingReferenceData",
     "PreprocessingReport",
@@ -59,9 +65,11 @@ __all__ = [
     "RelationPreparationError",
     "RequestedRoom",
     "RoomDecision",
+    "RoomCountRule",
     "RoomPreparationError",
     "RoomRelationReference",
     "RoomSizeReference",
     "RoomSizeSelectionStrategy",
+    "canonical_aspect_ratio",
     "prepare_generation_input",
 ]

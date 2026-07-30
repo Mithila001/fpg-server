@@ -58,7 +58,7 @@ def test_invalid_shorter_side_reference_is_rejected(
     )
     value = replace(
         preprocessing_input,
-        reference_data=replace(
+        config=replace(
             preprocessing_input.reference_data,
             room_sizes=(invalid, *preprocessing_input.reference_data.room_sizes[1:]),
         ),

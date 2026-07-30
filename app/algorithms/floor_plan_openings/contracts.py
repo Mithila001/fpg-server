@@ -4,10 +4,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Mapping
 
-from app.algorithms.types_new import FloorPlan
-from app.core.execution import ExecutionContext
-
-from .profiles import DEFAULT_OPENING_PROFILE, OpeningGenerationProfile
+from ..types_new import FloorPlan
+from .profiles import OpeningGenerationProfile
 
 
 class OpeningGenerationStatus(str, Enum):
@@ -55,9 +53,7 @@ class OpeningDiagnostics:
 @dataclass(frozen=True, slots=True)
 class OpeningGenerationRequest:
     floor_plan: FloorPlan
-    profile: OpeningGenerationProfile = DEFAULT_OPENING_PROFILE
-    request_id: str | None = None
-    execution_context: ExecutionContext | None = None
+    profile: OpeningGenerationProfile
 
 
 @dataclass(frozen=True, slots=True)

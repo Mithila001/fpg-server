@@ -20,6 +20,7 @@ from app.algorithms.types_new import (
 )
 from app.artifacts import ArtifactStorage
 from app.core.execution import ExecutionContext
+from app.core_config import get_fpg_core_config
 from app.pipeline.buildable_space import BuildableSpacePipelineError
 from app.services.buildable_space_service import execute_buildable_space
 from app.routes.errors import ApiErrorResponse, api_error_response
@@ -177,6 +178,7 @@ def buildable_space(
     try:
         result = execute_buildable_space(
             _to_service_request(body),
+            core_config=get_fpg_core_config(request.app),
             execution_context=context,
         )
     except BuildableSpacePipelineError as exc:

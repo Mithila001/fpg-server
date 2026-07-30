@@ -17,12 +17,13 @@ from starlette.responses import Response, StreamingResponse
 from starlette.exceptions import HTTPException
 
 from app.util.logger import SystemLogger, configure_application_logging
+from app.core_config import fpg_core_lifespan
 
 
 configure_application_logging()
 
 
-app = FastAPI(title="House Plan Generator API")
+app = FastAPI(title="House Plan Generator API", lifespan=fpg_core_lifespan)
 
 
 # CORS: read allowed origins from CORS_ORIGINS env var (comma-separated).
@@ -56,15 +57,6 @@ async def log_api_requests(
     if "text/event-stream" in accept_header:
         return await call_next(request)
 
-    request_body = await request.body()
-
-    async def receive() -> dict[str, object]:
-        return {"type": "http.request", "body": request_body, "more_body": False}
-
-    request._receive = (
-        receive  # Re-inject consumed request body for downstream handlers.
-    )
-
     try:
         response = await call_next(request)
         # Detect streaming SSE responses by media_type or StreamingResponse
@@ -84,19 +76,6 @@ async def log_api_requests(
             )
             return response
 
-        response_body = b""
-        async for chunk in cast(Any, response).body_iterator:
-            response_body += chunk
-
-        response_headers = dict(response.headers)
-        response_headers.pop("content-length", None)
-        completed_response = Response(
-            content=response_body,
-            status_code=response.status_code,
-            headers=response_headers,
-            media_type=response.media_type,
-            background=response.background,
-        )
         SystemLogger.log_event(
             "api",
             "request_completed",
@@ -109,7 +88,7 @@ async def log_api_requests(
                 "streaming": False,
             },
         )
-        return completed_response
+        return response
     except Exception as exc:
         duration_ms = (perf_counter() - start) * 1000
         SystemLogger.log_event(

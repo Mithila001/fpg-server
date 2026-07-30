@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import math
 from dataclasses import dataclass, field
 from enum import Enum
@@ -11,8 +10,6 @@ from typing import Any, Mapping
 from app.algorithms.floor_plan_preprocessing import (
     PreprocessingReferenceData,
     ReferenceDataError,
-    RoomRelationReference,
-    RoomSizeReference,
 )
 from app.algorithms.floor_plan_scoring import FloorPlanScoringResult
 from app.algorithms.types_new import FloorPlan, RoomType
@@ -184,40 +181,15 @@ REFERENCE_DATA_PATH = (
 def load_generation_reference_data(
     path: Path = REFERENCE_DATA_PATH,
 ) -> PreprocessingReferenceData:
-    """Load the pipeline's packaged, source-neutral preprocessing references."""
-
+    """Compatibility facade for callers migrating to the complete core config."""
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-        room_sizes = tuple(
-            RoomSizeReference(
-                **{
-                    **item,
-                    "room_type": RoomType(item["room_type"]),
-                }
-            )
-            for item in payload["room_sizes"]
-        )
-        room_relations = tuple(
-            RoomRelationReference(
-                **{
-                    **item,
-                    "source_room_type": RoomType(item["source_room_type"]),
-                    "target_room_types": tuple(
-                        RoomType(value) for value in item["target_room_types"]
-                    ),
-                }
-            )
-            for item in payload.get("room_relations", ())
-        )
-    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+        from app.core_config import CoreConfigLoadError, load_fpg_core_config
+
+        return load_fpg_core_config(generation_path=path).preprocessing
+    except (CoreConfigLoadError, OSError, ValueError) as exc:
         raise ReferenceDataError(
             f"Could not load generation reference data from '{path}': {exc}"
         ) from exc
-
-    return PreprocessingReferenceData(
-        room_sizes=room_sizes,
-        room_relations=room_relations,
-    )
 
 
 def _require_finite(field_name: str, value: float) -> None:

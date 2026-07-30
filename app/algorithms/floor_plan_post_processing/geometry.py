@@ -5,7 +5,7 @@ from math import isclose
 from shapely.geometry import LineString, Polygon as ShapelyPolygon
 from shapely.geometry.polygon import orient
 
-from app.algorithms.types_new import Point, Polygon
+from ..types_new import Point, Polygon
 from .exceptions import ProcessorError, ValidationError
 
 

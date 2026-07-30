@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.algorithms.types_new import BuildableSpaceErrorCode
+from ..types_new import BuildableSpaceErrorCode
 
 
 class UsableLandError(Exception):

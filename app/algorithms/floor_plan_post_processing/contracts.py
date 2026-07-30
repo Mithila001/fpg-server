@@ -3,11 +3,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, ClassVar, Mapping, Protocol
+from typing import ClassVar, Mapping
 
-from app.algorithms.types_new import FloorPlan, FloorPlanGenerationSpec, Polygon, RoomId
-from app.core.execution import ExecutionContext
-
+from ..types_new import FloorPlan, FloorPlanGenerationSpec, Polygon, RoomId
 
 class PipelineStatus(str, Enum):
     SUCCESS = "success"
@@ -20,12 +18,6 @@ class ProcessorStatus(str, Enum):
     NOT_APPLICABLE = "not_applicable"
     FAILED = "failed"
     SKIPPED = "skipped"
-
-
-class EventLogger(Protocol):
-    def log_event(
-        self, tag: str, event: str, level: str, data: dict[str, Any] | None = None
-    ) -> None: ...
 
 
 @dataclass(frozen=True)
@@ -81,8 +73,6 @@ class PostProcessingRequest:
     floor_plan: FloorPlan
     profile: PostProcessingProfile
     specification: FloorPlanGenerationSpec | None = None
-    request_id: str | None = None
-    execution_context: ExecutionContext | None = None
 
 
 @dataclass(frozen=True)
@@ -91,8 +81,6 @@ class PostProcessingContext:
     floor_boundary: Polygon
     numeric: NumericPolicy
     profile_name: str
-    request_id: str | None
-    logger: EventLogger
 
 
 @dataclass(frozen=True)
