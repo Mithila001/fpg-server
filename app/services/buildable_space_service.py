@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fpg_core import FpgCoreConfig
-from fpg_core.types import BuildableSpaceRequestData, BuildableSpaceResult
+from fpg_core.domain import BuildableSpaceRequestData, BuildableSpaceResult
 
 from app.artifacts import ArtifactStorage
 from app.core.execution import ExecutionContext

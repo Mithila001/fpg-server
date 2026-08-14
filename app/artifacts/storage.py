@@ -92,15 +92,20 @@ class ArtifactStorage:
         path = resolve_artifact_path(self.config, request)
         path.parent.mkdir(parents=True, exist_ok=True)
         with _event_log_lock(path):
-            document = self._read_event_log(path, request)
-            events = document["events"]
-            assert isinstance(events, list)
-            events.append(serialized_event)
-            document["event_count"] = len(events)
-
-            encoded = self._encode_json(document)
-            replacement_request = replace(request, write_mode=WriteMode.REPLACE)
-            return self._write_snapshot(replacement_request, encoded)
+            encoded = (
+                json.dumps(
+                    serialized_event,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                )
+                + "\n"
+            ).encode("utf-8")
+            with path.open("ab") as stream:
+                stream.write(encoded)
+                stream.flush()
+                os.fsync(stream.fileno())
+        return self._reference(path, request)
 
     def save_png(
         self, request: ArtifactWriteRequest, png_bytes: bytes

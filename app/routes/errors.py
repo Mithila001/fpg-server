@@ -34,7 +34,6 @@ class ApiErrorResponse(BaseModel):
 
 
 def api_error_response(
-    *,
     status_code: int,
     code: str,
     message: str,

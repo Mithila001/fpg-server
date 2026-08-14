@@ -3,19 +3,25 @@ from __future__ import annotations
 from time import perf_counter
 
 from fpg_core.buildable_land import (
+    BuildableLandConfig,
     BuildableLandError,
+    BuildableLandInput,
     calculate_buildable_land,
-    normalize_land_request,
 )
 from fpg_core.buildable_land.geometry import polygon_area
 from fpg_core.config import FpgCoreConfig
-from fpg_core.types import (
+from fpg_core.domain import (
     BuildableSpaceErrorCode,
     BuildableSpaceRequestData,
     BuildableSpaceResult,
     BuildableSpaceStage,
 )
-from fpg_core.usable_land import UsableLandError, find_usable_land
+from fpg_core.usable_land import (
+    UsableLandConfig,
+    UsableLandError,
+    UsableLandInput,
+    find_usable_land,
+)
 
 from app.core.execution import PipelineStage
 
@@ -46,20 +52,30 @@ def run_buildable_space_pipeline(
         )
 
         try:
-            land = normalize_land_request(request, reference_data)
+            buildable_execution = calculate_buildable_land(
+                BuildableLandInput(
+                    request=request,
+                    config=BuildableLandConfig(
+                        setback_profile=reference_data.active_profile,
+                        validation_limits=reference_data.validation_limits,
+                    ),
+                )
+            )
         except BuildableLandError as exc:
             raise BuildableSpacePipelineError(
-                BuildableSpaceStage.REQUEST_VALIDATION,
+                BuildableSpaceStage.BUILDABLE_LAND,
                 exc.code,
                 exc.message,
             ) from exc
-        validation_execution = execution.with_stage(PipelineStage.REQUEST_VALIDATION)
+        buildable_land = buildable_execution.result.buildable_land
+        land = buildable_execution.result.normalized_land
         common: dict[str, object] = {
             "reference_profile": context.reference_profile,
             "land_vertex_count": len(land.boundary.points),
             "main_entry_edge_index": land.main_entry_road.boundary_edge_index,
             "road_type": land.main_entry_road.road_type.value,
         }
+        validation_execution = execution.with_stage(PipelineStage.REQUEST_VALIDATION)
         log_buildable_space_event(
             validation_execution,
             BuildableSpaceEvent.REQUEST_NORMALIZED,
@@ -72,22 +88,13 @@ def run_buildable_space_pipeline(
         )
 
         try:
-            buildable_land = calculate_buildable_land(
-                land,
-                reference_data.active_profile,
-            )
-        except BuildableLandError as exc:
-            raise BuildableSpacePipelineError(
-                BuildableSpaceStage.BUILDABLE_LAND,
-                exc.code,
-                exc.message,
-            ) from exc
-
-        try:
-            usable_land = find_usable_land(
-                buildable_land,
-                land,
-                reference_data.usable_land_constraints,
+            constraints = reference_data.usable_land_constraints
+            usable_execution = find_usable_land(
+                UsableLandInput(
+                    buildable_land=buildable_land,
+                    land=land,
+                    config=UsableLandConfig.from_constraints(constraints),
+                )
             )
         except UsableLandError as exc:
             raise BuildableSpacePipelineError(
@@ -96,6 +103,7 @@ def run_buildable_space_pipeline(
                 exc.message,
                 exc.details,
             ) from exc
+        usable_land = usable_execution.result
 
         result = BuildableSpaceResult(
             original_land_area=polygon_area(land.boundary),

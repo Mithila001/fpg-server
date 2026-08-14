@@ -4,7 +4,7 @@ from collections.abc import Awaitable, Callable
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
-from fpg_core.types import (
+from fpg_core.domain import (
     BuildableSpaceErrorCode,
     BuildableSpaceRequestData,
     BuildableSpaceStage,
@@ -20,13 +20,13 @@ from starlette.responses import Response
 
 from app.artifacts import ArtifactStorage
 from app.core.execution import ExecutionContext
-from app.core_config import get_fpg_core_config
+from app.core_config import get_server_config
 from app.pipeline.buildable_space import BuildableSpacePipelineError
 from app.routes.errors import ApiErrorResponse, api_error_response
 from app.services.buildable_space_service import execute_buildable_space
 
-router = APIRouter(tags=["buildable-space"])
-BUILDABLE_SPACE_PATH = "/buildable-space"
+router = APIRouter(prefix="/api/v1", tags=["buildable-space"])
+BUILDABLE_SPACE_PATH = "/api/v1/buildable-space"
 
 
 class _ContractModel(BaseModel):
@@ -160,7 +160,7 @@ def _polygon_response(polygon: Polygon) -> PolygonResponse:
 
 
 @router.post(
-    BUILDABLE_SPACE_PATH,
+    "/buildable-space",
     response_model=BuildableSpaceResponse,
     responses={
         422: {"model": ApiErrorResponse},
@@ -176,7 +176,7 @@ def buildable_space(
     try:
         result = execute_buildable_space(
             _to_service_request(body),
-            core_config=get_fpg_core_config(request.app),
+            core_config=get_server_config(request.app).core,
             execution_context=context,
         )
     except BuildableSpacePipelineError as exc:

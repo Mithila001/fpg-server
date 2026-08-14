@@ -1,126 +1,69 @@
-import multiprocessing as mp
-import os
-from collections.abc import Awaitable, Callable
-from time import perf_counter
-from typing import Any, cast
+from __future__ import annotations
 
-# Set start method to spawn to prevent thread inheritance issues on Linux (Ubuntu)
+import multiprocessing as mp
+from contextlib import asynccontextmanager
+from typing import Any, AsyncIterator, cast
+
+from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.exceptions import HTTPException
+
+from app.core_config import load_server_config
+from app.jobs import GenerationJobManager
+from app.routes.buildable_space import (
+    buildable_space_context_middleware,
+    router as buildable_space_router,
+)
+from app.routes.errors import (
+    api_http_exception_handler,
+    api_unexpected_exception_handler,
+    api_validation_exception_handler,
+)
+from app.routes.generation import router as generation_router
+from app.util.jsonl_logging import ApiLoggingMiddleware
+
 try:
     mp.set_start_method("spawn", force=True)
 except RuntimeError:
     pass
 
-from fastapi import FastAPI, Request
-from fastapi.exceptions import RequestValidationError
-from fastapi.middleware.cors import CORSMiddleware
-from starlette.responses import Response, StreamingResponse
-from starlette.exceptions import HTTPException
-
-from app.util.logger import SystemLogger, configure_application_logging
-from app.core_config import fpg_core_lifespan
+BOOT_CONFIG = load_server_config()
 
 
-configure_application_logging()
+@asynccontextmanager
+async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+    application.state.server_config = BOOT_CONFIG
+    manager = GenerationJobManager(BOOT_CONFIG)
+    application.state.job_manager = manager
+    await manager.start()
+    try:
+        yield
+    finally:
+        await manager.shutdown()
 
 
-app = FastAPI(title="House Plan Generator API", lifespan=fpg_core_lifespan)
-
-
-# CORS: read allowed origins from CORS_ORIGINS env var (comma-separated).
-# Default permits the local Vite dev server used during development / presentation.
-_raw_origins = os.environ.get(
-    "CORS_ORIGINS",
-    "http://localhost:5173,http://127.0.0.1:5173",
+app = FastAPI(
+    title="Floor Plan Generator API",
+    version="1.0.0",
+    description=(
+        "Independent buildable-space calculation and asynchronous floor-plan "
+        "generation. All dimensions are integer project units; 10 units = 1 meter."
+    ),
+    lifespan=lifespan,
 )
-ALLOWED_ORIGINS: list[str] = [
-    o.strip() for o in _raw_origins.split(",") if o.strip()
-]
-
+app.add_middleware(cast(Any, ApiLoggingMiddleware), config=BOOT_CONFIG)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=list(BOOT_CONFIG.server.cors_origins),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Accept", "Last-Event-ID", "Authorization"],
     expose_headers=["X-Flow-ID", "X-Generation-Job-ID"],
 )
-
-
-@app.middleware("http")
-async def log_api_requests(
-    request: Request,
-    call_next: Callable[[Request], Awaitable[Response]],
-) -> Response:
-    start = perf_counter()
-    # If this is an SSE client, avoid consuming or re-injecting the body
-    accept_header = request.headers.get("accept", "")
-    if "text/event-stream" in accept_header:
-        return await call_next(request)
-
-    try:
-        response = await call_next(request)
-        # Detect streaming SSE responses by media_type or StreamingResponse
-        media_type = getattr(response, "media_type", "")
-        if media_type == "text/event-stream" or isinstance(response, StreamingResponse):
-            SystemLogger.log_event(
-                "api",
-                "request_completed",
-                "INFO",
-                {
-                    "method": request.method,
-                    "path": request.url.path,
-                    "status_code": response.status_code,
-                    "duration_ms": (perf_counter() - start) * 1000,
-                    "streaming": True,
-                },
-            )
-            return response
-
-        SystemLogger.log_event(
-            "api",
-            "request_completed",
-            "INFO",
-            {
-                "method": request.method,
-                "path": request.url.path,
-                "status_code": response.status_code,
-                "duration_ms": (perf_counter() - start) * 1000,
-                "streaming": False,
-            },
-        )
-        return response
-    except Exception as exc:
-        duration_ms = (perf_counter() - start) * 1000
-        SystemLogger.log_event(
-            "api",
-            "request_failed",
-            "ERROR",
-            {
-                "method": request.method,
-                "path": request.url.path,
-                "duration_ms": duration_ms,
-                "error_type": type(exc).__name__,
-                "error": str(exc),
-            },
-        )
-        raise
-
-
-from app.routes.buildable_space import (  # noqa: E402
-    buildable_space_context_middleware,
-    router as buildable_space_router,
-)
-from app.routes.errors import (  # noqa: E402
-    api_http_exception_handler,
-    api_unexpected_exception_handler,
-    api_validation_exception_handler,
-)
-from app.routes.generation import router as generation_router  # noqa: E402
-
 app.middleware("http")(buildable_space_context_middleware)
 app.add_exception_handler(
-    RequestValidationError,
-    cast(Any, api_validation_exception_handler),
+    RequestValidationError, cast(Any, api_validation_exception_handler)
 )
 app.add_exception_handler(HTTPException, cast(Any, api_http_exception_handler))
 app.add_exception_handler(Exception, cast(Any, api_unexpected_exception_handler))

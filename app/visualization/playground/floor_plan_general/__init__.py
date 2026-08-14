@@ -1,1 +1,0 @@
-"""Floor Plan General playground."""

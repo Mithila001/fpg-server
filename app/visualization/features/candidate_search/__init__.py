@@ -1,1 +1,0 @@
-"""Candidate Search visualization internals."""

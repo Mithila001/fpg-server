@@ -38,7 +38,7 @@ def resolve_artifact_path(
             flow_root
             / "json"
             / "logs"
-            / f"{normalize_slug(request.feature.value)}.json"
+            / f"{normalize_slug(request.feature.value)}.jsonl"
         )
 
     directory = flow_root / request.artifact_format.value / normalize_slug(

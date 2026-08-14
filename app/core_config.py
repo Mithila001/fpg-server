@@ -1,15 +1,27 @@
 from __future__ import annotations
 
 import json
+import os
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any, Mapping
+from types import MappingProxyType
+from typing import Any, AsyncIterator, Mapping
 
 from fastapi import FastAPI
 from fpg_core import BuildableSpaceConfig, FpgCoreConfig, validate_fpg_core_config
 from fpg_core.candidate_scoring.config import EvaluatorRule as CandidateRule
 from fpg_core.candidate_scoring.config import ScoringConfig as CandidateConfig
 from fpg_core.candidate_scoring.types import EvaluatorCategory, EvaluatorKey
+from fpg_core.candidate_scoring import (
+    RELATIONSHIP_QUALITY_KEY,
+    RelationshipQualityConfig,
+    create_default_config as create_default_candidate_scoring_config,
+)
+from fpg_core.candidate_circulation import (
+    CandidateCirculationConfig,
+    RoutingCostProfile,
+)
 from fpg_core.candidate_search.config import CandidateSearchConfig
 from fpg_core.floor_plan_openings.config import (
     DimensionConfig,
@@ -30,7 +42,7 @@ from fpg_core.floor_plan_post_processing.config import (
     WallExtensionConfig,
     WallExtensionRule,
 )
-from fpg_core.floor_plan_post_processing.contracts import (
+from fpg_core.floor_plan_post_processing import (
     NumericPolicy,
     PostProcessingProfile,
     ProcessorUse,
@@ -63,29 +75,38 @@ from fpg_core.floor_plan_scoring.evaluators import (
 from fpg_core.floor_plan_scoring.types import EvaluatorKey as FloorEvaluatorKey
 from fpg_core.floor_plan_scoring.types import GroupKey
 from fpg_core.floor_plan_solver.config import (
+    HardConstraintUse,
     PreparationConfig,
     SeedPolicy,
     SeedSource,
+    SoftConstraintUse,
     SolverConfig,
 )
 from fpg_core.floor_plan_solver.profiles import (
     GenerationProfile,
-    HardConstraintUse,
     ProfileCatalog,
-    SoftConstraintUse,
 )
-from fpg_core.types import ConstraintStrength, MatchPolicy, RoomType
+from fpg_core.domain import (
+    CirculationRouteRule,
+    CirculationTrafficClass,
+    ConstraintStrength,
+    DestinationSelection,
+    LandSide,
+    MatchPolicy,
+    RoadType,
+    RoomType,
+    SetbackCalculationMode,
+    SetbackProfile,
+    UsableLandConstraints,
+    ValidationLimits,
+)
 from pydantic import BaseModel, ConfigDict, StrictInt, ValidationError
 
-from app.pipeline.buildable_space.reference_data import (
-    REFERENCE_DATA_PATH as BUILDABLE_CONFIG_PATH,
-)
-from app.pipeline.buildable_space.reference_data import (
-    load_buildable_space_reference_data,
-)
-
-GENERATION_CONFIG_PATH = (
-    Path(__file__).with_name("data") / "generation_reference_data.json"
+SERVER_CONFIG_PATH = Path(
+    os.environ.get(
+        "FPG_SERVER_CONFIG_PATH",
+        str(Path(__file__).with_name("data") / "server_config.json"),
+    )
 )
 
 
@@ -93,17 +114,93 @@ class CoreConfigLoadError(RuntimeError):
     pass
 
 
+class _ServerSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    api_prefix: str
+    cors_origins: tuple[str, ...]
+    output_root: Path
+    log_level: str
+    max_concurrent_jobs: StrictInt
+    max_queued_jobs: StrictInt
+    job_retention_seconds: StrictInt
+    request_timeout_seconds: float
+    cancellation_grace_seconds: float
+    sse_heartbeat_seconds: float
+
+
+class _UnitsSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    project_units_per_meter: StrictInt
+    front_axis: str
+
+
+class _GenerationRuntimeSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    candidate_score_threshold: float
+    usable_floor_plan_score: float
+    presentable_floor_plan_score: float
+    solver_runs_per_candidate: StrictInt
+    require_final_critical_pass: bool
+
+
 class _GenerationDocument(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     schema_version: StrictInt
+    server: _ServerSettings
+    units: _UnitsSettings
+    buildable_space: dict[str, Any]
+    generation_runtime: _GenerationRuntimeSettings
     preprocessing: dict[str, Any]
     candidate_search: dict[str, Any]
+    candidate_circulation: dict[str, Any]
     candidate_scoring: dict[str, Any]
     floor_plan_solver: dict[str, Any]
     post_processing: dict[str, Any]
     openings: dict[str, Any]
     floor_plan_scoring: dict[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ServerConfig:
+    server: _ServerSettings
+    generation: _GenerationRuntimeSettings
+    core: FpgCoreConfig
+    candidate_circulation: CandidateCirculationConfig
+
+    def circulation_for(
+        self, room_types: set[RoomType]
+    ) -> CandidateCirculationConfig:
+        rules = tuple(
+            rule
+            for rule in self.candidate_circulation.route_rules
+            if rule.source_room_type in room_types
+            and rule.destination_room_type in room_types
+        )
+        if not rules:
+            raise CoreConfigLoadError(
+                "No candidate-circulation routes apply to the requested rooms."
+            )
+        return replace(self.candidate_circulation, route_rules=rules)
+
+    def candidate_scoring_for(
+        self, circulation: CandidateCirculationConfig
+    ) -> CandidateConfig:
+        relationship = RelationshipQualityConfig(
+            costs=circulation.costs,
+            route_rules=circulation.route_rules,
+            always_traversable_room_types=(RoomType.HALLWAY,),
+        )
+        rules = tuple(
+            replace(rule, settings={"routing_config": relationship})
+            if rule.key == RELATIONSHIP_QUALITY_KEY
+            else rule
+            for rule in self.core.candidate_scoring.evaluator_rules
+        )
+        return replace(self.core.candidate_scoring, evaluator_rules=rules)
 
 
 def _exact(
@@ -147,8 +244,10 @@ def _preprocessing(raw: dict[str, Any]) -> PreprocessingConfig:
             "mandatory_room_types",
             "floor_area_buffer",
             "hallway_area_buffer",
-            "hallway_count",
+            "max_hallway_room_count",
             "hallway_min_width",
+            "candidate_search_grid_spacing",
+            "max_aspect_residual_units",
             "default_room_size",
             "min_aspect_ratio",
             "max_aspect_ratio",
@@ -191,8 +290,10 @@ def _preprocessing(raw: dict[str, Any]) -> PreprocessingConfig:
         ),
         floor_area_buffer=raw["floor_area_buffer"],
         hallway_area_buffer=raw["hallway_area_buffer"],
-        hallway_count=raw["hallway_count"],
+        max_hallway_room_count=raw["max_hallway_room_count"],
         hallway_min_width=raw["hallway_min_width"],
+        candidate_search_grid_spacing=raw["candidate_search_grid_spacing"],
+        max_aspect_residual_units=raw["max_aspect_residual_units"],
         default_room_size=raw["default_room_size"],
         min_aspect_ratio=raw["min_aspect_ratio"],
         max_aspect_ratio=raw["max_aspect_ratio"],
@@ -229,19 +330,27 @@ def _candidate_scoring(raw: dict[str, Any]) -> CandidateConfig:
                 "settings",
             },
         )
-    return CandidateConfig(
-        evaluator_rules=tuple(
-            CandidateRule(
-                key=EvaluatorKey(item["key"]),
+    defaults = {
+        rule.key: rule for rule in create_default_candidate_scoring_config().evaluator_rules
+    }
+    configured: list[CandidateRule] = []
+    for item in raw["evaluator_rules"]:
+        key = EvaluatorKey(item["key"])
+        default = defaults.get(key)
+        if default is None:
+            raise CoreConfigLoadError(f"Unknown candidate evaluator: {key}")
+        configured.append(
+            replace(
+                default,
                 category=EvaluatorCategory(item["category"]),
                 enabled=item["enabled"],
                 order=item["order"],
                 weight=item["weight"],
                 minimum_score=item["minimum_score"],
-                settings=_deep_setting(item["settings"]),
             )
-            for item in raw["evaluator_rules"]
-        ),
+        )
+    return CandidateConfig(
+        evaluator_rules=tuple(configured),
         fail_fast_on_critical_failure=raw["fail_fast_on_critical_failure"],
         not_applicable_quality_contributes=raw["not_applicable_quality_contributes"],
         raise_on_evaluator_error=raw["raise_on_evaluator_error"],
@@ -424,25 +533,108 @@ def _floor_scoring(raw: dict[str, Any]) -> ScoringProfile:
     )
 
 
-def load_fpg_core_config(
-    generation_path: Path = GENERATION_CONFIG_PATH,
-    buildable_path: Path = BUILDABLE_CONFIG_PATH,
-) -> FpgCoreConfig:
+def _buildable_space(raw: dict[str, Any]) -> BuildableSpaceConfig:
+    _exact(
+        raw,
+        {
+            "active_profile",
+            "setback_profiles",
+            "usable_land_constraints",
+            "validation_limits",
+        },
+    )
+    active_name = raw["active_profile"]
+    profile_raw = raw["setback_profiles"][active_name]
+    base = {
+        LandSide(key): int(value)
+        for key, value in profile_raw["base_setbacks"].items()
+    }
+    adjustments = {
+        RoadType(road): {
+            LandSide(side): int(value) for side, value in values.items()
+        }
+        for road, values in profile_raw["road_adjustments"].items()
+    }
+    return BuildableSpaceConfig(
+        active_profile=SetbackProfile(
+            name=active_name,
+            status=profile_raw["status"],
+            description=profile_raw["description"],
+            calculation_mode=SetbackCalculationMode(
+                profile_raw["calculation_mode"]
+            ),
+            base_setbacks=MappingProxyType(base),
+            road_adjustments=MappingProxyType(
+                {
+                    key: MappingProxyType(value)
+                    for key, value in adjustments.items()
+                }
+            ),
+        ),
+        usable_land_constraints=UsableLandConstraints(
+            **raw["usable_land_constraints"]
+        ),
+        validation_limits=ValidationLimits(**raw["validation_limits"]),
+    )
+
+
+def _candidate_circulation(raw: dict[str, Any]) -> CandidateCirculationConfig:
+    costs = raw["costs"]
+    rules = tuple(
+        CirculationRouteRule(
+            id=item["id"],
+            name=item["name"],
+            source_room_type=RoomType(item["source_room_type"]),
+            destination_room_type=RoomType(item["destination_room_type"]),
+            destination_selection=DestinationSelection(
+                item["destination_selection"]
+            ),
+            traffic_class=CirculationTrafficClass(item["traffic_class"]),
+            allowed_transit_room_types=tuple(
+                RoomType(value) for value in item["allowed_transit_room_types"]
+            ),
+            importance_weight=item["importance_weight"],
+        )
+        for item in raw["route_rules"]
+    )
+    return CandidateCirculationConfig(
+        costs=RoutingCostProfile(**costs),
+        route_rules=rules,
+        always_traversable_room_types=tuple(
+            RoomType(value) for value in raw["always_traversable_room_types"]
+        ),
+        max_routing_passes=raw["max_routing_passes"],
+    )
+
+
+def load_server_config(path: Path = SERVER_CONFIG_PATH) -> ServerConfig:
     try:
         document = _GenerationDocument.model_validate_json(
-            generation_path.read_text(encoding="utf-8")
+            path.read_text(encoding="utf-8")
         )
-        buildable = load_buildable_space_reference_data(buildable_path)
-        if document.schema_version != buildable.schema_version:
-            raise CoreConfigLoadError("configuration schema versions do not match")
+        if document.schema_version != 2:
+            raise CoreConfigLoadError("Unsupported server configuration schema.")
+        if document.units.project_units_per_meter != 10:
+            raise CoreConfigLoadError("project_units_per_meter must be exactly 10.")
+        if document.units.front_axis != "-Y":
+            raise CoreConfigLoadError("front_axis must be '-Y'.")
+        if not document.server.api_prefix.startswith("/"):
+            raise CoreConfigLoadError("server.api_prefix must start with '/'.")
+        positive_server_values = (
+            document.server.max_concurrent_jobs,
+            document.server.max_queued_jobs,
+            document.server.job_retention_seconds,
+            document.server.request_timeout_seconds,
+            document.server.cancellation_grace_seconds,
+            document.server.sse_heartbeat_seconds,
+        )
+        if any(value <= 0 for value in positive_server_values):
+            raise CoreConfigLoadError("Server limits and durations must be positive.")
+        circulation = _candidate_circulation(document.candidate_circulation)
         config = FpgCoreConfig(
             schema_version=document.schema_version,
-            project_units_per_meter=buildable.project_units_per_meter,
-            buildable_space=BuildableSpaceConfig(
-                active_profile=buildable.active_profile,
-                usable_land_constraints=buildable.usable_land_constraints,
-                validation_limits=buildable.validation_limits,
-            ),
+            project_units_per_meter=document.units.project_units_per_meter,
+            buildable_space=_buildable_space(document.buildable_space),
             preprocessing=_preprocessing(document.preprocessing),
             candidate_search=CandidateSearchConfig(**document.candidate_search),
             candidate_scoring=_candidate_scoring(document.candidate_scoring),
@@ -452,7 +644,12 @@ def load_fpg_core_config(
             floor_plan_scoring=_floor_scoring(document.floor_plan_scoring),
         )
         validate_fpg_core_config(config)
-        return config
+        return ServerConfig(
+            server=document.server,
+            generation=document.generation_runtime,
+            core=config,
+            candidate_circulation=circulation,
+        )
     except (
         OSError,
         json.JSONDecodeError,
@@ -468,24 +665,22 @@ def load_fpg_core_config(
         ) from exc
 
 
-def get_fpg_core_config(app: FastAPI) -> FpgCoreConfig:
-    config = getattr(app.state, "fpg_core_config", None)
-    if not isinstance(config, FpgCoreConfig):
-        raise CoreConfigLoadError("FPG core configuration is not initialized")
+def get_server_config(app: FastAPI) -> ServerConfig:
+    config = getattr(app.state, "server_config", None)
+    if not isinstance(config, ServerConfig):
+        raise CoreConfigLoadError("Server configuration is not initialized")
     return config
 
 
-def reload_fpg_core_config(
-    app: FastAPI,
-    generation_path: Path = GENERATION_CONFIG_PATH,
-    buildable_path: Path = BUILDABLE_CONFIG_PATH,
-) -> FpgCoreConfig:
-    replacement = load_fpg_core_config(generation_path, buildable_path)
-    app.state.fpg_core_config = replacement
+def reload_server_config(
+    app: FastAPI, path: Path = SERVER_CONFIG_PATH
+) -> ServerConfig:
+    replacement = load_server_config(path)
+    app.state.server_config = replacement
     return replacement
 
 
 @asynccontextmanager
-async def fpg_core_lifespan(app: FastAPI):
-    reload_fpg_core_config(app)
+async def server_lifespan(app: FastAPI) -> AsyncIterator[None]:
+    reload_server_config(app)
     yield

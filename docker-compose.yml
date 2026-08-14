@@ -1,13 +1,12 @@
 services:
   api:
-    build: .
+    build:
+      context: ..
+      dockerfile: fpg-server/Dockerfile
     container_name: fpg_server_api
     restart: always
     ports:
       - "8001:8000"
-    environment:
-      LOG_LEVEL: "INFO"
-      OUTPUT_ROOT: "/app/output"
-      CORS_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173"
     volumes:
       - ./output:/app/output
+      - ./app/data/server_config.json:/app/app/data/server_config.json:ro

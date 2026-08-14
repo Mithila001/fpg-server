@@ -1,230 +1,90 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from enum import Enum
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any, Protocol
 
-from fpg_core.candidate_search import CandidatePoint
-from fpg_core.types import FloorPlan
+
+class JobState(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    CANCELLATION_REQUESTED = "cancellation_requested"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+    TIMED_OUT = "timed_out"
+
+    @property
+    def terminal(self) -> bool:
+        return self in {
+            JobState.COMPLETED,
+            JobState.FAILED,
+            JobState.CANCELLED,
+            JobState.TIMED_OUT,
+        }
 
 
-class GenerationStatus(str, Enum):
-    JOB_STARTED = "job_started"
-    CANDIDATE_SEARCH_STARTED = "candidate_search_started"
-    FLOOR_PLAN_GENERATION_STARTED = "floor_plan_generation_started"
-    USABLE_FLOOR_PLAN_FOUND = "usable_floor_plan_found"
-    PRESENTABLE_FLOOR_PLAN_FOUND = "presentable_floor_plan_found"
-    TIMEOUT_REACHED = "timeout_reached"
-
-
-class FloorPlanClassification(str, Enum):
-    USABLE = "usable"
-    PRESENTABLE = "presentable"
-
-
-class CompletionOutcome(str, Enum):
-    PRESENTABLE_PLAN_FOUND = "presentable_plan_found"
-    BEST_USABLE_PLAN_RETURNED = "best_usable_plan_returned"
-
-
-@dataclass(frozen=True, slots=True)
-class StatusPayload:
-    status: GenerationStatus
-
-
-@dataclass(frozen=True, slots=True)
-class CandidateTrialPayload:
-    trial_number: int
-    trial_limit: int
-    candidate_hints: tuple[CandidatePoint, ...]
+class EventType(StrEnum):
+    JOB = "job"
+    STAGE = "stage"
+    CANDIDATE = "candidate"
+    FLOOR_PLAN = "floor_plan"
+    ATTEMPT_ERROR = "attempt_error"
+    TERMINAL = "terminal"
 
 
 @dataclass(frozen=True, slots=True)
-class ProgressPayload:
-    stage: str
-    trial_number: int
-    trial_limit: int
-    elapsed_ms: int
-    timeout_ms: int
-
-
-@dataclass(frozen=True, slots=True)
-class FloorPlanPayload:
-    classification: FloorPlanClassification
-    trial_number: int | None
-    candidate_id: int
-    solver_run_id: int
-    score: float
-    passed_critical: bool
-    floor_plan: FloorPlan
-
-
-@dataclass(frozen=True, slots=True)
-class CompletedPayload:
-    outcome: CompletionOutcome
-    final_floor_plan_sequence: int | None
-    elapsed_ms: int
-
-
-@dataclass(frozen=True, slots=True)
-class CancelledPayload:
-    reason: str
-
-
-@dataclass(frozen=True, slots=True)
-class ErrorPayload:
-    stage: str
+class EventError:
     code: str
     message: str
-    details: dict[str, Any]
     recoverable: bool
+    details: dict[str, Any] = field(default_factory=dict)
 
 
-GenerationEventPayload = (
-    StatusPayload
-    | CandidateTrialPayload
-    | ProgressPayload
-    | FloorPlanPayload
-    | CompletedPayload
-    | CancelledPayload
-    | ErrorPayload
-)
+@dataclass(frozen=True, slots=True)
+class GenerationEvent:
+    job_id: str
+    sequence: int
+    event_type: EventType
+    stage: str
+    state: str
+    message: str
+    data: dict[str, Any] = field(default_factory=dict)
+    error: EventError | None = None
+    trial_number: int | None = None
+    candidate_id: int | None = None
+    timestamp_utc: datetime = field(default_factory=lambda: datetime.now(UTC))
+    schema_version: str = "1.0"
+
+
+@dataclass(frozen=True, slots=True)
+class WorkerEvent:
+    event_type: EventType
+    stage: str
+    state: str
+    message: str
+    data: dict[str, Any] = field(default_factory=dict)
+    error: EventError | None = None
+    trial_number: int | None = None
+    candidate_id: int | None = None
 
 
 class GenerationEventPublisher(Protocol):
-    def status(self, status: GenerationStatus) -> int | None: ...
-
-    def candidate_trial(
-        self,
-        *,
-        trial_number: int,
-        trial_limit: int,
-        candidate_hints: tuple[CandidatePoint, ...],
-    ) -> int | None: ...
-
-    def progress(
-        self,
-        *,
-        stage: str,
-        trial_number: int,
-        trial_limit: int,
-        elapsed_ms: int,
-        timeout_ms: int,
-    ) -> int | None: ...
-
-    def floor_plan(
-        self,
-        *,
-        classification: FloorPlanClassification,
-        trial_number: int | None,
-        candidate_id: int,
-        solver_run_id: int,
-        score: float,
-        passed_critical: bool,
-        floor_plan: FloorPlan,
-    ) -> int | None: ...
-
-    def completed(
-        self,
-        *,
-        outcome: CompletionOutcome,
-        final_floor_plan_sequence: int | None,
-        elapsed_ms: int,
-    ) -> int | None: ...
-
-    def cancelled(
-        self,
-        *,
-        reason: str,
-    ) -> int | None: ...
-
-    def error(
-        self,
-        *,
-        stage: str,
-        code: str,
-        message: str,
-        details: dict[str, Any] | None = None,
-        recoverable: bool = False,
-    ) -> int | None: ...
+    def publish(self, event: WorkerEvent) -> None: ...
 
 
 class NullGenerationEventPublisher:
-    def status(self, status: GenerationStatus) -> int | None:
-        return None
-
-    def candidate_trial(
-        self,
-        *,
-        trial_number: int,
-        trial_limit: int,
-        candidate_hints: tuple[CandidatePoint, ...],
-    ) -> int | None:
-        return None
-
-    def progress(
-        self,
-        *,
-        stage: str,
-        trial_number: int,
-        trial_limit: int,
-        elapsed_ms: int,
-        timeout_ms: int,
-    ) -> int | None:
-        return None
-
-    def floor_plan(
-        self,
-        *,
-        classification: FloorPlanClassification,
-        trial_number: int | None,
-        candidate_id: int,
-        solver_run_id: int,
-        score: float,
-        passed_critical: bool,
-        floor_plan: FloorPlan,
-    ) -> int | None:
-        return None
-
-    def completed(
-        self,
-        *,
-        outcome: CompletionOutcome,
-        final_floor_plan_sequence: int | None,
-        elapsed_ms: int,
-    ) -> int | None:
-        return None
-
-    def cancelled(
-        self,
-        *,
-        reason: str,
-    ) -> int | None:
-        return None
-
-    def error(
-        self,
-        *,
-        stage: str,
-        code: str,
-        message: str,
-        details: dict[str, Any] | None = None,
-        recoverable: bool = False,
-    ) -> int | None:
-        return None
+    def publish(self, event: WorkerEvent) -> None:
+        del event
 
 
-def event_name(payload: GenerationEventPayload) -> str:
-    if isinstance(payload, StatusPayload):
-        return "status"
-    if isinstance(payload, CandidateTrialPayload):
-        return "candidate_trial"
-    if isinstance(payload, ProgressPayload):
-        return "progress"
-    if isinstance(payload, FloorPlanPayload):
-        return "floor_plan"
-    if isinstance(payload, CompletedPayload):
-        return "completed"
-    if isinstance(payload, CancelledPayload):
-        return "cancelled"
-    return "error"
+__all__ = [
+    "EventError",
+    "EventType",
+    "GenerationEvent",
+    "GenerationEventPublisher",
+    "JobState",
+    "NullGenerationEventPublisher",
+    "WorkerEvent",
+]

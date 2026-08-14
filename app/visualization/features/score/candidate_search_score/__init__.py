@@ -1,1 +1,0 @@
-"""Candidate-scoring visualization renderers."""

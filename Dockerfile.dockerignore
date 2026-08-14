@@ -1,0 +1,16 @@
+*
+!fpg-core/**
+!fpg-server/**
+fpg-core/.git
+fpg-core/.venv
+fpg-core/**/__pycache__
+fpg-core/tests
+fpg-core/custom_test
+fpg-core/.mypy_cache
+fpg-core/.pytest_cache
+fpg-server/.git
+fpg-server/.venv
+fpg-server/**/__pycache__
+fpg-server/output/**
+fpg-server/.mypy_cache
+fpg-server/.ruff_cache
