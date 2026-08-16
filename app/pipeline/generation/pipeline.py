@@ -14,15 +14,17 @@ from fpg_core.candidate_circulation import (
 from fpg_core.candidate_scoring import (
     CandidateScoringInput,
     ScoringResult,
-    create_default_registry as create_candidate_scoring_registry,
     evaluate_candidate,
+)
+from fpg_core.candidate_scoring import (
+    create_default_registry as create_candidate_scoring_registry,
 )
 from fpg_core.candidate_search import (
     CandidateSearchInput,
     CandidateSearchSession,
     build_candidate_search_targets,
 )
-from fpg_core.domain import CandidateMap, ExecutionMode
+from fpg_core.domain import CandidateMap, ExecutionMode, FloorPlan
 from fpg_core.floor_plan_openings import (
     OpeningGenerationRequest,
     generate_openings,
@@ -50,7 +52,6 @@ from fpg_core.floor_plan_solver import (
     SolverStatus,
     generate_floor_plan,
 )
-from fpg_core.domain import FloorPlan, RoomType
 
 from app.artifacts.serializers import to_json_value
 from app.core_config import ServerConfig
@@ -160,6 +161,9 @@ def run_generation_pipeline(
     )
     checkpoint(GenerationStage.PREPROCESSING)
     try:
+        preprocessing_config, floor_size_profile = (
+            config.preprocessing_for_floor_limits(request.max_width, request.max_length)
+        )
         preprocessing = prepare_generation_input(
             PreprocessingInput(
                 request=PreprocessingRequest(
@@ -175,7 +179,7 @@ def run_generation_pipeline(
                         for room in request.rooms
                     ),
                 ),
-                config=config.core.preprocessing,
+                config=preprocessing_config,
             ),
             mode=ExecutionMode.PRODUCTION,
         )
@@ -195,6 +199,13 @@ def run_generation_pipeline(
         data={
             "floor_width": prepared.generation_spec.floor.width,
             "floor_length": prepared.generation_spec.floor.length,
+            "floor_size_category": floor_size_profile.name,
+            "floor_limit_area": floor_size_profile.floor_area,
+            "circulation_ratio": floor_size_profile.circulation_ratio,
+            "circulation_allowance_area": (
+                floor_size_profile.circulation_allowance_area
+            ),
+            "max_hallway_room_count": (floor_size_profile.max_hallway_room_count),
         },
     )
 
@@ -367,12 +378,15 @@ def run_generation_pipeline(
                 continue
 
             usable = (
-                not config.generation.require_final_critical_pass
-                or attempt.scoring.passed_critical
-            ) and attempt.scoring.total_score >= config.generation.usable_floor_plan_score
+                (
+                    not config.generation.require_final_critical_pass
+                    or attempt.scoring.passed_critical
+                )
+                and attempt.scoring.total_score
+                >= config.generation.usable_floor_plan_score
+            )
             if usable and (
-                best is None
-                or attempt.scoring.total_score > best.scoring.total_score
+                best is None or attempt.scoring.total_score > best.scoring.total_score
             ):
                 best = attempt
             if usable and attempt.scoring.total_score >= (
@@ -424,13 +438,17 @@ def _generate_attempt(
             EventType.STAGE,
             stage,
             "started",
-            "Generating Floor Plan" if plan is None else f"Refining Floor Plan: {stage.value}",
+            "Generating Floor Plan"
+            if plan is None
+            else f"Refining Floor Plan: {stage.value}",
             trial_number=trial_number,
             candidate_id=candidate_id,
         )
         solver = replace(
             profile.solver,
-            max_time_seconds=max(0.01, min(profile.solver.max_time_seconds, remaining())),
+            max_time_seconds=max(
+                0.01, min(profile.solver.max_time_seconds, remaining())
+            ),
         )
         active_profile = replace(profile, solver=solver)
         execution = generate_floor_plan(
@@ -459,7 +477,9 @@ def _generate_attempt(
             EventType.FLOOR_PLAN,
             stage,
             "completed",
-            "Floor plan generated" if stage is GenerationStage.INITIAL_GENERATION else "Floor plan refined",
+            "Floor plan generated"
+            if stage is GenerationStage.INITIAL_GENERATION
+            else "Floor plan refined",
             data={"floor_plan": to_json_value(plan)},
             trial_number=trial_number,
             candidate_id=candidate_id,
@@ -467,7 +487,15 @@ def _generate_attempt(
 
     assert plan is not None
     checkpoint(GenerationStage.POST_PROCESSING)
-    _publish(publisher, EventType.STAGE, GenerationStage.POST_PROCESSING, "started", "Post Processing", trial_number=trial_number, candidate_id=candidate_id)
+    _publish(
+        publisher,
+        EventType.STAGE,
+        GenerationStage.POST_PROCESSING,
+        "started",
+        "Post Processing",
+        trial_number=trial_number,
+        candidate_id=candidate_id,
+    )
     post = post_process_floor_plan(
         PostProcessingRequest(
             floor_plan=plan,
@@ -484,7 +512,15 @@ def _generate_attempt(
             failure.message if failure is not None else "Post-processing failed.",
         )
     checkpoint(GenerationStage.OPENINGS)
-    _publish(publisher, EventType.STAGE, GenerationStage.OPENINGS, "started", "Generating Openings", trial_number=trial_number, candidate_id=candidate_id)
+    _publish(
+        publisher,
+        EventType.STAGE,
+        GenerationStage.OPENINGS,
+        "started",
+        "Generating Openings",
+        trial_number=trial_number,
+        candidate_id=candidate_id,
+    )
     openings = generate_openings(
         OpeningGenerationRequest(
             floor_plan=post.result.floor_plan,
@@ -501,7 +537,15 @@ def _generate_attempt(
         )
     final_plan = openings.result.floor_plan
     checkpoint(GenerationStage.FINAL_SCORING)
-    _publish(publisher, EventType.STAGE, GenerationStage.FINAL_SCORING, "started", "Final Scoring", trial_number=trial_number, candidate_id=candidate_id)
+    _publish(
+        publisher,
+        EventType.STAGE,
+        GenerationStage.FINAL_SCORING,
+        "started",
+        "Final Scoring",
+        trial_number=trial_number,
+        candidate_id=candidate_id,
+    )
     scoring = score_floor_plan(
         FloorPlanScoringInput(
             floor_plan=final_plan,

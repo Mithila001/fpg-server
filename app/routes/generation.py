@@ -85,6 +85,39 @@ class RoomRequirementMetadata(_ContractModel):
     client_selectable: bool
 
 
+class FloorSizeProfileMetadata(_ContractModel):
+    name: str
+    max_floor_area: int | None
+    circulation_ratio: float
+    max_hallway_room_count: int
+
+
+class CirculationMetadata(_ContractModel):
+    minimum_area: float
+    calculation_mode: str
+    rounding: str
+    profile_selection_basis: str
+    profiles: list[FloorSizeProfileMetadata]
+
+
+class FloorLimitMetadata(_ContractModel):
+    minimum_width: int
+    minimum_length: int
+    minimum_area: int
+    maximum_width: int | None
+    maximum_length: int | None
+    maximum_area: int | None
+    maximum_source: str
+    maximum_source_endpoint: str
+
+
+class FloorPlanConstraintsMetadata(_ContractModel):
+    floor_limits: FloorLimitMetadata
+    floor_area_buffer: float
+    hallway_min_width: float
+    circulation: CirculationMetadata
+
+
 class MetadataResponse(_ContractModel):
     schema_version: int
     project_units_per_meter: int
@@ -93,6 +126,7 @@ class MetadataResponse(_ContractModel):
     room_requirements: list[RoomRequirementMetadata]
     room_sizes: list[RoomSizeMetadata]
     compatible_aspect_ratios: list[dict[str, float | str]]
+    floor_plan_constraints: FloorPlanConstraintsMetadata
 
 
 def _manager(request: Request) -> GenerationJobManager:
@@ -155,6 +189,42 @@ def get_metadata(request: Request) -> MetadataResponse | JSONResponse:
             {"label": ratio.label, "value": ratio.canonical_value}
             for ratio in preprocessing.supported_aspect_ratios
         ],
+        floor_plan_constraints=FloorPlanConstraintsMetadata(
+            floor_limits=FloorLimitMetadata(
+                minimum_width=(
+                    config.core.buildable_space.usable_land_constraints.minimum_width
+                ),
+                minimum_length=(
+                    config.core.buildable_space.usable_land_constraints.minimum_length
+                ),
+                minimum_area=(
+                    config.core.buildable_space.usable_land_constraints.minimum_width
+                    * config.core.buildable_space.usable_land_constraints.minimum_length
+                ),
+                maximum_width=None,
+                maximum_length=None,
+                maximum_area=None,
+                maximum_source="buildable_space.usable_land",
+                maximum_source_endpoint="/api/v1/buildable-space",
+            ),
+            floor_area_buffer=preprocessing.floor_area_buffer,
+            hallway_min_width=preprocessing.hallway_min_width,
+            circulation=CirculationMetadata(
+                minimum_area=config.floor_size_policy.minimum_circulation_area,
+                calculation_mode="percentage_with_minimum",
+                rounding="ceil_square_project_unit",
+                profile_selection_basis="floor_limits.max_width_x_max_length",
+                profiles=[
+                    FloorSizeProfileMetadata(
+                        name=profile.name,
+                        max_floor_area=profile.max_floor_area,
+                        circulation_ratio=profile.circulation_ratio,
+                        max_hallway_room_count=profile.max_hallway_room_count,
+                    )
+                    for profile in config.floor_size_policy.profiles
+                ],
+            ),
+        ),
     )
 
 

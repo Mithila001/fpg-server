@@ -4,6 +4,7 @@ import json
 import os
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, replace
+from decimal import ROUND_CEILING, Decimal
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, AsyncIterator, Mapping
@@ -160,11 +161,71 @@ class _GenerationDocument(BaseModel):
 
 
 @dataclass(frozen=True, slots=True)
+class FloorSizeProfile:
+    name: str
+    max_floor_area: int | None
+    circulation_ratio: float
+    max_hallway_room_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class ResolvedFloorSizeProfile:
+    name: str
+    floor_area: int
+    circulation_ratio: float
+    circulation_allowance_area: float
+    max_hallway_room_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class FloorSizePolicy:
+    minimum_circulation_area: float
+    profiles: tuple[FloorSizeProfile, ...]
+
+    def resolve(self, floor_area: int) -> ResolvedFloorSizeProfile:
+        if floor_area <= 0:
+            raise ValueError("floor_area must be positive")
+        for profile in self.profiles:
+            if profile.max_floor_area is None or floor_area <= profile.max_floor_area:
+                percentage_area = (
+                    Decimal(floor_area)
+                    * Decimal(str(profile.circulation_ratio))
+                ).to_integral_value(rounding=ROUND_CEILING)
+                circulation_area = max(
+                    self.minimum_circulation_area,
+                    float(percentage_area),
+                )
+                return ResolvedFloorSizeProfile(
+                    name=profile.name,
+                    floor_area=floor_area,
+                    circulation_ratio=profile.circulation_ratio,
+                    circulation_allowance_area=circulation_area,
+                    max_hallway_room_count=profile.max_hallway_room_count,
+                )
+        raise CoreConfigLoadError(
+            f"No floor-size profile covers floor area {floor_area}."
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class ServerConfig:
     server: _ServerSettings
     generation: _GenerationRuntimeSettings
     core: FpgCoreConfig
     candidate_circulation: CandidateCirculationConfig
+    floor_size_policy: FloorSizePolicy
+
+    def preprocessing_for_floor_limits(
+        self, max_width: int, max_length: int
+    ) -> tuple[PreprocessingConfig, ResolvedFloorSizeProfile]:
+        floor_area = max_width * max_length
+        profile = self.floor_size_policy.resolve(floor_area)
+        preprocessing = replace(
+            self.core.preprocessing,
+            hallway_area_buffer=profile.circulation_allowance_area,
+            max_hallway_room_count=profile.max_hallway_room_count,
+        )
+        return preprocessing, profile
 
     def circulation_for(
         self, room_types: set[RoomType]
@@ -237,7 +298,99 @@ def _deep_setting(value: Any) -> Any:
     return value
 
 
-def _preprocessing(raw: dict[str, Any]) -> PreprocessingConfig:
+def _floor_size_policy(raw: Mapping[str, Any]) -> FloorSizePolicy:
+    minimum_area = raw["minimum_circulation_area"]
+    if not isinstance(minimum_area, (int, float)) or isinstance(minimum_area, bool):
+        raise CoreConfigLoadError("minimum_circulation_area must be numeric.")
+    if minimum_area <= 0:
+        raise CoreConfigLoadError("minimum_circulation_area must be positive.")
+
+    raw_profiles = raw["floor_size_profiles"]
+    if not isinstance(raw_profiles, list) or not raw_profiles:
+        raise CoreConfigLoadError("floor_size_profiles must be a non-empty list.")
+
+    profiles: list[FloorSizeProfile] = []
+    seen_names: set[str] = set()
+    previous_max_area = 0
+    for index, item in enumerate(raw_profiles):
+        if not isinstance(item, dict):
+            raise CoreConfigLoadError("Each floor_size_profiles item must be an object.")
+        _exact(
+            item,
+            {
+                "name",
+                "max_floor_area",
+                "circulation_ratio",
+                "max_hallway_room_count",
+            },
+        )
+        name = item["name"]
+        max_area = item["max_floor_area"]
+        ratio = item["circulation_ratio"]
+        hallway_count = item["max_hallway_room_count"]
+
+        if not isinstance(name, str) or not name.strip():
+            raise CoreConfigLoadError("Floor-size profile names must be non-empty strings.")
+        if name in seen_names:
+            raise CoreConfigLoadError(f"Duplicate floor-size profile name: {name}")
+        seen_names.add(name)
+
+        if max_area is None:
+            if index != len(raw_profiles) - 1:
+                raise CoreConfigLoadError(
+                    "Only the final floor-size profile may have max_floor_area=null."
+                )
+        else:
+            if not isinstance(max_area, int) or isinstance(max_area, bool) or max_area <= 0:
+                raise CoreConfigLoadError(
+                    "floor_size_profiles.max_floor_area must be a positive integer or null."
+                )
+            if max_area <= previous_max_area:
+                raise CoreConfigLoadError(
+                    "floor_size_profiles max_floor_area values must increase."
+                )
+            previous_max_area = max_area
+
+        if not isinstance(ratio, (int, float)) or isinstance(ratio, bool):
+            raise CoreConfigLoadError(
+                "floor_size_profiles.circulation_ratio must be numeric."
+            )
+        if not 0 < float(ratio) <= 1:
+            raise CoreConfigLoadError(
+                "floor_size_profiles.circulation_ratio must be in (0, 1]."
+            )
+        if (
+            not isinstance(hallway_count, int)
+            or isinstance(hallway_count, bool)
+            or hallway_count < 1
+        ):
+            raise CoreConfigLoadError(
+                "floor_size_profiles.max_hallway_room_count must be a positive integer."
+            )
+
+        profiles.append(
+            FloorSizeProfile(
+                name=name,
+                max_floor_area=max_area,
+                circulation_ratio=float(ratio),
+                max_hallway_room_count=hallway_count,
+            )
+        )
+
+    if profiles[-1].max_floor_area is not None:
+        raise CoreConfigLoadError(
+            "The final floor-size profile must have max_floor_area=null to cover larger floors."
+        )
+
+    return FloorSizePolicy(
+        minimum_circulation_area=float(minimum_area),
+        profiles=tuple(profiles),
+    )
+
+
+def _preprocessing(
+    raw: dict[str, Any], floor_size_policy: FloorSizePolicy
+) -> PreprocessingConfig:
     _exact(
         raw,
         {
@@ -247,8 +400,8 @@ def _preprocessing(raw: dict[str, Any]) -> PreprocessingConfig:
             "room_relations",
             "mandatory_room_types",
             "floor_area_buffer",
-            "hallway_area_buffer",
-            "max_hallway_room_count",
+            "minimum_circulation_area",
+            "floor_size_profiles",
             "hallway_min_width",
             "candidate_search_grid_spacing",
             "max_aspect_residual_units",
@@ -293,8 +446,10 @@ def _preprocessing(raw: dict[str, Any]) -> PreprocessingConfig:
             _room(value) for value in raw["mandatory_room_types"]
         ),
         floor_area_buffer=raw["floor_area_buffer"],
-        hallway_area_buffer=raw["hallway_area_buffer"],
-        max_hallway_room_count=raw["max_hallway_room_count"],
+        hallway_area_buffer=floor_size_policy.minimum_circulation_area,
+        max_hallway_room_count=max(
+            profile.max_hallway_room_count for profile in floor_size_policy.profiles
+        ),
         hallway_min_width=raw["hallway_min_width"],
         candidate_search_grid_spacing=raw["candidate_search_grid_spacing"],
         max_aspect_residual_units=raw["max_aspect_residual_units"],
@@ -778,11 +933,12 @@ def load_server_config(path: Path = SERVER_CONFIG_PATH) -> ServerConfig:
         if any(value <= 0 for value in positive_server_values):
             raise CoreConfigLoadError("Server limits and durations must be positive.")
         circulation = _candidate_circulation(document.candidate_circulation)
+        floor_size_policy = _floor_size_policy(document.preprocessing)
         config = FpgCoreConfig(
             schema_version=document.schema_version,
             project_units_per_meter=document.units.project_units_per_meter,
             buildable_space=_buildable_space(document.buildable_space),
-            preprocessing=_preprocessing(document.preprocessing),
+            preprocessing=_preprocessing(document.preprocessing, floor_size_policy),
             candidate_search=CandidateSearchConfig(**document.candidate_search),
             candidate_scoring=_candidate_scoring(document.candidate_scoring),
             floor_plan_solver=_solver_profiles(document.floor_plan_solver),
@@ -796,6 +952,7 @@ def load_server_config(path: Path = SERVER_CONFIG_PATH) -> ServerConfig:
             generation=document.generation_runtime,
             core=config,
             candidate_circulation=circulation,
+            floor_size_policy=floor_size_policy,
         )
     except (
         OSError,
