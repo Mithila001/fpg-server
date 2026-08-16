@@ -1,5 +1,25 @@
 {
   "base_url": "http://127.0.0.1:8000",
+  "expectations": {
+    "metadata_schema_version": 2,
+    "project_units_per_meter": 10,
+    "minimum_completed_score": 80.0,
+    "require_critical_pass": true,
+    "require_single_main_entrance": true,
+    "require_connected_room_access": true,
+    "require_no_solver_placeholders": true,
+    "required_stage_states": [
+      ["preprocessing", "completed"],
+      ["candidate_search", "started"],
+      ["candidate_circulation", "started"],
+      ["initial_generation", "completed"],
+      ["refinement_a", "completed"],
+      ["refinement_b", "completed"],
+      ["post_processing", "started"],
+      ["openings", "started"],
+      ["final_scoring", "completed"]
+    ]
+  },
   "buildable_space": {
     "land_boundary": {
       "points": [

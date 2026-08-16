@@ -10,42 +10,55 @@ from typing import Any, AsyncIterator, Mapping
 
 from fastapi import FastAPI
 from fpg_core import BuildableSpaceConfig, FpgCoreConfig, validate_fpg_core_config
-from fpg_core.candidate_scoring.config import EvaluatorRule as CandidateRule
-from fpg_core.candidate_scoring.config import ScoringConfig as CandidateConfig
-from fpg_core.candidate_scoring.types import EvaluatorCategory, EvaluatorKey
-from fpg_core.candidate_scoring import (
-    RELATIONSHIP_QUALITY_KEY,
-    RelationshipQualityConfig,
-    create_default_config as create_default_candidate_scoring_config,
-)
 from fpg_core.candidate_circulation import (
     CandidateCirculationConfig,
+    HallwayConsolidationConfig,
     RoutingCostProfile,
 )
-from fpg_core.candidate_search.config import CandidateSearchConfig
-from fpg_core.floor_plan_openings.config import (
+from fpg_core.candidate_scoring import (
+    RELATIONSHIP_QUALITY_KEY,
+    EvaluatorCategory,
+    EvaluatorKey,
+    EvaluatorRule as CandidateRule,
+    RelationshipQualityConfig,
+    ScoringConfig as CandidateConfig,
+    create_default_config as create_default_candidate_scoring_config,
+)
+from fpg_core.candidate_search import CandidateSearchConfig
+from fpg_core.domain import (
+    CirculationRouteRule,
+    CirculationTrafficClass,
+    ConstraintStrength,
+    DestinationSelection,
+    GridRoutingCostProfile,
+    LandSide,
+    MatchPolicy,
+    RoadType,
+    RoomType,
+    SetbackCalculationMode,
+    SetbackProfile,
+    UsableLandConstraints,
+    ValidationLimits,
+)
+from fpg_core.floor_plan_openings import (
     DimensionConfig,
     FeaturePolicy,
+    FloorPlanOpeningsConfig,
     GeometryConfig,
     ObjectiveConfig,
-)
-from fpg_core.floor_plan_openings.config import (
     SolverConfig as OpeningSolverConfig,
 )
-from fpg_core.floor_plan_openings.profiles import OpeningGenerationProfile
-from fpg_core.floor_plan_post_processing.config import (
+from fpg_core.floor_plan_post_processing import (
+    FloorPlanPostProcessingConfig,
     GridSnapConfig,
     HallwayMergeConfig,
+    NumericPolicy,
     PlaceholderRemovalConfig,
+    ProcessorUse,
     RectilinearSimplificationConfig,
     VerandaAdjustmentConfig,
     WallExtensionConfig,
     WallExtensionRule,
-)
-from fpg_core.floor_plan_post_processing import (
-    NumericPolicy,
-    PostProcessingProfile,
-    ProcessorUse,
 )
 from fpg_core.floor_plan_preprocessing import (
     AspectRatioRule,
@@ -56,49 +69,31 @@ from fpg_core.floor_plan_preprocessing import (
     RoomSizeReference,
     RoomSizeSelectionStrategy,
 )
-from fpg_core.floor_plan_scoring.config import (
-    EvaluatorRule as FloorScoringRule,
-)
-from fpg_core.floor_plan_scoring.config import (
-    ScoringGroupRule,
-    ScoringProfile,
-)
-from fpg_core.floor_plan_scoring.evaluators import (
-    BedroomQualitySettings,
+from fpg_core.floor_plan_scoring import (
     EnclosedVoidsSettings,
+    EvaluatorKey as FloorEvaluatorKey,
+    EvaluatorRule as FloorScoringRule,
+    FloorPlanScoringConfig,
     GeometryIntegritySettings,
+    GroupKey,
     InwardRecessSettings,
     KitchenDiningSettings,
-    LivingRoomBalanceSettings,
     RequiredAdjacencySettings,
+    RoomAreaAggregation,
+    RoomSizeConsistencySettings,
+    RoomSizeRelationRule,
+    RoomTypeConsistencyRule,
+    ScoringGroupRule,
 )
-from fpg_core.floor_plan_scoring.types import EvaluatorKey as FloorEvaluatorKey
-from fpg_core.floor_plan_scoring.types import GroupKey
-from fpg_core.floor_plan_solver.config import (
+from fpg_core.floor_plan_solver import (
+    FloorPlanSolverConfig,
     HardConstraintUse,
     PreparationConfig,
+    ProfileCatalog,
     SeedPolicy,
     SeedSource,
     SoftConstraintUse,
     SolverConfig,
-)
-from fpg_core.floor_plan_solver.profiles import (
-    GenerationProfile,
-    ProfileCatalog,
-)
-from fpg_core.domain import (
-    CirculationRouteRule,
-    CirculationTrafficClass,
-    ConstraintStrength,
-    DestinationSelection,
-    LandSide,
-    MatchPolicy,
-    RoadType,
-    RoomType,
-    SetbackCalculationMode,
-    SetbackProfile,
-    UsableLandConstraints,
-    ValidationLimits,
 )
 from pydantic import BaseModel, ConfigDict, StrictInt, ValidationError
 
@@ -190,7 +185,16 @@ class ServerConfig:
         self, circulation: CandidateCirculationConfig
     ) -> CandidateConfig:
         relationship = RelationshipQualityConfig(
-            costs=circulation.costs,
+            costs=GridRoutingCostProfile(
+                empty_node_cost=circulation.costs.empty_node_cost,
+                traversable_hint_node_cost=(
+                    circulation.costs.traversable_hint_node_cost
+                ),
+                turn_cost=circulation.costs.turn_cost,
+                perimeter_bias_max_cost=(
+                    circulation.costs.perimeter_bias_max_cost
+                ),
+            ),
             route_rules=circulation.route_rules,
             always_traversable_room_types=(RoomType.HALLWAY,),
         )
@@ -365,7 +369,7 @@ def _solver_profiles(raw: dict[str, Any]) -> ProfileCatalog:
         HardConstraintUse(item["key"], _deep_setting(item["settings"]))
         for item in raw["hard_constraints"]
     )
-    profiles: dict[str, GenerationProfile] = {}
+    profiles: dict[str, FloorPlanSolverConfig] = {}
     for item in raw["profiles"]:
         _exact(
             item,
@@ -380,7 +384,7 @@ def _solver_profiles(raw: dict[str, Any]) -> ProfileCatalog:
         )
         for value in item["soft_constraints"]:
             _exact(value, {"key", "weight", "settings"})
-        profiles[item["slot"]] = GenerationProfile(
+        profiles[item["slot"]] = FloorPlanSolverConfig(
             name=item["name"],
             hard_constraints=hard,
             soft_constraints=tuple(
@@ -400,7 +404,7 @@ def _solver_profiles(raw: dict[str, Any]) -> ProfileCatalog:
     return ProfileCatalog(**profiles)
 
 
-def _post_processing(raw: dict[str, Any]) -> PostProcessingProfile:
+def _post_processing(raw: dict[str, Any]) -> FloorPlanPostProcessingConfig:
     _exact(raw, {"name", "processors", "numeric", "reject_existing_openings"})
     config_types = {
         "veranda_adjustment": lambda value: VerandaAdjustmentConfig(**value),
@@ -422,7 +426,7 @@ def _post_processing(raw: dict[str, Any]) -> PostProcessingProfile:
             {"processor_id", "config"},
             {"required", "validate_after"},
         )
-    return PostProcessingProfile(
+    return FloorPlanPostProcessingConfig(
         name=raw["name"],
         processors=tuple(
             ProcessorUse(
@@ -438,7 +442,7 @@ def _post_processing(raw: dict[str, Any]) -> PostProcessingProfile:
     )
 
 
-def _openings(raw: dict[str, Any]) -> OpeningGenerationProfile:
+def _openings(raw: dict[str, Any]) -> FloorPlanOpeningsConfig:
     _exact(
         raw,
         {
@@ -453,7 +457,21 @@ def _openings(raw: dict[str, Any]) -> OpeningGenerationProfile:
         },
     )
     policy = raw["policy"]
-    return OpeningGenerationProfile(
+    _exact(
+        policy,
+        {
+            "allowed_room_pairs",
+            "room_door_caps",
+            "secondary_room_priority",
+            "window_room_types",
+            "main_side_priority",
+            "secondary_side_priority",
+            "window_side_priority",
+            "required_access_room_types",
+            "door_placement_priority",
+        },
+    )
+    return FloorPlanOpeningsConfig(
         name=raw["name"],
         enabled_features=tuple(raw["enabled_features"]),
         enabled_constraints=tuple(raw["enabled_constraints"]),
@@ -476,13 +494,92 @@ def _openings(raw: dict[str, Any]) -> OpeningGenerationProfile:
             main_side_priority=tuple(policy["main_side_priority"]),
             secondary_side_priority=tuple(policy["secondary_side_priority"]),
             window_side_priority=tuple(policy["window_side_priority"]),
+            required_access_room_types=tuple(
+                _room(value) for value in policy["required_access_room_types"]
+            ),
+            door_placement_priority=tuple(
+                (_room(room_type), priority)
+                for room_type, priority in policy["door_placement_priority"]
+            ),
         ),
         objective=ObjectiveConfig(**raw["objective"]),
         solver=OpeningSolverConfig(**raw["solver"]),
     )
 
 
-def _floor_scoring(raw: dict[str, Any]) -> ScoringProfile:
+def _room_size_consistency_settings(
+    raw: dict[str, Any],
+) -> RoomSizeConsistencySettings:
+    _exact(
+        raw,
+        {
+            "relation_rules",
+            "consistency_rules",
+            "default_full_penalty_ratio_delta",
+        },
+    )
+    relation_rules: list[RoomSizeRelationRule] = []
+    for item in raw["relation_rules"]:
+        _exact(
+            item,
+            {
+                "reference_type",
+                "compared_type",
+                "min_ratio",
+                "max_ratio",
+                "reference_aggregation",
+                "compared_aggregation",
+                "weight",
+                "full_penalty_ratio_delta",
+            },
+        )
+        relation_rules.append(
+            RoomSizeRelationRule(
+                reference_type=_room(item["reference_type"]),
+                compared_type=_room(item["compared_type"]),
+                min_ratio=item["min_ratio"],
+                max_ratio=item["max_ratio"],
+                reference_aggregation=RoomAreaAggregation(
+                    item["reference_aggregation"]
+                ),
+                compared_aggregation=RoomAreaAggregation(
+                    item["compared_aggregation"]
+                ),
+                weight=item["weight"],
+                full_penalty_ratio_delta=item["full_penalty_ratio_delta"],
+            )
+        )
+
+    consistency_rules: list[RoomTypeConsistencyRule] = []
+    for item in raw["consistency_rules"]:
+        _exact(
+            item,
+            {
+                "room_type",
+                "maximum_spread_ratio",
+                "weight",
+                "full_penalty_ratio_delta",
+            },
+        )
+        consistency_rules.append(
+            RoomTypeConsistencyRule(
+                room_type=_room(item["room_type"]),
+                maximum_spread_ratio=item["maximum_spread_ratio"],
+                weight=item["weight"],
+                full_penalty_ratio_delta=item["full_penalty_ratio_delta"],
+            )
+        )
+
+    return RoomSizeConsistencySettings(
+        relation_rules=tuple(relation_rules),
+        consistency_rules=tuple(consistency_rules),
+        default_full_penalty_ratio_delta=raw[
+            "default_full_penalty_ratio_delta"
+        ],
+    )
+
+
+def _floor_scoring(raw: dict[str, Any]) -> FloorPlanScoringConfig:
     _exact(raw, {"groups", "evaluators"})
     for item in raw["groups"]:
         _exact(item, {"key", "enabled", "order", "weight"})
@@ -499,16 +596,25 @@ def _floor_scoring(raw: dict[str, Any]) -> ScoringProfile:
                 "minimum_score",
             },
         )
-    settings_types = {
-        "geometry_integrity": GeometryIntegritySettings,
-        "required_adjacency": RequiredAdjacencySettings,
-        "enclosed_voids": EnclosedVoidsSettings,
-        "inward_recess": InwardRecessSettings,
-        "living_room_balance": LivingRoomBalanceSettings,
-        "bedroom_quality": BedroomQualitySettings,
-        "kitchen_dining_proximity": KitchenDiningSettings,
+    settings_builders = {
+        "geometry_integrity": lambda settings: GeometryIntegritySettings(**settings),
+        "required_adjacency": lambda settings: RequiredAdjacencySettings(**settings),
+        "enclosed_voids": lambda settings: EnclosedVoidsSettings(**settings),
+        "inward_recess": lambda settings: InwardRecessSettings(**settings),
+        "room_size_consistency": _room_size_consistency_settings,
+        "kitchen_dining_proximity": lambda settings: KitchenDiningSettings(
+            **settings
+        ),
     }
-    return ScoringProfile(
+    unknown_evaluators = {
+        item["key"] for item in raw["evaluators"]
+    }.difference(settings_builders)
+    if unknown_evaluators:
+        raise CoreConfigLoadError(
+            "Unknown floor-plan scoring evaluators: "
+            f"{sorted(unknown_evaluators)}"
+        )
+    return FloorPlanScoringConfig(
         groups=tuple(
             ScoringGroupRule(
                 key=GroupKey(item["key"]),
@@ -522,7 +628,7 @@ def _floor_scoring(raw: dict[str, Any]) -> ScoringProfile:
             FloorScoringRule(
                 key=FloorEvaluatorKey(item["key"]),
                 group_key=GroupKey(item["group_key"]),
-                settings=settings_types[item["key"]](**item["settings"]),
+                settings=settings_builders[item["key"]](item["settings"]),
                 enabled=item["enabled"],
                 order=item["order"],
                 weight=item["weight"],
@@ -579,7 +685,42 @@ def _buildable_space(raw: dict[str, Any]) -> BuildableSpaceConfig:
 
 
 def _candidate_circulation(raw: dict[str, Any]) -> CandidateCirculationConfig:
+    _exact(
+        raw,
+        {
+            "costs",
+            "max_routing_passes",
+            "always_traversable_room_types",
+            "hallway_consolidation",
+            "route_rules",
+        },
+    )
     costs = raw["costs"]
+    _exact(
+        costs,
+        {
+            "empty_node_cost",
+            "traversable_hint_node_cost",
+            "turn_cost",
+            "perimeter_bias_max_cost",
+            "traffic_conflict_cost",
+        },
+    )
+    for item in raw["route_rules"]:
+        _exact(
+            item,
+            {
+                "id",
+                "name",
+                "source_room_type",
+                "destination_room_type",
+                "destination_selection",
+                "traffic_class",
+                "allowed_transit_room_types",
+                "required_transit_room_types",
+                "importance_weight",
+            },
+        )
     rules = tuple(
         CirculationRouteRule(
             id=item["id"],
@@ -594,6 +735,9 @@ def _candidate_circulation(raw: dict[str, Any]) -> CandidateCirculationConfig:
                 RoomType(value) for value in item["allowed_transit_room_types"]
             ),
             importance_weight=item["importance_weight"],
+            required_transit_room_types=tuple(
+                RoomType(value) for value in item["required_transit_room_types"]
+            ),
         )
         for item in raw["route_rules"]
     )
@@ -604,6 +748,9 @@ def _candidate_circulation(raw: dict[str, Any]) -> CandidateCirculationConfig:
             RoomType(value) for value in raw["always_traversable_room_types"]
         ),
         max_routing_passes=raw["max_routing_passes"],
+        hallway_consolidation=HallwayConsolidationConfig(
+            **raw["hallway_consolidation"]
+        ),
     )
 
 

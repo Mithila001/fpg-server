@@ -8,13 +8,13 @@ from fpg_core.buildable_land import (
     BuildableLandInput,
     calculate_buildable_land,
 )
-from fpg_core.buildable_land.geometry import polygon_area
-from fpg_core.config import FpgCoreConfig
+from fpg_core import FpgCoreConfig
 from fpg_core.domain import (
     BuildableSpaceErrorCode,
     BuildableSpaceRequestData,
     BuildableSpaceResult,
     BuildableSpaceStage,
+    Polygon,
 )
 from fpg_core.usable_land import (
     UsableLandConfig,
@@ -28,6 +28,17 @@ from app.core.execution import PipelineStage
 from .context import BuildableSpaceContext
 from .exceptions import BuildableSpacePipelineError
 from .logging import BuildableSpaceEvent, log_buildable_space_event
+
+
+def _polygon_area(polygon: Polygon) -> float:
+    points = polygon.points
+    return abs(
+        sum(
+            point.x * points[(index + 1) % len(points)].y
+            - points[(index + 1) % len(points)].x * point.y
+            for index, point in enumerate(points)
+        )
+    ) / 2.0
 
 
 def run_buildable_space_pipeline(
@@ -106,7 +117,7 @@ def run_buildable_space_pipeline(
         usable_land = usable_execution.result
 
         result = BuildableSpaceResult(
-            original_land_area=polygon_area(land.boundary),
+            original_land_area=_polygon_area(land.boundary),
             buildable_land=buildable_land,
             usable_land=usable_land,
             reference_profile=reference_data.active_profile.name,

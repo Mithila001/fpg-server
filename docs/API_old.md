@@ -281,12 +281,6 @@ Rules:
 - `id`, `name`, and `requested_size` may be omitted or `null`; preprocessing supplies configured defaults. Explicit IDs must become unique.
 - Never submit `hallway`; the server controls hallway candidates.
 
-Generation behavior relevant to clients:
-
-- Candidate circulation removes unused hallway hints and may consolidate nearby redundant hallway hints before solving. The final hallway count can therefore be lower than the preprocessing/search maximum.
-- Opening generation requires one main entrance and a connected selected-door path from that entrance to every configured required-access room. A layout that cannot satisfy this is rejected as a recoverable generation attempt rather than returned as a completed plan.
-- Solver profiles penalize excessive hallway area and hallway length as a soft objective. This changes layout preference, not the floor-plan response schema.
-
 Success: `202 Accepted`
 
 ```json
@@ -538,8 +532,6 @@ Opening types: `door`, `window`.
 
 Opening purposes: `room_connection`, `main_entrance`, `secondary_entrance`, `daylight`.
 
-For a successfully generated non-empty terminal plan, the opening solver selects exactly one `main_entrance` and enforces door-network access for configured required room types. Interior door compatibility is explicit; unsupported room-type pairs are not connected implicitly. Door placement prefers usable wall ends/corners according to server room-type priority, while windows remain center-oriented.
-
 Room roles: `standard`, `solver_placeholder`. Terminal plans should not contain solver placeholders; intermediate plans may.
 
 Terminal `scoring` is:
@@ -553,13 +545,6 @@ Terminal `scoring` is:
 ```
 
 If non-null, `critical_failure` contains a stable finding `code`, displayable `message`, `severity`, affected `subject_ids`, and numeric `metrics`.
-
-Current final scoring uses two groups:
-
-- `critical`: geometry integrity, required adjacency, enclosed voids, and inward recess. Each enabled critical evaluator must score `100` to pass the gate.
-- `functional`: room-size consistency (weight `2`) and kitchen/dining proximity (weight `1`). Room-size consistency evaluates configured cross-room-type area ratios and bedroom area spread, while accounting for size ranges that are impossible to satisfy exactly for the current generation specification.
-
-The functional scoring model changed from earlier server versions that used living-room-balance and bedroom-quality evaluators, so `total_score` values should not be compared directly across those versions.
 
 ## 7. Frontend state machine
 
