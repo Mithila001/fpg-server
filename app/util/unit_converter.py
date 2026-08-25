@@ -17,11 +17,11 @@ _LINEAR_KEYS = {
     "x_end",
     "y_end",
     "width",
-    "height",
+    "length",
     "floor_width",
-    "floor_height",
+    "floor_length",
     "min_width",
-    "min_height",
+    "max_width",
 }
 
 _AREA_KEYS = {

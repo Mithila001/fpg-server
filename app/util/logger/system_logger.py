@@ -1,74 +1,72 @@
 from __future__ import annotations
 
-import json
 import logging
-import sys
-from datetime import datetime, timezone
-from logging.handlers import RotatingFileHandler
+import os
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
+
+from app.artifacts import ArtifactStorage, FeatureKey
+from app.core.execution import ExecutionContext
+
+from .base_logger import BaseLogger
+from .enums import LogLevel
 
 
-class _JsonlFormatter(logging.Formatter):
-    """Serialize log records as JSON lines with the required fields."""
+class _ExternalLogHandler(logging.Handler):
+    def __init__(self, logger: BaseLogger) -> None:
+        super().__init__()
+        self.structured_logger = logger
 
-    def format(self, record: logging.LogRecord) -> str:
-        timestamp = datetime.fromtimestamp(record.created, timezone.utc)
-        entry: dict[str, Any] = {
-            "time": timestamp.isoformat(),
-            "ts": f"{record.created:0.6f}",
-            "level": record.levelname,
-            "tag": getattr(record, "tag", ""),
-            "event": getattr(record, "event", ""),
-            "data": getattr(record, "data", {}),
-        }
-        return json.dumps(entry, ensure_ascii=True, default=str)
+    def emit(self, record: logging.LogRecord) -> None:
+        level = {
+            logging.DEBUG: LogLevel.DEBUG,
+            logging.INFO: LogLevel.INFO,
+            logging.WARNING: LogLevel.WARNING,
+            logging.ERROR: LogLevel.ERROR,
+            logging.CRITICAL: LogLevel.CRITICAL,
+        }.get(record.levelno, LogLevel.INFO)
+        self.structured_logger.log(
+            feature=FeatureKey.APPLICATION,
+            event=record.name.replace(".", "_"),
+            level=level,
+            message=record.getMessage(),
+            payload={"logger": record.name},
+            exception=record.exc_info[1] if record.exc_info else None,
+        )
 
 
 class SystemLogger:
-    """Centralized server logger writing to logs/server_logs.jsonl."""
+    """Compatibility facade delegating all persistence to ``BaseLogger``."""
 
-    _logger: logging.Logger | None = None
-    _log_file_name = "server_logs.jsonl"
-    _max_bytes = 2 * 1024 * 1024
-    _backup_count = 5
-
-    @staticmethod
-    def _logs_dir() -> Path:
-        return Path(__file__).resolve().parents[3] / "logs"
+    _logger: ClassVar[BaseLogger | None] = None
+    _handlers: ClassVar[tuple[logging.Handler, ...]] = ()
+    _process_id: ClassVar[int | None] = None
+    _log_file: ClassVar[Path | None] = None
 
     @classmethod
-    def _ensure_logger(cls) -> logging.Logger:
-        if cls._logger is not None:
-            return cls._logger
-
-        logs_dir = cls._logs_dir()
-        try:
-            logs_dir.mkdir(parents=True, exist_ok=True)
-        except OSError as exc:  # noqa: BLE001
-            cls._logger = logging.getLogger("app.server_logs")
-            cls._logger.propagate = False
-            cls._logger.setLevel(logging.DEBUG)
-            cls._logger.handlers.clear()
-            cls._logger.addHandler(logging.NullHandler())
-            print(f"[LOGGER WARNING] cannot create logs directory at {logs_dir}: {exc}", file=sys.stderr)
-            return cls._logger
-
-        log_file_path = logs_dir / cls._log_file_name
-        handler = RotatingFileHandler(
-            filename=log_file_path,
-            maxBytes=cls._max_bytes,
-            backupCount=cls._backup_count,
-            encoding="utf-8",
-        )
-        handler.setLevel(logging.DEBUG)
-        handler.setFormatter(_JsonlFormatter())
-
-        cls._logger = logging.getLogger("app.server_logs")
-        cls._logger.setLevel(logging.DEBUG)
-        cls._logger.propagate = False
-        cls._logger.handlers.clear()
-        cls._logger.addHandler(handler)
+    def _get_logger(cls) -> BaseLogger:
+        process_id = os.getpid()
+        if cls._logger is None or cls._process_id != process_id:
+            for handler in cls._handlers:
+                handler.close()
+            storage = ArtifactStorage()
+            cls._logger = BaseLogger(storage)
+            cls._process_id = process_id
+            cls._log_file = storage.config.output_root / "application" / "json"
+            cls._log_file.mkdir(parents=True, exist_ok=True)
+            handler = _ExternalLogHandler(cls._logger)
+            cls._handlers = (handler,)
+            configured_level = getattr(
+                logging,
+                os.getenv("LOG_LEVEL", "INFO").strip().upper(),
+                logging.INFO,
+            )
+            for logger_name in ("uvicorn", "uvicorn.error", "uvicorn.access", "optuna"):
+                external = logging.getLogger(logger_name)
+                external.handlers.clear()
+                external.addHandler(handler)
+                external.setLevel(configured_level)
+                external.propagate = False
         return cls._logger
 
     @classmethod
@@ -78,34 +76,36 @@ class SystemLogger:
         event: str,
         level: str,
         data: dict[str, Any] | None = None,
+        *,
+        context: ExecutionContext | None = None,
+        message: str | None = None,
+        exception: BaseException | None = None,
     ) -> None:
-        """Write a structured JSONL event to the centralized server log."""
-        logger = cls._ensure_logger()
-        normalized_level = str(level).upper().strip()
-
-        if normalized_level not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+        try:
+            normalized_level = LogLevel(str(level).strip().upper())
+        except ValueError as exc:
             raise ValueError(
                 "level must be one of DEBUG, INFO, WARNING, ERROR, CRITICAL"
-            )
-
-        safe_data = data if isinstance(data, dict) else {"value": data}
-
+            ) from exc
         try:
-            logger.log(
-                getattr(logging, normalized_level),
-                "",
-                extra={
-                    "tag": tag,
-                    "event": event,
-                    "data": safe_data,
-                },
-            )
-        except Exception as exc:  # noqa: BLE001
-            print(
-                f"[LOGGER WARNING] failed to write event '{event}' with tag '{tag}': {exc}",
-                file=sys.stderr,
-            )
+            feature = FeatureKey(str(tag).strip().lower())
+        except ValueError:
+            feature = FeatureKey.APPLICATION
+        cls._get_logger().log(
+            feature=feature,
+            event=event,
+            level=normalized_level,
+            message=message,
+            context=context,
+            payload=data,
+            exception=exception,
+        )
 
 
-# Module-level convenience helper
 log_event = SystemLogger.log_event
+
+
+def configure_application_logging() -> Path:
+    SystemLogger._get_logger()
+    assert SystemLogger._log_file is not None
+    return SystemLogger._log_file

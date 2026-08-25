@@ -1,0 +1,91 @@
+{
+  "base_url": "http://127.0.0.1:8000",
+  "expectations": {
+    "metadata_schema_version": 2,
+    "project_units_per_meter": 10,
+    "minimum_completed_score": 80.0,
+    "require_critical_pass": true,
+    "require_single_main_entrance": true,
+    "require_connected_room_access": true,
+    "require_no_solver_placeholders": true,
+    "required_stage_states": [
+      ["preprocessing", "completed"],
+      ["candidate_search", "started"],
+      ["candidate_circulation", "started"],
+      ["initial_generation", "completed"],
+      ["refinement_a", "completed"],
+      ["refinement_b", "completed"],
+      ["post_processing", "started"],
+      ["openings", "started"],
+      ["final_scoring", "completed"]
+    ]
+  },
+  "buildable_space": {
+    "land_boundary": {
+      "points": [
+        {"x": 0, "y": 0},
+        {"x": 240, "y": 0},
+        {"x": 240, "y": 200},
+        {"x": 0, "y": 200}
+      ]
+    },
+    "roads": [
+      {
+        "boundary_edge_index": 0,
+        "role": "main_entry",
+        "road_type": "main_road"
+      }
+    ]
+  },
+  "floor_plan_job": {
+    "floor_limits": {
+      "max_width": 160,
+      "max_length": 140
+    },
+    "aspect_ratio": "1:1",
+    "rooms": [
+      {
+        "room_type": "bedroom",
+        "id": "bedroom-1",
+        "name": "Bedroom 1",
+        "requested_size": "regular"
+      },
+      {
+        "room_type": "bedroom",
+        "id": "bedroom-2",
+        "name": "Bedroom 2",
+        "requested_size": "regular"
+      },
+      {
+        "room_type": "bathroom",
+        "id": "bathroom-1",
+        "name": "Common Bathroom",
+        "requested_size": "regular"
+      },
+      {
+        "room_type": "living_room",
+        "id": "living-room-1",
+        "name": "Living Room",
+        "requested_size": "regular"
+      },
+      {
+        "room_type": "kitchen",
+        "id": "kitchen-1",
+        "name": "Kitchen",
+        "requested_size": "regular"
+      },
+      {
+        "room_type": "dining_room",
+        "id": "dining-room-1",
+        "name": "Dining Room",
+        "requested_size": "regular"
+      },
+      {
+        "room_type": "veranda",
+        "id": "veranda-1",
+        "name": "Front Veranda",
+        "requested_size": "regular"
+      }
+    ]
+  }
+}

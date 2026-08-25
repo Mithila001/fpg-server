@@ -18,3 +18,8 @@
 # Keep in Check
 
 - The Optuna Sampling Radius is unnecessary.
+
+
+# To Next Day
+- Need to Evaluate the Hint point Scoring And how it handle when Optional Rooms are not provided.
+- 

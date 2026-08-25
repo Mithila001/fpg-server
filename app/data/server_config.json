@@ -1,0 +1,276 @@
+{
+  "schema_version": 2,
+  "server": {
+    "api_prefix": "/api/v1",
+    "cors_origins": ["http://localhost:5173", "http://127.0.0.1:5173"],
+    "output_root": "output",
+    "log_level": "INFO",
+    "max_concurrent_jobs": 1,
+    "max_queued_jobs": 16,
+    "job_retention_seconds": 3600,
+    "request_timeout_seconds": 60.0,
+    "cancellation_grace_seconds": 2.0,
+    "sse_heartbeat_seconds": 15.0
+  },
+  "units": {
+    "project_units_per_meter": 10,
+    "front_axis": "-Y"
+  },
+  "buildable_space": {
+    "active_profile": "mock_residential_v1",
+    "setback_profiles": {
+      "mock_residential_v1": {
+        "status": "mock_non_regulatory",
+        "description": "Seed policy values; replace with verified local regulations before production use.",
+        "calculation_mode": "base_plus_road_adjustment",
+        "base_setbacks": {"front": 10, "back": 30, "left": 10, "right": 10},
+        "road_adjustments": {
+          "main_road": {"front": 5, "back": 0, "left": 5, "right": 5},
+          "private_road": {"front": 5, "back": 0, "left": 0, "right": 0}
+        }
+      }
+    },
+    "usable_land_constraints": {
+      "minimum_width": 80,
+      "minimum_length": 80,
+      "search_resolution": 5,
+      "maximum_sweep_lines": 1000
+    },
+    "validation_limits": {
+      "minimum_vertex_count": 4,
+      "maximum_vertex_count": 50,
+      "maximum_absolute_coordinate": 100000
+    }
+  },
+  "generation_runtime": {
+    "candidate_score_threshold": 75.0,
+    "usable_floor_plan_score": 80.0,
+    "presentable_floor_plan_score": 90.0,
+    "solver_runs_per_candidate": 2,
+    "require_final_critical_pass": true
+  },
+  "preprocessing": {
+    "room_count_rules": [
+      {"room_type": "bedroom", "minimum": 1, "maximum": 4},
+      {"room_type": "bathroom", "minimum": 1, "maximum": 4},
+      {"room_type": "attached_bathroom", "minimum": 0, "maximum": 4},
+      {"room_type": "living_room", "minimum": 1, "maximum": 1},
+      {"room_type": "kitchen", "minimum": 1, "maximum": 1},
+      {"room_type": "dining_room", "minimum": 1, "maximum": 1},
+      {"room_type": "hallway", "minimum": 1, "maximum": 1, "client_selectable": false},
+      {"room_type": "veranda", "minimum": 1, "maximum": 1},
+      {"room_type": "garage", "minimum": 0, "maximum": 1}
+    ],
+    "supported_aspect_ratios": [
+      {"label": "1:2", "canonical_value": 0.5},
+      {"label": "3:4", "canonical_value": 0.75},
+      {"label": "1:1", "canonical_value": 1.0},
+      {"label": "4:3", "canonical_value": 1.3333333333333333},
+      {"label": "2:1", "canonical_value": 2.0}
+    ],
+    "mandatory_room_types": ["bedroom", "kitchen", "bathroom", "living_room", "dining_room", "veranda"],
+    "floor_area_buffer": 500.0,
+    "minimum_circulation_area": 300.0,
+    "floor_size_profiles": [
+      {"name": "small", "max_floor_area": 8000, "circulation_ratio": 0.07, "max_hallway_room_count": 2},
+      {"name": "medium", "max_floor_area": 15000, "circulation_ratio": 0.09, "max_hallway_room_count": 4},
+      {"name": "large", "max_floor_area": null, "circulation_ratio": 0.11, "max_hallway_room_count": 5}
+    ],
+    "hallway_min_width": 10.0,
+    "candidate_search_grid_spacing": 20,
+    "max_aspect_residual_units": 10.0,
+    "default_room_size": "regular",
+    "min_aspect_ratio": 0.5,
+    "max_aspect_ratio": 2.0,
+    "room_size_strategy": "majority",
+    "size_normalization_exclusions": ["hallway"],
+    "excess_attached_bathrooms": "reject",
+    "room_sizes": [
+      {"room_type": "bedroom", "size": "regular", "min_width": 30.0, "max_width": 42.0, "min_area": 900.0, "max_area": 1764.0},
+      {"room_type": "bathroom", "size": "regular", "min_width": 18.0, "max_width": 25.0, "min_area": 324.0, "max_area": 625.0},
+      {"room_type": "attached_bathroom", "size": "regular", "min_width": 18.0, "max_width": 24.0, "min_area": 324.0, "max_area": 672.0},
+      {"room_type": "living_room", "size": "regular", "min_width": 40.0, "max_width": 60.0, "min_area": 1400.0, "max_area": 3300.0},
+      {"room_type": "kitchen", "size": "regular", "min_width": 28.0, "max_width": 40.0, "min_area": 700.0, "max_area": 1600.0},
+      {"room_type": "dining_room", "size": "regular", "min_width": 30.0, "max_width": 45.0, "min_area": 900.0, "max_area": 2025.0},
+      {"room_type": "veranda", "size": "regular", "min_width": 20.0, "max_width": 50.0, "min_area": 360.0, "max_area": 1500.0},
+      {"room_type": "garage", "size": "regular", "min_width": 30.0, "max_width": 38.0, "min_area": 1650.0, "max_area": 2470.0}
+    ],
+    "room_relations": [
+      {"source_room_type": "living_room", "target_room_types": ["veranda"], "match_policy": "and", "strength": "hard", "required": true},
+      {"source_room_type": "bedroom", "target_room_types": ["hallway", "living_room"], "match_policy": "or", "strength": "hard", "required": true},
+      {"source_room_type": "kitchen", "target_room_types": ["hallway", "living_room"], "match_policy": "or", "strength": "hard", "required": true},
+      {"source_room_type": "dining_room", "target_room_types": ["hallway", "living_room"], "match_policy": "or", "strength": "hard", "required": true},
+      {"source_room_type": "dining_room", "target_room_types": ["kitchen", "hallway"], "match_policy": "or", "strength": "hard", "required": true},
+      {"source_room_type": "bathroom", "target_room_types": ["hallway"], "match_policy": "and", "strength": "hard", "required": true},
+      {"source_room_type": "attached_bathroom", "target_room_types": ["bedroom"], "match_policy": "and", "strength": "hard", "required": true},
+      {"source_room_type": "garage", "target_room_types": ["living_room", "veranda"], "match_policy": "or", "strength": "hard", "required": true},
+      {"source_room_type": "kitchen", "target_room_types": ["dining_room"], "match_policy": "or", "strength": "soft", "required": false}
+    ]
+  },
+  "candidate_search": {"trial_count": 500, "max_grid_node_count": 250000, "random_seed": null},
+  "candidate_circulation": {
+    "costs": {"empty_node_cost": 2.0, "traversable_hint_node_cost": 0.75, "turn_cost": 0.35, "perimeter_bias_max_cost": 1.5, "traffic_conflict_cost": 8.0},
+    "max_routing_passes": 3,
+    "hallway_consolidation": {"enabled": true, "minimum_separation_grid_steps": 2.0, "max_route_cost_increase_ratio": 0.15},
+    "always_traversable_room_types": ["hallway"],
+    "route_rules": [
+      {"id": 1, "name": "Living to front veranda", "source_room_type": "living_room", "destination_room_type": "veranda", "destination_selection": "all_matching", "traffic_class": "public", "allowed_transit_room_types": ["hallway"], "required_transit_room_types": [], "importance_weight": 1.3},
+      {"id": 2, "name": "Living to kitchen", "source_room_type": "living_room", "destination_room_type": "kitchen", "destination_selection": "lowest_cost_match", "traffic_class": "public", "allowed_transit_room_types": ["hallway", "dining_room"], "required_transit_room_types": [], "importance_weight": 1.2},
+      {"id": 3, "name": "Kitchen to dining", "source_room_type": "kitchen", "destination_room_type": "dining_room", "destination_selection": "lowest_cost_match", "traffic_class": "public", "allowed_transit_room_types": ["hallway", "living_room"], "required_transit_room_types": [], "importance_weight": 1.4},
+      {"id": 4, "name": "Bedrooms to common bathroom", "source_room_type": "bedroom", "destination_room_type": "bathroom", "destination_selection": "lowest_cost_match", "traffic_class": "private", "allowed_transit_room_types": ["hallway"], "required_transit_room_types": [], "importance_weight": 1.1},
+      {"id": 5, "name": "Bedrooms to attached bathrooms", "source_room_type": "bedroom", "destination_room_type": "attached_bathroom", "destination_selection": "lowest_cost_match", "traffic_class": "private", "allowed_transit_room_types": ["hallway"], "required_transit_room_types": [], "importance_weight": 1.5},
+      {"id": 6, "name": "Living to all bedrooms", "source_room_type": "living_room", "destination_room_type": "bedroom", "destination_selection": "all_matching", "traffic_class": "private", "allowed_transit_room_types": ["hallway"], "required_transit_room_types": [], "importance_weight": 1.0},
+      {"id": 7, "name": "Garage to kitchen", "source_room_type": "garage", "destination_room_type": "kitchen", "destination_selection": "lowest_cost_match", "traffic_class": "public", "allowed_transit_room_types": ["hallway", "dining_room"], "required_transit_room_types": [], "importance_weight": 0.8},
+      {"id": 8, "name": "Living to dining", "source_room_type": "living_room", "destination_room_type": "dining_room", "destination_selection": "lowest_cost_match", "traffic_class": "public", "allowed_transit_room_types": ["hallway"], "required_transit_room_types": [], "importance_weight": 1.0},
+      {"id": 9, "name": "Living to common bathroom", "source_room_type": "living_room", "destination_room_type": "bathroom", "destination_selection": "lowest_cost_match", "traffic_class": "public", "allowed_transit_room_types": ["hallway"], "required_transit_room_types": [], "importance_weight": 1.0},
+      {"id": 10, "name": "Common bathroom to living", "source_room_type": "bathroom", "destination_room_type": "living_room", "destination_selection": "lowest_cost_match", "traffic_class": "public", "allowed_transit_room_types": ["hallway"], "required_transit_room_types": [], "importance_weight": 1.0},
+      {"id": 11, "name": "Veranda to living", "source_room_type": "veranda", "destination_room_type": "living_room", "destination_selection": "lowest_cost_match", "traffic_class": "public", "allowed_transit_room_types": ["hallway"], "required_transit_room_types": [], "importance_weight": 1.0},
+      {"id": 12, "name": "Garage to living", "source_room_type": "garage", "destination_room_type": "living_room", "destination_selection": "lowest_cost_match", "traffic_class": "public", "allowed_transit_room_types": ["hallway"], "required_transit_room_types": [], "importance_weight": 1.0},
+      {"id": 13, "name": "Garage to veranda", "source_room_type": "garage", "destination_room_type": "veranda", "destination_selection": "lowest_cost_match", "traffic_class": "public", "allowed_transit_room_types": ["hallway"], "required_transit_room_types": [], "importance_weight": 1.0},
+      {"id": 14, "name": "Attached bathroom to bedroom", "source_room_type": "attached_bathroom", "destination_room_type": "bedroom", "destination_selection": "lowest_cost_match", "traffic_class": "private", "allowed_transit_room_types": ["hallway"], "required_transit_room_types": [], "importance_weight": 1.5}
+    ]
+  },
+  "candidate_scoring": {
+    "evaluator_rules": [
+      {"key": "zone_suitability", "category": "quality", "enabled": true, "order": 10, "weight": 20.0, "minimum_score": null, "settings": {}},
+      {"key": "exterior_clearance", "category": "quality", "enabled": true, "order": 20, "weight": 20.0, "minimum_score": null, "settings": {}},
+      {"key": "spatial_distribution", "category": "quality", "enabled": true, "order": 40, "weight": 25.0, "minimum_score": null, "settings": {}}
+    ],
+    "fail_fast_on_critical_failure": true,
+    "not_applicable_quality_contributes": false,
+    "raise_on_evaluator_error": false
+  },
+  "floor_plan_solver": {
+    "hard_constraints": [
+      {"key": "aspect_ratio", "settings": {"min_ratio": 0.6, "max_ratio": 1.8, "hallway_room_types": ["hallway"], "overrides": {"garage": {"min_ratio": 0.45, "max_ratio": 0.7}, "veranda": {"min_ratio": 1.2, "max_ratio": 3.5}}}},
+      {"key": "room_relations", "settings": {"minimum_overlap": 10}},
+      {"key": "attached_bathroom_pairing", "settings": {"minimum_shared_wall": 10.0, "attached_bathroom_room_types": ["attached_bathroom"], "bedroom_room_types": ["bedroom"]}},
+      {"key": "minimum_coverage", "settings": {"ratio": 0.6}},
+      {"key": "hallway_connectivity", "settings": {"minimum_overlap": 10, "hallway_room_types": ["hallway"], "anchor_room_types": ["living_room"]}},
+      {"key": "hallway_dimensions", "settings": {"hallway_room_types": ["hallway"], "minimum_width": 10, "maximum_width": 10}},
+      {"key": "front_anchor", "settings": {"anchor_room_types": ["veranda", "living_room", "bedroom", "garage"]}},
+      {"key": "back_exposure", "settings": {"room_types": ["hallway", "kitchen"], "minimum_exposure": 10.0}},
+      {"key": "garage_placement", "settings": {"garage_room_types": ["garage"]}},
+      {"key": "boundary_placement", "settings": {"rules": [{"room_types": ["veranda"], "side": "front", "offset": 0.0}]}}
+    ],
+    "profiles": [
+      {
+        "slot": "initial",
+        "name": "initial_generation",
+        "soft_constraints": [
+          {"key": "room_relations", "weight": 40, "settings": {"minimum_overlap": 10}},
+          {"key": "floor_cluster_position", "weight": 1, "settings": {"horizontal_multiplier": 1, "front_multiplier": 2}},
+          {"key": "dead_space", "weight": 3, "settings": {}},
+          {"key": "hallway_efficiency", "weight": 1, "settings": {"hallway_room_types": ["hallway"], "area_penalty_multiplier": 1, "preferred_max_length": 40.0, "excess_length_penalty_multiplier": 5}},
+          {"key": "bathroom_depth", "weight": 2, "settings": {}},
+          {"key": "kitchen_back_exposure", "weight": 10, "settings": {"minimum_exposure": 10.0}}
+        ],
+        "solver": {"max_time_seconds": 5.0, "num_search_workers": 0, "random_seed": null, "log_search_progress": false, "relative_gap_limit": null, "cp_model_presolve": true},
+        "preparation": {"coordinate_scale": 1},
+        "seed": {"source": "candidate_hints", "require_source": false, "apply_hints": true, "position_tolerance": null, "size_tolerance": null}
+      },
+      {
+        "slot": "refinement_a",
+        "name": "refinement_a",
+        "soft_constraints": [
+          {"key": "room_relations", "weight": 50, "settings": {"minimum_overlap": 10}},
+          {"key": "seed_stability", "weight": 20, "settings": {"position_multiplier": 2, "size_multiplier": 1}},
+          {"key": "floor_cluster_position", "weight": 1, "settings": {"horizontal_multiplier": 1, "front_multiplier": 2}},
+          {"key": "dead_space", "weight": 4, "settings": {}},
+          {"key": "hallway_efficiency", "weight": 1, "settings": {"hallway_room_types": ["hallway"], "area_penalty_multiplier": 1, "preferred_max_length": 40.0, "excess_length_penalty_multiplier": 5}},
+          {"key": "bathroom_depth", "weight": 3, "settings": {}},
+          {"key": "kitchen_back_exposure", "weight": 10, "settings": {"minimum_exposure": 10.0}}
+        ],
+        "solver": {"max_time_seconds": 2.0, "num_search_workers": 0, "random_seed": null, "log_search_progress": false, "relative_gap_limit": null, "cp_model_presolve": true},
+        "preparation": {"coordinate_scale": 1},
+        "seed": {"source": "existing_floor_plan", "require_source": true, "apply_hints": true, "position_tolerance": 10.0, "size_tolerance": 10.0}
+      },
+      {
+        "slot": "refinement_b",
+        "name": "refinement_b",
+        "soft_constraints": [
+          {"key": "room_relations", "weight": 60, "settings": {"minimum_overlap": 10}},
+          {"key": "seed_stability", "weight": 35, "settings": {"position_multiplier": 2, "size_multiplier": 2}},
+          {"key": "dead_space", "weight": 6, "settings": {}},
+          {"key": "hallway_efficiency", "weight": 1, "settings": {"hallway_room_types": ["hallway"], "area_penalty_multiplier": 1, "preferred_max_length": 40.0, "excess_length_penalty_multiplier": 5}},
+          {"key": "bathroom_depth", "weight": 4, "settings": {}},
+          {"key": "kitchen_back_exposure", "weight": 10, "settings": {"minimum_exposure": 10.0}}
+        ],
+        "solver": {"max_time_seconds": 2.0, "num_search_workers": 0, "random_seed": null, "log_search_progress": false, "relative_gap_limit": null, "cp_model_presolve": true},
+        "preparation": {"coordinate_scale": 1},
+        "seed": {"source": "existing_floor_plan", "require_source": true, "apply_hints": true, "position_tolerance": 5.0, "size_tolerance": 5.0}
+      }
+    ]
+  },
+  "post_processing": {
+    "name": "initial_generation",
+    "numeric": {"tolerance": 0.000001, "grid_size": 1.0},
+    "reject_existing_openings": true,
+    "processors": [
+      {"processor_id": "veranda_adjustment", "config": {"transformation_version": "veranda_adjustment:v1"}},
+      {"processor_id": "wall_extension", "config": {"transformation_version": "wall_extension:v1", "rules": [
+        {"room_type": "veranda", "min_wall_length": 10, "max_wall_length": 50, "max_rooms": 3, "max_selections": 1, "expansion_percentage": 0.8, "max_distance": 40},
+        {"room_type": "living_room", "min_wall_length": 10, "max_wall_length": 40, "max_rooms": 1, "max_selections": 2, "expansion_percentage": 0.8, "max_distance": 20},
+        {"room_type": "kitchen", "min_wall_length": 10, "max_wall_length": 40, "max_rooms": 1, "max_selections": 1, "expansion_percentage": 0.8, "max_distance": 10},
+        {"room_type": "hallway", "min_wall_length": 5, "max_wall_length": 50, "max_rooms": 3, "max_selections": 3, "expansion_percentage": 0.8, "max_distance": 2},
+        {"room_type": "bedroom", "min_wall_length": 10, "max_wall_length": 40, "max_rooms": 3, "max_selections": 1, "expansion_percentage": 0.8, "max_distance": 10}
+      ]}},
+      {"processor_id": "remove_placeholder_rooms", "config": {}, "required": true, "validate_after": true},
+      {"processor_id": "hallway_merge", "config": {"minimum_shared_wall": 10.0}},
+      {"processor_id": "grid_snap", "config": {"grid_size": null}, "required": true, "validate_after": true},
+      {"processor_id": "rectilinear_simplification", "config": {}}
+    ]
+  },
+  "openings": {
+    "name": "default_openings",
+    "enabled_features": ["interior_doors", "exterior_doors", "windows"],
+    "enabled_constraints": ["shared_placement", "room_door_limits", "required_room_access"],
+    "geometry": {"coordinate_scale": 10, "tolerance": 0.000001, "corner_clearance": 0.0, "window_spacing": 5.0},
+    "dimensions": {"door_width": 8.0, "window_width": 16.0, "minimum_shared_wall": 10.0},
+    "policy": {
+      "allowed_room_pairs": [["bedroom", "living_room"], ["kitchen", "living_room"], ["bathroom", "living_room"], ["bedroom", "attached_bathroom"], ["veranda", "living_room"], ["garage", "living_room"], ["dining_room", "living_room"], ["bedroom", "hallway"], ["bathroom", "hallway"], ["living_room", "hallway"], ["kitchen", "hallway"], ["dining_room", "hallway"], ["veranda", "hallway"], ["garage", "hallway"], ["hallway", "hallway"]],
+      "room_door_caps": [["bedroom", 2], ["bathroom", 1], ["living_room", 10], ["hallway", 10], ["kitchen", 1], ["attached_bathroom", 1], ["veranda", 1], ["garage", 1], ["dining_room", 2]],
+      "secondary_room_priority": ["kitchen", "hallway"],
+      "window_room_types": ["bedroom", "living_room", "kitchen", "dining_room"],
+      "main_side_priority": ["south", "east", "north", "west"],
+      "secondary_side_priority": ["north", "west", "east", "south"],
+      "window_side_priority": ["east", "north", "south", "west"],
+      "required_access_room_types": ["bedroom", "bathroom", "attached_bathroom", "living_room", "kitchen", "dining_room", "hallway", "veranda", "garage"],
+      "door_placement_priority": [["bedroom", 100], ["bathroom", 100], ["attached_bathroom", 100], ["kitchen", 80], ["dining_room", 60], ["garage", 60], ["veranda", 40], ["living_room", 20], ["hallway", 10]]
+    },
+    "objective": {"tier_order": ["window", "secondary_entrance", "other_interior", "preferred_hallway", "bathroom_hallway", "attached_bathroom", "main_entrance"]},
+    "solver": {"max_time_seconds": 10.0, "num_search_workers": 1, "random_seed": 0, "cp_model_presolve": true, "log_search_progress": false}
+  },
+  "floor_plan_scoring": {
+    "groups": [
+      {"key": "critical", "enabled": true, "order": 10, "weight": 1.0},
+      {"key": "functional", "enabled": true, "order": 20, "weight": 1.0}
+    ],
+    "evaluators": [
+      {"key": "geometry_integrity", "group_key": "critical", "settings": {"tolerance": 0.000001}, "enabled": true, "order": 10, "weight": 1.0, "minimum_score": 100.0},
+      {"key": "required_adjacency", "group_key": "critical", "settings": {"minimum_shared_boundary": 10.0, "tolerance": 0.000001}, "enabled": true, "order": 20, "weight": 1.0, "minimum_score": 100.0},
+      {"key": "enclosed_voids", "group_key": "critical", "settings": {"area_tolerance": 0.000001}, "enabled": true, "order": 30, "weight": 1.0, "minimum_score": 100.0},
+      {"key": "inward_recess", "group_key": "critical", "settings": {"maximum_length": 20.0, "tolerance": 0.000001}, "enabled": true, "order": 40, "weight": 1.0, "minimum_score": 100.0},
+      {
+        "key": "room_size_consistency",
+        "group_key": "functional",
+        "settings": {
+          "relation_rules": [
+            {"reference_type": "living_room", "compared_type": "kitchen", "min_ratio": null, "max_ratio": 0.8, "reference_aggregation": "max", "compared_aggregation": "max", "weight": 1.0, "full_penalty_ratio_delta": null},
+            {"reference_type": "kitchen", "compared_type": "dining_room", "min_ratio": null, "max_ratio": 1.0, "reference_aggregation": "max", "compared_aggregation": "max", "weight": 1.0, "full_penalty_ratio_delta": null},
+            {"reference_type": "living_room", "compared_type": "bedroom", "min_ratio": null, "max_ratio": 0.9, "reference_aggregation": "max", "compared_aggregation": "max", "weight": 1.0, "full_penalty_ratio_delta": null}
+          ],
+          "consistency_rules": [
+            {"room_type": "bedroom", "maximum_spread_ratio": 0.25, "weight": 1.0, "full_penalty_ratio_delta": null}
+          ],
+          "default_full_penalty_ratio_delta": 0.5
+        },
+        "enabled": true,
+        "order": 10,
+        "weight": 2.0,
+        "minimum_score": null
+      },
+      {"key": "kitchen_dining_proximity", "group_key": "functional", "settings": {"minimum_shared_boundary": 10.0, "maximum_distance": 2000.0, "tolerance": 0.000001}, "enabled": true, "order": 20, "weight": 1.0, "minimum_score": null}
+    ]
+  }
+}

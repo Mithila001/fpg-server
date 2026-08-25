@@ -1,1 +1,0 @@
-Content in this directory are outdate and archived.

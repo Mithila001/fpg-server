@@ -6,7 +6,9 @@ source /venv/bin/Activate.ps1
 uvicorn app.main:app --reload
 
 
+PYTHONPATH=. pytest test/algorithms/candidate_scoring/test_manager.py
 
+PYTHONPATH=. pytest test/algorithms/candidate_scoring
 
 pip install -r requirements.txt
 
